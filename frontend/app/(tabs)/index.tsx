@@ -304,7 +304,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
@@ -322,13 +321,11 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: FONTS.xs,
     fontWeight: '700',
-    color: COLORS.primary,
     letterSpacing: 3,
   },
   username: {
     fontSize: FONTS.xxl,
     fontWeight: '800',
-    color: COLORS.textPrimary,
     marginTop: 2,
   },
   stepCounterContainer: {
@@ -353,32 +350,26 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: FONTS.sm,
-    color: COLORS.textSecondary,
   },
   simulateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.backgroundSecondary,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.primary,
   },
   simulateText: {
     fontSize: FONTS.sm,
-    color: COLORS.primary,
     fontWeight: '600',
   },
   quickStats: {
     flexDirection: 'row',
-    backgroundColor: COLORS.backgroundSecondary,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginVertical: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   quickStatItem: {
     flex: 1,
@@ -387,17 +378,14 @@ const styles = StyleSheet.create({
   quickStatValue: {
     fontSize: FONTS.xl,
     fontWeight: '800',
-    color: COLORS.textPrimary,
     marginTop: SPACING.sm,
   },
   quickStatLabel: {
     fontSize: FONTS.xs,
-    color: COLORS.textMuted,
     marginTop: 2,
   },
   quickStatDivider: {
     width: 1,
-    backgroundColor: COLORS.border,
     marginHorizontal: SPACING.md,
   },
   challengesSection: {
@@ -412,23 +400,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
   },
   seeAllText: {
     fontSize: FONTS.sm,
-    color: COLORS.primary,
     fontWeight: '600',
   },
   challengeCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   challengeInfo: {
     flexDirection: 'row',
@@ -442,11 +426,9 @@ const styles = StyleSheet.create({
   challengeTitle: {
     fontSize: FONTS.md,
     fontWeight: '600',
-    color: COLORS.textPrimary,
   },
   challengeDescription: {
     fontSize: FONTS.sm,
-    color: COLORS.textSecondary,
     marginTop: 2,
   },
   challengeReward: {
@@ -455,11 +437,9 @@ const styles = StyleSheet.create({
   rewardPoints: {
     fontSize: FONTS.lg,
     fontWeight: '800',
-    color: COLORS.primary,
   },
   rewardLabel: {
     fontSize: FONTS.xs,
-    color: COLORS.textMuted,
   },
   // Onboarding styles
   onboardingContainer: {
@@ -474,13 +454,11 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: FONTS.hero,
     fontWeight: '900',
-    color: COLORS.textPrimary,
     letterSpacing: -2,
   },
   tagline: {
     fontSize: FONTS.lg,
     fontWeight: '700',
-    color: COLORS.primary,
     letterSpacing: 4,
     marginTop: SPACING.xs,
   },
@@ -490,13 +468,11 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: FONTS.xxl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   welcomeSubtitle: {
     fontSize: FONTS.md,
-    color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
@@ -507,19 +483,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: FONTS.xs,
     fontWeight: '700',
-    color: COLORS.textMuted,
     letterSpacing: 2,
     marginBottom: SPACING.sm,
   },
   textInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   textInput: {
     flex: 1,
@@ -529,15 +502,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACING.sm,
     fontSize: FONTS.md,
-    color: COLORS.textPrimary,
   },
   textInputText: {
     fontSize: FONTS.md,
-    color: COLORS.textPrimary,
   },
-  textInputPlaceholder: {
-    color: COLORS.textMuted,
-  },
+  textInputPlaceholder: {},
   keyboardAvoid: {
     flex: 1,
   },
@@ -545,20 +514,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     gap: SPACING.sm,
     width: '100%',
   },
-  startButtonDisabled: {
-    backgroundColor: COLORS.backgroundTertiary,
-  },
+  startButtonDisabled: {},
   startButtonText: {
     fontSize: FONTS.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
     letterSpacing: 2,
   },
 });
