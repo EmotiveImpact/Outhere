@@ -129,33 +129,33 @@ export default function HomeScreen() {
   // Onboarding screen
   if (showOnboarding || !isOnboarded) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <KeyboardAvoidingView
           style={styles.keyboardAvoid}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.onboardingContainer}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>OUT 'ERE</Text>
-              <Text style={styles.tagline}>WE OUTSIDE.</Text>
+              <Text style={[styles.logoText, { color: colors.textPrimary }]}>OUT 'ERE</Text>
+              <Text style={[styles.tagline, { color: colors.primary }]}>WE OUTSIDE.</Text>
             </View>
 
             <View style={styles.onboardingContent}>
-              <Text style={styles.welcomeTitle}>Welcome to the movement</Text>
-              <Text style={styles.welcomeSubtitle}>
+              <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Welcome to the movement</Text>
+              <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
                 Track your steps, compete with your city, stay outside.
               </Text>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>CHOOSE YOUR TAG</Text>
-                <View style={styles.textInputWrapper}>
-                  <Ionicons name="at" size={20} color={COLORS.textMuted} />
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>CHOOSE YOUR TAG</Text>
+                <View style={[styles.textInputWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                  <Ionicons name="at" size={20} color={colors.textMuted} />
                   <TextInput
-                    style={styles.textInputReal}
+                    style={[styles.textInputReal, { color: colors.textPrimary }]}
                     value={username}
                     onChangeText={setUsername}
                     placeholder="Enter your username"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     autoCapitalize="none"
                     autoCorrect={false}
                     maxLength={20}
@@ -166,13 +166,14 @@ export default function HomeScreen() {
               <Pressable
                 style={[
                   styles.startButton,
-                  !username && styles.startButtonDisabled,
+                  { backgroundColor: colors.primary },
+                  !username && [styles.startButtonDisabled, { backgroundColor: colors.backgroundTertiary }],
                 ]}
                 onPress={handleCreateUser}
                 disabled={!username}
               >
-                <Text style={styles.startButtonText}>LET'S GO</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.textPrimary} />
+                <Text style={[styles.startButtonText, { color: colors.textPrimary }]}>LET'S GO</Text>
+                <Ionicons name="arrow-forward" size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>
@@ -182,7 +183,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -190,7 +191,7 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
         showsVerticalScrollIndicator={false}
