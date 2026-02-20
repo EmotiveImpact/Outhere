@@ -535,6 +535,334 @@ async def join_challenge(challenge_id: str, device_id: str):
         raise HTTPException(status_code=404, detail="Challenge not found")
     return {"success": True}
 
+# ==================== GROUPS MODELS ====================
+
+class GroupCreate(BaseModel):
+    name: str
+    description: str = ""
+    creator_device_id: str
+    avatar_color: str = "#FF6B35"
+
+class GroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    avatar_color: Optional[str] = None
+
+class Group(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str = ""
+    creator_device_id: str
+    members: List[str] = []  # List of device_ids
+    avatar_color: str = "#FF6B35"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    invite_code: str = Field(default_factory=lambda: str(uuid.uuid4())[:8].upper())
+
+class GroupChallenge(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    group_id: str
+    title: str
+    description: str
+    target_steps: int
+    start_date: str
+    end_date: str
+    creator_device_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = True
+
+class GroupChallengeCreate(BaseModel):
+    group_id: str
+    title: str
+    description: str
+    target_steps: int
+    end_date: str
+    creator_device_id: str
+
+class ChatMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    group_id: str
+    sender_device_id: str
+    sender_username: str
+    message_type: str = "text"  # text, image, voice
+    content: str  # text content or base64 for media
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ChatMessageCreate(BaseModel):
+    group_id: str
+    sender_device_id: str
+    message_type: str = "text"
+    content: str
+
+# ==================== GROUPS ROUTES ====================
+
+@api_router.post("/groups", response_model=Group)
+async def create_group(group_data: GroupCreate):
+    """Create a new group"""
+    user = await db.users.find_one({"device_id": group_data.creator_device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    group = Group(
+        name=group_data.name,
+        description=group_data.description,
+        creator_device_id=group_data.creator_device_id,
+        members=[group_data.creator_device_id],
+        avatar_color=group_data.avatar_color
+    )
+    await db.groups.insert_one(group.dict())
+    logger.info(f"Created new group: {group.name}")
+    return group
+
+@api_router.get("/groups/{group_id}", response_model=Group)
+async def get_group(group_id: str):
+    """Get group by ID"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return Group(**group)
+
+@api_router.get("/groups/user/{device_id}")
+async def get_user_groups(device_id: str):
+    """Get all groups a user is a member of"""
+    groups = await db.groups.find({"members": device_id}).to_list(50)
+    return [Group(**g) for g in groups]
+
+@api_router.post("/groups/{group_id}/join")
+async def join_group(group_id: str, device_id: str):
+    """Join a group by ID"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if device_id in group.get("members", []):
+        return {"success": True, "message": "Already a member"}
+    
+    await db.groups.update_one(
+        {"id": group_id},
+        {"$addToSet": {"members": device_id}}
+    )
+    return {"success": True, "message": "Joined group"}
+
+@api_router.post("/groups/join-by-code")
+async def join_group_by_code(invite_code: str, device_id: str):
+    """Join a group using invite code"""
+    group = await db.groups.find_one({"invite_code": invite_code.upper()})
+    if not group:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+    
+    if device_id in group.get("members", []):
+        return {"success": True, "message": "Already a member", "group": Group(**group)}
+    
+    await db.groups.update_one(
+        {"invite_code": invite_code.upper()},
+        {"$addToSet": {"members": device_id}}
+    )
+    updated_group = await db.groups.find_one({"invite_code": invite_code.upper()})
+    return {"success": True, "message": "Joined group", "group": Group(**updated_group)}
+
+@api_router.post("/groups/{group_id}/leave")
+async def leave_group(group_id: str, device_id: str):
+    """Leave a group"""
+    await db.groups.update_one(
+        {"id": group_id},
+        {"$pull": {"members": device_id}}
+    )
+    return {"success": True}
+
+@api_router.get("/groups/{group_id}/members")
+async def get_group_members(group_id: str):
+    """Get all members of a group with their step data"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    members_data = []
+    
+    for device_id in group.get("members", []):
+        user = await db.users.find_one({"device_id": device_id})
+        if user:
+            # Get today's steps
+            today_steps = await db.steps.find_one({"device_id": device_id, "date": today})
+            members_data.append({
+                "device_id": device_id,
+                "username": user.get("username", "Unknown"),
+                "avatar_color": user.get("avatar_color", "#FF6B35"),
+                "today_steps": today_steps.get("steps", 0) if today_steps else 0,
+                "total_steps": user.get("total_steps", 0),
+                "current_streak": user.get("current_streak", 0),
+                "outside_score": user.get("outside_score", 0),
+                "is_creator": device_id == group.get("creator_device_id")
+            })
+    
+    # Sort by today's steps
+    members_data.sort(key=lambda x: x["today_steps"], reverse=True)
+    return members_data
+
+@api_router.get("/groups/{group_id}/leaderboard")
+async def get_group_leaderboard(group_id: str, period: str = "daily"):
+    """Get group leaderboard"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    members = group.get("members", [])
+    if not members:
+        return []
+    
+    if period == "daily":
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        pipeline = [
+            {"$match": {"device_id": {"$in": members}, "date": today}},
+            {"$group": {"_id": "$device_id", "steps": {"$sum": "$steps"}}},
+            {"$sort": {"steps": -1}}
+        ]
+    elif period == "weekly":
+        start_date = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+        pipeline = [
+            {"$match": {"device_id": {"$in": members}, "date": {"$gte": start_date}}},
+            {"$group": {"_id": "$device_id", "steps": {"$sum": "$steps"}}},
+            {"$sort": {"steps": -1}}
+        ]
+    else:  # all-time
+        leaderboard = []
+        for device_id in members:
+            user = await db.users.find_one({"device_id": device_id})
+            if user:
+                leaderboard.append({
+                    "device_id": device_id,
+                    "username": user.get("username"),
+                    "steps": user.get("total_steps", 0),
+                    "avatar_color": user.get("avatar_color", "#FF6B35")
+                })
+        leaderboard.sort(key=lambda x: x["steps"], reverse=True)
+        return [{"rank": i+1, **entry} for i, entry in enumerate(leaderboard)]
+    
+    step_results = await db.steps.aggregate(pipeline).to_list(len(members))
+    
+    leaderboard = []
+    for idx, entry in enumerate(step_results):
+        user = await db.users.find_one({"device_id": entry["_id"]})
+        if user:
+            leaderboard.append({
+                "rank": idx + 1,
+                "device_id": entry["_id"],
+                "username": user.get("username"),
+                "steps": entry["steps"],
+                "avatar_color": user.get("avatar_color", "#FF6B35")
+            })
+    
+    return leaderboard
+
+# ==================== GROUP CHAT ROUTES ====================
+
+@api_router.post("/groups/{group_id}/messages")
+async def send_message(group_id: str, message_data: ChatMessageCreate):
+    """Send a message to group chat"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if message_data.sender_device_id not in group.get("members", []):
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+    
+    user = await db.users.find_one({"device_id": message_data.sender_device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    message = ChatMessage(
+        group_id=group_id,
+        sender_device_id=message_data.sender_device_id,
+        sender_username=user.get("username", "Unknown"),
+        message_type=message_data.message_type,
+        content=message_data.content
+    )
+    await db.messages.insert_one(message.dict())
+    return message
+
+@api_router.get("/groups/{group_id}/messages")
+async def get_messages(group_id: str, limit: int = 50, before: Optional[str] = None):
+    """Get messages from group chat"""
+    query = {"group_id": group_id}
+    if before:
+        query["created_at"] = {"$lt": datetime.fromisoformat(before)}
+    
+    messages = await db.messages.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    messages.reverse()  # Return in chronological order
+    return [ChatMessage(**m) for m in messages]
+
+# ==================== GROUP CHALLENGES ROUTES ====================
+
+@api_router.post("/groups/{group_id}/challenges")
+async def create_group_challenge(group_id: str, challenge_data: GroupChallengeCreate):
+    """Create a challenge for the group"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    challenge = GroupChallenge(
+        group_id=group_id,
+        title=challenge_data.title,
+        description=challenge_data.description,
+        target_steps=challenge_data.target_steps,
+        start_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        end_date=challenge_data.end_date,
+        creator_device_id=challenge_data.creator_device_id
+    )
+    await db.group_challenges.insert_one(challenge.dict())
+    return challenge
+
+@api_router.get("/groups/{group_id}/challenges")
+async def get_group_challenges(group_id: str):
+    """Get all challenges for a group"""
+    challenges = await db.group_challenges.find({
+        "group_id": group_id,
+        "is_active": True
+    }).sort("created_at", -1).to_list(20)
+    return [GroupChallenge(**c) for c in challenges]
+
+@api_router.get("/groups/{group_id}/challenges/{challenge_id}/progress")
+async def get_challenge_progress(group_id: str, challenge_id: str):
+    """Get progress of all members in a group challenge"""
+    challenge = await db.group_challenges.find_one({"id": challenge_id, "group_id": group_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Get steps for each member during challenge period
+    progress = []
+    for device_id in group.get("members", []):
+        user = await db.users.find_one({"device_id": device_id})
+        if user:
+            pipeline = [
+                {"$match": {
+                    "device_id": device_id,
+                    "date": {
+                        "$gte": challenge["start_date"],
+                        "$lte": challenge["end_date"]
+                    }
+                }},
+                {"$group": {"_id": None, "total_steps": {"$sum": "$steps"}}}
+            ]
+            result = await db.steps.aggregate(pipeline).to_list(1)
+            steps = result[0]["total_steps"] if result else 0
+            
+            progress.append({
+                "device_id": device_id,
+                "username": user.get("username"),
+                "avatar_color": user.get("avatar_color", "#FF6B35"),
+                "steps": steps,
+                "target": challenge["target_steps"],
+                "progress_percent": min(100, round((steps / challenge["target_steps"]) * 100, 1)),
+                "completed": steps >= challenge["target_steps"]
+            })
+    
+    progress.sort(key=lambda x: x["steps"], reverse=True)
+    return progress
+
 # ==================== STATS ROUTES ====================
 
 @api_router.get("/stats/{device_id}")
