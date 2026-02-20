@@ -102,6 +102,76 @@ export const challengesAPI = {
   },
 };
 
+// Groups API
+export const groupsAPI = {
+  create: async (data: { name: string; description?: string; creator_device_id: string; avatar_color?: string }) => {
+    const response = await api.post('/groups', data);
+    return response.data;
+  },
+
+  get: async (groupId: string) => {
+    const response = await api.get(`/groups/${groupId}`);
+    return response.data;
+  },
+
+  getUserGroups: async (deviceId: string) => {
+    const response = await api.get(`/groups/user/${deviceId}`);
+    return response.data;
+  },
+
+  join: async (groupId: string, deviceId: string) => {
+    const response = await api.post(`/groups/${groupId}/join?device_id=${deviceId}`);
+    return response.data;
+  },
+
+  joinByCode: async (inviteCode: string, deviceId: string) => {
+    const response = await api.post(`/groups/join-by-code?invite_code=${inviteCode}&device_id=${deviceId}`);
+    return response.data;
+  },
+
+  leave: async (groupId: string, deviceId: string) => {
+    const response = await api.post(`/groups/${groupId}/leave?device_id=${deviceId}`);
+    return response.data;
+  },
+
+  getMembers: async (groupId: string) => {
+    const response = await api.get(`/groups/${groupId}/members`);
+    return response.data;
+  },
+
+  getLeaderboard: async (groupId: string, period: string = 'daily') => {
+    const response = await api.get(`/groups/${groupId}/leaderboard?period=${period}`);
+    return response.data;
+  },
+
+  // Chat
+  sendMessage: async (groupId: string, data: { sender_device_id: string; message_type: string; content: string }) => {
+    const response = await api.post(`/groups/${groupId}/messages`, { group_id: groupId, ...data });
+    return response.data;
+  },
+
+  getMessages: async (groupId: string, limit: number = 50) => {
+    const response = await api.get(`/groups/${groupId}/messages?limit=${limit}`);
+    return response.data;
+  },
+
+  // Group Challenges
+  createChallenge: async (groupId: string, data: { title: string; description: string; target_steps: number; end_date: string; creator_device_id: string }) => {
+    const response = await api.post(`/groups/${groupId}/challenges`, { group_id: groupId, ...data });
+    return response.data;
+  },
+
+  getChallenges: async (groupId: string) => {
+    const response = await api.get(`/groups/${groupId}/challenges`);
+    return response.data;
+  },
+
+  getChallengeProgress: async (groupId: string, challengeId: string) => {
+    const response = await api.get(`/groups/${groupId}/challenges/${challengeId}/progress`);
+    return response.data;
+  },
+};
+
 // Stats API
 export const statsAPI = {
   getUserStats: async (deviceId: string) => {
