@@ -131,7 +131,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.border,
   },
   progressBackground: {
     position: 'absolute',
@@ -140,7 +139,6 @@ const styles = StyleSheet.create({
     right: 8,
     bottom: 8,
     borderRadius: 140,
-    backgroundColor: COLORS.backgroundTertiary,
     overflow: 'hidden',
   },
   progressFill: {
@@ -148,7 +146,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: COLORS.primary,
     opacity: 0.3,
     borderRadius: 140,
   },
@@ -163,13 +160,11 @@ const styles = StyleSheet.create({
   stepsValue: {
     fontSize: FONTS.mega,
     fontWeight: '800',
-    color: COLORS.textPrimary,
     letterSpacing: -2,
   },
   stepsLabel: {
     fontSize: FONTS.sm,
     fontWeight: '600',
-    color: COLORS.textSecondary,
     letterSpacing: 4,
     marginTop: -4,
   },
