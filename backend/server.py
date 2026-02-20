@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,10 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import uuid
-from datetime import datetime
-
+from datetime import datetime, timedelta
+from bson import ObjectId
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -17,42 +17,571 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME', 'outere_db')]
 
-# Create the main app without a prefix
-app = FastAPI()
-
-# Create a router with the /api prefix
+app = FastAPI(title="OUT 'ERE API")
 api_router = APIRouter(prefix="/api")
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Define Models
-class StatusCheck(BaseModel):
+# ==================== MODELS ====================
+
+class UserProfile(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    device_id: str
+    username: str
+    city: str = "London"
+    borough: str = "Central"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    total_steps: int = 0
+    total_distance: float = 0.0
+    outside_score: int = 0
+    current_streak: int = 0
+    longest_streak: int = 0
+    last_active: datetime = Field(default_factory=datetime.utcnow)
+    is_outside: bool = False
+    daily_goal: int = 10000
+    weekly_goal: int = 70000
+    avatar_color: str = "#FF6B35"
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class UserCreate(BaseModel):
+    device_id: str
+    username: str
+    city: str = "London"
+    borough: str = "Central"
 
-# Add your routes to the router instead of directly to app
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    city: Optional[str] = None
+    borough: Optional[str] = None
+    daily_goal: Optional[int] = None
+    weekly_goal: Optional[int] = None
+    avatar_color: Optional[str] = None
+
+class StepRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    device_id: str
+    steps: int
+    distance: float
+    active_minutes: int = 0
+    date: str  # YYYY-MM-DD format
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class StepRecordCreate(BaseModel):
+    device_id: str
+    steps: int
+    distance: float
+    active_minutes: int = 0
+    date: str
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    user_id: str
+    username: str
+    steps: int
+    outside_score: int
+    streak: int
+    city: str
+    borough: str
+    avatar_color: str
+
+class Challenge(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    target_steps: int
+    start_date: str
+    end_date: str
+    city: Optional[str] = None
+    reward_points: int = 100
+    participants: List[str] = []
+    is_active: bool = True
+
+class OutsideStatus(BaseModel):
+    device_id: str
+    is_outside: bool
+
+# ==================== HELPER FUNCTIONS ====================
+
+def calculate_outside_score(steps: int, streak: int, active_minutes: int) -> int:
+    """Calculate the Outside Score - a gamified metric"""
+    base_score = steps // 100
+    streak_bonus = streak * 50
+    activity_bonus = active_minutes * 2
+    return base_score + streak_bonus + activity_bonus
+
+async def get_or_create_user(device_id: str) -> dict:
+    """Get existing user or return None"""
+    user = await db.users.find_one({"device_id": device_id})
+    return user
+
+# ==================== USER ROUTES ====================
+
+@api_router.post("/users", response_model=UserProfile)
+async def create_user(user_data: UserCreate):
+    """Create a new user profile"""
+    existing = await db.users.find_one({"device_id": user_data.device_id})
+    if existing:
+        return UserProfile(**existing)
+    
+    user = UserProfile(**user_data.dict())
+    await db.users.insert_one(user.dict())
+    logger.info(f"Created new user: {user.username}")
+    return user
+
+@api_router.get("/users/{device_id}", response_model=UserProfile)
+async def get_user(device_id: str):
+    """Get user by device ID"""
+    user = await db.users.find_one({"device_id": device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserProfile(**user)
+
+@api_router.put("/users/{device_id}", response_model=UserProfile)
+async def update_user(device_id: str, user_update: UserUpdate):
+    """Update user profile"""
+    update_data = {k: v for k, v in user_update.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No update data provided")
+    
+    result = await db.users.update_one(
+        {"device_id": device_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user = await db.users.find_one({"device_id": device_id})
+    return UserProfile(**user)
+
+@api_router.post("/users/{device_id}/outside-status")
+async def update_outside_status(device_id: str, status: OutsideStatus):
+    """Update user's outside status"""
+    await db.users.update_one(
+        {"device_id": device_id},
+        {"$set": {"is_outside": status.is_outside, "last_active": datetime.utcnow()}}
+    )
+    return {"success": True}
+
+# ==================== STEP TRACKING ROUTES ====================
+
+@api_router.post("/steps", response_model=StepRecord)
+async def record_steps(step_data: StepRecordCreate):
+    """Record or update daily steps"""
+    user = await db.users.find_one({"device_id": step_data.device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check for existing record for this date
+    existing = await db.steps.find_one({
+        "device_id": step_data.device_id,
+        "date": step_data.date
+    })
+    
+    if existing:
+        # Update existing record
+        await db.steps.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "steps": step_data.steps,
+                "distance": step_data.distance,
+                "active_minutes": step_data.active_minutes,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        record = await db.steps.find_one({"_id": existing["_id"]})
+    else:
+        # Create new record
+        record = StepRecord(
+            user_id=user["id"],
+            **step_data.dict()
+        )
+        await db.steps.insert_one(record.dict())
+        record = record.dict()
+    
+    # Update user totals and streak
+    total_steps = await db.steps.aggregate([
+        {"$match": {"device_id": step_data.device_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$steps"}, "distance": {"$sum": "$distance"}}}
+    ]).to_list(1)
+    
+    if total_steps:
+        # Calculate streak
+        streak = await calculate_streak(step_data.device_id)
+        outside_score = calculate_outside_score(
+            total_steps[0]["total"],
+            streak,
+            step_data.active_minutes
+        )
+        
+        await db.users.update_one(
+            {"device_id": step_data.device_id},
+            {"$set": {
+                "total_steps": total_steps[0]["total"],
+                "total_distance": total_steps[0]["distance"],
+                "outside_score": outside_score,
+                "current_streak": streak,
+                "longest_streak": max(user.get("longest_streak", 0), streak),
+                "last_active": datetime.utcnow()
+            }}
+        )
+    
+    return StepRecord(**record)
+
+async def calculate_streak(device_id: str) -> int:
+    """Calculate current streak of consecutive days with steps"""
+    records = await db.steps.find(
+        {"device_id": device_id, "steps": {"$gt": 0}}
+    ).sort("date", -1).to_list(100)
+    
+    if not records:
+        return 0
+    
+    streak = 0
+    today = datetime.utcnow().date()
+    current_date = today
+    
+    dates = sorted([r["date"] for r in records], reverse=True)
+    
+    for date_str in dates:
+        record_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if record_date == current_date or record_date == current_date - timedelta(days=1):
+            streak += 1
+            current_date = record_date - timedelta(days=1)
+        else:
+            break
+    
+    return streak
+
+@api_router.get("/steps/{device_id}/today")
+async def get_today_steps(device_id: str):
+    """Get today's step count"""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    record = await db.steps.find_one({"device_id": device_id, "date": today})
+    if record:
+        return StepRecord(**record)
+    return {"steps": 0, "distance": 0, "active_minutes": 0, "date": today}
+
+@api_router.get("/steps/{device_id}/history")
+async def get_step_history(device_id: str, days: int = 7):
+    """Get step history for the past N days"""
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    
+    records = await db.steps.find({
+        "device_id": device_id,
+        "date": {
+            "$gte": start_date.strftime("%Y-%m-%d"),
+            "$lte": end_date.strftime("%Y-%m-%d")
+        }
+    }).sort("date", 1).to_list(days)
+    
+    return [StepRecord(**r) for r in records]
+
+@api_router.get("/steps/{device_id}/weekly-summary")
+async def get_weekly_summary(device_id: str):
+    """Get weekly step summary"""
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=7)
+    
+    pipeline = [
+        {
+            "$match": {
+                "device_id": device_id,
+                "date": {
+                    "$gte": start_date.strftime("%Y-%m-%d"),
+                    "$lte": end_date.strftime("%Y-%m-%d")
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "total_steps": {"$sum": "$steps"},
+                "total_distance": {"$sum": "$distance"},
+                "total_active_minutes": {"$sum": "$active_minutes"},
+                "days_active": {"$sum": 1},
+                "avg_steps": {"$avg": "$steps"}
+            }
+        }
+    ]
+    
+    result = await db.steps.aggregate(pipeline).to_list(1)
+    
+    if result:
+        return {
+            "total_steps": result[0]["total_steps"],
+            "total_distance": round(result[0]["total_distance"], 2),
+            "total_active_minutes": result[0]["total_active_minutes"],
+            "days_active": result[0]["days_active"],
+            "avg_steps": round(result[0]["avg_steps"], 0)
+        }
+    return {
+        "total_steps": 0,
+        "total_distance": 0,
+        "total_active_minutes": 0,
+        "days_active": 0,
+        "avg_steps": 0
+    }
+
+# ==================== LEADERBOARD ROUTES ====================
+
+@api_router.get("/leaderboard")
+async def get_leaderboard(
+    period: str = "daily",
+    city: Optional[str] = None,
+    borough: Optional[str] = None,
+    limit: int = 50
+):
+    """Get leaderboard - daily, weekly, or all-time"""
+    match_query = {}
+    if city:
+        match_query["city"] = city
+    if borough:
+        match_query["borough"] = borough
+    
+    if period == "daily":
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        # Get today's steps per user
+        pipeline = [
+            {"$match": {"date": today}},
+            {"$group": {
+                "_id": "$device_id",
+                "steps": {"$sum": "$steps"}
+            }},
+            {"$sort": {"steps": -1}},
+            {"$limit": limit}
+        ]
+        step_results = await db.steps.aggregate(pipeline).to_list(limit)
+        
+        leaderboard = []
+        for idx, entry in enumerate(step_results):
+            user = await db.users.find_one({"device_id": entry["_id"]})
+            if user and (not city or user.get("city") == city):
+                leaderboard.append(LeaderboardEntry(
+                    rank=idx + 1,
+                    user_id=user["id"],
+                    username=user["username"],
+                    steps=entry["steps"],
+                    outside_score=user.get("outside_score", 0),
+                    streak=user.get("current_streak", 0),
+                    city=user.get("city", "Unknown"),
+                    borough=user.get("borough", "Unknown"),
+                    avatar_color=user.get("avatar_color", "#FF6B35")
+                ))
+        return leaderboard
+    
+    elif period == "weekly":
+        start_date = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+        pipeline = [
+            {"$match": {"date": {"$gte": start_date}}},
+            {"$group": {
+                "_id": "$device_id",
+                "steps": {"$sum": "$steps"}
+            }},
+            {"$sort": {"steps": -1}},
+            {"$limit": limit}
+        ]
+        step_results = await db.steps.aggregate(pipeline).to_list(limit)
+        
+        leaderboard = []
+        for idx, entry in enumerate(step_results):
+            user = await db.users.find_one({"device_id": entry["_id"]})
+            if user and (not city or user.get("city") == city):
+                leaderboard.append(LeaderboardEntry(
+                    rank=idx + 1,
+                    user_id=user["id"],
+                    username=user["username"],
+                    steps=entry["steps"],
+                    outside_score=user.get("outside_score", 0),
+                    streak=user.get("current_streak", 0),
+                    city=user.get("city", "Unknown"),
+                    borough=user.get("borough", "Unknown"),
+                    avatar_color=user.get("avatar_color", "#FF6B35")
+                ))
+        return leaderboard
+    
+    else:  # all-time
+        if match_query:
+            users = await db.users.find(match_query).sort("outside_score", -1).limit(limit).to_list(limit)
+        else:
+            users = await db.users.find().sort("outside_score", -1).limit(limit).to_list(limit)
+        
+        return [
+            LeaderboardEntry(
+                rank=idx + 1,
+                user_id=user["id"],
+                username=user["username"],
+                steps=user.get("total_steps", 0),
+                outside_score=user.get("outside_score", 0),
+                streak=user.get("current_streak", 0),
+                city=user.get("city", "Unknown"),
+                borough=user.get("borough", "Unknown"),
+                avatar_color=user.get("avatar_color", "#FF6B35")
+            )
+            for idx, user in enumerate(users)
+        ]
+
+@api_router.get("/leaderboard/cities")
+async def get_city_leaderboard():
+    """Get aggregated city rankings"""
+    pipeline = [
+        {"$group": {
+            "_id": "$city",
+            "total_steps": {"$sum": "$total_steps"},
+            "total_score": {"$sum": "$outside_score"},
+            "user_count": {"$sum": 1}
+        }},
+        {"$sort": {"total_score": -1}},
+        {"$limit": 20}
+    ]
+    
+    results = await db.users.aggregate(pipeline).to_list(20)
+    return [
+        {
+            "rank": idx + 1,
+            "city": r["_id"],
+            "total_steps": r["total_steps"],
+            "total_score": r["total_score"],
+            "user_count": r["user_count"]
+        }
+        for idx, r in enumerate(results)
+    ]
+
+# ==================== COMMUNITY ROUTES ====================
+
+@api_router.get("/community/outside-now")
+async def get_outside_now(city: Optional[str] = None):
+    """Get count of users currently outside"""
+    # Users active in last 15 minutes are considered "outside"
+    threshold = datetime.utcnow() - timedelta(minutes=15)
+    
+    match_query = {
+        "is_outside": True,
+        "last_active": {"$gte": threshold}
+    }
+    if city:
+        match_query["city"] = city
+    
+    count = await db.users.count_documents(match_query)
+    
+    # Add some simulated users for demo purposes
+    import random
+    simulated_boost = random.randint(50, 200)
+    
+    return {
+        "count": count + simulated_boost,
+        "city": city or "Global",
+        "last_updated": datetime.utcnow().isoformat()
+    }
+
+# ==================== CHALLENGES ROUTES ====================
+
+@api_router.get("/challenges")
+async def get_challenges(city: Optional[str] = None):
+    """Get active challenges"""
+    query = {"is_active": True}
+    if city:
+        query["$or"] = [{"city": city}, {"city": None}]
+    
+    challenges = await db.challenges.find(query).to_list(20)
+    
+    # If no challenges, create default ones
+    if not challenges:
+        default_challenges = [
+            Challenge(
+                title="Weekend Warrior",
+                description="Hit 30,000 steps this weekend",
+                target_steps=30000,
+                start_date=datetime.utcnow().strftime("%Y-%m-%d"),
+                end_date=(datetime.utcnow() + timedelta(days=2)).strftime("%Y-%m-%d"),
+                reward_points=200
+            ),
+            Challenge(
+                title="Early Bird",
+                description="Get 5,000 steps before noon for 3 days",
+                target_steps=15000,
+                start_date=datetime.utcnow().strftime("%Y-%m-%d"),
+                end_date=(datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d"),
+                reward_points=150
+            ),
+            Challenge(
+                title="City Champion",
+                description="Be in the top 10 of your city this week",
+                target_steps=70000,
+                start_date=datetime.utcnow().strftime("%Y-%m-%d"),
+                end_date=(datetime.utcnow() + timedelta(days=7)).strftime("%Y-%m-%d"),
+                reward_points=500
+            )
+        ]
+        for c in default_challenges:
+            await db.challenges.insert_one(c.dict())
+        return default_challenges
+    
+    return [Challenge(**c) for c in challenges]
+
+@api_router.post("/challenges/{challenge_id}/join")
+async def join_challenge(challenge_id: str, device_id: str):
+    """Join a challenge"""
+    result = await db.challenges.update_one(
+        {"id": challenge_id},
+        {"$addToSet": {"participants": device_id}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    return {"success": True}
+
+# ==================== STATS ROUTES ====================
+
+@api_router.get("/stats/{device_id}")
+async def get_user_stats(device_id: str):
+    """Get comprehensive user statistics"""
+    user = await db.users.find_one({"device_id": device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get weekly data
+    weekly = await get_weekly_summary(device_id)
+    
+    # Get monthly stats
+    month_start = (datetime.utcnow().replace(day=1)).strftime("%Y-%m-%d")
+    monthly_pipeline = [
+        {"$match": {"device_id": device_id, "date": {"$gte": month_start}}},
+        {"$group": {
+            "_id": None,
+            "total_steps": {"$sum": "$steps"},
+            "total_distance": {"$sum": "$distance"}
+        }}
+    ]
+    monthly_result = await db.steps.aggregate(monthly_pipeline).to_list(1)
+    monthly_steps = monthly_result[0]["total_steps"] if monthly_result else 0
+    
+    return {
+        "user": UserProfile(**user),
+        "weekly": weekly,
+        "monthly_steps": monthly_steps,
+        "streak": user.get("current_streak", 0),
+        "longest_streak": user.get("longest_streak", 0),
+        "outside_score": user.get("outside_score", 0),
+        "total_steps": user.get("total_steps", 0),
+        "total_distance": round(user.get("total_distance", 0), 2)
+    }
+
+# ==================== HEALTH CHECK ====================
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "OUT 'ERE API - WE OUTSIDE", "status": "running"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
-
-# Include the router in the main app
+# Include router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -62,13 +591,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
