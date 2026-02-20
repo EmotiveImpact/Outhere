@@ -9,15 +9,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONTS, SPACING, BORDER_RADIUS, AVATAR_COLORS, CITIES } from '../../src/constants/theme';
+import { FONTS, SPACING, BORDER_RADIUS, AVATAR_COLORS, CITIES, THEMES } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
+import { useThemeStore, ThemeKey } from '../../src/store/themeStore';
 import { userAPI } from '../../src/services/api';
 import { StreakBadge } from '../../src/components/StreakBadge';
 
 export default function ProfileScreen() {
   const { user, deviceId, setUser, clearUser, setOnboarded } = useUserStore();
+  const { colors, currentTheme, setTheme } = useThemeStore();
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   const handleUpdateCity = async (city: string, borough: string) => {
     if (!deviceId) return;
