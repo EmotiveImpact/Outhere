@@ -1,41 +1,78 @@
-export const COLORS = {
-  // Primary palette
-  background: '#0A0A0A',
-  backgroundSecondary: '#141414',
-  backgroundTertiary: '#1C1C1C',
-  
-  // Accent colors
-  primary: '#FF6B35',
-  primaryLight: '#FF8C5A',
-  primaryDark: '#E55A25',
-  
-  // Text colors
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A0A0A0',
-  textMuted: '#666666',
-  
-  // Status colors
-  success: '#4CAF50',
-  warning: '#FFC107',
-  error: '#F44336',
-  
-  // Streak colors
-  streakFire: '#FF6B35',
-  streakGold: '#FFD700',
-  streakPlatinum: '#E5E4E2',
-  
-  // Gradients
-  gradientStart: '#FF6B35',
-  gradientEnd: '#FF8C5A',
-  
-  // Borders
-  border: '#2A2A2A',
-  borderLight: '#3A3A3A',
-  
-  // Cards
-  cardBackground: '#141414',
-  cardBackgroundElevated: '#1C1C1C',
+export const THEMES = {
+  burnt_orange: {
+    name: 'Burnt Orange',
+    // Primary palette
+    background: '#0A0A0A',
+    backgroundSecondary: '#141414',
+    backgroundTertiary: '#1C1C1C',
+    
+    // Accent colors
+    primary: '#FF6B35',
+    primaryLight: '#FF8C5A',
+    primaryDark: '#E55A25',
+    
+    // Text colors
+    textPrimary: '#FFFFFF',
+    textSecondary: '#A0A0A0',
+    textMuted: '#666666',
+    
+    // Status colors
+    success: '#4CAF50',
+    warning: '#FFC107',
+    error: '#F44336',
+    
+    // Streak colors
+    streakFire: '#FF6B35',
+    streakGold: '#FFD700',
+    streakPlatinum: '#E5E4E2',
+    
+    // Borders
+    border: '#2A2A2A',
+    borderLight: '#3A3A3A',
+    
+    // Cards
+    cardBackground: '#141414',
+    cardBackgroundElevated: '#1C1C1C',
+  },
+  neon_lime: {
+    name: 'Neon Lime',
+    // Primary palette - Dark navy blue
+    background: '#1E1E2A',
+    backgroundSecondary: '#252536',
+    backgroundTertiary: '#2C2C42',
+    
+    // Accent colors - Lime green
+    primary: '#C5FF51',
+    primaryLight: '#D4FF7A',
+    primaryDark: '#A8E035',
+    
+    // Text colors
+    textPrimary: '#FFFFFF',
+    textSecondary: '#A0A0A0',
+    textMuted: '#707090',
+    
+    // Status colors
+    success: '#C5FF51',
+    warning: '#FFD700',
+    error: '#FF5757',
+    
+    // Streak colors
+    streakFire: '#C5FF51',
+    streakGold: '#FFD700',
+    streakPlatinum: '#E5E4E2',
+    
+    // Borders
+    border: '#3A3A4A',
+    borderLight: '#4A4A5A',
+    
+    // Cards
+    cardBackground: '#252536',
+    cardBackgroundElevated: '#2C2C42',
+  },
 };
+
+// Default colors - will be replaced by ThemeProvider
+export const COLORS = { ...THEMES.burnt_orange };
 
 export const FONTS = {
   // Font families
