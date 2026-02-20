@@ -522,12 +522,21 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACING.sm,
   },
+  textInputReal: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+    fontSize: FONTS.md,
+    color: COLORS.textPrimary,
+  },
   textInputText: {
     fontSize: FONTS.md,
     color: COLORS.textPrimary,
   },
   textInputPlaceholder: {
     color: COLORS.textMuted,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   startButton: {
     flexDirection: 'row',
