@@ -9,7 +9,8 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { FONTS, SPACING } from '../constants/theme';
+import { useThemeStore } from '../store/themeStore';
 
 interface StepCounterProps {
   steps: number;
@@ -24,6 +25,7 @@ export const StepCounter: React.FC<StepCounterProps> = ({
   distance,
   onPress,
 }) => {
+  const { colors } = useThemeStore();
   const progress = useSharedValue(0);
   const scale = useSharedValue(1);
   const previousSteps = useRef(steps);
