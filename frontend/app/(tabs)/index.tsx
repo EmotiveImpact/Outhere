@@ -199,8 +199,8 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>WE OUTSIDE</Text>
-            <Text style={styles.username}>@{user?.username || 'Loading...'}</Text>
+            <Text style={[styles.greeting, { color: colors.primary }]}>WE OUTSIDE</Text>
+            <Text style={[styles.username, { color: colors.textPrimary }]}>@{user?.username || 'Loading...'}</Text>
           </View>
           <StreakBadge streak={user?.current_streak || 0} size="small" />
         </View>
@@ -223,75 +223,75 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: isTracking ? COLORS.success : COLORS.textMuted },
+                { backgroundColor: isTracking ? colors.success : colors.textMuted },
               ]}
             />
-            <Text style={styles.statusText}>
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
               {isTracking ? 'Tracking Active' : 'Tracking Paused'}
             </Text>
           </View>
 
           {Platform.OS === 'web' && (
             <Pressable
-              style={styles.simulateButton}
+              style={[styles.simulateButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.primary }]}
               onPress={handleSimulateSteps}
             >
-              <Ionicons name="add" size={16} color={COLORS.primary} />
-              <Text style={styles.simulateText}>Add Steps (Demo)</Text>
+              <Ionicons name="add" size={16} color={colors.primary} />
+              <Text style={[styles.simulateText, { color: colors.primary }]}>Add Steps (Demo)</Text>
             </Pressable>
           )}
         </View>
 
         {/* Quick Stats */}
-        <View style={styles.quickStats}>
+        <View style={[styles.quickStats, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
           <View style={styles.quickStatItem}>
-            <Ionicons name="flame" size={24} color={COLORS.primary} />
-            <Text style={styles.quickStatValue}>
+            <Ionicons name="flame" size={24} color={colors.primary} />
+            <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
               {user?.outside_score?.toLocaleString() || 0}
             </Text>
-            <Text style={styles.quickStatLabel}>Outside Score</Text>
+            <Text style={[styles.quickStatLabel, { color: colors.textMuted }]}>Outside Score</Text>
           </View>
-          <View style={styles.quickStatDivider} />
+          <View style={[styles.quickStatDivider, { backgroundColor: colors.border }]} />
           <View style={styles.quickStatItem}>
-            <Ionicons name="trending-up" size={24} color={COLORS.success} />
-            <Text style={styles.quickStatValue}>
+            <Ionicons name="trending-up" size={24} color={colors.success} />
+            <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
               {user?.total_steps?.toLocaleString() || 0}
             </Text>
-            <Text style={styles.quickStatLabel}>Total Steps</Text>
+            <Text style={[styles.quickStatLabel, { color: colors.textMuted }]}>Total Steps</Text>
           </View>
-          <View style={styles.quickStatDivider} />
+          <View style={[styles.quickStatDivider, { backgroundColor: colors.border }]} />
           <View style={styles.quickStatItem}>
-            <Ionicons name="navigate" size={24} color={COLORS.primaryLight} />
-            <Text style={styles.quickStatValue}>
+            <Ionicons name="navigate" size={24} color={colors.primaryLight} />
+            <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
               {user?.total_distance?.toFixed(1) || 0}
             </Text>
-            <Text style={styles.quickStatLabel}>KM Total</Text>
+            <Text style={[styles.quickStatLabel, { color: colors.textMuted }]}>KM Total</Text>
           </View>
         </View>
 
         {/* Challenges Preview */}
         <View style={styles.challengesSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Active Challenges</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Active Challenges</Text>
             <Pressable>
-              <Text style={styles.seeAllText}>See All</Text>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>See All</Text>
             </Pressable>
           </View>
 
           {challenges.slice(0, 2).map((challenge, index) => (
-            <View key={challenge.id || index} style={styles.challengeCard}>
+            <View key={challenge.id || index} style={[styles.challengeCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
               <View style={styles.challengeInfo}>
-                <Ionicons name="flag" size={20} color={COLORS.primary} />
+                <Ionicons name="flag" size={20} color={colors.primary} />
                 <View style={styles.challengeTextContainer}>
-                  <Text style={styles.challengeTitle}>{challenge.title}</Text>
-                  <Text style={styles.challengeDescription}>
+                  <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>{challenge.title}</Text>
+                  <Text style={[styles.challengeDescription, { color: colors.textSecondary }]}>
                     {challenge.description}
                   </Text>
                 </View>
               </View>
               <View style={styles.challengeReward}>
-                <Text style={styles.rewardPoints}>+{challenge.reward_points}</Text>
-                <Text style={styles.rewardLabel}>pts</Text>
+                <Text style={[styles.rewardPoints, { color: colors.primary }]}>+{challenge.reward_points}</Text>
+                <Text style={[styles.rewardLabel, { color: colors.textMuted }]}>pts</Text>
               </View>
             </View>
           ))}
