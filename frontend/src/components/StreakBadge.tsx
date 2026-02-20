@@ -8,7 +8,8 @@ import Animated, {
   withTiming,
   useSharedValue,
 } from 'react-native-reanimated';
-import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { FONTS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { useThemeStore } from '../store/themeStore';
 
 interface StreakBadgeProps {
   streak: number;
@@ -19,6 +20,7 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
   streak,
   size = 'medium',
 }) => {
+  const { colors } = useThemeStore();
   const glow = useSharedValue(1);
 
   React.useEffect(() => {
@@ -39,9 +41,9 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
   }));
 
   const getStreakColor = () => {
-    if (streak >= 30) return COLORS.streakPlatinum;
-    if (streak >= 14) return COLORS.streakGold;
-    return COLORS.streakFire;
+    if (streak >= 30) return colors.streakPlatinum;
+    if (streak >= 14) return colors.streakGold;
+    return colors.streakFire;
   };
 
   const getStreakTitle = () => {
@@ -77,7 +79,7 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
       style={[
         styles.container,
         currentSize.container,
-        { borderColor: getStreakColor() },
+        { borderColor: getStreakColor(), backgroundColor: colors.backgroundSecondary },
         streak >= 7 && animatedStyle,
       ]}
     >
@@ -91,7 +93,7 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
           {streak}
         </Text>
         {size !== 'small' && (
-          <Text style={styles.streakLabel}>{getStreakTitle()}</Text>
+          <Text style={[styles.streakLabel, { color: colors.textSecondary }]}>{getStreakTitle()}</Text>
         )}
       </View>
     </Animated.View>
@@ -102,7 +104,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 2,
     gap: SPACING.sm,
   },
@@ -138,7 +139,6 @@ const styles = StyleSheet.create({
   },
   streakLabel: {
     fontSize: FONTS.xs,
-    color: COLORS.textSecondary,
     fontWeight: '600',
     letterSpacing: 1,
   },
