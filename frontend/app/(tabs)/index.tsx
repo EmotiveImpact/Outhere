@@ -128,63 +128,53 @@ export default function HomeScreen() {
   if (showOnboarding || !isOnboarded) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.onboardingContainer}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>OUT 'ERE</Text>
-            <Text style={styles.tagline}>WE OUTSIDE.</Text>
-          </View>
-
-          <View style={styles.onboardingContent}>
-            <Text style={styles.welcomeTitle}>Welcome to the movement</Text>
-            <Text style={styles.welcomeSubtitle}>
-              Track your steps, compete with your city, stay outside.
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>CHOOSE YOUR TAG</Text>
-              <View style={styles.textInputWrapper}>
-                <Ionicons name="at" size={20} color={COLORS.textMuted} />
-                <View style={styles.textInput}>
-                  <Text
-                    style={[
-                      styles.textInputText,
-                      !username && styles.textInputPlaceholder,
-                    ]}
-                    onPress={() => {
-                      Alert.prompt(
-                        'Enter Username',
-                        'Choose your tag for the leaderboard',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'OK',
-                            onPress: (text) => text && setUsername(text),
-                          },
-                        ],
-                        'plain-text',
-                        username
-                      );
-                    }}
-                  >
-                    {username || 'Enter your username'}
-                  </Text>
-                </View>
-              </View>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.onboardingContainer}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoText}>OUT 'ERE</Text>
+              <Text style={styles.tagline}>WE OUTSIDE.</Text>
             </View>
 
-            <Pressable
-              style={[
-                styles.startButton,
-                !username && styles.startButtonDisabled,
-              ]}
-              onPress={handleCreateUser}
-              disabled={!username}
-            >
-              <Text style={styles.startButtonText}>LET'S GO</Text>
-              <Ionicons name="arrow-forward" size={20} color={COLORS.textPrimary} />
-            </Pressable>
+            <View style={styles.onboardingContent}>
+              <Text style={styles.welcomeTitle}>Welcome to the movement</Text>
+              <Text style={styles.welcomeSubtitle}>
+                Track your steps, compete with your city, stay outside.
+              </Text>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>CHOOSE YOUR TAG</Text>
+                <View style={styles.textInputWrapper}>
+                  <Ionicons name="at" size={20} color={COLORS.textMuted} />
+                  <TextInput
+                    style={styles.textInputReal}
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="Enter your username"
+                    placeholderTextColor={COLORS.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={20}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                style={[
+                  styles.startButton,
+                  !username && styles.startButtonDisabled,
+                ]}
+                onPress={handleCreateUser}
+                disabled={!username}
+              >
+                <Text style={styles.startButtonText}>LET'S GO</Text>
+                <Ionicons name="arrow-forward" size={20} color={COLORS.textPrimary} />
+              </Pressable>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
