@@ -14,8 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
+import { FONTS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
+import { useThemeStore } from '../../src/store/themeStore';
 import { usePedometer } from '../../src/hooks/usePedometer';
 import { StepCounter } from '../../src/components/StepCounter';
 import { StreakBadge } from '../../src/components/StreakBadge';
@@ -24,6 +25,7 @@ import { userAPI, stepsAPI, challengesAPI } from '../../src/services/api';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { colors } = useThemeStore();
   const {
     user,
     deviceId,
