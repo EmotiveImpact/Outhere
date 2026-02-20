@@ -68,13 +68,14 @@ export const StepCounter: React.FC<StepCounterProps> = ({
     <Pressable onPress={onPress}>
       <Animated.View style={[styles.container, containerAnimatedStyle]}>
         {/* Outer ring */}
-        <View style={styles.outerRing}>
-          <View style={styles.progressBackground}>
+        <View style={[styles.outerRing, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+          <View style={[styles.progressBackground, { backgroundColor: colors.backgroundTertiary }]}>
             <View
               style={[
                 styles.progressFill,
                 {
                   width: `${percentage}%`,
+                  backgroundColor: colors.primary,
                 },
               ]}
             />
@@ -84,30 +85,30 @@ export const StepCounter: React.FC<StepCounterProps> = ({
         {/* Inner content */}
         <View style={styles.innerContent}>
           <View style={styles.stepsContainer}>
-            <Text style={styles.stepsValue}>
+            <Text style={[styles.stepsValue, { color: colors.textPrimary }]}>
               {steps.toLocaleString()}
             </Text>
-            <Text style={styles.stepsLabel}>STEPS</Text>
+            <Text style={[styles.stepsLabel, { color: colors.textSecondary }]}>STEPS</Text>
           </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Ionicons name="flame" size={16} color={COLORS.primary} />
-              <Text style={styles.statValue}>
+              <Ionicons name="flame" size={16} color={colors.primary} />
+              <Text style={[styles.statValue, { color: colors.textSecondary }]}>
                 {Math.round(steps * 0.04)} cal
               </Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Ionicons name="footsteps" size={16} color={COLORS.primary} />
-              <Text style={styles.statValue}>
+              <Ionicons name="footsteps" size={16} color={colors.primary} />
+              <Text style={[styles.statValue, { color: colors.textSecondary }]}>
                 {distance.toFixed(2)} km
               </Text>
             </View>
           </View>
 
-          <View style={styles.goalContainer}>
-            <Text style={styles.goalText}>
+          <View style={[styles.goalContainer, { backgroundColor: colors.backgroundTertiary }]}>
+            <Text style={[styles.goalText, { color: colors.textMuted }]}>
               {percentage.toFixed(0)}% of {(goal / 1000).toFixed(0)}K goal
             </Text>
           </View>
@@ -127,7 +128,6 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: COLORS.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
