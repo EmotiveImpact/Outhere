@@ -180,25 +180,21 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: FONTS.sm,
-    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   statDivider: {
     width: 1,
     height: 16,
-    backgroundColor: COLORS.border,
     marginHorizontal: SPACING.md,
   },
   goalContainer: {
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
-    backgroundColor: COLORS.backgroundTertiary,
     borderRadius: 20,
   },
   goalText: {
     fontSize: FONTS.xs,
-    color: COLORS.textMuted,
     fontWeight: '500',
   },
 });
