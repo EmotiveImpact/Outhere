@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import { View, StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
+import { useThemeStore } from '../../src/store/themeStore';
 
 export default function TabLayout() {
-  const { deviceId, initializeDevice, isOnboarded } = useUserStore();
+  const { initializeDevice } = useUserStore();
+  const { colors } = useThemeStore();
 
   useEffect(() => {
     initializeDevice();
@@ -16,9 +17,9 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarStyle: [styles.tabBar, { backgroundColor: colors.backgroundSecondary, borderTopColor: colors.border }],
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarIconStyle: styles.tabBarIcon,
       }}
@@ -65,8 +66,6 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderTopColor: COLORS.border,
     borderTopWidth: 1,
     height: Platform.OS === 'ios' ? 88 : 64,
     paddingTop: 8,
