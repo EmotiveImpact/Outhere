@@ -76,8 +76,10 @@ export const COLORS = { ...THEMES.burnt_orange };
 
 export const FONTS = {
   // Font families
-  bold: 'System',
-  regular: 'System',
+  black: 'SwitzerBold',
+  bold: 'SwitzerSemibold',
+  regular: 'SwitzerRegular',
+  light: 'SwitzerMedium',
   
   // Font sizes
   xs: 12,

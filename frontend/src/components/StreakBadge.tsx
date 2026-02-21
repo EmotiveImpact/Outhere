@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Flame } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -34,7 +34,7 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
         true
       );
     }
-  }, [streak]);
+  }, [streak, glow]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: glow.value }],
@@ -83,11 +83,7 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
         streak >= 7 && animatedStyle,
       ]}
     >
-      <Ionicons
-        name="flame"
-        size={currentSize.icon}
-        color={getStreakColor()}
-      />
+      <Flame size={currentSize.icon} color={getStreakColor()} strokeWidth={2.4} />
       <View style={styles.textContainer}>
         <Text style={[styles.streakNumber, currentSize.text, { color: getStreakColor() }]}>
           {streak}
@@ -104,7 +100,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     gap: SPACING.sm,
   },
   containerSmall: {
@@ -127,6 +123,7 @@ const styles = StyleSheet.create({
   },
   streakNumber: {
     fontWeight: '800',
+    lineHeight: FONTS.xl + 4,
   },
   textSmall: {
     fontSize: FONTS.md,
@@ -140,6 +137,6 @@ const styles = StyleSheet.create({
   streakLabel: {
     fontSize: FONTS.xs,
     fontWeight: '600',
-    letterSpacing: 1,
+    letterSpacing: 0.6,
   },
 });

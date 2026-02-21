@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Check, ChevronRight, LogIn, Plus, UsersRound } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { FONTS, SPACING, BORDER_RADIUS, AVATAR_COLORS } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
@@ -31,9 +31,8 @@ interface Group {
 export default function GroupsScreen() {
   const router = useRouter();
   const { colors } = useThemeStore();
-  const { user, deviceId } = useUserStore();
+  const { deviceId } = useUserStore();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -49,8 +48,6 @@ export default function GroupsScreen() {
       setGroups(data);
     } catch (error) {
       console.error('Error loading groups:', error);
-    } finally {
-      setLoading(false);
     }
   }, [deviceId]);
 
@@ -119,13 +116,13 @@ export default function GroupsScreen() {
             style={[styles.headerButton, { backgroundColor: colors.backgroundSecondary }]}
             onPress={() => setShowJoinModal(true)}
           >
-            <Ionicons name="enter" size={20} color={colors.primary} />
+            <LogIn size={20} color={colors.primary} strokeWidth={2.4} />
           </Pressable>
           <Pressable
             style={[styles.headerButton, { backgroundColor: colors.primary }]}
             onPress={() => setShowCreateModal(true)}
           >
-            <Ionicons name="add" size={20} color={colors.textPrimary} />
+            <Plus size={20} color={colors.textPrimary} strokeWidth={2.6} />
           </Pressable>
         </View>
       </View>
@@ -139,7 +136,7 @@ export default function GroupsScreen() {
       >
         {groups.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color={colors.textMuted} />
+            <UsersRound size={64} color={colors.textMuted} strokeWidth={1.8} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Squads Yet</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Create a squad or join one with an invite code
@@ -149,14 +146,14 @@ export default function GroupsScreen() {
                 style={[styles.emptyButton, { backgroundColor: colors.primary }]}
                 onPress={() => setShowCreateModal(true)}
               >
-                <Ionicons name="add" size={20} color={colors.textPrimary} />
+                <Plus size={20} color={colors.textPrimary} strokeWidth={2.6} />
                 <Text style={[styles.emptyButtonText, { color: colors.textPrimary }]}>Create Squad</Text>
               </Pressable>
               <Pressable
-                style={[styles.emptyButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, borderWidth: 1 }]}
+                style={[styles.emptyButton, { backgroundColor: colors.backgroundSecondary }]}
                 onPress={() => setShowJoinModal(true)}
               >
-                <Ionicons name="enter" size={20} color={colors.primary} />
+                <LogIn size={20} color={colors.primary} strokeWidth={2.4} />
                 <Text style={[styles.emptyButtonText, { color: colors.primary }]}>Join Squad</Text>
               </Pressable>
             </View>
@@ -177,7 +174,7 @@ export default function GroupsScreen() {
                   {group.members?.length || 0} members
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              <ChevronRight size={20} color={colors.textMuted} strokeWidth={2.4} />
             </Pressable>
           ))
         )}
@@ -221,7 +218,7 @@ export default function GroupsScreen() {
                   ]}
                   onPress={() => setSelectedColor(color)}
                 >
-                  {selectedColor === color && <Ionicons name="checkmark" size={20} color="white" />}
+                  {selectedColor === color && <Check size={20} color="white" strokeWidth={3} />}
                 </Pressable>
               ))}
             </View>
@@ -290,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.md,
   },
-  title: { fontSize: FONTS.xxl, fontWeight: '800', letterSpacing: 2 },
+  title: { fontSize: FONTS.xxl, fontFamily: FONTS.black, fontWeight: '800', letterSpacing: 1, lineHeight: FONTS.xxl + 5 },
   headerButtons: { flexDirection: 'row', gap: SPACING.sm },
   headerButton: {
     width: 40,
@@ -302,8 +299,8 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.md, paddingTop: 0 },
   emptyContainer: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyTitle: { fontSize: FONTS.xl, fontWeight: '700', marginTop: SPACING.md },
-  emptySubtitle: { fontSize: FONTS.md, marginTop: SPACING.sm, textAlign: 'center' },
+  emptyTitle: { fontSize: FONTS.xl, fontFamily: FONTS.bold, fontWeight: '700', marginTop: SPACING.md },
+  emptySubtitle: { fontSize: FONTS.md, fontFamily: FONTS.regular, marginTop: SPACING.sm, textAlign: 'center', lineHeight: FONTS.md + 5 },
   emptyButtons: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.lg },
   emptyButton: {
     flexDirection: 'row',
@@ -313,14 +310,14 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
   },
-  emptyButtonText: { fontSize: FONTS.md, fontWeight: '600' },
+  emptyButtonText: { fontSize: FONTS.md, fontFamily: FONTS.bold, fontWeight: '600' },
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   groupAvatar: {
     width: 50,
@@ -331,8 +328,8 @@ const styles = StyleSheet.create({
   },
   groupAvatarText: { fontSize: FONTS.xl, fontWeight: '800', color: '#FFFFFF' },
   groupInfo: { flex: 1, marginLeft: SPACING.md },
-  groupName: { fontSize: FONTS.md, fontWeight: '600' },
-  groupMembers: { fontSize: FONTS.sm, marginTop: 2 },
+  groupName: { fontSize: FONTS.md, fontFamily: FONTS.bold, fontWeight: '600', lineHeight: FONTS.md + 4 },
+  groupMembers: { fontSize: FONTS.sm, fontFamily: FONTS.regular, marginTop: 2 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.8)',
@@ -340,20 +337,20 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   modalContent: { borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg },
-  modalTitle: { fontSize: FONTS.xl, fontWeight: '700', marginBottom: SPACING.lg, textAlign: 'center' },
-  inputLabel: { fontSize: FONTS.xs, fontWeight: '600', letterSpacing: 1, marginBottom: SPACING.xs },
+  modalTitle: { fontSize: FONTS.xl, fontFamily: FONTS.bold, fontWeight: '700', marginBottom: SPACING.lg, textAlign: 'center', lineHeight: FONTS.xl + 4 },
+  inputLabel: { fontSize: FONTS.xs, fontFamily: FONTS.bold, fontWeight: '600', letterSpacing: 0.6, marginBottom: SPACING.xs },
   textInput: {
     borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
+    padding: SPACING.md + 1,
     fontSize: FONTS.md,
     marginBottom: SPACING.md,
-    borderWidth: 1,
+    borderWidth: 0,
   },
   codeInput: { textAlign: 'center', fontSize: FONTS.xl, letterSpacing: 4 },
   colorPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.lg },
   colorOption: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  colorOptionSelected: { borderWidth: 3, borderColor: '#FFFFFF' },
+  colorOptionSelected: { borderWidth: 2, borderColor: '#FFFFFF' },
   modalButtons: { flexDirection: 'row', gap: SPACING.md },
   modalButton: { flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, alignItems: 'center' },
-  modalButtonText: { fontSize: FONTS.md, fontWeight: '600' },
+  modalButtonText: { fontSize: FONTS.md, fontFamily: FONTS.bold, fontWeight: '600' },
 });

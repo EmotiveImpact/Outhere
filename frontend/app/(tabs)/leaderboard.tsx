@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Building2, Globe, MapPin, Trophy } from 'lucide-react-native';
 import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
 import { LeaderboardItem } from '../../src/components/LeaderboardItem';
@@ -19,7 +19,7 @@ type Period = 'daily' | 'weekly' | 'alltime';
 type Filter = 'global' | 'city' | 'borough';
 
 export default function LeaderboardScreen() {
-  const { user, deviceId } = useUserStore();
+  const { user } = useUserStore();
   const [period, setPeriod] = useState<Period>('daily');
   const [filter, setFilter] = useState<Filter>('global');
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -69,7 +69,7 @@ export default function LeaderboardScreen() {
     </Pressable>
   );
 
-  const FilterButton = ({ value, label, icon }: { value: Filter; label: string; icon: string }) => (
+  const FilterButton = ({ value, label, icon }: { value: Filter; label: string; icon: React.ReactNode }) => (
     <Pressable
       style={[
         styles.filterButton,
@@ -77,11 +77,7 @@ export default function LeaderboardScreen() {
       ]}
       onPress={() => setFilter(value)}
     >
-      <Ionicons
-        name={icon as any}
-        size={16}
-        color={filter === value ? COLORS.primary : COLORS.textMuted}
-      />
+      {icon}
       <Text
         style={[
           styles.filterButtonText,
@@ -117,9 +113,21 @@ export default function LeaderboardScreen() {
 
       {/* Filter Selector */}
       <View style={styles.filterContainer}>
-        <FilterButton value="global" label="Global" icon="globe" />
-        <FilterButton value="city" label="City" icon="business" />
-        <FilterButton value="borough" label="Area" icon="location" />
+        <FilterButton
+          value="global"
+          label="Global"
+          icon={<Globe size={16} color={filter === 'global' ? COLORS.primary : COLORS.textMuted} strokeWidth={2.3} />}
+        />
+        <FilterButton
+          value="city"
+          label="City"
+          icon={<Building2 size={16} color={filter === 'city' ? COLORS.primary : COLORS.textMuted} strokeWidth={2.3} />}
+        />
+        <FilterButton
+          value="borough"
+          label="Area"
+          icon={<MapPin size={16} color={filter === 'borough' ? COLORS.primary : COLORS.textMuted} strokeWidth={2.3} />}
+        />
       </View>
 
       {/* User's Position Card */}
@@ -128,7 +136,7 @@ export default function LeaderboardScreen() {
           <View style={styles.userPositionLeft}>
             <Text style={styles.userPositionLabel}>YOUR POSITION</Text>
             <View style={styles.userPositionRank}>
-              <Ionicons name="trophy" size={24} color={COLORS.primary} />
+              <Trophy size={24} color={COLORS.primary} strokeWidth={2.4} />
               <Text style={styles.userPositionNumber}>#{userRank}</Text>
             </View>
           </View>
@@ -161,7 +169,7 @@ export default function LeaderboardScreen() {
           </View>
         ) : leaderboard.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="trophy-outline" size={64} color={COLORS.textMuted} />
+            <Trophy size={64} color={COLORS.textMuted} strokeWidth={1.8} />
             <Text style={styles.emptyTitle}>No Rankings Yet</Text>
             <Text style={styles.emptySubtitle}>
               Be the first to get outside and set the pace!
@@ -196,14 +204,18 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONTS.xxl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    letterSpacing: 2,
+    letterSpacing: 1,
+    lineHeight: FONTS.xxl + 5,
   },
   subtitle: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
     marginTop: 2,
+    lineHeight: FONTS.sm + 3,
   },
   periodContainer: {
     flexDirection: 'row',
@@ -213,12 +225,12 @@ const styles = StyleSheet.create({
   },
   periodButton: {
     flex: 1,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 1,
+    paddingHorizontal: SPACING.md + 1,
     borderRadius: BORDER_RADIUS.md,
     backgroundColor: COLORS.backgroundSecondary,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: COLORS.border,
   },
   periodButtonActive: {
@@ -227,6 +239,7 @@ const styles = StyleSheet.create({
   },
   periodButtonText: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
     color: COLORS.textSecondary,
   },
@@ -254,6 +267,7 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
     color: COLORS.textMuted,
   },
@@ -269,7 +283,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: COLORS.primary,
   },
   userPositionLeft: {
@@ -277,9 +291,10 @@ const styles = StyleSheet.create({
   },
   userPositionLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
     color: COLORS.textMuted,
-    letterSpacing: 1,
+    letterSpacing: 0.6,
   },
   userPositionRank: {
     flexDirection: 'row',
@@ -288,19 +303,23 @@ const styles = StyleSheet.create({
   },
   userPositionNumber: {
     fontSize: FONTS.xxxl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
     color: COLORS.primary,
+    lineHeight: FONTS.xxxl + 5,
   },
   userPositionRight: {
     alignItems: 'flex-end',
   },
   userPositionSteps: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   userPositionStepsLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
   listContainer: {
@@ -318,6 +337,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: SPACING.md,
     fontSize: FONTS.md,
+    fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
   emptyContainer: {
@@ -327,12 +347,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginTop: SPACING.md,
   },
   emptySubtitle: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
     marginTop: SPACING.sm,
     textAlign: 'center',

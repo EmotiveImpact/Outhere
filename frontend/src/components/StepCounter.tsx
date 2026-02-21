@@ -1,13 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Flame, Footprints } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 import { FONTS, SPACING } from '../constants/theme';
 import { useThemeStore } from '../store/themeStore';
@@ -37,7 +34,7 @@ export const StepCounter: React.FC<StepCounterProps> = ({
       damping: 15,
       stiffness: 100,
     });
-  }, [percentage]);
+  }, [percentage, progress]);
 
   useEffect(() => {
     if (steps > previousSteps.current) {
@@ -46,19 +43,7 @@ export const StepCounter: React.FC<StepCounterProps> = ({
       });
     }
     previousSteps.current = steps;
-  }, [steps]);
-
-  const circleAnimatedStyle = useAnimatedStyle(() => {
-    const rotation = interpolate(
-      progress.value,
-      [0, 1],
-      [0, 360],
-      Extrapolation.CLAMP
-    );
-    return {
-      transform: [{ rotate: `${rotation}deg` }],
-    };
-  });
+  }, [steps, scale]);
 
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -93,14 +78,14 @@ export const StepCounter: React.FC<StepCounterProps> = ({
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Ionicons name="flame" size={16} color={colors.primary} />
+              <Flame size={16} color={colors.primary} strokeWidth={2.4} />
               <Text style={[styles.statValue, { color: colors.textSecondary }]}>
                 {Math.round(steps * 0.04)} cal
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Ionicons name="footsteps" size={16} color={colors.primary} />
+              <Footprints size={16} color={colors.primary} strokeWidth={2.4} />
               <Text style={[styles.statValue, { color: colors.textSecondary }]}>
                 {distance.toFixed(2)} km
               </Text>
@@ -130,7 +115,7 @@ const styles = StyleSheet.create({
     borderRadius: 140,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
   },
   progressBackground: {
     position: 'absolute',
@@ -161,12 +146,13 @@ const styles = StyleSheet.create({
     fontSize: FONTS.mega,
     fontWeight: '800',
     letterSpacing: -2,
+    lineHeight: FONTS.mega + 6,
   },
   stepsLabel: {
     fontSize: FONTS.sm,
     fontWeight: '600',
-    letterSpacing: 4,
-    marginTop: -4,
+    letterSpacing: 2.5,
+    marginTop: -2,
   },
   statsRow: {
     flexDirection: 'row',
@@ -181,6 +167,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: FONTS.sm,
     fontWeight: '500',
+    lineHeight: 18,
   },
   statDivider: {
     width: 1,
@@ -196,5 +183,6 @@ const styles = StyleSheet.create({
   goalText: {
     fontSize: FONTS.xs,
     fontWeight: '500',
+    letterSpacing: 0.2,
   },
 });

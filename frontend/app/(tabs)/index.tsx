@@ -12,8 +12,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { AtSign, ArrowRight, Plus, Flame, TrendingUp, Navigation, Flag } from 'lucide-react-native';
 import { FONTS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
 import { useThemeStore } from '../../src/store/themeStore';
@@ -24,7 +23,6 @@ import { OutsideNowBanner } from '../../src/components/OutsideNowBanner';
 import { userAPI, stepsAPI, challengesAPI } from '../../src/services/api';
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { colors } = useThemeStore();
   const {
     user,
@@ -41,9 +39,7 @@ export default function HomeScreen() {
     distance,
     isTracking,
     startTracking,
-    stopTracking,
     simulateSteps,
-    isPedometerAvailable,
     syncSteps,
   } = usePedometer();
 
@@ -74,7 +70,7 @@ export default function HomeScreen() {
       }
       console.log('User not found, showing onboarding');
     }
-  }, [deviceId]);
+  }, [deviceId, setUser, setOnboarded, updateTodayStats]);
 
   useEffect(() => {
     if (deviceId && !isOnboarded) {
@@ -82,14 +78,14 @@ export default function HomeScreen() {
     } else if (deviceId && isOnboarded) {
       loadUserData();
     }
-  }, [deviceId, isOnboarded]);
+  }, [deviceId, isOnboarded, loadUserData]);
 
   // Start tracking when user is loaded
   useEffect(() => {
     if (user && !isTracking) {
       startTracking();
     }
-  }, [user]);
+  }, [user, isTracking, startTracking]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -136,7 +132,7 @@ export default function HomeScreen() {
         >
           <View style={styles.onboardingContainer}>
             <View style={styles.logoContainer}>
-              <Text style={[styles.logoText, { color: colors.textPrimary }]}>OUT 'ERE</Text>
+              <Text style={[styles.logoText, { color: colors.textPrimary }]}>OUT &apos;ERE</Text>
               <Text style={[styles.tagline, { color: colors.primary }]}>WE OUTSIDE.</Text>
             </View>
 
@@ -149,7 +145,7 @@ export default function HomeScreen() {
               <View style={styles.inputContainer}>
                 <Text style={[styles.inputLabel, { color: colors.textMuted }]}>CHOOSE YOUR TAG</Text>
                 <View style={[styles.textInputWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                  <Ionicons name="at" size={20} color={colors.textMuted} />
+                  <AtSign size={20} color={colors.textMuted} strokeWidth={2.4} />
                   <TextInput
                     style={[styles.textInputReal, { color: colors.textPrimary }]}
                     value={username}
@@ -172,8 +168,8 @@ export default function HomeScreen() {
                 onPress={handleCreateUser}
                 disabled={!username}
               >
-                <Text style={[styles.startButtonText, { color: colors.textPrimary }]}>LET'S GO</Text>
-                <Ionicons name="arrow-forward" size={20} color={colors.textPrimary} />
+                <Text style={[styles.startButtonText, { color: colors.textPrimary }]}>LET&apos;S GO</Text>
+                <ArrowRight size={20} color={colors.textPrimary} strokeWidth={2.5} />
               </Pressable>
             </View>
           </View>
@@ -236,7 +232,7 @@ export default function HomeScreen() {
               style={[styles.simulateButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.primary }]}
               onPress={handleSimulateSteps}
             >
-              <Ionicons name="add" size={16} color={colors.primary} />
+              <Plus size={16} color={colors.primary} strokeWidth={2.6} />
               <Text style={[styles.simulateText, { color: colors.primary }]}>Add Steps (Demo)</Text>
             </Pressable>
           )}
@@ -245,7 +241,7 @@ export default function HomeScreen() {
         {/* Quick Stats */}
         <View style={[styles.quickStats, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
           <View style={styles.quickStatItem}>
-            <Ionicons name="flame" size={24} color={colors.primary} />
+            <Flame size={24} color={colors.primary} strokeWidth={2.3} />
             <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
               {user?.outside_score?.toLocaleString() || 0}
             </Text>
@@ -253,7 +249,7 @@ export default function HomeScreen() {
           </View>
           <View style={[styles.quickStatDivider, { backgroundColor: colors.border }]} />
           <View style={styles.quickStatItem}>
-            <Ionicons name="trending-up" size={24} color={colors.success} />
+            <TrendingUp size={24} color={colors.success} strokeWidth={2.3} />
             <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
               {user?.total_steps?.toLocaleString() || 0}
             </Text>
@@ -261,7 +257,7 @@ export default function HomeScreen() {
           </View>
           <View style={[styles.quickStatDivider, { backgroundColor: colors.border }]} />
           <View style={styles.quickStatItem}>
-            <Ionicons name="navigate" size={24} color={colors.primaryLight} />
+            <Navigation size={24} color={colors.primaryLight} strokeWidth={2.3} />
             <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
               {user?.total_distance?.toFixed(1) || 0}
             </Text>
@@ -281,7 +277,7 @@ export default function HomeScreen() {
           {challenges.slice(0, 2).map((challenge, index) => (
             <View key={challenge.id || index} style={[styles.challengeCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
               <View style={styles.challengeInfo}>
-                <Ionicons name="flag" size={20} color={colors.primary} />
+                <Flag size={20} color={colors.primary} strokeWidth={2.3} />
                 <View style={styles.challengeTextContainer}>
                   <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>{challenge.title}</Text>
                   <Text style={[styles.challengeDescription, { color: colors.textSecondary }]}>
@@ -320,13 +316,16 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
-    letterSpacing: 3,
+    letterSpacing: 1.5,
   },
   username: {
     fontSize: FONTS.xxl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
     marginTop: 2,
+    lineHeight: FONTS.xxl + 6,
   },
   stepCounterContainer: {
     alignItems: 'center',
@@ -350,18 +349,21 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.regular,
+    lineHeight: FONTS.sm + 4,
   },
   simulateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md + 1,
+    paddingVertical: SPACING.sm + 1,
     borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
+    borderWidth: 0,
   },
   simulateText: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
   },
   quickStats: {
@@ -369,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginVertical: SPACING.md,
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   quickStatItem: {
     flex: 1,
@@ -377,12 +379,16 @@ const styles = StyleSheet.create({
   },
   quickStatValue: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
     marginTop: SPACING.sm,
+    lineHeight: FONTS.xl + 5,
   },
   quickStatLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     marginTop: 2,
+    letterSpacing: 0.3,
   },
   quickStatDivider: {
     width: 1,
@@ -399,10 +405,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: FONTS.lg,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
+    lineHeight: FONTS.lg + 5,
   },
   seeAllText: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
   },
   challengeCard: {
@@ -412,7 +421,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   challengeInfo: {
     flexDirection: 'row',
@@ -425,21 +434,28 @@ const styles = StyleSheet.create({
   },
   challengeTitle: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
+    lineHeight: FONTS.md + 4,
   },
   challengeDescription: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.regular,
     marginTop: 2,
+    lineHeight: FONTS.sm + 4,
   },
   challengeReward: {
     alignItems: 'center',
   },
   rewardPoints: {
     fontSize: FONTS.lg,
+    fontFamily: FONTS.black,
     fontWeight: '800',
+    lineHeight: FONTS.lg + 3,
   },
   rewardLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
   },
   // Onboarding styles
   onboardingContainer: {
@@ -453,13 +469,16 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: FONTS.hero,
+    fontFamily: FONTS.black,
     fontWeight: '900',
-    letterSpacing: -2,
+    letterSpacing: 1.2,
+    lineHeight: FONTS.hero + 6,
   },
   tagline: {
     fontSize: FONTS.lg,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
-    letterSpacing: 4,
+    letterSpacing: 2,
     marginTop: SPACING.xs,
   },
   onboardingContent: {
@@ -467,14 +486,18 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontSize: FONTS.xxl,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: SPACING.sm,
+    lineHeight: FONTS.xxl + 6,
   },
   welcomeSubtitle: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.regular,
     textAlign: 'center',
     marginBottom: SPACING.xl,
+    lineHeight: FONTS.md + 6,
   },
   inputContainer: {
     width: '100%',
@@ -482,17 +505,18 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 1,
     marginBottom: SPACING.sm,
   },
   textInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderWidth: 1,
+    paddingHorizontal: SPACING.md + 1,
+    paddingVertical: SPACING.md + 1,
+    borderWidth: 0,
   },
   textInput: {
     flex: 1,
@@ -523,7 +547,8 @@ const styles = StyleSheet.create({
   startButtonDisabled: {},
   startButtonText: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
 });

@@ -8,7 +8,19 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  Calendar,
+  Check,
+  ChevronRight,
+  Flag,
+  Heart,
+  Info,
+  MapPin,
+  Palette,
+  Pencil,
+  RotateCcw,
+  Share2,
+} from 'lucide-react-native';
 import { FONTS, SPACING, BORDER_RADIUS, AVATAR_COLORS, CITIES, THEMES } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
 import { useThemeStore, ThemeKey } from '../../src/store/themeStore';
@@ -102,7 +114,7 @@ export default function ProfileScreen() {
     onPress,
     showArrow = true,
   }: {
-    icon: string;
+    icon: React.ReactNode;
     label: string;
     value?: string;
     onPress?: () => void;
@@ -110,13 +122,13 @@ export default function ProfileScreen() {
   }) => (
     <Pressable style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={onPress}>
       <View style={styles.menuItemLeft}>
-        <Ionicons name={icon as any} size={22} color={colors.primary} />
+        {icon}
         <Text style={[styles.menuItemLabel, { color: colors.textPrimary }]}>{label}</Text>
       </View>
       <View style={styles.menuItemRight}>
         {value && <Text style={[styles.menuItemValue, { color: colors.textSecondary }]}>{value}</Text>}
         {showArrow && (
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          <ChevronRight size={20} color={colors.textMuted} strokeWidth={2.4} />
         )}
       </View>
     </Pressable>
@@ -159,7 +171,7 @@ export default function ProfileScreen() {
               {user?.username?.charAt(0).toUpperCase() || '?'}
             </Text>
             <View style={[styles.avatarEditBadge, { backgroundColor: colors.backgroundTertiary, borderColor: colors.backgroundSecondary }]}>
-              <Ionicons name="pencil" size={12} color={colors.textPrimary} />
+              <Pencil size={12} color={colors.textPrimary} strokeWidth={2.6} />
             </View>
           </Pressable>
 
@@ -190,7 +202,7 @@ export default function ProfileScreen() {
                     onPress={() => handleUpdateColor(color)}
                   >
                     {user?.avatar_color === color && (
-                      <Ionicons name="checkmark" size={24} color="white" />
+                      <Check size={24} color="white" strokeWidth={3} />
                     )}
                   </Pressable>
                 ))}
@@ -235,7 +247,7 @@ export default function ProfileScreen() {
 
           <View style={[styles.menuGroup, dynamicStyles.card]}>
             <MenuItem
-              icon="color-palette"
+              icon={<Palette size={22} color={colors.primary} strokeWidth={2.3} />}
               label="App Theme"
               value={THEMES[currentTheme].name}
               onPress={() => setShowThemePicker(true)}
@@ -257,7 +269,7 @@ export default function ProfileScreen() {
                       { 
                         backgroundColor: THEMES[themeKey].background,
                         borderColor: currentTheme === themeKey ? THEMES[themeKey].primary : colors.border,
-                        borderWidth: currentTheme === themeKey ? 3 : 1,
+                        borderWidth: currentTheme === themeKey ? 2 : 0.8,
                       },
                     ]}
                     onPress={() => handleThemeChange(themeKey)}
@@ -271,7 +283,7 @@ export default function ProfileScreen() {
                     </Text>
                     {currentTheme === themeKey && (
                       <View style={[styles.themeCheck, { backgroundColor: THEMES[themeKey].primary }]}>
-                        <Ionicons name="checkmark" size={16} color={THEMES[themeKey].background} />
+                        <Check size={16} color={THEMES[themeKey].background} strokeWidth={3} />
                       </View>
                     )}
                   </Pressable>
@@ -293,19 +305,19 @@ export default function ProfileScreen() {
 
           <View style={[styles.menuGroup, dynamicStyles.card]}>
             <MenuItem
-              icon="location"
+              icon={<MapPin size={22} color={colors.primary} strokeWidth={2.3} />}
               label="Location"
               value={`${user?.city}, ${user?.borough}`}
               onPress={() => setShowCityPicker(true)}
             />
             <MenuItem
-              icon="flag"
+              icon={<Flag size={22} color={colors.primary} strokeWidth={2.3} />}
               label="Daily Goal"
               value={`${(user?.daily_goal || 10000).toLocaleString()} steps`}
               onPress={() => handleUpdateGoal('daily')}
             />
             <MenuItem
-              icon="calendar"
+              icon={<Calendar size={22} color={colors.primary} strokeWidth={2.3} />}
               label="Weekly Goal"
               value={`${(user?.weekly_goal || 70000).toLocaleString()} steps`}
               onPress={() => handleUpdateGoal('weekly')}
@@ -346,11 +358,7 @@ export default function ProfileScreen() {
                         </Text>
                         {user?.city === city.name &&
                           user?.borough === borough && (
-                            <Ionicons
-                              name="checkmark"
-                              size={20}
-                              color={colors.primary}
-                            />
+                            <Check size={20} color={colors.primary} strokeWidth={3} />
                           )}
                       </Pressable>
                     ))}
@@ -373,18 +381,18 @@ export default function ProfileScreen() {
 
           <View style={[styles.menuGroup, dynamicStyles.card]}>
             <MenuItem
-              icon="information-circle"
+              icon={<Info size={22} color={colors.primary} strokeWidth={2.3} />}
               label="App Version"
               value="1.0.0"
               showArrow={false}
             />
             <MenuItem
-              icon="heart"
+              icon={<Heart size={22} color={colors.primary} strokeWidth={2.3} />}
               label="Rate OUT 'ERE"
               onPress={() => {}}
             />
             <MenuItem
-              icon="share-social"
+              icon={<Share2 size={22} color={colors.primary} strokeWidth={2.3} />}
               label="Share with Friends"
               onPress={() => {}}
             />
@@ -394,14 +402,14 @@ export default function ProfileScreen() {
         {/* Danger Zone */}
         <View style={styles.dangerSection}>
           <Pressable style={[styles.logoutButton, { borderColor: colors.error }]} onPress={handleLogout}>
-            <Ionicons name="log-out" size={20} color={colors.error} />
+            <RotateCcw size={20} color={colors.error} strokeWidth={2.4} />
             <Text style={[styles.logoutText, { color: colors.error }]}>Reset Profile</Text>
           </Pressable>
         </View>
 
         {/* Branding */}
         <View style={styles.branding}>
-          <Text style={[styles.brandingText, dynamicStyles.textMuted]}>OUT 'ERE</Text>
+          <Text style={[styles.brandingText, dynamicStyles.textMuted]}>OUT &apos;ERE</Text>
           <Text style={[styles.brandingSubtext, dynamicStyles.textMuted]}>WE OUTSIDE.</Text>
         </View>
       </ScrollView>
@@ -425,15 +433,17 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONTS.xxl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1,
+    lineHeight: FONTS.xxl + 5,
   },
   profileCard: {
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     alignItems: 'center',
     marginBottom: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   avatar: {
     width: 80,
@@ -457,15 +467,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
   },
   username: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
+    lineHeight: FONTS.xl + 4,
   },
   location: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.regular,
     marginTop: 2,
+    lineHeight: FONTS.sm + 3,
   },
   profileStats: {
     marginTop: SPACING.md,
@@ -475,7 +489,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   quickStatItem: {
     flex: 1,
@@ -483,10 +497,12 @@ const styles = StyleSheet.create({
   },
   quickStatValue: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
   },
   quickStatLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     marginTop: 2,
   },
   quickStatDivider: {
@@ -497,22 +513,23 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.6,
     marginBottom: SPACING.sm,
     textTransform: 'uppercase',
   },
   menuGroup: {
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: SPACING.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.8,
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -521,6 +538,8 @@ const styles = StyleSheet.create({
   },
   menuItemLabel: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.regular,
+    lineHeight: FONTS.md + 4,
   },
   menuItemRight: {
     flexDirection: 'row',
@@ -529,6 +548,8 @@ const styles = StyleSheet.create({
   },
   menuItemValue: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.regular,
+    lineHeight: FONTS.sm + 3,
   },
   dangerSection: {
     marginBottom: SPACING.lg,
@@ -539,12 +560,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.sm,
     backgroundColor: 'rgba(244, 67, 54, 0.1)',
-    padding: SPACING.md,
+    padding: SPACING.md + 1,
     borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
+    borderWidth: 0,
   },
   logoutText: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
   },
   branding: {
@@ -553,7 +575,9 @@ const styles = StyleSheet.create({
   },
   brandingText: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.black,
     fontWeight: '900',
+    letterSpacing: 1,
   },
   brandingSubtext: {
     fontSize: FONTS.xs,
@@ -581,6 +605,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: SPACING.md,
     textAlign: 'center',
+    lineHeight: FONTS.lg + 4,
   },
   colorGrid: {
     flexDirection: 'row',
@@ -597,7 +622,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   colorOptionSelected: {
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   themeGrid: {
@@ -653,7 +678,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.md,
     fontWeight: '700',
     paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.8,
   },
   boroughOption: {
     flexDirection: 'row',
@@ -664,6 +689,7 @@ const styles = StyleSheet.create({
   },
   boroughText: {
     fontSize: FONTS.md,
+    lineHeight: FONTS.md + 3,
   },
   pickerClose: {
     padding: SPACING.md,

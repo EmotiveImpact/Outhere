@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import { StyleSheet, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { House, Users, Trophy, BarChart3, UserRound } from 'lucide-react-native';
 import { useUserStore } from '../../src/store/userStore';
 import { useThemeStore } from '../../src/store/themeStore';
+import { CurvedBottomTabs } from '../../src/components/base/curved-bottom-tabs';
 
 export default function TabLayout() {
   const { initializeDevice } = useUserStore();
@@ -11,25 +11,27 @@ export default function TabLayout() {
 
   useEffect(() => {
     initializeDevice();
-  }, []);
+  }, [initializeDevice]);
 
   return (
     <Tabs
+      tabBar={(props) => (
+        <CurvedBottomTabs
+          {...props}
+          gradients={[colors.backgroundSecondary, colors.background]}
+        />
+      )}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { backgroundColor: colors.backgroundSecondary, borderTopColor: colors.border }],
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIconStyle: styles.tabBarIcon,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
+          tabBarLabel: '',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <House size={size + 1} color={color} strokeWidth={2.5} />
           ),
         }}
       />
@@ -37,8 +39,9 @@ export default function TabLayout() {
         name="groups"
         options={{
           title: 'Squads',
+          tabBarLabel: '',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
+            <Users size={size + 1} color={color} strokeWidth={2.5} />
           ),
         }}
       />
@@ -46,8 +49,9 @@ export default function TabLayout() {
         name="leaderboard"
         options={{
           title: 'Ranks',
+          tabBarLabel: '',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy" size={size} color={color} />
+            <Trophy size={size + 1} color={color} strokeWidth={2.5} />
           ),
         }}
       />
@@ -55,8 +59,9 @@ export default function TabLayout() {
         name="stats"
         options={{
           title: 'Stats',
+          tabBarLabel: '',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart" size={size} color={color} />
+            <BarChart3 size={size + 1} color={color} strokeWidth={2.5} />
           ),
         }}
       />
@@ -64,28 +69,12 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          tabBarLabel: '',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <UserRound size={size + 1} color={color} strokeWidth={2.5} />
           ),
         }}
       />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 88 : 64,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-  },
-  tabBarLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  tabBarIcon: {
-    marginBottom: -4,
-  },
-});

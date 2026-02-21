@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { UsersRound } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -34,14 +34,14 @@ export const OutsideNowBanner: React.FC<OutsideNowBannerProps> = ({
       -1,
       true
     );
-  }, []);
+  }, [pulse]);
 
   useEffect(() => {
     const fetchCount = async () => {
       try {
         const data = await communityAPI.getOutsideNow(city);
         setCount(data.count);
-      } catch (error) {
+      } catch {
         // Use fallback count
         setCount(Math.floor(Math.random() * 150) + 50);
       }
@@ -73,7 +73,7 @@ export const OutsideNowBanner: React.FC<OutsideNowBannerProps> = ({
         </View>
 
         <View style={styles.rightContent}>
-          <Ionicons name="people" size={24} color={colors.primary} />
+          <UsersRound size={24} color={colors.primary} strokeWidth={2.3} />
           <Text style={[styles.cityText, { color: colors.textMuted }]}>{city || 'Global'}</Text>
         </View>
       </View>
@@ -88,12 +88,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   leftContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
+    width: 72,
   },
   liveIndicator: {
     width: 12,
@@ -111,26 +112,31 @@ const styles = StyleSheet.create({
   liveText: {
     fontSize: FONTS.xs,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   centerContent: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   countText: {
     fontSize: FONTS.xxl,
     fontWeight: '800',
+    lineHeight: FONTS.xxl + 4,
   },
   labelText: {
     fontSize: FONTS.xs,
     fontWeight: '600',
-    letterSpacing: 2,
+    letterSpacing: 1.2,
   },
   rightContent: {
     alignItems: 'center',
     gap: SPACING.xs,
+    width: 72,
   },
   cityText: {
     fontSize: FONTS.xs,
     fontWeight: '500',
+    textAlign: 'center',
   },
 });

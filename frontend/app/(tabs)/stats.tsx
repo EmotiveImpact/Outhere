@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { BarChart3, Clock3, Flame, Footprints, Navigation, TrendingUp } from 'lucide-react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
 import { useUserStore } from '../../src/store/userStore';
@@ -71,13 +71,13 @@ export default function StatsScreen() {
     label,
     color = COLORS.primary,
   }: {
-    icon: string;
+    icon: React.ReactNode;
     value: string | number;
     label: string;
     color?: string;
   }) => (
     <View style={styles.statCard}>
-      <Ionicons name={icon as any} size={24} color={color} />
+      <View style={{ opacity: color === COLORS.primary ? 1 : 0.95 }}>{icon}</View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -148,11 +148,7 @@ export default function StatsScreen() {
               />
             ) : (
               <View style={styles.noDataContainer}>
-                <Ionicons
-                  name="bar-chart-outline"
-                  size={48}
-                  color={COLORS.textMuted}
-                />
+                <BarChart3 size={48} color={COLORS.textMuted} strokeWidth={1.9} />
                 <Text style={styles.noDataText}>No data yet</Text>
               </View>
             )}
@@ -164,24 +160,24 @@ export default function StatsScreen() {
           <Text style={styles.sectionTitle}>Weekly Summary</Text>
           <View style={styles.summaryGrid}>
             <StatCard
-              icon="footsteps"
+              icon={<Footprints size={24} color={COLORS.primary} strokeWidth={2.3} />}
               value={weeklySummary?.total_steps?.toLocaleString() || 0}
               label="Total Steps"
             />
             <StatCard
-              icon="navigate"
+              icon={<Navigation size={24} color={COLORS.primaryLight} strokeWidth={2.3} />}
               value={`${weeklySummary?.total_distance?.toFixed(1) || 0} km`}
               label="Distance"
               color={COLORS.primaryLight}
             />
             <StatCard
-              icon="time"
+              icon={<Clock3 size={24} color={COLORS.success} strokeWidth={2.3} />}
               value={weeklySummary?.total_active_minutes || 0}
               label="Active Min"
               color={COLORS.success}
             />
             <StatCard
-              icon="trending-up"
+              icon={<TrendingUp size={24} color={COLORS.warning} strokeWidth={2.3} />}
               value={Math.round(weeklySummary?.avg_steps || 0).toLocaleString()}
               label="Daily Avg"
               color={COLORS.warning}
@@ -194,21 +190,21 @@ export default function StatsScreen() {
           <Text style={styles.sectionTitle}>All Time</Text>
           <View style={styles.allTimeGrid}>
             <View style={styles.allTimeCard}>
-              <Ionicons name="flame" size={32} color={COLORS.primary} />
+              <Flame size={32} color={COLORS.primary} strokeWidth={2.2} />
               <Text style={styles.allTimeValue}>
                 {user?.outside_score?.toLocaleString() || 0}
               </Text>
               <Text style={styles.allTimeLabel}>Outside Score</Text>
             </View>
             <View style={styles.allTimeCard}>
-              <Ionicons name="footsteps" size={32} color={COLORS.primaryLight} />
+              <Footprints size={32} color={COLORS.primaryLight} strokeWidth={2.2} />
               <Text style={styles.allTimeValue}>
                 {user?.total_steps?.toLocaleString() || 0}
               </Text>
               <Text style={styles.allTimeLabel}>Total Steps</Text>
             </View>
             <View style={styles.allTimeCard}>
-              <Ionicons name="navigate" size={32} color={COLORS.success} />
+              <Navigation size={32} color={COLORS.success} strokeWidth={2.2} />
               <Text style={styles.allTimeValue}>
                 {user?.total_distance?.toFixed(1) || 0} km
               </Text>
@@ -292,28 +288,32 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONTS.xxl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    letterSpacing: 2,
+    letterSpacing: 1,
+    lineHeight: FONTS.xxl + 5,
   },
   subtitle: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
     marginTop: 2,
+    lineHeight: FONTS.sm + 3,
   },
   streakSection: {
     backgroundColor: COLORS.backgroundSecondary,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderColor: COLORS.border,
   },
   streakInfo: {
     flexDirection: 'row',
     marginTop: SPACING.lg,
     paddingTop: SPACING.md,
-    borderTopWidth: 1,
+    borderTopWidth: 0.8,
     borderTopColor: COLORS.border,
   },
   streakInfoItem: {
@@ -322,11 +322,13 @@ const styles = StyleSheet.create({
   },
   streakInfoLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginBottom: SPACING.xs,
   },
   streakInfoValue: {
     fontSize: FONTS.lg,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
@@ -339,15 +341,17 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: FONTS.lg,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginBottom: SPACING.md,
+    lineHeight: FONTS.lg + 4,
   },
   chartContainer: {
     backgroundColor: COLORS.backgroundSecondary,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderColor: COLORS.border,
     overflow: 'hidden',
   },
@@ -359,6 +363,7 @@ const styles = StyleSheet.create({
   noDataText: {
     marginTop: SPACING.md,
     fontSize: FONTS.md,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
   summarySection: {
@@ -376,17 +381,20 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderColor: COLORS.border,
   },
   statValue: {
     fontSize: FONTS.xl,
+    fontFamily: FONTS.black,
     fontWeight: '800',
     color: COLORS.textPrimary,
     marginTop: SPACING.sm,
+    lineHeight: FONTS.xl + 4,
   },
   statLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 2,
   },
@@ -403,17 +411,20 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderColor: COLORS.border,
   },
   allTimeValue: {
     fontSize: FONTS.lg,
+    fontFamily: FONTS.bold,
     fontWeight: '800',
     color: COLORS.textPrimary,
     marginTop: SPACING.sm,
+    lineHeight: FONTS.lg + 3,
   },
   allTimeLabel: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 2,
     textAlign: 'center',
@@ -426,7 +437,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderColor: COLORS.border,
   },
   goalHeader: {
@@ -437,11 +448,13 @@ const styles = StyleSheet.create({
   },
   goalTitle: {
     fontSize: FONTS.md,
+    fontFamily: FONTS.bold,
     fontWeight: '600',
     color: COLORS.textPrimary,
   },
   goalProgress: {
     fontSize: FONTS.sm,
+    fontFamily: FONTS.bold,
     fontWeight: '700',
     color: COLORS.primary,
   },
@@ -458,6 +471,7 @@ const styles = StyleSheet.create({
   },
   goalTarget: {
     fontSize: FONTS.xs,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: SPACING.sm,
   },

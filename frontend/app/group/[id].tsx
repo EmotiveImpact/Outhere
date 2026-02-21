@@ -13,7 +13,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  ChevronLeft,
+  Flag,
+  ImageIcon,
+  LogOut,
+  MessageCircle,
+  SendHorizontal,
+  Share2,
+  UsersRound,
+} from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { FONTS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
@@ -43,7 +52,7 @@ export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useThemeStore();
-  const { user, deviceId } = useUserStore();
+  const { deviceId } = useUserStore();
   const scrollRef = useRef<ScrollView>(null);
   
   const [group, setGroup] = useState<any>(null);
@@ -81,7 +90,7 @@ export default function GroupDetailScreen() {
         try {
           const newMessages = await groupsAPI.getMessages(id);
           setMessages(newMessages);
-        } catch (e) {}
+        } catch {}
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -100,7 +109,7 @@ export default function GroupDetailScreen() {
       const updated = await groupsAPI.getMessages(id!);
       setMessages(updated);
       scrollRef.current?.scrollToEnd({ animated: true });
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to send message');
     } finally {
       setSending(false);
@@ -125,7 +134,7 @@ export default function GroupDetailScreen() {
         setMessages(updated);
         setSending(false);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to send image');
       setSending(false);
     }
@@ -145,7 +154,7 @@ export default function GroupDetailScreen() {
           try {
             await groupsAPI.leave(id!, deviceId!);
             router.back();
-          } catch (error) {
+          } catch {
             Alert.alert('Error', 'Failed to leave group');
           }
         },
@@ -166,7 +175,7 @@ export default function GroupDetailScreen() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} strokeWidth={2.4} />
         </Pressable>
         <View style={styles.headerInfo}>
           <View style={[styles.groupAvatar, { backgroundColor: group?.avatar_color }]}>
@@ -180,7 +189,7 @@ export default function GroupDetailScreen() {
           </View>
         </View>
         <Pressable onPress={handleCopyInviteCode} style={styles.headerButton}>
-          <Ionicons name="share-outline" size={22} color={colors.primary} />
+          <Share2 size={22} color={colors.primary} strokeWidth={2.3} />
         </Pressable>
       </View>
 
@@ -192,11 +201,13 @@ export default function GroupDetailScreen() {
             style={[styles.tab, activeTab === tab && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
             onPress={() => setActiveTab(tab as any)}
           >
-            <Ionicons
-              name={tab === 'chat' ? 'chatbubbles' : tab === 'members' ? 'people' : 'flag'}
-              size={20}
-              color={activeTab === tab ? colors.primary : colors.textMuted}
-            />
+            {tab === 'chat' ? (
+              <MessageCircle size={20} color={activeTab === tab ? colors.primary : colors.textMuted} strokeWidth={2.3} />
+            ) : tab === 'members' ? (
+              <UsersRound size={20} color={activeTab === tab ? colors.primary : colors.textMuted} strokeWidth={2.3} />
+            ) : (
+              <Flag size={20} color={activeTab === tab ? colors.primary : colors.textMuted} strokeWidth={2.3} />
+            )}
             <Text style={[styles.tabText, { color: activeTab === tab ? colors.primary : colors.textMuted }]}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
@@ -237,7 +248,7 @@ export default function GroupDetailScreen() {
           
           <View style={[styles.inputContainer, { backgroundColor: colors.backgroundSecondary, borderTopColor: colors.border }]}>
             <Pressable onPress={handleSendImage} style={styles.mediaButton}>
-              <Ionicons name="image" size={24} color={colors.primary} />
+              <ImageIcon size={24} color={colors.primary} strokeWidth={2.3} />
             </Pressable>
             <TextInput
               style={[styles.messageInput, { backgroundColor: colors.backgroundTertiary, color: colors.textPrimary }]}
@@ -248,7 +259,7 @@ export default function GroupDetailScreen() {
               multiline
             />
             <Pressable onPress={handleSendMessage} disabled={sending} style={[styles.sendButton, { backgroundColor: colors.primary }]}>
-              <Ionicons name="send" size={18} color="#FFFFFF" />
+              <SendHorizontal size={18} color="#FFFFFF" strokeWidth={2.6} />
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -275,7 +286,7 @@ export default function GroupDetailScreen() {
           ))}
           
           <Pressable style={[styles.leaveButton, { borderColor: colors.error }]} onPress={handleLeaveGroup}>
-            <Ionicons name="exit-outline" size={20} color={colors.error} />
+            <LogOut size={20} color={colors.error} strokeWidth={2.4} />
             <Text style={[styles.leaveText, { color: colors.error }]}>Leave Squad</Text>
           </Pressable>
         </ScrollView>
@@ -285,7 +296,7 @@ export default function GroupDetailScreen() {
       {activeTab === 'challenges' && (
         <ScrollView style={styles.challengesList}>
           <View style={styles.comingSoon}>
-            <Ionicons name="flag" size={48} color={colors.textMuted} />
+            <Flag size={48} color={colors.textMuted} strokeWidth={1.9} />
             <Text style={[styles.comingSoonText, { color: colors.textSecondary }]}>
               Group challenges coming soon!
             </Text>
@@ -303,12 +314,12 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.sm },
   groupAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   groupAvatarText: { fontSize: FONTS.lg, fontWeight: '700', color: '#FFF' },
-  groupName: { fontSize: FONTS.md, fontWeight: '600' },
+  groupName: { fontSize: FONTS.md, fontFamily: FONTS.bold, fontWeight: '600' },
   memberCount: { fontSize: FONTS.sm },
   headerButton: { padding: SPACING.sm },
   tabs: { flexDirection: 'row' },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, gap: SPACING.xs },
-  tabText: { fontSize: FONTS.sm, fontWeight: '600' },
+  tabText: { fontSize: FONTS.sm, fontFamily: FONTS.bold, fontWeight: '600' },
   chatContainer: { flex: 1 },
   messagesList: { flex: 1 },
   messagesContent: { padding: SPACING.md },
@@ -332,8 +343,8 @@ const styles = StyleSheet.create({
   memberInfo: { flex: 1, marginLeft: SPACING.md },
   memberName: { fontSize: FONTS.md, fontWeight: '600' },
   memberSteps: { fontSize: FONTS.sm },
-  leaveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: SPACING.md, borderRadius: BORDER_RADIUS.md, borderWidth: 1, marginTop: SPACING.lg, gap: SPACING.sm },
-  leaveText: { fontSize: FONTS.md, fontWeight: '600' },
+  leaveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: SPACING.md + 1, borderRadius: BORDER_RADIUS.md, borderWidth: 0, marginTop: SPACING.lg, gap: SPACING.sm },
+  leaveText: { fontSize: FONTS.md, fontFamily: FONTS.bold, fontWeight: '600' },
   challengesList: { flex: 1, padding: SPACING.md },
   comingSoon: { alignItems: 'center', paddingVertical: SPACING.xxl },
   comingSoonText: { marginTop: SPACING.md, fontSize: FONTS.md },

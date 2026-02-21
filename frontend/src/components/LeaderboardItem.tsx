@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronRight, Flame, Trophy } from 'lucide-react-native';
 import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../constants/theme';
 
 interface LeaderboardItemProps {
@@ -25,11 +25,11 @@ export const LeaderboardItem: React.FC<LeaderboardItemProps> = ({
   const getRankIcon = () => {
     switch (rank) {
       case 1:
-        return <Ionicons name="trophy" size={20} color="#FFD700" />;
+        return <Trophy size={20} color="#FFD700" strokeWidth={2.3} />;
       case 2:
-        return <Ionicons name="trophy" size={20} color="#C0C0C0" />;
+        return <Trophy size={20} color="#C0C0C0" strokeWidth={2.3} />;
       case 3:
-        return <Ionicons name="trophy" size={20} color="#CD7F32" />;
+        return <Trophy size={20} color="#CD7F32" strokeWidth={2.3} />;
       default:
         return <Text style={styles.rankNumber}>{rank}</Text>;
     }
@@ -69,18 +69,14 @@ export const LeaderboardItem: React.FC<LeaderboardItemProps> = ({
           </Text>
           {streak > 0 && (
             <View style={styles.streakBadge}>
-              <Ionicons name="flame" size={12} color={COLORS.primary} />
+              <Flame size={12} color={COLORS.primary} strokeWidth={2.4} />
               <Text style={styles.streakText}>{streak}</Text>
             </View>
           )}
         </View>
       </View>
 
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={COLORS.textMuted}
-      />
+      <ChevronRight size={20} color={COLORS.textMuted} strokeWidth={2.4} />
     </Pressable>
   );
 };
@@ -93,7 +89,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderColor: COLORS.border,
   },
   currentUserContainer: {
@@ -113,6 +109,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.md,
     fontWeight: '700',
     color: COLORS.textSecondary,
+    lineHeight: FONTS.md + 2,
   },
   avatar: {
     width: 44,
@@ -135,6 +132,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.md,
     fontWeight: '600',
     color: COLORS.textPrimary,
+    lineHeight: FONTS.md + 4,
   },
   currentUserText: {
     color: COLORS.primary,
@@ -148,6 +146,7 @@ const styles = StyleSheet.create({
   stepsText: {
     fontSize: FONTS.sm,
     color: COLORS.textSecondary,
+    lineHeight: FONTS.sm + 3,
   },
   streakBadge: {
     flexDirection: 'row',

@@ -16,10 +16,10 @@ export const usePedometer = () => {
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'pending'>('pending');
   
   const subscriptionRef = useRef<any>(null);
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const baseStepsRef = useRef(0);
   
-  const { deviceId, updateTodayStats, todayStats } = useUserStore();
+  const { deviceId, updateTodayStats } = useUserStore();
 
   // Check permission and availability
   const checkPermission = useCallback(async () => {
