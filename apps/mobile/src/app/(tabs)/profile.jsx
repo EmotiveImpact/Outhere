@@ -1,15 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Pressable, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, Pattern, Rect, Circle } from "react-native-svg";
+import { Calendar as RNCalendar } from "react-native-calendars";
 import {
   useInfiniteQuery,
   useMutation,
@@ -26,6 +19,7 @@ import {
   Settings,
   Target,
   Clock,
+  ChevronRight,
   Zap,
   Flame,
 } from "lucide-react-native";
@@ -376,10 +370,13 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { user: storeUser, weeklyGoal, xp, streak } = useUserStore();
+  const { user: storeUser, weeklyGoal, xp, streak, squadName } = useUserStore();
   const [selectedRange, setSelectedRange] = useState("30d");
   const [isEditing, setIsEditing] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [showRunDetail, setShowRunDetail] = useState(false);
+  const [selectedRun, setSelectedRun] = useState(null);
   const [form, setForm] = useState({
     name: "",
     avatar_url: "",
@@ -532,6 +529,31 @@ export default function ProfileScreen() {
       }),
     [profileSummary, friendList.length, events.length],
   );
+  const markedDates = useMemo(() => {
+    const marks = {};
+    allRuns.forEach(run => {
+      const date = dateKey(run.created_at || run.date);
+      if (date) {
+        marks[date] = { 
+          marked: true, 
+          dotColor: "#00ff7f", 
+          selected: date === selectedDate,
+          selectedColor: "#00ff7f",
+          selectedTextColor: "#000"
+        };
+      }
+    });
+    // Ensure selected date is shown even if no run
+    if (!marks[selectedDate]) {
+      marks[selectedDate] = { selected: true, selectedColor: "#00ff7f", selectedTextColor: "#000" };
+    }
+    return marks;
+  }, [allRuns, selectedDate]);
+
+  const dailyRuns = useMemo(() => {
+    return allRuns.filter(run => dateKey(run.created_at || run.date) === selectedDate);
+  }, [allRuns, selectedDate]);
+
   const userFields = useMemo(() => getUserFields(user), [user]);
 
   const isScreenLoading = isDashboardLoading || isProfileLoading || isRunsLoading;
@@ -663,6 +685,9 @@ export default function ProfileScreen() {
             <Text style={{ color: "#999", fontSize: 13, marginTop: 6 }} numberOfLines={2}>
               {user.bio || "Add a short bio to make your profile stand out."}
             </Text>
+            <View style={{ backgroundColor: "rgba(255,255,255,0.05)", alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 8 }}>
+              <Text style={{ color: "#777", fontSize: 10, fontWeight: "700", letterSpacing: 0.5 }}>SQUAD: {squadName.toUpperCase()}</Text>
+            </View>
             <View style={{ flexDirection: "row", marginTop: 12, flexWrap: "wrap", gap: 8 }}>
               <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
                 <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700" }}>
@@ -675,16 +700,18 @@ export default function ProfileScreen() {
                 </Text>
               </View>
               {xp > 0 && (
-                <View style={{ backgroundColor: "rgba(255, 214, 10, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
-                  <Text style={{ color: "#FFD60A", fontSize: 12, fontWeight: "800" }}>
-                    ⚡ {xp.toLocaleString()} XP
+                <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' }}>
+                  <Zap color="#00ff7f" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>
+                    {xp.toLocaleString()} XP
                   </Text>
                 </View>
               )}
               {streak > 0 && (
-                <View style={{ backgroundColor: "rgba(255, 107, 0, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
-                  <Text style={{ color: "#FF6B00", fontSize: 12, fontWeight: "800" }}>
-                    🔥 {streak} day streak
+                <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' }}>
+                  <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>
+                    {streak} day streak
                   </Text>
                 </View>
               )}
@@ -752,12 +779,12 @@ export default function ProfileScreen() {
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <Text style={{ color: "#fff", fontSize: 15, fontWeight: "500", letterSpacing: 0.2 }}>Achieved</Text>
-            <Target color="#7FE3D1" size={24} strokeWidth={2.5} />
+            <Target color="#00ff7f" size={24} strokeWidth={2.5} />
           </View>
           
           <View style={{ position: "relative", backgroundColor: "#282A2E", borderRadius: 10, height: 44, overflow: "hidden", marginBottom: 30 }}>
             {/* Filled Teal Bar with Stripes */}
-            <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min((profileSummary.weekDistance / 20) * 100, 100)}%`, backgroundColor: "#7FE3D1", overflow: "hidden" }}>
+            <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min((profileSummary.weekDistance / 20) * 100, 100)}%`, backgroundColor: "#00ff7f", overflow: "hidden" }}>
               <Svg width="100%" height="100%">
                 <Defs>
                   <Pattern id="stripes" patternUnits="userSpaceOnUse" width="28" height="28" patternTransform="rotate(25)">
@@ -1232,6 +1259,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── CALENDAR SECTION ── */}
         <View
           style={{
             marginTop: 24,
@@ -1241,141 +1269,127 @@ export default function ProfileScreen() {
           }}
         >
           <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-            Recent Runs
+            Activity Calendar
           </Text>
-          <View style={{ flexDirection: "row" }}>
-            {runRanges.map((range) => (
-              <TouchableOpacity
-                key={range.key}
-                onPress={() => setSelectedRange(range.key)}
-                style={{
-                  marginLeft: 6,
-                  paddingHorizontal: 9,
-                  paddingVertical: 5,
-                  borderRadius: 10,
-                  backgroundColor:
-                    selectedRange === range.key ? "#00ff7f" : "#1f1f1f",
-                }}
-              >
-                <Text
-                  style={{
-                    color: selectedRange === range.key ? "#000" : "#888",
-                    fontSize: 11,
-                    fontWeight: "700",
-                  }}
-                >
-                  {range.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
-        {allRuns.map((run, index) => (
-          <View
-            key={run.id || `recent-${index}`}
-            style={{
+        <View style={{ marginTop: 16, backgroundColor: "#161618", borderRadius: 24, padding: 8, overflow: "hidden" }}>
+          <RNCalendar
+            theme={{
               backgroundColor: "#161618",
-              borderRadius: 24,
-              padding: 18,
-              marginTop: 12,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 8,
-              elevation: 3,
+              calendarBackground: "#161618",
+              textSectionTitleColor: "#888",
+              selectedDayBackgroundColor: "#00ff7f",
+              selectedDayTextColor: "#000",
+              todayTextColor: "#00ff7f",
+              dayTextColor: "#fff",
+              textDisabledColor: "#444",
+              dotColor: "#00ff7f",
+              selectedDotColor: "#000",
+              arrowColor: "#00ff7f",
+              monthTextColor: "#fff",
+              indicatorColor: "#00ff7f",
+              textDayFontWeight: "600",
+              textMonthFontWeight: "800",
+              textDayHeaderFontWeight: "700",
+              textDayFontSize: 14,
+              textMonthFontSize: 18,
+              textDayHeaderFontSize: 12,
             }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <Text style={{ color: "#8a8a8a", fontSize: 12 }}>
-                {formatCalendarDate(run.created_at || run.date)}
-              </Text>
-              <View
+            markedDates={markedDates}
+            onDayPress={(day) => {
+              setSelectedDate(day.dateString);
+              hapticSelection();
+            }}
+          />
+        </View>
+
+        {/* ── DAILY RUNS FOR SELECTED DATE ── */}
+        <View style={{ marginTop: 24 }}>
+          <Text style={{ color: "#777", fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+            Runs for {selectedDate}
+          </Text>
+          
+          {dailyRuns.length === 0 ? (
+            <View style={{ marginTop: 12, padding: 24, backgroundColor: "#161618", borderRadius: 20, alignItems: "center" }}>
+              <Clock color="#2a2a2a" size={32} style={{ marginBottom: 8 }} />
+              <Text style={{ color: "#444", fontWeight: "600" }}>No runs on this day.</Text>
+            </View>
+          ) : (
+            dailyRuns.map((run, index) => (
+              <TouchableOpacity
+                key={run.id || `daily-${index}`}
+                onPress={() => {
+                  setSelectedRun(run);
+                  setShowRunDetail(true);
+                  hapticSelection();
+                }}
                 style={{
-                  backgroundColor: "rgba(0,255,127,0.15)",
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 8,
+                  backgroundColor: "#161618",
+                  borderRadius: 24,
+                  padding: 18,
+                  marginTop: 12,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.05)",
                 }}
               >
-                <Text style={{ color: "#00ff7f", fontSize: 10, fontWeight: "700" }}>
-                  Running
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <View>
-                <Text style={{ color: "#fff", fontSize: 30, fontWeight: "700" }}>
-                  {toNumber(run.distance).toFixed(1)}
-                </Text>
-                <Text style={{ color: "#8a8a8a", fontSize: 12 }}>km</Text>
-              </View>
-
-              <View style={{ alignItems: "flex-end" }}>
-                <View style={{ flexDirection: "row" }}>
-                  <View style={{ marginRight: 20 }}>
-                    <Text style={{ color: "#777", fontSize: 11, marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>Time</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Clock color="#00ff7f" size={16} style={{ marginRight: 6 }} />
-                      <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-                        {formatTime(run.duration_seconds)}
-                      </Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800" }}>
+                    {toNumber(run.distance).toFixed(1)} <Text style={{ fontSize: 14, color: "#777" }}>KM</Text>
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>{formatPace(run.pace_seconds_per_km)}</Text>
+                      <Text style={{ color: "#444", fontSize: 10 }}>Pace</Text>
                     </View>
-                  </View>
-
-                  <View style={{ marginRight: 20 }}>
-                    <Text style={{ color: "#777", fontSize: 11, marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>Pace</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Zap color="#00ff7f" size={16} style={{ marginRight: 6 }} />
-                      <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-                        {formatPace(run.pace_seconds_per_km)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View>
-                    <Text style={{ color: "#777", fontSize: 11, marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>Cal</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Flame color="#00ff7f" size={16} style={{ marginRight: 6 }} />
-                      <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-                        {toInt(run.calories)}
-                      </Text>
-                    </View>
+                    <ChevronRight color="#444" size={16} />
                   </View>
                 </View>
-              </View>
-            </View>
-          </View>
-        ))}
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
 
-        {hasNextPage ? (
-          <TouchableOpacity
-            onPress={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            style={{
-              marginTop: 12,
-              backgroundColor: "#161618",
-              borderRadius: 20,
-              paddingVertical: 12,
-              alignItems: "center",
-            }}
-          >
-            {isFetchingNextPage ? (
-              <ActivityIndicator color="#00ff7f" />
-            ) : (
-              <Text style={{ color: "#00ff7f", fontWeight: "700" }}>
-                Load More Runs
-              </Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
+        {/* ── RUN DETAIL MODAL ── */}
+        <Modal visible={showRunDetail} transparent animationType="slide">
+          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }} onPress={() => setShowRunDetail(false)}>
+            <Pressable style={{ backgroundColor: "#0a0a0a", borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 32, paddingBottom: 60 }}>
+              <View style={{ width: 40, height: 4, backgroundColor: "#222", borderRadius: 2, alignSelf: "center", marginBottom: 32 }} />
+              
+              <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>Activity Details</Text>
+              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatCalendarDate(selectedRun.created_at || selectedRun.date).split(',')[0] : ""}</Text>
+              
+              <View style={{ marginTop: 40, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+                <View style={{ width: "45%", marginBottom: 32 }}>
+                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Distance</Text>
+                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? toNumber(selectedRun.distance).toFixed(2) : "0.00"}</Text>
+                  <Text style={{ color: "#444", fontSize: 12 }}>kilometers</Text>
+                </View>
+                <View style={{ width: "45%", marginBottom: 32 }}>
+                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Time</Text>
+                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatTime(selectedRun.duration_seconds) : "00:00"}</Text>
+                  <Text style={{ color: "#444", fontSize: 12 }}>duration</Text>
+                </View>
+                <View style={{ width: "45%" }}>
+                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Avg Pace</Text>
+                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatPace(selectedRun.pace_seconds_per_km) : "0'00"}</Text>
+                  <Text style={{ color: "#444", fontSize: 12 }}>per km</Text>
+                </View>
+                <View style={{ width: "45%" }}>
+                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Calories</Text>
+                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? toInt(selectedRun.calories) : "0"}</Text>
+                  <Text style={{ color: "#444", fontSize: 12 }}>burned</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity 
+                onPress={() => setShowRunDetail(false)}
+                style={{ backgroundColor: "#1a1a1a", padding: 18, borderRadius: 20, alignItems: "center", marginTop: 48 }}>
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Close</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         <View style={{ marginTop: 22 }}>
           <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
@@ -1468,6 +1482,31 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
+
+        {/* ── LOGOUT BUTTON ── */}
+        <TouchableOpacity
+          onPress={() => {
+            const { useUserStore } = require("@/store/userStore");
+            const { router } = require("expo-router");
+            useUserStore.getState().setOnboarded(false);
+            router.push("/welcome");
+          }}
+          style={{
+            backgroundColor: "#2a1515",
+            borderRadius: 16,
+            paddingVertical: 16,
+            alignItems: "center",
+            marginTop: 32,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: "rgba(255, 69, 58, 0.3)",
+          }}
+        >
+          <Text style={{ color: "#ff453a", fontWeight: "800", fontSize: 14, letterSpacing: 0.5 }}>
+            LOG OUT
+          </Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </View>
   );

@@ -47,6 +47,9 @@ export const userAPI = {
   create: (data) =>
     request("/users", { method: "POST", body: data }),
 
+  checkUsername: (username) =>
+    request(`/users/check-username?username=${encodeURIComponent(username)}`),
+
   get: (deviceId) =>
     request(`/users/${deviceId}`),
 

@@ -167,9 +167,9 @@ export default function MoveScreen() {
               <Text style={{ color: "#555", fontSize: 11, fontWeight: "600", marginTop: 2 }}>XP EARNED</Text>
             </View>
             {streak > 0 && (
-              <View style={{ flex: 1, backgroundColor: "rgba(255,107,0,0.08)", borderRadius: 20, padding: 18, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,107,0,0.15)" }}>
-                <Flame color="#FF6B00" size={20} />
-                <Text style={{ color: "#FF6B00", fontSize: 22, fontWeight: "900", marginTop: 8 }}>{streak}</Text>
+              <View style={{ flex: 1, backgroundColor: "rgba(0,255,127,0.08)", borderRadius: 20, padding: 18, alignItems: "center", borderWidth: 1, borderColor: "rgba(0,255,127,0.15)" }}>
+                <Flame color="#00ff7f" size={20} />
+                <Text style={{ color: "#00ff7f", fontSize: 22, fontWeight: "900", marginTop: 8 }}>{streak}</Text>
                 <Text style={{ color: "#555", fontSize: 11, fontWeight: "600", marginTop: 2 }}>DAY STREAK</Text>
               </View>
             )}
@@ -297,11 +297,11 @@ export default function MoveScreen() {
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <View>
               <Text style={{ color: "#555", fontSize: 10, fontWeight: "700", letterSpacing: 2, textTransform: "uppercase" }}>READY TO</Text>
-              <Text style={{ color: "#fff", fontSize: 34, fontWeight: "900", letterSpacing: -1.5, marginTop: 2 }}>MOVE</Text>
+              <Text style={{ color: "#fff", fontSize: 34, fontWeight: "900", letterSpacing: -1.5, marginTop: 2 }}>RUN</Text>
             </View>
             <View style={{ backgroundColor: "#1c1c1e", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#2c2c2e" }}>
-              <Zap color="#FFD60A" size={14} fill="#FFD60A" />
-              <Text style={{ color: "#FFD60A", fontWeight: "800", fontSize: 14, marginLeft: 8 }}>{(xp || 0).toLocaleString()} XP</Text>
+              <Zap color="#00ff7f" size={14} fill="#00ff7f" />
+              <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 14, marginLeft: 8 }}>{(xp || 0).toLocaleString()} XP</Text>
             </View>
           </View>
 
@@ -399,7 +399,7 @@ export default function MoveScreen() {
               <View style={{ flex: 1, alignItems: "center" }}>
                 {streak > 0 ? (
                   <>
-                    <Text style={{ color: "#FF6B00", fontSize: 26, fontWeight: "900", letterSpacing: -1 }}>{streak}</Text>
+                    <Text style={{ color: "#00ff7f", fontSize: 26, fontWeight: "900", letterSpacing: -1 }}>{streak}</Text>
                     <Text style={{ color: "#555", fontSize: 10, marginTop: 6, fontWeight: "700", letterSpacing: 1 }}>STREAK</Text>
                   </>
                 ) : (
@@ -419,7 +419,7 @@ export default function MoveScreen() {
               <Text style={{ color: "#444", fontSize: 11, fontWeight: "700", letterSpacing: 0.5 }}>GPS ACTIVE</Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 12 }}>
-              <Flame color={streak > 0 ? "#FF6B00" : "#222"} size={12} style={{ marginRight: 6 }} />
+              <Flame color={streak > 0 ? "#00ff7f" : "#222"} size={12} style={{ marginRight: 6 }} />
               <Text style={{ color: "#444", fontSize: 11, fontWeight: "700", letterSpacing: 0.5 }}>
                 {streak > 0 ? `${streak}D STREAK` : "STREAK IDLE"}
               </Text>

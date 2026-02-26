@@ -172,21 +172,21 @@ export default function StepCounterWidget({ lastRun, isCheckedIn = true, weeklyG
 
           <View style={styles.metricBlock}>
             <View style={styles.metricIconRow}>
-              <Flame color={accentColor} size={14} />
-              <Text style={styles.metricLabel}>Active Kcal</Text>
-            </View>
-            <Text style={styles.metricValue}>
-              {lastRun?.calories || "234"}
-            </Text>
-          </View>
-
-          <View style={styles.metricBlock}>
-            <View style={styles.metricIconRow}>
               <Zap color={accentColor} size={14} />
               <Text style={styles.metricLabel}>Pace</Text>
             </View>
             <Text style={styles.metricValue}>
               {formatPace(lastRun?.pace_seconds_per_km)}
+            </Text>
+          </View>
+
+          <View style={styles.metricBlock}>
+            <View style={styles.metricIconRow}>
+              <Flame color={accentColor} size={14} />
+              <Text style={styles.metricLabel}>Active Kcal</Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {lastRun?.calories || "234"}
             </Text>
           </View>
         </View>

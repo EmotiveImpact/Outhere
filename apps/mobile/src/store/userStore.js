@@ -34,6 +34,7 @@ export const useUserStore = create((set, get) => ({
   streak: 0,       // consecutive check-in days — persisted
   lastCheckInDate: null, // ISO date string of last check-in
   isOutside: false, // social status — persisted
+  squadName: "URBAN EXPLORERS", // squad identity — persisted
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ export const useUserStore = create((set, get) => ({
       const savedStreak = await AsyncStorage.getItem("streak");
       const savedLastCheckIn = await AsyncStorage.getItem("last_check_in_date");
       const savedIsOutside = await AsyncStorage.getItem("is_outside");
+      const savedSquadName = await AsyncStorage.getItem("squad_name");
 
       set({
         deviceId,
@@ -65,6 +67,7 @@ export const useUserStore = create((set, get) => ({
         streak: savedStreak ? parseInt(savedStreak, 10) : 0,
         lastCheckInDate: savedLastCheckIn || null,
         isOutside: savedIsOutside === "true",
+        squadName: savedSquadName || "URBAN EXPLORERS",
       });
       return deviceId;
     } catch (error) {
@@ -96,6 +99,11 @@ export const useUserStore = create((set, get) => ({
   setWeeklyGoal: async (goal) => {
     await AsyncStorage.setItem("weekly_goal", goal.toString());
     set({ weeklyGoal: goal });
+  },
+
+  setSquadName: async (name) => {
+    await AsyncStorage.setItem("squad_name", name);
+    set({ squadName: name });
   },
 
   setSyncStatus: (status, at) =>
@@ -142,5 +150,6 @@ export const useUserStore = create((set, get) => ({
       isOnboarded: false,
       syncStatus: "idle",
       lastSyncAt: null,
+      squadName: "URBAN EXPLORERS",
     }),
 }));

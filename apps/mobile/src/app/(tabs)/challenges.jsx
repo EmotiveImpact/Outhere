@@ -7,7 +7,7 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Trophy, ChevronRight, Zap, Swords, Clock } from "lucide-react-native";
+import { Trophy, ChevronRight, Zap, Swords, Clock, Sunrise, Flame, Activity, ShieldAlert } from "lucide-react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
@@ -76,10 +76,10 @@ export default function Challenges() {
   const events = fallbackEvents;
 
   const challenges = [
-    { id: 1, title: "Early Bird", desc: "Run before 7am", icon: "🌅", progress: 3, total: 5, xpReward: 50 },
-    { id: 2, title: "Speed Demon", desc: "Run 5km under 25min", icon: "⚡", progress: 1, total: 1, xpReward: 100 },
-    { id: 3, title: "Consistent Runner", desc: "Run 5 days in a row", icon: "🔥", progress: 2, total: 5, xpReward: 150 },
-    { id: 4, title: "Long Distance", desc: "Run 10km in one session", icon: "🏃", progress: 0, total: 1, xpReward: 200 },
+    { id: 1, title: "Early Bird", desc: "Run before 7am", icon: Sunrise, progress: 3, total: 5, xpReward: 50, color: "#00ff7f" },
+    { id: 2, title: "Speed Demon", desc: "Run 5km under 25min", icon: Zap, progress: 1, total: 1, xpReward: 100, color: "#00ff7f" },
+    { id: 3, title: "Consistent Runner", desc: "Run 5 days in a row", icon: Flame, progress: 2, total: 5, xpReward: 150, color: "#00ff7f" },
+    { id: 4, title: "Long Distance", desc: "Run 10km in one session", icon: Activity, progress: 0, total: 1, xpReward: 200, color: "#00ff7f" },
   ];
 
   const activeBattles = [
@@ -112,9 +112,9 @@ export default function Challenges() {
           <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", letterSpacing: -1 }}>
             Challenges
           </Text>
-          <View style={{ backgroundColor: "rgba(255, 214, 10, 0.1)", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, flexDirection: "row", alignItems: "center" }}>
-            <Zap color="#FFD60A" size={14} fill="#FFD60A" />
-            <Text style={{ color: "#FFD60A", fontWeight: "800", fontSize: 14, marginLeft: 6, letterSpacing: -0.3 }}>
+          <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, flexDirection: "row", alignItems: "center" }}>
+            <Zap color="#00ff7f" size={14} fill="#00ff7f" />
+            <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 14, marginLeft: 6, letterSpacing: -0.3 }}>
               {yourXP.toLocaleString()} XP
             </Text>
           </View>
@@ -259,7 +259,7 @@ export default function Challenges() {
               alignItems: "center",
             }}>
               <Text style={{ color: "#000", fontWeight: "800", fontSize: 15, letterSpacing: 0.3 }}>
-                Send Challenge ⚔️
+                Send Challenge
               </Text>
             </TouchableOpacity>
           </View>
@@ -276,8 +276,8 @@ export default function Challenges() {
               padding: 18,
               marginBottom: 12,
               borderWidth: 1.5,
-              borderColor: battle.winning ? "rgba(0, 255, 127, 0.3)" : "rgba(255, 69, 58, 0.3)",
-              shadowColor: battle.winning ? "#00ff7f" : "#FF453A",
+              borderColor: battle.winning ? "rgba(0, 255, 127, 0.3)" : "rgba(0, 255, 127, 0.3)",
+              shadowColor: battle.winning ? "#00ff7f" : "#00ff7f",
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.1,
               shadowRadius: 12,
@@ -288,7 +288,7 @@ export default function Challenges() {
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Image
                   source={{ uri: battle.avatar }}
-                  style={{ width: 42, height: 42, borderRadius: 21, marginRight: 12, borderWidth: 2, borderColor: battle.winning ? "rgba(0,255,127,0.3)" : "rgba(255,69,58,0.3)" }}
+                  style={{ width: 42, height: 42, borderRadius: 21, marginRight: 12, borderWidth: 2, borderColor: battle.winning ? "rgba(0,255,127,0.3)" : "rgba(0,255,127,0.3)" }}
                 />
                 <View>
                   <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: -0.3 }}>
@@ -302,8 +302,8 @@ export default function Challenges() {
                   </View>
                 </View>
               </View>
-              <View style={{ backgroundColor: "rgba(255, 214, 10, 0.1)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 }}>
-                <Text style={{ color: "#FFD60A", fontWeight: "800", fontSize: 12, letterSpacing: 0.3 }}>
+              <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 }}>
+                <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 12, letterSpacing: 0.3 }}>
                   {battle.stake} XP
                 </Text>
               </View>
@@ -317,8 +317,8 @@ export default function Challenges() {
                   {battle.yourScore.toLocaleString()}
                 </Text>
               </View>
-              <View style={{ backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(255,69,58,0.1)", borderRadius: 12, padding: 8 }}>
-                <Swords color={battle.winning ? "#00ff7f" : "#FF453A"} size={20} />
+              <View style={{ backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(0,255,127,0.1)", borderRadius: 12, padding: 8 }}>
+                <Swords color={battle.winning ? "#00ff7f" : "#00ff7f"} size={20} />
               </View>
               <View style={{ flex: 1, alignItems: "flex-end" }}>
                 <Text style={{ color: "#555", fontSize: 10, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
@@ -333,14 +333,17 @@ export default function Challenges() {
             {/* Status pill */}
             <View style={{ alignItems: "center", marginTop: 14 }}>
               <View style={{
-                backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(255,69,58,0.1)",
+                backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(0,255,127,0.1)",
                 paddingHorizontal: 14,
                 paddingVertical: 6,
                 borderRadius: 12,
               }}>
-                <Text style={{ color: battle.winning ? "#00ff7f" : "#FF453A", fontSize: 12, fontWeight: "800", letterSpacing: 0.3 }}>
-                  {battle.winning ? "🔥 You're Winning" : "⚠️ Catch Up"}
-                </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {battle.winning ? <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} /> : <ShieldAlert color="#00ff7f" size={12} style={{ marginRight: 6 }} />}
+                    <Text style={{ color: battle.winning ? "#00ff7f" : "#00ff7f", fontSize: 12, fontWeight: "800", letterSpacing: 0.3 }}>
+                      {battle.winning ? "You're Winning" : "Catch Up"}
+                    </Text>
+                  </View>
               </View>
             </View>
           </TouchableOpacity>
@@ -515,12 +518,12 @@ export default function Challenges() {
               width: 50,
               height: 50,
               borderRadius: 18,
-              backgroundColor: "#1e1e20",
+              backgroundColor: "rgba(255, 255, 255, 0.03)",
               justifyContent: "center",
               alignItems: "center",
               marginRight: 14,
             }}>
-              <Text style={{ fontSize: 24 }}>{challenge.icon}</Text>
+              <challenge.icon color={challenge.color || "#555"} size={24} />
             </View>
 
             {/* Content */}

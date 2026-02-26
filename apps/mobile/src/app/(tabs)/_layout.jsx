@@ -85,7 +85,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="run"
         options={{
-          title: "MOVE",
+          title: "Run",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <FontAwesome5 name="running" size={22} color={color} />
@@ -96,7 +96,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="club"
         options={{
-          title: "Gang",
+          title: "Club",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <Users color={color} size={24} />
@@ -105,7 +105,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="activity"
+        name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (

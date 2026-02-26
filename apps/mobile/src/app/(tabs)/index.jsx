@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
   Dimensions,
   TextInput,
 } from "react-native";
@@ -134,7 +133,7 @@ export default function HomeScreen() {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const { user: storeUser, deviceId, weeklyGoal, setWeeklyGoal, setUser, streak, xp, earnXP, updateStreak, isOutside, toggleIsOutside } = useUserStore();
+  const { user: storeUser, deviceId, weeklyGoal, setWeeklyGoal, setUser, streak, xp, earnXP, updateStreak, isOutside, toggleIsOutside, squadName } = useUserStore();
   const { currentSteps, distance, isTracking, startTracking, syncSteps } = usePedometer();
 
   
@@ -187,7 +186,7 @@ export default function HomeScreen() {
 
   const motivationalPhrase = useMemo(() => getRandomPhrase(), []);
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: fetchDashboard,
   });
@@ -219,21 +218,16 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 24,
+          paddingBottom: insets.bottom + 100,
+          paddingHorizontal: 20,
+          flexGrow: 1, // Allow content to fill space
         }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor="#00ff7f"
-          />
-        }
+        bounces={false} // Prevent unnecessary bouncing if content fits
       >
         {/* ── HEADER: Logo + Bell ── */}
         <View
           style={{
-            paddingHorizontal: 20,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
@@ -289,7 +283,6 @@ export default function HomeScreen() {
         <View style={{ marginTop: 16 }}>
           <View
             style={{
-              paddingHorizontal: 20,
               marginBottom: 8,
               flexDirection: "row",
               justifyContent: "space-between",
@@ -308,7 +301,7 @@ export default function HomeScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             style={{ flexGrow: 0 }}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, gap: 14 }}
+            contentContainerStyle={{ paddingTop: 8, gap: 14 }}
           >
             {/* Add Story */}
             <TouchableOpacity
@@ -458,7 +451,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── GREETING + MOTIVATIONAL TEXT + CHECK-IN ── */}
-        <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+        <View style={{ marginTop: 24 }}>
           <View
             style={{
               flexDirection: "row",
@@ -509,13 +502,15 @@ export default function HomeScreen() {
           {(streak > 0 || xp > 0) && (
             <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
               {streak > 0 && (
-                <View style={{ backgroundColor: "rgba(255,107,0,0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
-                  <Text style={{ color: "#FF6B00", fontSize: 12, fontWeight: "800" }}>🔥 {streak} day streak</Text>
+                <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
+                  <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
                 </View>
               )}
               {xp > 0 && (
-                <View style={{ backgroundColor: "rgba(255,214,10,0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
-                  <Text style={{ color: "#FFD60A", fontSize: 12, fontWeight: "800" }}>⚡ {xp.toLocaleString()} XP</Text>
+                <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
+                  <Zap color="#00ff7f" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
                 </View>
               )}
             </View>
