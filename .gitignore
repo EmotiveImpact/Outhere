@@ -1,0 +1,55 @@
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+.cache/
+.tmp/
+tmp/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+.metro-virtual/
+caches/
+*.tmp
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Misc
+*.swp
+*.swo
