@@ -40,38 +40,10 @@ const fallbackUser = {
 };
 
 const fallbackRuns = [
-  {
-    id: "fallback-1",
-    created_at: new Date().toISOString(),
-    distance: 5.2,
-    duration_seconds: 28 * 60 + 45,
-    pace_seconds_per_km: 5 * 60 + 32,
-    calories: 342,
-  },
-  {
-    id: "fallback-2",
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    distance: 4.8,
-    duration_seconds: 26 * 60 + 20,
-    pace_seconds_per_km: 5 * 60 + 29,
-    calories: 298,
-  },
-  {
-    id: "fallback-3",
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    distance: 6.1,
-    duration_seconds: 35 * 60 + 10,
-    pace_seconds_per_km: 5 * 60 + 46,
-    calories: 410,
-  },
-  {
-    id: "fallback-4",
-    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-    distance: 2.4,
-    duration_seconds: 13 * 60 + 50,
-    pace_seconds_per_km: 5 * 60 + 46,
-    calories: 190,
-  },
+  { id: "fallback-1", created_at: new Date().toISOString(), distance: 5.2, duration_seconds: 28 * 60 + 45, pace_seconds_per_km: 5 * 60 + 32, calories: 342 },
+  { id: "fallback-2", created_at: new Date(Date.now() - 86400000).toISOString(), distance: 4.8, duration_seconds: 26 * 60 + 20, pace_seconds_per_km: 5 * 60 + 29, calories: 298 },
+  { id: "fallback-3", created_at: new Date(Date.now() - 2 * 86400000).toISOString(), distance: 6.1, duration_seconds: 35 * 60 + 10, pace_seconds_per_km: 5 * 60 + 46, calories: 410 },
+  { id: "fallback-4", created_at: new Date(Date.now() - 3 * 86400000).toISOString(), distance: 2.4, duration_seconds: 13 * 60 + 50, pace_seconds_per_km: 5 * 60 + 46, calories: 190 },
 ];
 
 const runRanges = [
@@ -186,9 +158,6 @@ const getLast7DaysTrend = (runs) => {
 
 /**
  * Calculates the user's progress against a specific daily distance goal.
- * @param {number} distanceRun - The total distance the user ran on this day
- * @param {number} dailyGoal - The target distance for the day
- * @returns {number} A ratio between 0.0 and 1.0 representing the progress
  */
 export const calculateDailyGoalProgress = (distanceRun, dailyGoal = 5) => {
   if (!distanceRun || distanceRun <= 0) return 0;
@@ -204,26 +173,12 @@ const getWeeklySummaryFromRuns = (runs) => {
   });
 
   if (!weekRuns.length) {
-    return {
-      totalRuns: 0,
-      totalDistance: 0,
-      totalCalories: 0,
-      avgPaceSeconds: 0,
-    };
+    return { totalRuns: 0, totalDistance: 0, totalCalories: 0, avgPaceSeconds: 0 };
   }
 
-  const totalDistance = weekRuns.reduce(
-    (sum, run) => sum + toNumber(run.distance),
-    0,
-  );
-  const totalCalories = weekRuns.reduce(
-    (sum, run) => sum + toInt(run.calories),
-    0,
-  );
-  const totalPace = weekRuns.reduce(
-    (sum, run) => sum + toInt(run.pace_seconds_per_km),
-    0,
-  );
+  const totalDistance = weekRuns.reduce((sum, run) => sum + toNumber(run.distance), 0);
+  const totalCalories = weekRuns.reduce((sum, run) => sum + toInt(run.calories), 0);
+  const totalPace = weekRuns.reduce((sum, run) => sum + toInt(run.pace_seconds_per_km), 0);
 
   return {
     totalRuns: weekRuns.length,
@@ -235,21 +190,11 @@ const getWeeklySummaryFromRuns = (runs) => {
 
 const getRecordsFromRuns = (runs) => {
   if (!runs.length) {
-    return {
-      bestDistance: 0,
-      longestDurationSeconds: 0,
-      fastestPaceSeconds: 0,
-    };
+    return { bestDistance: 0, longestDurationSeconds: 0, fastestPaceSeconds: 0 };
   }
 
-  const bestDistance = runs.reduce(
-    (max, run) => Math.max(max, toNumber(run.distance)),
-    0,
-  );
-  const longestDurationSeconds = runs.reduce(
-    (max, run) => Math.max(max, toInt(run.duration_seconds)),
-    0,
-  );
+  const bestDistance = runs.reduce((max, run) => Math.max(max, toNumber(run.distance)), 0);
+  const longestDurationSeconds = runs.reduce((max, run) => Math.max(max, toInt(run.duration_seconds)), 0);
   const fastestPaceSeconds = runs.reduce((min, run) => {
     const pace = toInt(run.pace_seconds_per_km);
     if (pace <= 0) return min;
@@ -257,11 +202,7 @@ const getRecordsFromRuns = (runs) => {
     return Math.min(min, pace);
   }, 0);
 
-  return {
-    bestDistance,
-    longestDurationSeconds,
-    fastestPaceSeconds,
-  };
+  return { bestDistance, longestDurationSeconds, fastestPaceSeconds };
 };
 
 const getUserFields = (user) =>
@@ -276,95 +217,35 @@ const getAchievements = ({ summary, friendCount, eventsCount }) => {
   const longestStreak = toInt(summary?.longestStreak);
 
   return [
-    {
-      id: "first-run",
-      title: "First Run",
-      description: "Complete your first tracked run",
-      progress: Math.min(totalRuns / 1, 1),
-      earned: totalRuns >= 1,
-    },
-    {
-      id: "ten-runs",
-      title: "Consistency",
-      description: "Finish 10 runs",
-      progress: Math.min(totalRuns / 10, 1),
-      earned: totalRuns >= 10,
-    },
-    {
-      id: "distance-100",
-      title: "100K Club",
-      description: "Run a total of 100km",
-      progress: Math.min(totalDistance / 100, 1),
-      earned: totalDistance >= 100,
-    },
-    {
-      id: "social",
-      title: "Squad Up",
-      description: "Have 5 friends in your club",
-      progress: Math.min(friendCount / 5, 1),
-      earned: friendCount >= 5,
-    },
-    {
-      id: "streak",
-      title: "Streak Master",
-      description: "Reach a 7-day streak",
-      progress: Math.min(currentStreak / 7, 1),
-      earned: longestStreak >= 7,
-    },
-    {
-      id: "events",
-      title: "Event Ready",
-      description: "Join 3 running events",
-      progress: Math.min(eventsCount / 3, 1),
-      earned: eventsCount >= 3,
-    },
+    { id: "first-run", title: "First Run", description: "Complete your first tracked run", progress: Math.min(totalRuns / 1, 1), earned: totalRuns >= 1 },
+    { id: "ten-runs", title: "Consistency", description: "Finish 10 runs", progress: Math.min(totalRuns / 10, 1), earned: totalRuns >= 10 },
+    { id: "distance-100", title: "100K Club", description: "Run a total of 100km", progress: Math.min(totalDistance / 100, 1), earned: totalDistance >= 100 },
+    { id: "social", title: "Squad Up", description: "Have 5 friends in your club", progress: Math.min(friendCount / 5, 1), earned: friendCount >= 5 },
+    { id: "streak", title: "Streak Master", description: "Reach a 7-day streak", progress: Math.min(currentStreak / 7, 1), earned: longestStreak >= 7 },
+    { id: "events", title: "Event Ready", description: "Join 3 running events", progress: Math.min(eventsCount / 3, 1), earned: eventsCount >= 3 },
   ];
 };
 
 const fetchDashboard = async () => {
-  try {
-    const res = await fetch("/api/dashboard");
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
+  try { const res = await fetch("/api/dashboard"); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
-
 const fetchProfile = async () => {
-  try {
-    const res = await fetch("/api/profile");
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
+  try { const res = await fetch("/api/profile"); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
-
 const fetchLeaderboard = async () => {
-  try {
-    const res = await fetch("/api/leaderboard");
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
+  try { const res = await fetch("/api/leaderboard"); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
-
 const fetchRuns = async ({ pageParam = 0, queryKey }) => {
-  try {
-    const [, range] = queryKey;
-    const res = await fetch(`/api/runs?range=${range}&limit=8&offset=${pageParam}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
+  try { const [, range] = queryKey; const res = await fetch(`/api/runs?range=${range}&limit=8&offset=${pageParam}`); if (!res.ok) return null; return res.json(); } catch { return null; }
+};
+const updateProfile = async (payload) => {
+  try { const res = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
 
-const updateProfile = async (payload) => {
-  try {
-    const res = await fetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
-};
+// ── TAB DEFINITIONS ───────────────────────────────────────────────────────────
+const PROFILE_TABS = ["Overview", "Stats", "Calendar", "About"];
+
+// ── COMPONENT ─────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -377,62 +258,23 @@ export default function ProfileScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [showRunDetail, setShowRunDetail] = useState(false);
   const [selectedRun, setSelectedRun] = useState(null);
-  const [form, setForm] = useState({
-    name: "",
-    avatar_url: "",
-    bio: "",
-    location: "",
-    goal: "",
-  });
+  const [activeProfileTab, setActiveProfileTab] = useState("Overview");
+  const [form, setForm] = useState({ name: "", avatar_url: "", bio: "", location: "", goal: "" });
 
-  const {
-    data: dashboardData,
-    isLoading: isDashboardLoading,
-    isRefetching: isDashboardRefetching,
-    refetch: refetchDashboard,
-  } = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboard });
-
-  const {
-    data: profileData,
-    isLoading: isProfileLoading,
-    isRefetching: isProfileRefetching,
-    refetch: refetchProfile,
-  } = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
-
-  const {
-    data: friendsData,
-    isRefetching: isFriendsRefetching,
-    refetch: refetchFriends,
-  } = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
-
-  const {
-    data: runsPages,
-    isLoading: isRunsLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch: refetchRuns,
-    isRefetching: isRunsRefetching,
-  } = useInfiniteQuery({
+  const { data: dashboardData, isLoading: isDashboardLoading, isRefetching: isDashboardRefetching, refetch: refetchDashboard } = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboard });
+  const { data: profileData, isLoading: isProfileLoading, isRefetching: isProfileRefetching, refetch: refetchProfile } = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
+  const { data: friendsData, isRefetching: isFriendsRefetching, refetch: refetchFriends } = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
+  const { data: runsPages, isLoading: isRunsLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch: refetchRuns, isRefetching: isRunsRefetching } = useInfiniteQuery({
     queryKey: ["runs", selectedRange],
     queryFn: fetchRuns,
     initialPageParam: 0,
-    getNextPageParam: (lastPage) =>
-      lastPage?.pagination?.nextOffset ?? undefined,
+    getNextPageParam: (lastPage) => lastPage?.pagination?.nextOffset ?? undefined,
   });
 
   const saveProfileMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => {
-      setSaveMessage("Profile updated.");
-      setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
-    },
-    onError: () => {
-      setSaveMessage("Could not update profile right now.");
-    },
+    onSuccess: () => { setSaveMessage("Profile updated."); setIsEditing(false); queryClient.invalidateQueries({ queryKey: ["profile"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["leaderboard"] }); },
+    onError: () => { setSaveMessage("Could not update profile right now."); },
   });
 
   const user = storeUser || profileData?.user || dashboardData?.user || fallbackUser;
@@ -442,9 +284,7 @@ export default function ProfileScreen() {
 
   const { history: localHistory, loadHistory } = useMoveStore();
 
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   useEffect(() => {
     setForm({
@@ -458,27 +298,12 @@ export default function ProfileScreen() {
 
   const allRuns = useMemo(() => {
     const pagedRuns = runsPages?.pages?.flatMap((page) => page?.runs || []) || [];
-    
-    // Combine local history with API runs
-    // Prepend local sessions (recent-first)
     const combined = [...localHistory, ...pagedRuns];
-
     if (combined.length > 0) {
-      return combined.sort(
-        (a, b) =>
-          new Date(b.created_at || b.date).getTime() -
-          new Date(a.created_at || a.date).getTime(),
-      );
+      return combined.sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime());
     }
-
-    if (Array.isArray(dashboardData?.recentRuns) && dashboardData.recentRuns.length > 0) {
-      return dashboardData.recentRuns;
-    }
-
-    if (dashboardData?.lastRun) {
-      return [dashboardData.lastRun, ...fallbackRuns.slice(1)];
-    }
-
+    if (Array.isArray(dashboardData?.recentRuns) && dashboardData.recentRuns.length > 0) return dashboardData.recentRuns;
+    if (dashboardData?.lastRun) return [dashboardData.lastRun, ...fallbackRuns.slice(1)];
     return fallbackRuns;
   }, [runsPages, dashboardData?.recentRuns, dashboardData?.lastRun]);
 
@@ -486,21 +311,16 @@ export default function ProfileScreen() {
     const apiSummary = profileData?.summary;
     if (apiSummary) {
       return {
-        totalRuns: toInt(apiSummary.totalRuns),
-        totalDistance: toNumber(apiSummary.totalDistance),
-        totalCalories: toInt(apiSummary.totalCalories),
-        avgPaceSeconds: toInt(apiSummary.avgPaceSeconds),
-        weekRuns: toInt(apiSummary.weekRuns),
-        weekDistance: toNumber(apiSummary.weekDistance),
-        weekCalories: toInt(apiSummary.weekCalories),
-        bestDistance: toNumber(apiSummary.bestDistance),
+        totalRuns: toInt(apiSummary.totalRuns), totalDistance: toNumber(apiSummary.totalDistance),
+        totalCalories: toInt(apiSummary.totalCalories), avgPaceSeconds: toInt(apiSummary.avgPaceSeconds),
+        weekRuns: toInt(apiSummary.weekRuns), weekDistance: toNumber(apiSummary.weekDistance),
+        weekCalories: toInt(apiSummary.weekCalories), bestDistance: toNumber(apiSummary.bestDistance),
         longestDurationSeconds: toInt(apiSummary.longestDurationSeconds),
         fastestPaceSeconds: toInt(apiSummary.fastestPaceSeconds),
-        currentStreak: toInt(apiSummary.currentStreak),
-        longestStreak: toInt(apiSummary.longestStreak),
+        currentStreak: toInt(apiSummary.currentStreak), longestStreak: toInt(apiSummary.longestStreak),
+        totalDuration: apiSummary.totalDuration,
       };
     }
-
     const weekly = getWeeklySummaryFromRuns(allRuns);
     const records = getRecordsFromRuns(allRuns);
     return {
@@ -508,1004 +328,396 @@ export default function ProfileScreen() {
       totalDistance: allRuns.reduce((sum, run) => sum + toNumber(run.distance), 0),
       totalCalories: allRuns.reduce((sum, run) => sum + toInt(run.calories), 0),
       avgPaceSeconds: weekly.avgPaceSeconds,
-      weekRuns: weekly.totalRuns,
-      weekDistance: weekly.totalDistance,
-      weekCalories: weekly.totalCalories,
-      bestDistance: records.bestDistance,
-      longestDurationSeconds: records.longestDurationSeconds,
+      weekRuns: weekly.totalRuns, weekDistance: weekly.totalDistance, weekCalories: weekly.totalCalories,
+      bestDistance: records.bestDistance, longestDurationSeconds: records.longestDurationSeconds,
       fastestPaceSeconds: records.fastestPaceSeconds,
-      currentStreak: getRunStreak(allRuns),
-      longestStreak: getRunStreak(allRuns),
+      currentStreak: getRunStreak(allRuns), longestStreak: getRunStreak(allRuns),
     };
   }, [profileData?.summary, allRuns]);
 
   const trend = useMemo(() => getLast7DaysTrend(allRuns), [allRuns]);
-  const achievements = useMemo(
-    () =>
-      getAchievements({
-        summary: profileSummary,
-        friendCount: friendList.length,
-        eventsCount: events.length,
-      }),
-    [profileSummary, friendList.length, events.length],
-  );
+  const achievements = useMemo(() => getAchievements({ summary: profileSummary, friendCount: friendList.length, eventsCount: events.length }), [profileSummary, friendList.length, events.length]);
   const markedDates = useMemo(() => {
     const marks = {};
     allRuns.forEach(run => {
       const date = dateKey(run.created_at || run.date);
-      if (date) {
-        marks[date] = { 
-          marked: true, 
-          dotColor: "#00ff7f", 
-          selected: date === selectedDate,
-          selectedColor: "#00ff7f",
-          selectedTextColor: "#000"
-        };
-      }
+      if (date) marks[date] = { marked: true, dotColor: "#00ff7f", selected: date === selectedDate, selectedColor: "#00ff7f", selectedTextColor: "#000" };
     });
-    // Ensure selected date is shown even if no run
-    if (!marks[selectedDate]) {
-      marks[selectedDate] = { selected: true, selectedColor: "#00ff7f", selectedTextColor: "#000" };
-    }
+    if (!marks[selectedDate]) marks[selectedDate] = { selected: true, selectedColor: "#00ff7f", selectedTextColor: "#000" };
     return marks;
   }, [allRuns, selectedDate]);
 
-  const dailyRuns = useMemo(() => {
-    return allRuns.filter(run => dateKey(run.created_at || run.date) === selectedDate);
-  }, [allRuns, selectedDate]);
-
+  const dailyRuns = useMemo(() => allRuns.filter(run => dateKey(run.created_at || run.date) === selectedDate), [allRuns, selectedDate]);
   const userFields = useMemo(() => getUserFields(user), [user]);
 
   const isScreenLoading = isDashboardLoading || isProfileLoading || isRunsLoading;
-  const refreshing =
-    isDashboardRefetching ||
-    isProfileRefetching ||
-    isFriendsRefetching ||
-    isRunsRefetching;
+  const refreshing = isDashboardRefetching || isProfileRefetching || isFriendsRefetching || isRunsRefetching;
 
-  const onRefresh = () => {
-    refetchDashboard();
-    refetchProfile();
-    refetchFriends();
-    refetchRuns();
-  };
+  const onRefresh = () => { refetchDashboard(); refetchProfile(); refetchFriends(); refetchRuns(); };
 
   const handleSaveProfile = () => {
     setSaveMessage("");
     hapticSelection();
-    saveProfileMutation.mutate({
-      name: form.name,
-      avatar_url: form.avatar_url,
-      bio: form.bio,
-      location: form.location,
-      goal: form.goal,
-    });
+    saveProfileMutation.mutate({ name: form.name, avatar_url: form.avatar_url, bio: form.bio, location: form.location, goal: form.goal });
   };
 
   if (isScreenLoading) {
     return <View style={{ flex: 1, backgroundColor: "#0a0a0a" }} />;
   }
 
+  // ── RENDER ────────────────────────────────────────────────────────────────────
+
   return (
     <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingTop: insets.top + 20,
-          paddingBottom: insets.bottom + 30,
-          paddingHorizontal: 20,
-        }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#00ff7f"
-          />
-        }
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ color: "#fff", fontSize: 30, fontWeight: "800", letterSpacing: -0.5 }}>
-            Profile
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setIsEditing((value) => !value);
-                setSaveMessage("");
-              }}
-              style={{
-                backgroundColor: isEditing ? "#2a2a2a" : "#0d2818",
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 14,
-              }}
-            >
-              <Text
-                style={{
-                  color: isEditing ? "#fff" : "#00ff7f",
-                  fontWeight: "700",
-                  fontSize: 12,
-                }}
-              >
-                {isEditing ? "Cancel" : "Edit Profile"}
-              </Text>
-            </TouchableOpacity>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00ff7f" />}>
 
-            <TouchableOpacity
-              onPress={() => router.push("/settings")}
-              style={{
-                backgroundColor: "#1a1a1a",
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
+        {/* ═══ HEADER ═══ */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ color: "#fff", fontSize: 30, fontWeight: "800", letterSpacing: -0.5 }}>Profile</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <TouchableOpacity onPress={() => { setIsEditing(v => !v); setSaveMessage(""); }} style={{ backgroundColor: isEditing ? "#2a2a2a" : "#0d2818", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14 }}>
+              <Text style={{ color: isEditing ? "#fff" : "#00ff7f", fontWeight: "700", fontSize: 12 }}>{isEditing ? "Cancel" : "Edit Profile"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/settings")} style={{ backgroundColor: "#1a1a1a", width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" }}>
               <Settings color="#fff" size={20} strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View
-          style={{
-            marginTop: 18,
-            backgroundColor: "#161618",
-            borderRadius: 32,
-            padding: 24,
-            flexDirection: "row",
-            alignItems: "center",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 20,
-            elevation: 8,
-          }}
-        >
-          <Image
-            source={{ uri: user.avatar_url || fallbackUser.avatar_url }}
-            style={{ width: 96, height: 96, borderRadius: 48 }}
-            contentFit="cover"
-          />
-
+        {/* ═══ USER CARD ═══ */}
+        <View style={{ marginTop: 18, backgroundColor: "#161618", borderRadius: 32, padding: 24, flexDirection: "row", alignItems: "center" }}>
+          <Image source={{ uri: user.avatar_url || fallbackUser.avatar_url }} style={{ width: 96, height: 96, borderRadius: 48 }} contentFit="cover" />
           <View style={{ marginLeft: 18, flex: 1 }}>
-            <Text style={{ color: "#fff", fontSize: 26, fontWeight: "800", letterSpacing: -0.5 }}>
-              {user.name || user.username || "Runner"}
-            </Text>
-            <Text style={{ color: "#666", fontSize: 13, marginTop: 4, letterSpacing: 0.3 }}>
-              {user.location || "Location not set"}
-            </Text>
-            <Text style={{ color: "#999", fontSize: 13, marginTop: 6 }} numberOfLines={2}>
-              {user.bio || "Add a short bio to make your profile stand out."}
-            </Text>
-            <View style={{ backgroundColor: "rgba(255,255,255,0.05)", alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 8 }}>
+            <Text style={{ color: "#fff", fontSize: 26, fontWeight: "800", letterSpacing: -0.5 }}>{user.name || user.username || "Runner"}</Text>
+            <Text style={{ color: "#666", fontSize: 13, marginTop: 4 }}>{user.location || "Location not set"}</Text>
+            <Text style={{ color: "#999", fontSize: 13, marginTop: 6 }} numberOfLines={2}>{user.bio || "Add a short bio."}</Text>
+            <View style={{ backgroundColor: "rgba(255,255,255,0.05)", alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 8 }}>
               <Text style={{ color: "#777", fontSize: 10, fontWeight: "700", letterSpacing: 0.5 }}>SQUAD: {squadName.toUpperCase()}</Text>
             </View>
             <View style={{ flexDirection: "row", marginTop: 12, flexWrap: "wrap", gap: 8 }}>
-              <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
-                <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700" }}>
-                  {friendList.length} Friends
-                </Text>
+              <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700" }}>{friendList.length} Friends</Text>
               </View>
-              <View style={{ backgroundColor: "rgba(255, 255, 255, 0.06)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
-                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
-                  {userRank > 0 ? `#${userRank}` : "Unranked"}
-                </Text>
+              <View style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{userRank > 0 ? `#${userRank}` : "Unranked"}</Text>
               </View>
               {xp > 0 && (
-                <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
                   <Zap color="#00ff7f" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>
-                    {xp.toLocaleString()} XP
-                  </Text>
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
                 </View>
               )}
               {streak > 0 && (
-                <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
                   <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>
-                    {streak} day streak
-                  </Text>
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
                 </View>
               )}
             </View>
           </View>
         </View>
 
-        {/* ── WEEKLY RECAP CARD ── */}
-        <LinearGradient
-          colors={["#00ff7f", "#00d4aa"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            marginTop: 24,
-            borderRadius: 28,
-            padding: 24,
-            shadowColor: "#00ff7f",
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 15,
-            elevation: 8,
-          }}
-        >
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <View>
-              <Text style={{ color: "rgba(0,0,0,0.6)", fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>Weekly Recap</Text>
-              <Text style={{ color: "#000", fontSize: 24, fontWeight: "800", marginTop: 2 }}>You're killing it!</Text>
-            </View>
-            <View style={{ backgroundColor: "rgba(255,255,255,0.2)", padding: 10, borderRadius: 16 }}>
-              <Trophy color="#000" size={24} />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <View>
-              <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>{profileSummary.totalDistance || "12.4"} <Text style={{ fontSize: 12 }}>KM</Text></Text>
-              <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>TOTAL DISTANCE</Text>
-            </View>
-            <View style={{ width: 1, backgroundColor: "rgba(0,0,0,0.1)", marginHorizontal: 15 }} />
-            <View>
-              <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>{profileSummary.totalDuration || "3h 42m"}</Text>
-              <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>TOTAL TIME</Text>
-            </View>
-            <View style={{ width: 1, backgroundColor: "rgba(0,0,0,0.1)", marginHorizontal: 15 }} />
-            <View>
-              <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>+{xp} <Text style={{ fontSize: 12 }}>XP</Text></Text>
-              <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>EARNED WEEKLY</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Achieved Goal Progress Card */}
-        <View
-          style={{
-            marginTop: 18,
-            backgroundColor: "#161618",
-            borderRadius: 32,
-            padding: 24,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 20,
-            elevation: 8,
-          }}
-        >
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-            <Text style={{ color: "#fff", fontSize: 15, fontWeight: "500", letterSpacing: 0.2 }}>Achieved</Text>
-            <Target color="#00ff7f" size={24} strokeWidth={2.5} />
-          </View>
-          
-          <View style={{ position: "relative", backgroundColor: "#282A2E", borderRadius: 10, height: 44, overflow: "hidden", marginBottom: 30 }}>
-            {/* Filled Teal Bar with Stripes */}
-            <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min((profileSummary.weekDistance / 20) * 100, 100)}%`, backgroundColor: "#00ff7f", overflow: "hidden" }}>
-              <Svg width="100%" height="100%">
-                <Defs>
-                  <Pattern id="stripes" patternUnits="userSpaceOnUse" width="28" height="28" patternTransform="rotate(25)">
-                    <Rect width="14" height="28" fill="rgba(255,255,255,0.35)" />
-                  </Pattern>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#stripes)" />
-              </Svg>
-            </View>
-            
-            {/* The Slanted Cutout Mask */}
-            <View style={{ 
-               position: "absolute", left: `${Math.min((profileSummary.weekDistance / 20) * 100, 100)}%`, top: -10, bottom: -10, width: 40,
-               backgroundColor: "#282A2E",
-               transform: [{ skewX: "-25deg" }],
-               marginLeft: -15
-            }} />
-
-            <Text style={{ position: "absolute", right: 16, top: 14, color: "#8E8E93", fontSize: 12, fontWeight: "500" }}>
-              {Math.max(0, 20 - profileSummary.weekDistance).toFixed(1)}km Left
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 }}>
-            {trend.map((day) => {
-               // Calculate actual progress based on distance run vs a daily goal (currently defaulting to 5)
-               const progress = calculateDailyGoalProgress(day.distance, 5);
-               const isActive = day.distance > 0;
-               const size = 36;
-               const strokeWidth = 4.5;
-               const radius = (size - strokeWidth) / 2;
-               const circumference = radius * 2 * Math.PI;
-               const strokeDashoffset = circumference - progress * circumference;
-
-               return (
-                 <View key={day.key} style={{ alignItems: "center" }}>
-                   <View style={{ marginBottom: 12 }}>
-                     <Svg width={size} height={size}>
-                       {/* Background Track */}
-                       <Circle
-                         cx={size / 2}
-                         cy={size / 2}
-                         r={radius}
-                         stroke="#282A2E"
-                         strokeWidth={strokeWidth}
-                         fill="none"
-                       />
-                       {/* Progress Ring */}
-                       {isActive && (
-                         <Circle
-                           cx={size / 2}
-                           cy={size / 2}
-                           r={radius}
-                           stroke="#7FE3D1"
-                           strokeWidth={strokeWidth}
-                           fill="none"
-                           strokeDasharray={circumference}
-                           strokeDashoffset={strokeDashoffset}
-                           strokeLinecap="round"
-                           transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                         />
-                       )}
-                     </Svg>
-                   </View>
-                   <Text style={{ color: isActive ? "#fff" : "#8E8E93", fontSize: 13, fontWeight: "500" }}>
-                     {day.label}
-                   </Text>
-                 </View>
-               );
-            })}
-          </View>
-        </View>
-
-        {isEditing ? (
-          <View
-            style={{
-              marginTop: 14,
-              backgroundColor: "#1a1a1a",
-              borderRadius: 18,
-              padding: 14,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", marginBottom: 12 }}>
-              Edit Profile Details
-            </Text>
-
-            <TextInput
-              value={form.name}
-              onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
-              placeholder="Name"
-              placeholderTextColor="#666"
-              style={{
-                backgroundColor: "#121212",
-                color: "#fff",
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 10,
-              }}
-            />
-            <TextInput
-              value={form.avatar_url}
-              onChangeText={(value) =>
-                setForm((prev) => ({ ...prev, avatar_url: value }))
-              }
-              placeholder="Avatar URL"
-              placeholderTextColor="#666"
-              autoCapitalize="none"
-              style={{
-                backgroundColor: "#121212",
-                color: "#fff",
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 10,
-              }}
-            />
-            <TextInput
-              value={form.location}
-              onChangeText={(value) =>
-                setForm((prev) => ({ ...prev, location: value }))
-              }
-              placeholder="Location"
-              placeholderTextColor="#666"
-              style={{
-                backgroundColor: "#121212",
-                color: "#fff",
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 10,
-              }}
-            />
-            <TextInput
-              value={form.goal}
-              onChangeText={(value) => setForm((prev) => ({ ...prev, goal: value }))}
-              placeholder="Running Goal"
-              placeholderTextColor="#666"
-              style={{
-                backgroundColor: "#121212",
-                color: "#fff",
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 10,
-              }}
-            />
-            <TextInput
-              value={form.bio}
-              onChangeText={(value) => setForm((prev) => ({ ...prev, bio: value }))}
-              placeholder="Bio"
-              placeholderTextColor="#666"
-              multiline
-              style={{
-                backgroundColor: "#121212",
-                color: "#fff",
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 12,
-                minHeight: 72,
-                textAlignVertical: "top",
-              }}
-            />
-
-            <TouchableOpacity
-              onPress={handleSaveProfile}
-              disabled={saveProfileMutation.isPending}
-              style={{
-                backgroundColor: "#00ff7f",
-                borderRadius: 12,
-                paddingVertical: 11,
-                alignItems: "center",
-              }}
-            >
-              {saveProfileMutation.isPending ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={{ color: "#000", fontWeight: "700" }}>Save Profile</Text>
-              )}
+        {/* ═══ EDIT FORM (conditional) ═══ */}
+        {isEditing && (
+          <View style={{ marginTop: 14, backgroundColor: "#1a1a1a", borderRadius: 18, padding: 14 }}>
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", marginBottom: 12 }}>Edit Profile Details</Text>
+            {[{ key: "name", label: "Name" }, { key: "avatar_url", label: "Avatar URL", cap: "none" }, { key: "location", label: "Location" }, { key: "goal", label: "Running Goal" }].map(f => (
+              <TextInput key={f.key} value={form[f.key]} onChangeText={v => setForm(p => ({ ...p, [f.key]: v }))} placeholder={f.label} placeholderTextColor="#666" autoCapitalize={f.cap} style={{ backgroundColor: "#121212", color: "#fff", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }} />
+            ))}
+            <TextInput value={form.bio} onChangeText={v => setForm(p => ({ ...p, bio: v }))} placeholder="Bio" placeholderTextColor="#666" multiline style={{ backgroundColor: "#121212", color: "#fff", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12, minHeight: 72, textAlignVertical: "top" }} />
+            <TouchableOpacity onPress={handleSaveProfile} disabled={saveProfileMutation.isPending} style={{ backgroundColor: "#00ff7f", borderRadius: 12, paddingVertical: 11, alignItems: "center" }}>
+              {saveProfileMutation.isPending ? <ActivityIndicator color="#000" /> : <Text style={{ color: "#000", fontWeight: "700" }}>Save Profile</Text>}
             </TouchableOpacity>
-            {saveMessage ? (
-              <Text style={{ color: "#888", marginTop: 10, fontSize: 12 }}>
-                {saveMessage}
-              </Text>
-            ) : null}
+            {saveMessage ? <Text style={{ color: "#888", marginTop: 10, fontSize: 12 }}>{saveMessage}</Text> : null}
           </View>
-        ) : null}
+        )}
 
-        <TouchableOpacity
-          onPress={() => {
-            const { router } = require("expo-router");
-            router.push("/onboarding");
-          }}
-          style={{
-            backgroundColor: "#2a2a2a",
-            borderRadius: 16,
-            paddingVertical: 14,
-            alignItems: "center",
-            marginTop: 18,
-            borderWidth: 1,
-            borderColor: "#333",
-          }}
-        >
-          <Text style={{ color: "#aaa", fontWeight: "700", fontSize: 13, letterSpacing: 0.5 }}>
-            RETAKE ONBOARDING
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ marginTop: 18 }}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-            Achievements
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginTop: 12 }}
-            contentContainerStyle={{ paddingRight: 20 }}
-          >
-            {achievements.map((item) => (
-              <View
-                key={item.id}
-                style={{
-                  width: 190,
-                  backgroundColor: "#161618",
-                  borderRadius: 22,
-                  padding: 16,
-                  marginRight: 12,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 8,
-                  elevation: 3,
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <View
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      backgroundColor: item.earned ? "rgba(0,255,127,0.1)" : "#2a2a2a",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Medal
-                      size={16}
-                      color={item.earned ? "#00ff7f" : "#666"}
-                    />
-                  </View>
-                  <Text
-                    style={{
-                      marginLeft: 8,
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: "700",
-                      flex: 1,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {item.title}
-                  </Text>
-                </View>
-
-                <Text
-                  style={{ color: "#777", fontSize: 12, marginTop: 8, minHeight: 30 }}
-                >
-                  {item.description}
-                </Text>
-
-                <View
-                  style={{
-                    marginTop: 10,
-                    height: 7,
-                    backgroundColor: "#262626",
-                    borderRadius: 10,
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      width: `${Math.round(item.progress * 100)}%`,
-                      height: "100%",
-                      backgroundColor: item.earned ? "#00ff7f" : "#666",
-                    }}
-                  />
-                </View>
-
-                <Text style={{ color: "#999", fontSize: 11, marginTop: 6 }}>
-                  {Math.round(item.progress * 100)}%
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        <View
-          style={{
-            marginTop: 22,
-            backgroundColor: "#161618",
-            borderRadius: 32,
-            padding: 24,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 20,
-            elevation: 8,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-            <Calendar color="#00ff7f" size={20} />
-            <Text
-              style={{
-                color: "#fff",
-                fontSize: 18,
-                fontWeight: "700",
-                marginLeft: 8,
-              }}
-            >
-              This Week
-            </Text>
-          </View>
-
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              justifyContent: "space-between",
-            }}
-          >
-            <View style={{ width: "48%", marginBottom: 12 }}>
-              <Text style={{ color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>TOTAL DISTANCE</Text>
-              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4, letterSpacing: -1 }}>
-                {profileSummary.weekDistance.toFixed(1)}
-              </Text>
-              <Text style={{ color: "#555", fontSize: 12 }}>kilometers</Text>
-            </View>
-
-            <View style={{ width: "48%", marginBottom: 12 }}>
-              <Text style={{ color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>TOTAL RUNS</Text>
-              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4, letterSpacing: -1 }}>
-                {profileSummary.weekRuns}
-              </Text>
-              <Text style={{ color: "#555", fontSize: 12 }}>activities</Text>
-            </View>
-
-            <View style={{ width: "48%" }}>
-              <Text style={{ color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>AVG PACE</Text>
-              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4, letterSpacing: -1 }}>
-                {formatPace(profileSummary.avgPaceSeconds)}
-              </Text>
-              <Text style={{ color: "#555", fontSize: 12 }}>per km</Text>
-            </View>
-
-            <View style={{ width: "48%" }}>
-              <Text style={{ color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>CALORIES</Text>
-              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4, letterSpacing: -1 }}>
-                {profileSummary.weekCalories}
-              </Text>
-              <Text style={{ color: "#555", fontSize: 12 }}>burned</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 14 }}>
-          <View
-            style={{
-              width: "31.5%",
-              backgroundColor: "#161618",
-              borderRadius: 24,
-              padding: 16,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.2,
-              shadowRadius: 10,
-              elevation: 4,
-            }}
-          >
-            <Route color="#00ff7f" size={16} />
-            <Text style={{ color: "#777", fontSize: 11, marginTop: 10 }}>BEST DISTANCE</Text>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginTop: 4 }}>
-              {formatDistance(profileSummary.bestDistance).replace(" km", "")}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              width: "31.5%",
-              backgroundColor: "#161618",
-              borderRadius: 24,
-              padding: 16,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.2,
-              shadowRadius: 10,
-              elevation: 4,
-            }}
-          >
-            <Timer color="#00ff7f" size={16} />
-            <Text style={{ color: "#777", fontSize: 11, marginTop: 10 }}>LONGEST TIME</Text>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginTop: 4 }}>
-              {formatTime(profileSummary.longestDurationSeconds)}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              width: "31.5%",
-              backgroundColor: "#161618",
-              borderRadius: 24,
-              padding: 16,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.2,
-              shadowRadius: 10,
-              elevation: 4,
-            }}
-          >
-            <Trophy color="#00ff7f" size={16} />
-            <Text style={{ color: "#777", fontSize: 11, marginTop: 10 }}>FASTEST PACE</Text>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginTop: 4 }}>
-              {formatPace(profileSummary.fastestPaceSeconds)}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={{
-            marginTop: 16,
-            backgroundColor: "#161618",
-            borderRadius: 28,
-            padding: 20,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.2,
-            shadowRadius: 10,
-            elevation: 4,
-          }}
-        >
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-              7 Day Trend
-            </Text>
-            <Text style={{ color: "#777", fontSize: 12 }}>
-              {profileSummary.currentStreak} day streak
-            </Text>
-          </View>
-
-          <View
-            style={{
-              marginTop: 14,
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              height: 100,
-            }}
-          >
-            {trend.map((day) => (
-              <View key={day.key} style={{ alignItems: "center", width: "13%" }}>
-                <View
-                  style={{
-                    width: 12,
-                    height: day.height,
-                    borderRadius: 8,
-                    backgroundColor: day.distance > 0 ? "#00ff7f" : "#2a2a2a",
-                  }}
-                />
-                <Text style={{ color: "#777", fontSize: 10, marginTop: 8 }}>{day.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── CALENDAR SECTION ── */}
-        <View
-          style={{
-            marginTop: 24,
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-            Activity Calendar
-          </Text>
-        </View>
-
-        <View style={{ marginTop: 16, backgroundColor: "#161618", borderRadius: 24, padding: 8, overflow: "hidden" }}>
-          <RNCalendar
-            theme={{
-              backgroundColor: "#161618",
-              calendarBackground: "#161618",
-              textSectionTitleColor: "#888",
-              selectedDayBackgroundColor: "#00ff7f",
-              selectedDayTextColor: "#000",
-              todayTextColor: "#00ff7f",
-              dayTextColor: "#fff",
-              textDisabledColor: "#444",
-              dotColor: "#00ff7f",
-              selectedDotColor: "#000",
-              arrowColor: "#00ff7f",
-              monthTextColor: "#fff",
-              indicatorColor: "#00ff7f",
-              textDayFontWeight: "600",
-              textMonthFontWeight: "800",
-              textDayHeaderFontWeight: "700",
-              textDayFontSize: 14,
-              textMonthFontSize: 18,
-              textDayHeaderFontSize: 12,
-            }}
-            markedDates={markedDates}
-            onDayPress={(day) => {
-              setSelectedDate(day.dateString);
-              hapticSelection();
-            }}
-          />
-        </View>
-
-        {/* ── DAILY RUNS FOR SELECTED DATE ── */}
-        <View style={{ marginTop: 24 }}>
-          <Text style={{ color: "#777", fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
-            Runs for {selectedDate}
-          </Text>
-          
-          {dailyRuns.length === 0 ? (
-            <View style={{ marginTop: 12, padding: 24, backgroundColor: "#161618", borderRadius: 20, alignItems: "center" }}>
-              <Clock color="#2a2a2a" size={32} style={{ marginBottom: 8 }} />
-              <Text style={{ color: "#444", fontWeight: "600" }}>No runs on this day.</Text>
-            </View>
-          ) : (
-            dailyRuns.map((run, index) => (
-              <TouchableOpacity
-                key={run.id || `daily-${index}`}
-                onPress={() => {
-                  setSelectedRun(run);
-                  setShowRunDetail(true);
-                  hapticSelection();
-                }}
-                style={{
-                  backgroundColor: "#161618",
-                  borderRadius: 24,
-                  padding: 18,
-                  marginTop: 12,
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.05)",
-                }}
-              >
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800" }}>
-                    {toNumber(run.distance).toFixed(1)} <Text style={{ fontSize: 14, color: "#777" }}>KM</Text>
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>{formatPace(run.pace_seconds_per_km)}</Text>
-                      <Text style={{ color: "#444", fontSize: 10 }}>Pace</Text>
-                    </View>
-                    <ChevronRight color="#444" size={16} />
-                  </View>
-                </View>
+        {/* ═══ TAB NAVIGATION ═══ */}
+        <View style={{ flexDirection: "row", marginTop: 24, borderBottomWidth: 1, borderColor: "#222", justifyContent: "space-between" }}>
+          {PROFILE_TABS.map(tab => {
+            const isActive = activeProfileTab === tab;
+            return (
+              <TouchableOpacity key={tab} onPress={() => { setActiveProfileTab(tab); hapticSelection(); }} style={{ paddingBottom: 12, paddingHorizontal: 4, borderBottomWidth: isActive ? 2 : 0, borderColor: "#00ff7f" }}>
+                <Text style={{ color: isActive ? "#fff" : "#555", fontWeight: isActive ? "800" : "600", fontSize: 14 }}>{tab}</Text>
               </TouchableOpacity>
-            ))
-          )}
+            );
+          })}
         </View>
 
-        {/* ── RUN DETAIL MODAL ── */}
+        {/* ════════════════════════════════════════════════════════════════════════
+            TAB: OVERVIEW — Weekly Recap, Goal Progress, Achievements
+            ════════════════════════════════════════════════════════════════════════ */}
+        {activeProfileTab === "Overview" && (
+          <View style={{ marginTop: 20 }}>
+
+            {/* Weekly Recap */}
+            <LinearGradient colors={["#00ff7f", "#00d4aa"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 28, padding: 24, shadowColor: "#00ff7f", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 15 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <View>
+                  <Text style={{ color: "rgba(0,0,0,0.6)", fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>Weekly Recap</Text>
+                  <Text style={{ color: "#000", fontSize: 24, fontWeight: "800", marginTop: 2 }}>You're killing it!</Text>
+                </View>
+                <View style={{ backgroundColor: "rgba(255,255,255,0.2)", padding: 10, borderRadius: 16 }}>
+                  <Trophy color="#000" size={24} />
+                </View>
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <View>
+                  <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>{profileSummary.totalDistance || "12.4"} <Text style={{ fontSize: 12 }}>KM</Text></Text>
+                  <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>TOTAL DISTANCE</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: "rgba(0,0,0,0.1)", marginHorizontal: 15 }} />
+                <View>
+                  <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>{profileSummary.totalDuration || "3h 42m"}</Text>
+                  <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>TOTAL TIME</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: "rgba(0,0,0,0.1)", marginHorizontal: 15 }} />
+                <View>
+                  <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>+{xp} <Text style={{ fontSize: 12 }}>XP</Text></Text>
+                  <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>EARNED WEEKLY</Text>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* Goal Progress */}
+            <View style={{ marginTop: 18, backgroundColor: "#161618", borderRadius: 32, padding: 24 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+                <Text style={{ color: "#fff", fontSize: 15, fontWeight: "500" }}>Achieved</Text>
+                <Target color="#00ff7f" size={24} strokeWidth={2.5} />
+              </View>
+              <View style={{ position: "relative", backgroundColor: "#282A2E", borderRadius: 10, height: 44, overflow: "hidden", marginBottom: 30 }}>
+                <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min((profileSummary.weekDistance / 20) * 100, 100)}%`, backgroundColor: "#00ff7f", overflow: "hidden" }}>
+                  <Svg width="100%" height="100%">
+                    <Defs>
+                      <Pattern id="stripes" patternUnits="userSpaceOnUse" width="28" height="28" patternTransform="rotate(25)">
+                        <Rect width="14" height="28" fill="rgba(255,255,255,0.35)" />
+                      </Pattern>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#stripes)" />
+                  </Svg>
+                </View>
+                <View style={{ position: "absolute", left: `${Math.min((profileSummary.weekDistance / 20) * 100, 100)}%`, top: -10, bottom: -10, width: 40, backgroundColor: "#282A2E", transform: [{ skewX: "-25deg" }], marginLeft: -15 }} />
+                <Text style={{ position: "absolute", right: 16, top: 14, color: "#8E8E93", fontSize: 12, fontWeight: "500" }}>{Math.max(0, 20 - profileSummary.weekDistance).toFixed(1)}km Left</Text>
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 }}>
+                {trend.map(day => {
+                  const progress = calculateDailyGoalProgress(day.distance, 5);
+                  const isActive = day.distance > 0;
+                  const size = 36, sw = 4.5, r = (size - sw) / 2, circ = r * 2 * Math.PI;
+                  return (
+                    <View key={day.key} style={{ alignItems: "center" }}>
+                      <View style={{ marginBottom: 12 }}>
+                        <Svg width={size} height={size}>
+                          <Circle cx={size / 2} cy={size / 2} r={r} stroke="#282A2E" strokeWidth={sw} fill="none" />
+                          {isActive && <Circle cx={size / 2} cy={size / 2} r={r} stroke="#7FE3D1" strokeWidth={sw} fill="none" strokeDasharray={circ} strokeDashoffset={circ - progress * circ} strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} />}
+                        </Svg>
+                      </View>
+                      <Text style={{ color: isActive ? "#fff" : "#8E8E93", fontSize: 13, fontWeight: "500" }}>{day.label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Achievements */}
+            <View style={{ marginTop: 22 }}>
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Achievements</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }} contentContainerStyle={{ paddingRight: 20 }}>
+                {achievements.map(item => (
+                  <View key={item.id} style={{ width: 190, backgroundColor: "#161618", borderRadius: 22, padding: 16, marginRight: 12 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: item.earned ? "rgba(0,255,127,0.1)" : "#2a2a2a", alignItems: "center", justifyContent: "center" }}>
+                        <Medal size={16} color={item.earned ? "#00ff7f" : "#666"} />
+                      </View>
+                      <Text style={{ marginLeft: 8, color: "#fff", fontSize: 14, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.title}</Text>
+                    </View>
+                    <Text style={{ color: "#777", fontSize: 12, marginTop: 8, minHeight: 30 }}>{item.description}</Text>
+                    <View style={{ marginTop: 10, height: 7, backgroundColor: "#262626", borderRadius: 10, overflow: "hidden" }}>
+                      <View style={{ width: `${Math.round(item.progress * 100)}%`, height: "100%", backgroundColor: item.earned ? "#00ff7f" : "#666" }} />
+                    </View>
+                    <Text style={{ color: "#999", fontSize: 11, marginTop: 6 }}>{Math.round(item.progress * 100)}%</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+
+            <TouchableOpacity onPress={() => router.push("/onboarding")} style={{ backgroundColor: "#2a2a2a", borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 24, borderWidth: 1, borderColor: "#333" }}>
+              <Text style={{ color: "#aaa", fontWeight: "700", fontSize: 13, letterSpacing: 0.5 }}>RETAKE ONBOARDING</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════════
+            TAB: STATS — This Week, Records, 7 Day Trend
+            ════════════════════════════════════════════════════════════════════════ */}
+        {activeProfileTab === "Stats" && (
+          <View style={{ marginTop: 20 }}>
+
+            {/* This Week */}
+            <View style={{ backgroundColor: "#161618", borderRadius: 32, padding: 24 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
+                <Calendar color="#00ff7f" size={20} />
+                <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginLeft: 8 }}>This Week</Text>
+              </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+                {[
+                  { label: "TOTAL DISTANCE", value: profileSummary.weekDistance.toFixed(1), unit: "kilometers" },
+                  { label: "TOTAL RUNS", value: profileSummary.weekRuns, unit: "activities" },
+                  { label: "AVG PACE", value: formatPace(profileSummary.avgPaceSeconds), unit: "per km" },
+                  { label: "CALORIES", value: profileSummary.weekCalories, unit: "burned" },
+                ].map(s => (
+                  <View key={s.label} style={{ width: "48%", marginBottom: 12 }}>
+                    <Text style={{ color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>{s.label}</Text>
+                    <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4, letterSpacing: -1 }}>{s.value}</Text>
+                    <Text style={{ color: "#555", fontSize: 12 }}>{s.unit}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Personal Records */}
+            <Text style={{ color: "#777", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginTop: 24, marginBottom: 12 }}>PERSONAL RECORDS</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              {[
+                { icon: Route, label: "BEST DISTANCE", value: formatDistance(profileSummary.bestDistance).replace(" km", "") },
+                { icon: Timer, label: "LONGEST TIME", value: formatTime(profileSummary.longestDurationSeconds) },
+                { icon: Trophy, label: "FASTEST PACE", value: formatPace(profileSummary.fastestPaceSeconds) },
+              ].map(r => (
+                <View key={r.label} style={{ width: "31.5%", backgroundColor: "#161618", borderRadius: 24, padding: 16 }}>
+                  <r.icon color="#00ff7f" size={16} />
+                  <Text style={{ color: "#777", fontSize: 11, marginTop: 10 }}>{r.label}</Text>
+                  <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginTop: 4 }}>{r.value}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* 7 Day Trend */}
+            <View style={{ marginTop: 20, backgroundColor: "#161618", borderRadius: 28, padding: 20 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>7 Day Trend</Text>
+                <Text style={{ color: "#777", fontSize: 12 }}>{profileSummary.currentStreak} day streak</Text>
+              </View>
+              <View style={{ marginTop: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", height: 100 }}>
+                {trend.map(day => (
+                  <View key={day.key} style={{ alignItems: "center", width: "13%" }}>
+                    <View style={{ width: 12, height: day.height, borderRadius: 8, backgroundColor: day.distance > 0 ? "#00ff7f" : "#2a2a2a" }} />
+                    <Text style={{ color: "#777", fontSize: 10, marginTop: 8 }}>{day.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════════
+            TAB: CALENDAR — Activity Calendar + Daily Runs
+            ════════════════════════════════════════════════════════════════════════ */}
+        {activeProfileTab === "Calendar" && (
+          <View style={{ marginTop: 20 }}>
+            <View style={{ backgroundColor: "#161618", borderRadius: 24, padding: 8, overflow: "hidden" }}>
+              <RNCalendar
+                theme={{ backgroundColor: "#161618", calendarBackground: "#161618", textSectionTitleColor: "#888", selectedDayBackgroundColor: "#00ff7f", selectedDayTextColor: "#000", todayTextColor: "#00ff7f", dayTextColor: "#fff", textDisabledColor: "#444", dotColor: "#00ff7f", selectedDotColor: "#000", arrowColor: "#00ff7f", monthTextColor: "#fff", indicatorColor: "#00ff7f", textDayFontWeight: "600", textMonthFontWeight: "800", textDayHeaderFontWeight: "700", textDayFontSize: 14, textMonthFontSize: 18, textDayHeaderFontSize: 12 }}
+                markedDates={markedDates}
+                onDayPress={day => { setSelectedDate(day.dateString); hapticSelection(); }}
+              />
+            </View>
+
+            <View style={{ marginTop: 24 }}>
+              <Text style={{ color: "#777", fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>Runs for {selectedDate}</Text>
+              {dailyRuns.length === 0 ? (
+                <View style={{ marginTop: 12, padding: 24, backgroundColor: "#161618", borderRadius: 20, alignItems: "center" }}>
+                  <Clock color="#2a2a2a" size={32} style={{ marginBottom: 8 }} />
+                  <Text style={{ color: "#444", fontWeight: "600" }}>No runs on this day.</Text>
+                </View>
+              ) : dailyRuns.map((run, index) => (
+                <TouchableOpacity key={run.id || `daily-${index}`} onPress={() => { setSelectedRun(run); setShowRunDetail(true); hapticSelection(); }} style={{ backgroundColor: "#161618", borderRadius: 24, padding: 18, marginTop: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800" }}>{toNumber(run.distance).toFixed(1)} <Text style={{ fontSize: 14, color: "#777" }}>KM</Text></Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>{formatPace(run.pace_seconds_per_km)}</Text>
+                        <Text style={{ color: "#444", fontSize: 10 }}>Pace</Text>
+                      </View>
+                      <ChevronRight color="#444" size={16} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════════
+            TAB: ABOUT — Events, User Data, Logout
+            ════════════════════════════════════════════════════════════════════════ */}
+        {activeProfileTab === "About" && (
+          <View style={{ marginTop: 20 }}>
+
+            {/* Events */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Upcoming Events</Text>
+              {events.length > 0 ? events.slice(0, 3).map((event, index) => (
+                <View key={event.id || `event-${index}`} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 12, marginTop: 10 }}>
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{event.title || "Run Event"}</Text>
+                  <Text style={{ color: "#888", marginTop: 4, fontSize: 12 }}>{formatCalendarDate(event.created_at)}</Text>
+                </View>
+              )) : (
+                <View style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, marginTop: 10 }}>
+                  <Text style={{ color: "#888" }}>No events yet.</Text>
+                </View>
+              )}
+            </View>
+
+            {/* User Data */}
+            <View style={{ backgroundColor: "#161618", borderRadius: 28, padding: 20 }}>
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>User Data</Text>
+              <View style={{ marginTop: 12 }}>
+                {userFields.length > 0 ? userFields.map(([key, value]) => (
+                  <View key={key} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#232323" }}>
+                    <Text style={{ color: "#888", fontSize: 13 }}>{formatFieldLabel(key)}</Text>
+                    <Text style={{ color: "#fff", fontSize: 13, textAlign: "right", maxWidth: "60%" }} numberOfLines={1}>{String(value)}</Text>
+                  </View>
+                )) : <Text style={{ color: "#888", fontSize: 14 }}>No profile data available.</Text>}
+              </View>
+            </View>
+
+            {/* Logout */}
+            <TouchableOpacity
+              onPress={() => { useUserStore.getState().setOnboarded(false); router.push("/welcome"); }}
+              style={{ backgroundColor: "#2a1515", borderRadius: 16, paddingVertical: 16, alignItems: "center", marginTop: 32, marginBottom: 20, borderWidth: 1, borderColor: "rgba(255,69,58,0.3)" }}
+            >
+              <Text style={{ color: "#ff453a", fontWeight: "800", fontSize: 14, letterSpacing: 0.5 }}>LOG OUT</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ═══ RUN DETAIL MODAL ═══ */}
         <Modal visible={showRunDetail} transparent animationType="slide">
           <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }} onPress={() => setShowRunDetail(false)}>
             <Pressable style={{ backgroundColor: "#0a0a0a", borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 32, paddingBottom: 60 }}>
               <View style={{ width: 40, height: 4, backgroundColor: "#222", borderRadius: 2, alignSelf: "center", marginBottom: 32 }} />
-              
               <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>Activity Details</Text>
-              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatCalendarDate(selectedRun.created_at || selectedRun.date).split(',')[0] : ""}</Text>
-              
+              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatCalendarDate(selectedRun.created_at || selectedRun.date).split(",")[0] : ""}</Text>
               <View style={{ marginTop: 40, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
-                <View style={{ width: "45%", marginBottom: 32 }}>
-                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Distance</Text>
-                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? toNumber(selectedRun.distance).toFixed(2) : "0.00"}</Text>
-                  <Text style={{ color: "#444", fontSize: 12 }}>kilometers</Text>
-                </View>
-                <View style={{ width: "45%", marginBottom: 32 }}>
-                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Time</Text>
-                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatTime(selectedRun.duration_seconds) : "00:00"}</Text>
-                  <Text style={{ color: "#444", fontSize: 12 }}>duration</Text>
-                </View>
-                <View style={{ width: "45%" }}>
-                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Avg Pace</Text>
-                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? formatPace(selectedRun.pace_seconds_per_km) : "0'00"}</Text>
-                  <Text style={{ color: "#444", fontSize: 12 }}>per km</Text>
-                </View>
-                <View style={{ width: "45%" }}>
-                  <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Calories</Text>
-                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{selectedRun ? toInt(selectedRun.calories) : "0"}</Text>
-                  <Text style={{ color: "#444", fontSize: 12 }}>burned</Text>
-                </View>
+                {[
+                  { label: "Distance", value: selectedRun ? toNumber(selectedRun.distance).toFixed(2) : "0.00", unit: "kilometers" },
+                  { label: "Time", value: selectedRun ? formatTime(selectedRun.duration_seconds) : "00:00", unit: "duration" },
+                  { label: "Avg Pace", value: selectedRun ? formatPace(selectedRun.pace_seconds_per_km) : "0'00", unit: "per km" },
+                  { label: "Calories", value: selectedRun ? toInt(selectedRun.calories) : "0", unit: "burned" },
+                ].map(d => (
+                  <View key={d.label} style={{ width: "45%", marginBottom: 32 }}>
+                    <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>{d.label}</Text>
+                    <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", marginTop: 4 }}>{d.value}</Text>
+                    <Text style={{ color: "#444", fontSize: 12 }}>{d.unit}</Text>
+                  </View>
+                ))}
               </View>
-
-              <TouchableOpacity 
-                onPress={() => setShowRunDetail(false)}
-                style={{ backgroundColor: "#1a1a1a", padding: 18, borderRadius: 20, alignItems: "center", marginTop: 48 }}>
+              <TouchableOpacity onPress={() => setShowRunDetail(false)} style={{ backgroundColor: "#1a1a1a", padding: 18, borderRadius: 20, alignItems: "center", marginTop: 48 }}>
                 <Text style={{ color: "#fff", fontWeight: "700" }}>Close</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
         </Modal>
-
-        <View style={{ marginTop: 22 }}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-            Upcoming Events
-          </Text>
-          {events.length > 0 ? (
-            events.slice(0, 3).map((event, index) => (
-              <View
-                key={event.id || `event-${index}`}
-                style={{
-                  backgroundColor: "#161618",
-                  borderRadius: 20,
-                  padding: 12,
-                  marginTop: 10,
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-                  {event.title || "Run Event"}
-                </Text>
-                <Text style={{ color: "#888", marginTop: 4, fontSize: 12 }}>
-                  {formatCalendarDate(event.created_at)}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <View
-              style={{
-                backgroundColor: "#1a1a1a",
-                borderRadius: 14,
-                padding: 14,
-                marginTop: 10,
-              }}
-            >
-              <Text style={{ color: "#888" }}>No events yet.</Text>
-            </View>
-          )}
-        </View>
-
-        <View
-          style={{
-            marginTop: 24,
-            backgroundColor: "#161618",
-            borderRadius: 28,
-            padding: 20,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.2,
-            shadowRadius: 10,
-            elevation: 4,
-          }}
-        >
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-            User Data
-          </Text>
-
-          <View style={{ marginTop: 12 }}>
-            {userFields.length > 0 ? (
-              userFields.map(([key, value]) => (
-                <View
-                  key={key}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingVertical: 10,
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#232323",
-                  }}
-                >
-                  <Text style={{ color: "#888", fontSize: 13 }}>
-                    {formatFieldLabel(key)}
-                  </Text>
-                  <Text
-                    style={{
-                      color: "#fff",
-                      fontSize: 13,
-                      textAlign: "right",
-                      maxWidth: "60%",
-                    }}
-                    numberOfLines={1}
-                  >
-                    {String(value)}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={{ color: "#888", fontSize: 14 }}>
-                No profile data available.
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* ── LOGOUT BUTTON ── */}
-        <TouchableOpacity
-          onPress={() => {
-            const { useUserStore } = require("@/store/userStore");
-            const { router } = require("expo-router");
-            useUserStore.getState().setOnboarded(false);
-            router.push("/welcome");
-          }}
-          style={{
-            backgroundColor: "#2a1515",
-            borderRadius: 16,
-            paddingVertical: 16,
-            alignItems: "center",
-            marginTop: 32,
-            marginBottom: 20,
-            borderWidth: 1,
-            borderColor: "rgba(255, 69, 58, 0.3)",
-          }}
-        >
-          <Text style={{ color: "#ff453a", fontWeight: "800", fontSize: 14, letterSpacing: 0.5 }}>
-            LOG OUT
-          </Text>
-        </TouchableOpacity>
 
       </ScrollView>
     </View>

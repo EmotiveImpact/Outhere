@@ -15,51 +15,60 @@ import { useRouter } from "expo-router";
 import { useSettingsStore } from "@/utils/settingsStore";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { hapticSelection } from "@/services/haptics";
 
-const SettingRow = ({ icon: Icon, iconBgColor, title, subtitle, rightElement, onPress, isLast }) => (
-  <View>
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={onPress}
-      disabled={!onPress}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-      }}
-    >
-      <View
+const SettingRow = ({ icon: Icon, iconBgColor, title, subtitle, rightElement, onPress, isLast }) => {
+  const handlePress = () => {
+    if (!onPress) return;
+    hapticSelection();
+    onPress();
+  };
+
+  return (
+    <View>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handlePress}
+        disabled={!onPress}
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          backgroundColor: iconBgColor,
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-          marginRight: 16,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
         }}
       >
-        <Icon color="#fff" size={18} strokeWidth={2.5} />
-      </View>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            backgroundColor: iconBgColor,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 16,
+          }}
+        >
+          <Icon color="#fff" size={18} strokeWidth={2.5} />
+        </View>
+        
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          <Text style={{ color: "#fff", fontSize: 17, fontWeight: "500" }}>{title}</Text>
+          {subtitle && (
+            <Text style={{ color: "#8E8E93", fontSize: 13, marginTop: 2 }}>{subtitle}</Text>
+          )}
+        </View>
+        
+        <View style={{ paddingLeft: 8 }}>
+          {rightElement || <ChevronRight color="#8E8E93" size={20} />}
+        </View>
+      </TouchableOpacity>
       
-      <View style={{ flex: 1, justifyContent: "center" }}>
-        <Text style={{ color: "#fff", fontSize: 17, fontWeight: "500" }}>{title}</Text>
-        {subtitle && (
-          <Text style={{ color: "#8E8E93", fontSize: 13, marginTop: 2 }}>{subtitle}</Text>
-        )}
-      </View>
-      
-      <View style={{ paddingLeft: 8 }}>
-        {rightElement || <ChevronRight color="#8E8E93" size={20} />}
-      </View>
-    </TouchableOpacity>
-    
-    {!isLast && (
-      <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.08)", marginLeft: 64 }} />
-    )}
-  </View>
-);
+      {!isLast && (
+        <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.08)", marginLeft: 64 }} />
+      )}
+    </View>
+  );
+};
 
 const SettingsGroup = ({ title, children }) => (
   <View style={{ marginBottom: 32 }}>
@@ -108,7 +117,10 @@ export default function SettingsScreen() {
       <View style={{ paddingTop: insets.top, flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              hapticSelection();
+              router.back();
+            }}
             style={{ 
               width: 40, 
               height: 40, 

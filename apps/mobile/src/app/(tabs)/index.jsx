@@ -265,6 +265,10 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              onPress={() => {
+                router.push("/notifications");
+                hapticSelection();
+              }}
               style={{
                 width: 44,
                 height: 44,
@@ -275,6 +279,18 @@ export default function HomeScreen() {
               }}
             >
               <Bell color="#fff" size={22} />
+              {/* Notification Badge Dot */}
+              <View style={{
+                position: "absolute",
+                top: 10,
+                right: 10,
+                width: 9,
+                height: 9,
+                borderRadius: 4.5,
+                backgroundColor: "#00ff7f",
+                borderWidth: 2,
+                borderColor: "#1a1a1a",
+              }} />
             </TouchableOpacity>
           </View>
         </View>

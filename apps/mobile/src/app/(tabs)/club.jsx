@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import {
@@ -12,7 +12,6 @@ import { useUserStore } from "@/store/userStore";
 import { StatusBar } from "expo-status-bar";
 import { hapticSelection, hapticSuccess } from "@/services/haptics";
 import Shimmer from "@/components/Shimmer";
-import { MotiView, AnimatePresence } from "moti";
 
 
 // ── MOCK DATA ─────────────────────────────────────────────────────────────────
@@ -70,36 +69,109 @@ function ProgressBar({ current, goal, color, height = 6 }) {
   );
 }
 
-function HeartBurst({ active }) {
-  if (!active) return null;
-  const particles = Array.from({ length: 8 });
+function HeartBurst({ trigger }) {
+  const particleCount = 8;
+  const particles = useRef(
+    Array.from({ length: particleCount }, (_, index) => ({
+      translateX: new Animated.Value(0),
+      translateY: new Animated.Value(0),
+      scale: new Animated.Value(0.2),
+      opacity: new Animated.Value(0),
+      angle: (index / particleCount) * Math.PI * 2,
+      distance: 14 + (index % 2) * 8,
+    })),
+  ).current;
+
+  useEffect(() => {
+    if (!trigger) return;
+
+    particles.forEach((particle) => {
+      particle.translateX.setValue(0);
+      particle.translateY.setValue(0);
+      particle.scale.setValue(0.2);
+      particle.opacity.setValue(1);
+    });
+
+    const burstAnimation = Animated.parallel(
+      particles.flatMap((particle, index) => [
+        Animated.timing(particle.translateX, {
+          toValue: Math.cos(particle.angle) * particle.distance,
+          duration: 380,
+          delay: index * 10,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(particle.translateY, {
+          toValue: Math.sin(particle.angle) * particle.distance,
+          duration: 380,
+          delay: index * 10,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(particle.scale, {
+          toValue: 1,
+          duration: 250,
+          delay: index * 10,
+          easing: Easing.out(Easing.back(1.2)),
+          useNativeDriver: true,
+        }),
+        Animated.timing(particle.opacity, {
+          toValue: 0,
+          duration: 380,
+          delay: index * 10,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    burstAnimation.start();
+  }, [particles, trigger]);
+
+  if (!trigger) return null;
+
   return (
-    <View pointerEvents="none" style={{ position: "absolute", width: 40, height: 40, alignItems: "center", justifyContent: "center", zIndex: 10 }}>
-      {particles.map((_, i) => (
-        <MotiView
-          key={i}
-          from={{ opacity: 1, scale: 0, translateX: 0, translateY: 0 }}
-          animate={{
-            opacity: 0,
-            scale: 1,
-            translateX: Math.cos((i * 45) * (Math.PI / 180)) * 25,
-            translateY: Math.sin((i * 45) * (Math.PI / 180)) * 25,
-          }}
-          transition={{
-            type: "timing",
-            duration: 500,
-            easing: (t) => t * (2 - t),
-          }}
+    <View pointerEvents="none" style={{ position: "absolute", width: 42, height: 42, alignItems: "center", justifyContent: "center" }}>
+      {particles.map((particle, index) => (
+        <Animated.Text
+          key={index}
           style={{
             position: "absolute",
-            width: 6,
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: "#ff4d4d",
+            color: "#ff4d6d",
+            fontSize: index % 2 === 0 ? 10 : 8,
+            opacity: particle.opacity,
+            transform: [
+              { translateX: particle.translateX },
+              { translateY: particle.translateY },
+              { scale: particle.scale },
+            ],
           }}
-        />
+        >
+          ♥
+        </Animated.Text>
       ))}
     </View>
+  );
+}
+
+function HapticTouchable({ onPressIn, onPress, disabled, ...props }) {
+  const hasAction =
+    typeof onPress === "function" || typeof props.onLongPress === "function";
+
+  const handlePressIn = (event) => {
+    if (!disabled && hasAction) {
+      hapticSelection();
+    }
+    onPressIn?.(event);
+  };
+
+  return (
+    <TouchableOpacity
+      {...props}
+      disabled={disabled}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+    />
   );
 }
 
@@ -124,7 +196,7 @@ export default function ClubScreen() {
   const [streakSort, setStreakSort] = useState(false);
   const [cityFilter, setCityFilter] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [burstingId, setBurstingId] = useState(null);
+  const [burstTriggers, setBurstTriggers] = useState({});
 
 
   // Mock loading trigger for shimmer demo
@@ -147,18 +219,27 @@ export default function ClubScreen() {
   const myKm = LEADERBOARD[0].total_distance;
 
   const toggleLike = (id) => {
-    const itemToToggle = feed.find(i => i.id === id);
-    if (itemToToggle && !itemToToggle.liked) {
-      setBurstingId(id);
-      setTimeout(() => setBurstingId(null), 600);
+    if (!id) return;
+    const target = feed.find((item) => item?.id === id);
+    if (target && !Boolean(target.liked)) {
+      setBurstTriggers((prev) => ({
+        ...prev,
+        [id]: (prev[id] || 0) + 1,
+      }));
     }
-    
-    setFeed(prev => prev.map(item => {
-      if (item.id === id) {
-        return { ...item, liked: !item.liked, likes: item.liked ? item.likes - 1 : item.likes + 1 };
-      }
-      return item;
-    }));
+
+    setFeed((prev) =>
+      prev.map((item) => {
+        if (!item || item.id !== id) return item;
+        const isLiked = Boolean(item.liked);
+        const likeCount = Number.isFinite(item.likes) ? item.likes : 0;
+        return {
+          ...item,
+          liked: !isLiked,
+          likes: Math.max(0, likeCount + (isLiked ? -1 : 1)),
+        };
+      }),
+    );
   };
 
   const handleCreatePost = () => {
@@ -218,12 +299,12 @@ export default function ClubScreen() {
             </View>
             
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <TouchableOpacity onPress={() => setShowJoinModal(true)} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#222", marginRight: 8 }}>
+              <HapticTouchable onPress={() => setShowJoinModal(true)} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#222", marginRight: 8 }}>
                 <LogIn color="#00ff7f" size={20} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowCreateModal(true)} style={{ width: 44, height: 44, backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 255, 127, 0.3)" }}>
+              </HapticTouchable>
+              <HapticTouchable onPress={() => setShowCreateModal(true)} style={{ width: 44, height: 44, backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 255, 127, 0.3)" }}>
                 <Plus color="#00ff7f" size={24} />
-              </TouchableOpacity>
+              </HapticTouchable>
             </View>
           </View>
 
@@ -250,7 +331,7 @@ export default function ClubScreen() {
             {TABS.map((tab) => {
               const isActive = activeTab === tab;
               return (
-                <TouchableOpacity
+                <HapticTouchable
                   key={tab}
                   onPress={() => setActiveTab(tab)}
                   style={{
@@ -265,7 +346,7 @@ export default function ClubScreen() {
                   }}>
                     {tab}
                   </Text>
-                </TouchableOpacity>
+                </HapticTouchable>
               )
             })}
           </View>
@@ -281,7 +362,7 @@ export default function ClubScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 24 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", paddingBottom: 4 }}>
                   {["Week", "Month", "All-time"].map((p, i) => (
-                    <TouchableOpacity
+                    <HapticTouchable
                       key={p}
                       onPress={() => setFilterPeriod(p)}
                       style={{
@@ -293,12 +374,12 @@ export default function ClubScreen() {
                         marginRight: 8,
                       }}>
                       <Text style={{ color: filterPeriod === p ? "#00ff7f" : "#888", fontSize: 13, fontWeight: "600" }}>{p}</Text>
-                    </TouchableOpacity>
+                    </HapticTouchable>
                   ))}
 
                   <View style={{ width: 1, height: 20, backgroundColor: "#333", marginHorizontal: 8 }} />
 
-                  <TouchableOpacity
+                  <HapticTouchable
                     onPress={() => setStreakSort(!streakSort)}
                     style={{
                       flexDirection: "row", alignItems: "center",
@@ -311,9 +392,9 @@ export default function ClubScreen() {
                     }}>
                     <Flame color={streakSort ? "#00ff7f" : "#888"} size={14} style={{ marginRight: 6 }} />
                     <Text style={{ color: streakSort ? "#00ff7f" : "#888", fontSize: 13, fontWeight: "600" }}>Streak</Text>
-                  </TouchableOpacity>
+                  </HapticTouchable>
 
-                  <TouchableOpacity
+                  <HapticTouchable
                     onPress={() => setCityFilter(!cityFilter)}
                     style={{
                       flexDirection: "row", alignItems: "center",
@@ -326,7 +407,7 @@ export default function ClubScreen() {
                     }}>
                     <MapPin color={cityFilter ? "#00ff7f" : "#888"} size={14} style={{ marginRight: 6 }} />
                     <Text style={{ color: cityFilter ? "#00ff7f" : "#888", fontSize: 13, fontWeight: "600" }}>London</Text>
-                  </TouchableOpacity>
+                  </HapticTouchable>
                 </View>
               </ScrollView>
 
@@ -424,7 +505,7 @@ export default function ClubScreen() {
                       : (f.total_distance ? `${f.total_distance}` : "----");
                     const unit = showSteps ? "steps" : "KM";
                     return (
-                      <TouchableOpacity
+                      <HapticTouchable
                         key={f.id}
                         activeOpacity={0.8}
                         onLongPress={triggerLoading}
@@ -467,7 +548,7 @@ export default function ClubScreen() {
                             )}
                           </View>
                         </View>
-                      </TouchableOpacity>
+                      </HapticTouchable>
                     );
                   })
                 )}
@@ -479,14 +560,14 @@ export default function ClubScreen() {
           {activeTab === "Feed" && (
             <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
               {/* Post Trigger */}
-              <TouchableOpacity 
+              <HapticTouchable 
                 onPress={() => setShowPostModal(true)}
                 style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#222", marginBottom: 20, flexDirection: "row", alignItems: "center" }}>
                 <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#00ff7f22", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                   <Plus color="#00ff7f" size={20} />
                 </View>
                 <Text style={{ color: "#555", fontSize: 15, fontWeight: "600" }}>Share something with the squad...</Text>
-              </TouchableOpacity>
+              </HapticTouchable>
 
               {feed.map((item, i) => (
                 <View key={item.id} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#1a1a1a", marginBottom: i < feed.length - 1 ? 12 : 0 }}>
@@ -513,14 +594,14 @@ export default function ClubScreen() {
                   </View>
                   <Text style={{ color: "#999", fontSize: 14, lineHeight: 20, marginBottom: 14 }}>{item.caption}</Text>
                   <View style={{ flexDirection: "row" }}>
-                    <TouchableOpacity onPress={() => toggleLike(item.id)} style={{ flexDirection: "row", alignItems: "center", marginRight: 22 }}>
-                      <View style={{ alignItems: "center", justifyContent: "center" }}>
-                        <Heart color={item.liked ? "#ff4d4d" : "#444"} size={18} fill={item.liked ? "#ff4d4d" : "transparent"} style={{ marginRight: 6 }} />
-                        <HeartBurst active={burstingId === item.id} />
+                    <HapticTouchable onPress={() => toggleLike(item.id)} style={{ flexDirection: "row", alignItems: "center", marginRight: 22 }}>
+                      <View style={{ width: 22, height: 22, alignItems: "center", justifyContent: "center", marginRight: 6 }}>
+                        <Heart color={item.liked ? "#ff4d4d" : "#444"} size={18} />
+                        <HeartBurst trigger={burstTriggers[item.id] || 0} />
                       </View>
                       <Text style={{ color: "#555", fontSize: 13 }}>{item.likes}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
+                    </HapticTouchable>
+                    <HapticTouchable 
                       onPress={() => {
                         setActivePost(item);
                         setShowCommentsModal(true);
@@ -528,7 +609,7 @@ export default function ClubScreen() {
                       style={{ flexDirection: "row", alignItems: "center" }}>
                       <MessageSquare color="#444" size={18} style={{ marginRight: 6 }} />
                       <Text style={{ color: "#555", fontSize: 13 }}>{item.comments}</Text>
-                    </TouchableOpacity>
+                    </HapticTouchable>
                   </View>
                 </View>
               ))}
@@ -577,11 +658,11 @@ export default function ClubScreen() {
                   value={newMessage}
                   onChangeText={setNewMessage}
                 />
-                <TouchableOpacity onPress={handleSendMessage}>
+                <HapticTouchable onPress={handleSendMessage}>
                   <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#00ff7f", alignItems: "center", justifyContent: "center" }}>
                     <Send color="#000" size={18} />
                   </View>
-                </TouchableOpacity>
+                </HapticTouchable>
               </View>
             </View>
           )}
@@ -601,9 +682,9 @@ export default function ClubScreen() {
                         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{c.title}</Text>
                         <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{c.participants} runners · {c.daysLeft}d left</Text>
                       </View>
-                      <TouchableOpacity style={{ backgroundColor: c.joined ? "#1e1e1e" : "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1, borderColor: c.joined ? "#2a2a2a" : "#00ff7f" }}>
+                      <HapticTouchable style={{ backgroundColor: c.joined ? "#1e1e1e" : "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1, borderColor: c.joined ? "#2a2a2a" : "#00ff7f" }}>
                         <Text style={{ color: c.joined ? "#555" : "#00ff7f", fontWeight: "700", fontSize: 12 }}>{c.joined ? "Joined" : "Join"}</Text>
-                      </TouchableOpacity>
+                      </HapticTouchable>
                     </View>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                       <Text style={{ color: "#555", fontSize: 12 }}>{c.current} {c.unit}</Text>
@@ -673,7 +754,7 @@ export default function ClubScreen() {
             <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Join a Club</Text>
-                <TouchableOpacity onPress={() => setShowJoinModal(false)}><X color="#555" size={22} /></TouchableOpacity>
+                <HapticTouchable onPress={() => setShowJoinModal(false)}><X color="#555" size={22} /></HapticTouchable>
               </View>
               <Text style={{ color: "#555", fontSize: 13, marginBottom: 14 }}>Enter the invite code shared by a friend.</Text>
               <TextInput
@@ -684,9 +765,9 @@ export default function ClubScreen() {
                 style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, color: "#fff", fontSize: 16, fontWeight: "600", borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 16, letterSpacing: 2 }}
                 autoCapitalize="characters"
               />
-              <TouchableOpacity style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
+              <HapticTouchable style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
                 <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Join Club</Text>
-              </TouchableOpacity>
+              </HapticTouchable>
             </Pressable>
           </Pressable>
         </Modal>
@@ -698,7 +779,7 @@ export default function ClubScreen() {
             <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Create a Club</Text>
-                <TouchableOpacity onPress={() => setShowCreateModal(false)}><X color="#555" size={22} /></TouchableOpacity>
+                <HapticTouchable onPress={() => setShowCreateModal(false)}><X color="#555" size={22} /></HapticTouchable>
               </View>
               <Text style={{ color: "#555", fontSize: 13, marginBottom: 14 }}>Give your club a name to get started (max 25 chars).</Text>
               <TextInput
@@ -711,9 +792,9 @@ export default function ClubScreen() {
                 <Text style={{ color: "#555", fontSize: 12, marginBottom: 4 }}>Your invite code</Text>
                 <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 20, letterSpacing: 3 }}>{CLUB.inviteCode}</Text>
               </View>
-              <TouchableOpacity style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
+              <HapticTouchable style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
                 <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Create Club</Text>
-              </TouchableOpacity>
+              </HapticTouchable>
             </Pressable>
           </Pressable>
         </Modal>
@@ -724,7 +805,7 @@ export default function ClubScreen() {
             <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Create New Post</Text>
-                <TouchableOpacity onPress={() => setShowPostModal(false)}><X color="#555" size={22} /></TouchableOpacity>
+                <HapticTouchable onPress={() => setShowPostModal(false)}><X color="#555" size={22} /></HapticTouchable>
               </View>
               <TextInput
                 multiline
@@ -735,11 +816,11 @@ export default function ClubScreen() {
                 placeholderTextColor="#333"
                 style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, color: "#fff", fontSize: 16, minHeight: 100, textAlignVertical: "top", marginBottom: 20 }}
               />
-              <TouchableOpacity 
+              <HapticTouchable 
                 onPress={handleCreatePost}
                 style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
                 <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Post to Feed</Text>
-              </TouchableOpacity>
+              </HapticTouchable>
             </Pressable>
           </Pressable>
         </Modal>
@@ -750,7 +831,7 @@ export default function ClubScreen() {
             <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, height: "70%" }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Comments</Text>
-                <TouchableOpacity onPress={() => setShowCommentsModal(false)}><X color="#555" size={22} /></TouchableOpacity>
+                <HapticTouchable onPress={() => setShowCommentsModal(false)}><X color="#555" size={22} /></HapticTouchable>
               </View>
               
               <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
@@ -780,14 +861,14 @@ export default function ClubScreen() {
                   value={newCommentText}
                   onChangeText={setNewCommentText}
                 />
-                <TouchableOpacity onPress={() => {
+                <HapticTouchable onPress={() => {
                   if(newCommentText.trim()) {
                     setNewCommentText("");
                     hapticSuccess();
                   }
                 }}>
                   <Send color="#00ff7f" size={18} />
-                </TouchableOpacity>
+                </HapticTouchable>
               </View>
             </Pressable>
           </Pressable>

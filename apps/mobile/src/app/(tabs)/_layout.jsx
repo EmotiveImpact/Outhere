@@ -83,9 +83,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="run"
+        name="move"
         options={{
-          title: "Run",
+          title: "Move",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <FontAwesome5 name="running" size={22} color={color} />
