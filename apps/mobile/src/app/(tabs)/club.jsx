@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions } from "react-native";
+import { Animated, Easing, View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import {
@@ -7,8 +7,10 @@ import {
   Plus, LogIn, Share2, Heart, MessageCircle, MessageSquare,
   TrendingUp, X, MapPin, Send
 } from "lucide-react-native";
+import { useLocalSearchParams } from "expo-router";
 import { useSettingsStore } from "@/utils/settingsStore";
 import { useUserStore } from "@/store/userStore";
+import { useClubStore, DEFAULT_CLUB_AVATAR } from "@/store/useClubStore";
 import { StatusBar } from "expo-status-bar";
 import { hapticSelection, hapticSuccess } from "@/services/haptics";
 import Shimmer from "@/components/Shimmer";
@@ -32,13 +34,6 @@ const LEADERBOARD = [
   { id: "4", name: "Patrick Klüvert", total_distance: 112,  total_steps: 12500, streak: 5,  city: "London", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop&auto=format", achievement: "Fastest 1k" },
   { id: "5", name: "Riyan Giggs",     total_distance: 49,   total_steps: 5000,  streak: 6,  city: "London", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop&auto=format", achievement: "6 Week Streak" },
   { id: "6", name: "Romelu Lukaku",   total_distance: null, total_steps: 0,     streak: 0,  city: "London", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop&auto=format", achievement: "Haven't Run Yet" },
-];
-
-const FEED = [
-  { id: "f1", user: "Nicki Minaj",    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&auto=format", time: "2h ago",    distance: 14.2, pace: "5:12", caption: "Morning grind never stops",            likes: 18, comments: 4,  liked: false },
-  { id: "f2", user: "Michel Jordan",  avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&auto=format", time: "5h ago",    distance: 8.9,  pace: "4:48", caption: "Trail run with the boys, can't beat it.", likes: 31, comments: 7,  liked: true  },
-  { id: "f3", user: "You",            avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&auto=format", time: "Yesterday", distance: 21.1, pace: "5:30", caption: "Half marathon down!",                  likes: 42, comments: 12, liked: false },
-  { id: "f4", user: "Patrick Klüvert",avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop&auto=format", time: "2d ago",    distance: 5.0,  pace: "6:01", caption: "Back at it after the break.",              likes: 9,  comments: 2,  liked: false },
 ];
 
 const CHALLENGES = [
@@ -179,12 +174,17 @@ function HapticTouchable({ onPressIn, onPress, disabled, ...props }) {
 
 export default function ClubScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams();
   const { showSteps, toggleMetric } = useSettingsStore();
   const squadName = useUserStore(state => state.squadName);
+  const setSquadName = useUserStore(state => state.setSquadName);
+  const feed = useClubStore((state) => state.feed);
+  const addPost = useClubStore((state) => state.addPost);
+  const toggleFeedLike = useClubStore((state) => state.toggleLike);
+  const addFeedComment = useClubStore((state) => state.addComment);
 
   const [activeTab, setActiveTab] = useState("Leaderboard");
   const [filterPeriod, setFilterPeriod] = useState("Month");
-  const [feed, setFeed] = useState(FEED);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
@@ -193,10 +193,45 @@ export default function ClubScreen() {
   const [newPostText, setNewPostText] = useState("");
   const [newCommentText, setNewCommentText] = useState("");
   const [inviteInput, setInviteInput] = useState("");
+  const [createClubName, setCreateClubName] = useState("");
+  const [clubMeta, setClubMeta] = useState(CLUB);
+  const [inviteCodePreview, setInviteCodePreview] = useState(CLUB.inviteCode);
   const [streakSort, setStreakSort] = useState(false);
   const [cityFilter, setCityFilter] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [burstTriggers, setBurstTriggers] = useState({});
+  const [challenges, setChallenges] = useState(CHALLENGES);
+  const [commentsByPost, setCommentsByPost] = useState({});
+
+  useEffect(() => {
+    if (typeof params?.tab === "string" && TABS.includes(params.tab)) {
+      setActiveTab(params.tab);
+    }
+  }, [params?.tab]);
+
+  useEffect(() => {
+    setCommentsByPost((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      feed.forEach((item) => {
+        if (!next[item.id]) {
+          const hasExistingComments = Number(item.comments || 0) > 0;
+          next[item.id] = hasExistingComments
+            ? [
+                {
+                  id: `${item.id}-seed`,
+                  user: "Squad Mate",
+                  text: "Solid work. Keep it going.",
+                  time: item.time || "Recently",
+                },
+              ]
+            : [];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [feed]);
 
 
   // Mock loading trigger for shimmer demo
@@ -228,39 +263,134 @@ export default function ClubScreen() {
       }));
     }
 
-    setFeed((prev) =>
-      prev.map((item) => {
-        if (!item || item.id !== id) return item;
-        const isLiked = Boolean(item.liked);
-        const likeCount = Number.isFinite(item.likes) ? item.likes : 0;
-        return {
-          ...item,
-          liked: !isLiked,
-          likes: Math.max(0, likeCount + (isLiked ? -1 : 1)),
-        };
-      }),
-    );
+    toggleFeedLike(id);
   };
 
   const handleCreatePost = () => {
     if (!newPostText.trim()) return;
-    const newPost = {
-      id: `f${Date.now()}`,
+    addPost({
       user: "You",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&auto=format",
-      time: "Just now",
+      avatar: DEFAULT_CLUB_AVATAR,
       distance: (Math.random() * 10 + 2).toFixed(1),
       pace: (Math.random() * 2 + 4).toFixed(2),
-      caption: newPostText,
-      likes: 0,
-      comments: 0,
-      liked: false
-    };
-    setFeed([newPost, ...feed]);
+      caption: newPostText.trim(),
+    });
     setNewPostText("");
     setShowPostModal(false);
     hapticSuccess();
   };
+
+  const generateInviteCode = (name) => {
+    const head = name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 5) || "CLUB";
+    const tail = Math.floor(1000 + Math.random() * 9000);
+    return `${head}-${tail}`;
+  };
+
+  const handleJoinClub = async () => {
+    const code = inviteInput.trim().toUpperCase();
+    if (!code) {
+      Alert.alert("Invite Code Required", "Enter an invite code to join a club.");
+      return;
+    }
+    if (code !== clubMeta.inviteCode && code !== CLUB.inviteCode) {
+      Alert.alert("Invalid Code", "That invite code was not found.");
+      return;
+    }
+    try {
+      await setSquadName(clubMeta.name);
+      setInviteInput("");
+      setShowJoinModal(false);
+      hapticSuccess();
+      Alert.alert("Joined Club", `You joined ${clubMeta.name}.`);
+    } catch {
+      Alert.alert("Join Failed", "Unable to join this club right now.");
+    }
+  };
+
+  const handleCreateClub = async () => {
+    const name = createClubName.trim();
+    if (name.length < 3) {
+      Alert.alert("Invalid Club Name", "Club name must be at least 3 characters.");
+      return;
+    }
+    const nextInviteCode = generateInviteCode(name);
+    try {
+      await setSquadName(name);
+      setClubMeta((prev) => ({
+        ...prev,
+        name,
+        inviteCode: nextInviteCode,
+        members: prev.members + 1,
+      }));
+      setInviteCodePreview(nextInviteCode);
+      setCreateClubName("");
+      setShowCreateModal(false);
+      hapticSuccess();
+      Alert.alert("Club Created", `Invite code: ${nextInviteCode}`);
+    } catch {
+      Alert.alert("Create Failed", "Unable to create club right now.");
+    }
+  };
+
+  const handleToggleChallenge = (id) => {
+    setChallenges((prev) =>
+      prev.map((challenge) => {
+        if (challenge.id !== id) return challenge;
+        const joining = !challenge.joined;
+        return {
+          ...challenge,
+          joined: joining,
+          participants: Math.max(0, challenge.participants + (joining ? 1 : -1)),
+        };
+      }),
+    );
+    hapticSuccess();
+  };
+
+  const handleOpenComments = (post) => {
+    setActivePost(post);
+    setShowCommentsModal(true);
+  };
+
+  const handleAddComment = () => {
+    const message = newCommentText.trim();
+    if (!message || !activePost?.id) return;
+
+    const nextComment = {
+      id: `comment-${Date.now()}`,
+      user: "You",
+      text: message,
+      time: "Just now",
+    };
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [activePost.id]: [...(prev[activePost.id] || []), nextComment],
+    }));
+    setNewCommentText("");
+    addFeedComment(activePost.id);
+    setActivePost((prev) =>
+      prev
+        ? {
+            ...prev,
+            comments: (Number(prev.comments) || 0) + 1,
+          }
+        : prev,
+    );
+    hapticSuccess();
+  };
+
+  const handleSharePost = async (item) => {
+    try {
+      await Share.share({
+        message: `${item.user}: ${item.caption} • ${item.distance} km • ${item.pace} pace`,
+      });
+    } catch {
+      Alert.alert("Share Failed", "Unable to open share sheet right now.");
+    }
+  };
+
+  const activeComments = activePost?.id ? commentsByPost[activePost.id] || [] : [];
 
   const [messages, setMessages] = useState([
     { id: "m1", user: "Nicki Minaj", text: "Who's ready for the run tonight?", time: "1:24 PM", isMe: false },
@@ -311,12 +441,12 @@ export default function ClubScreen() {
           {/* Quick Stats Row */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
             <View>
-              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>{CLUB.members.toLocaleString()}</Text>
+              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>{clubMeta.members.toLocaleString()}</Text>
               <Text style={{ color: "#777", fontSize: 13, fontWeight: "500", marginTop: 2 }}>Members</Text>
             </View>
             <View style={{ width: 1, height: "70%", backgroundColor: "#222" }} />
             <View>
-              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>{(CLUB.totalKm / 1000).toFixed(1)}k <Text style={{ fontSize: 13, color: "#888", fontWeight: "600" }}>KM</Text></Text>
+              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>{(clubMeta.totalKm / 1000).toFixed(1)}k <Text style={{ fontSize: 13, color: "#888", fontWeight: "600" }}>KM</Text></Text>
               <Text style={{ color: "#777", fontSize: 13, fontWeight: "500", marginTop: 2 }}>Total Distance</Text>
             </View>
             <View style={{ width: 1, height: "70%", backgroundColor: "#222" }} />
@@ -579,7 +709,9 @@ export default function ClubScreen() {
                       <Text style={{ color: item.user === "You" ? "#00ff7f" : "#fff", fontWeight: "700", fontSize: 14 }}>{item.user}</Text>
                       <Text style={{ color: "#444", fontSize: 12, marginTop: 2 }}>{item.time}</Text>
                     </View>
-                    <Share2 color="#333" size={16} />
+                    <HapticTouchable onPress={() => handleSharePost(item)}>
+                      <Share2 color="#333" size={16} />
+                    </HapticTouchable>
                   </View>
                   <View style={{ flexDirection: "row", backgroundColor: "#0d0d0d", borderRadius: 12, padding: 14, marginBottom: 12 }}>
                     <View style={{ flex: 1, alignItems: "center" }}>
@@ -602,10 +734,7 @@ export default function ClubScreen() {
                       <Text style={{ color: "#555", fontSize: 13 }}>{item.likes}</Text>
                     </HapticTouchable>
                     <HapticTouchable 
-                      onPress={() => {
-                        setActivePost(item);
-                        setShowCommentsModal(true);
-                      }}
+                      onPress={() => handleOpenComments(item)}
                       style={{ flexDirection: "row", alignItems: "center" }}>
                       <MessageSquare color="#444" size={18} style={{ marginRight: 6 }} />
                       <Text style={{ color: "#555", fontSize: 13 }}>{item.comments}</Text>
@@ -670,10 +799,10 @@ export default function ClubScreen() {
           {/* ════ CHALLENGES ════ */}
           {activeTab === "Challenges" && (
             <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-              {CHALLENGES.map((c, i) => {
+              {challenges.map((c, i) => {
                 const pct = Math.min(c.current / c.goal, 1);
                 return (
-                  <View key={c.id} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: c.joined ? "#00ff7f22" : "#1a1a1a", marginBottom: i < CHALLENGES.length - 1 ? 12 : 0 }}>
+                  <View key={c.id} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: c.joined ? "#00ff7f22" : "#1a1a1a", marginBottom: i < challenges.length - 1 ? 12 : 0 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
                       <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: "rgba(0, 255, 127, 0.1)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                         <c.icon color="#00ff7f" size={20} />
@@ -682,7 +811,7 @@ export default function ClubScreen() {
                         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{c.title}</Text>
                         <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{c.participants} runners · {c.daysLeft}d left</Text>
                       </View>
-                      <HapticTouchable style={{ backgroundColor: c.joined ? "#1e1e1e" : "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1, borderColor: c.joined ? "#2a2a2a" : "#00ff7f" }}>
+                      <HapticTouchable onPress={() => handleToggleChallenge(c.id)} style={{ backgroundColor: c.joined ? "#1e1e1e" : "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1, borderColor: c.joined ? "#2a2a2a" : "#00ff7f" }}>
                         <Text style={{ color: c.joined ? "#555" : "#00ff7f", fontWeight: "700", fontSize: 12 }}>{c.joined ? "Joined" : "Join"}</Text>
                       </HapticTouchable>
                     </View>
@@ -706,11 +835,11 @@ export default function ClubScreen() {
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
                   <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Weekly Club Goal</Text>
                   <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 22 }}>
-                    {CLUB.weekCurrentKm} <Text style={{ color: "#555", fontSize: 13 }}>/ {CLUB.weekGoalKm} KM</Text>
+                    {clubMeta.weekCurrentKm} <Text style={{ color: "#555", fontSize: 13 }}>/ {clubMeta.weekGoalKm} KM</Text>
                   </Text>
                 </View>
-                <ProgressBar current={CLUB.weekCurrentKm} goal={CLUB.weekGoalKm} color="#00ff7f" height={10} />
-                <Text style={{ color: "#555", fontSize: 12, marginTop: 8 }}>{CLUB.weekGoalKm - CLUB.weekCurrentKm} KM to go · 3 days left</Text>
+                <ProgressBar current={clubMeta.weekCurrentKm} goal={clubMeta.weekGoalKm} color="#00ff7f" height={10} />
+                <Text style={{ color: "#555", fontSize: 12, marginTop: 8 }}>{clubMeta.weekGoalKm - clubMeta.weekCurrentKm} KM to go · 3 days left</Text>
               </View>
 
               {/* Streak board */}
@@ -733,7 +862,7 @@ export default function ClubScreen() {
               {/* Contributions */}
               <Text style={{ color: "#444", fontSize: 11, fontWeight: "600", letterSpacing: 1, marginBottom: 12, marginTop: 8 }}>CONTRIBUTION TO CLUB TOTAL</Text>
               {LEADERBOARD.map(f => {
-                const contribution = f.total_distance ? ((f.total_distance / CLUB.totalKm) * 100).toFixed(1) : "0.0";
+                const contribution = f.total_distance ? ((f.total_distance / clubMeta.totalKm) * 100).toFixed(1) : "0.0";
                 return (
                   <View key={`cb-${f.id}`} style={{ marginBottom: 12 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
@@ -759,13 +888,13 @@ export default function ClubScreen() {
               <Text style={{ color: "#555", fontSize: 13, marginBottom: 14 }}>Enter the invite code shared by a friend.</Text>
               <TextInput
                 value={inviteInput}
-                onChangeText={setInviteInput}
+                onChangeText={(value) => setInviteInput(value.toUpperCase())}
                 placeholder="e.g. OUTHR-2024"
                 placeholderTextColor="#333"
                 style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, color: "#fff", fontSize: 16, fontWeight: "600", borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 16, letterSpacing: 2 }}
                 autoCapitalize="characters"
               />
-              <HapticTouchable style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
+              <HapticTouchable onPress={handleJoinClub} style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
                 <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Join Club</Text>
               </HapticTouchable>
             </Pressable>
@@ -783,6 +912,8 @@ export default function ClubScreen() {
               </View>
               <Text style={{ color: "#555", fontSize: 13, marginBottom: 14 }}>Give your club a name to get started (max 25 chars).</Text>
               <TextInput
+                value={createClubName}
+                onChangeText={setCreateClubName}
                 maxLength={25}
                 placeholder="Club name..."
                 placeholderTextColor="#333"
@@ -790,9 +921,9 @@ export default function ClubScreen() {
               />
               <View style={{ backgroundColor: "#0d1a11", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: "#00ff7f22" }}>
                 <Text style={{ color: "#555", fontSize: 12, marginBottom: 4 }}>Your invite code</Text>
-                <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 20, letterSpacing: 3 }}>{CLUB.inviteCode}</Text>
+                <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 20, letterSpacing: 3 }}>{inviteCodePreview}</Text>
               </View>
-              <HapticTouchable style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
+              <HapticTouchable onPress={handleCreateClub} style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
                 <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Create Club</Text>
               </HapticTouchable>
             </Pressable>
@@ -835,18 +966,23 @@ export default function ClubScreen() {
               </View>
               
               <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                {activePost?.comments === 0 ? (
+                {activeComments.length === 0 ? (
                   <View style={{ alignItems: "center", marginTop: 40 }}>
                     <MessageSquare size={40} color="#222" style={{ marginBottom: 12 }} />
                     <Text style={{ color: "#444", fontWeight: "600" }}>No comments yet. Be the first!</Text>
                   </View>
                 ) : (
-                  [1, 2, 3].map(c => (
-                    <View key={c} style={{ flexDirection: "row", marginBottom: 20 }}>
-                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#222", marginRight: 12 }} />
+                  activeComments.map((comment) => (
+                    <View key={comment.id} style={{ flexDirection: "row", marginBottom: 20 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#222", marginRight: 12, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ color: "#aaa", fontSize: 12, fontWeight: "800" }}>{comment.user.slice(0, 1)}</Text>
+                      </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: "#666", fontSize: 12, fontWeight: "700", marginBottom: 2 }}>Runner {c}</Text>
-                        <Text style={{ color: "#ccc", fontSize: 14 }}>Great run! Keeping up the pace</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+                          <Text style={{ color: "#666", fontSize: 12, fontWeight: "700", marginRight: 8 }}>{comment.user}</Text>
+                          <Text style={{ color: "#444", fontSize: 11 }}>{comment.time}</Text>
+                        </View>
+                        <Text style={{ color: "#ccc", fontSize: 14 }}>{comment.text}</Text>
                       </View>
                     </View>
                   ))
@@ -861,12 +997,7 @@ export default function ClubScreen() {
                   value={newCommentText}
                   onChangeText={setNewCommentText}
                 />
-                <HapticTouchable onPress={() => {
-                  if(newCommentText.trim()) {
-                    setNewCommentText("");
-                    hapticSuccess();
-                  }
-                }}>
+                <HapticTouchable onPress={handleAddComment}>
                   <Send color="#00ff7f" size={18} />
                 </HapticTouchable>
               </View>

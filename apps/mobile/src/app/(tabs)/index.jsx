@@ -247,25 +247,6 @@ export default function HomeScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <TouchableOpacity
               onPress={() => {
-                toggleIsOutside();
-                hapticSelection();
-              }}
-              style={{
-                backgroundColor: isOutside ? "#00ff7f22" : "#1a1a1a",
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                borderWidth: 1,
-                borderColor: isOutside ? "#00ff7f" : "#333",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Radio color={isOutside ? "#00ff7f" : "#666"} size={20} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
                 router.push("/notifications");
                 hapticSelection();
               }}

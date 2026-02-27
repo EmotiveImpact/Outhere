@@ -52,7 +52,7 @@ function buildRouteTree(dir: string, basePath = ''): Tree {
 			const childPath = basePath ? `${basePath}/${file}` : file;
 			const childNode = buildRouteTree(filePath, childPath);
 			node.children.push(childNode);
-		} else if (file === 'page.jsx') {
+		} else if (file === 'page.tsx' || file === 'page.jsx') {
 			node.hasPage = true;
     }
 	}
@@ -65,7 +65,7 @@ function generateRoutes(node: Tree): RouteConfigEntry[] {
 
 	if (node.hasPage) {
 		const componentPath =
-			node.path === '' ? `./${node.path}page.jsx` : `./${node.path}/page.jsx`;
+			node.path === '' ? `./${node.path}page.tsx` : `./${node.path}/page.tsx`;
 
 		if (node.path === '') {
 			routes.push(index(componentPath));
@@ -105,7 +105,7 @@ function generateRoutes(node: Tree): RouteConfigEntry[] {
 	return routes;
 }
 if (import.meta.env.DEV) {
-	import.meta.glob('./**/page.jsx', {});
+	import.meta.glob('./**/page.{jsx,tsx}', {});
 	if (import.meta.hot) {
 		import.meta.hot.accept((newSelf) => {
 			import.meta.hot?.invalidate();

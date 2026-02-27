@@ -28,6 +28,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useUserStore } from "@/store/userStore";
 import { hapticSelection, hapticSuccess, hapticError } from "@/services/haptics";
 import { useMoveStore } from "@/store/useMoveStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const fallbackUser = {
   id: 1,
@@ -251,7 +252,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { user: storeUser, weeklyGoal, xp, streak, squadName } = useUserStore();
+  const { user: storeUser, weeklyGoal, xp, streak, squadName, deviceId } = useUserStore();
   const [selectedRange, setSelectedRange] = useState("30d");
   const [isEditing, setIsEditing] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -359,6 +360,20 @@ export default function ProfileScreen() {
     setSaveMessage("");
     hapticSelection();
     saveProfileMutation.mutate({ name: form.name, avatar_url: form.avatar_url, bio: form.bio, location: form.location, goal: form.goal });
+  };
+
+  const handleRetakeOnboarding = async () => {
+    hapticSelection();
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const activeDeviceId = deviceId || useUserStore.getState().deviceId;
+      if (activeDeviceId) {
+        await AsyncStorage.removeItem(`checkin_${activeDeviceId}_${today}`);
+      }
+    } catch (error) {
+      console.log("Failed to reset check-in state before onboarding:", error);
+    }
+    router.push("/onboarding");
   };
 
   if (isScreenLoading) {
@@ -541,7 +556,7 @@ export default function ProfileScreen() {
               </ScrollView>
             </View>
 
-            <TouchableOpacity onPress={() => router.push("/onboarding")} style={{ backgroundColor: "#2a2a2a", borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 24, borderWidth: 1, borderColor: "#333" }}>
+            <TouchableOpacity onPress={handleRetakeOnboarding} style={{ backgroundColor: "#2a2a2a", borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 24, borderWidth: 1, borderColor: "#333" }}>
               <Text style={{ color: "#aaa", fontWeight: "700", fontSize: 13, letterSpacing: 0.5 }}>RETAKE ONBOARDING</Text>
             </TouchableOpacity>
           </View>

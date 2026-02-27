@@ -1,33 +1,151 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fetchOSRMRoute } from "@/services/routePlanning";
+
+const sanitizeRouteSteps = (steps) => {
+  if (!Array.isArray(steps)) return [];
+  return steps.filter(
+    (step) =>
+      step &&
+      step.location &&
+      Number.isFinite(step.location.latitude) &&
+      Number.isFinite(step.location.longitude),
+  );
+};
 
 /**
- * Move Session Store — manages a single active MOVE session.
- *
- * A session captures the DELTA steps/distance from when you tapped MOVE,
- * not the all-day total. This is separate from usePedometer's passive tracking.
+ * Move Session Store — manages everything related to the Move tab:
+ * 1. Passive / Session Step Tracking
+ * 2. Route Planning (OSRM)
+ * 3. Live GPS Path Tracking
  */
 export const useMoveStore = create((set, get) => ({
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── Session State (Steps & Time) ───────────────────────────────────────────
   isActive: false,
   isPaused: false,
-  sessionStartSteps: 0,      // pedometer reading at session start
-  sessionSteps: 0,           // steps in THIS session only
-  sessionDistance: 0,        // km in THIS session
-  sessionDurationSecs: 0,    // elapsed seconds
-  sessionStartTime: null,    // JS Date timestamp
-  timerInterval: null,       // reference to setInterval for timer
+  sessionStartSteps: 0,
+  sessionSteps: 0,
+  sessionDistance: 0,
+  sessionDurationSecs: 0,
+  sessionStartTime: null,
+  timerInterval: null,
 
-  // Summary (cleared when starting new session)
-  lastSession: null,         // { steps, distance, durationSecs, xpEarned, date }
-  history: [],               // loaded from AsyncStorage
+  // ── Route Planning State ───────────────────────────────────────────────────
+  isPlanning: false,
+  plannedRouteLocs: [],    // User-tapped waypoints [{ latitude, longitude }]
+  plannedRoutePath: [],    // OSRM snapped polyline coordinates [{ latitude, longitude }]
+  plannedDistanceMeter: 0, // Distance returned by OSRM
+  plannedRouteSteps: [],   // Turn-by-turn maneuver steps from routing service
+  isRerouting: false,      // true while auto-reroute request is in flight
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Live Tracking State ────────────────────────────────────────────────────
+  sessionPath: [],         // Actual GPS coordinates tracked during the run
 
-  /**
-   * Start a new MOVE session.
-   * @param {number} currentSteps - current ALL-DAY step count from usePedometer
-   */
+  // Summary & History
+  lastSession: null,
+  history: [],
+  savedRoutes: [], // Inventory of user-saved routes
+
+  // ── Planning Actions ────────────────────────────────────────────────────────
+  setPlanning: (isPlanning) => set({ isPlanning }),
+  
+  clearPlannedRoute: () => set({
+    plannedRouteLocs: [],
+    plannedRoutePath: [],
+    plannedDistanceMeter: 0,
+    plannedRouteSteps: [],
+    isPlanning: false,
+  }),
+
+  loadRouteToPlan: (routeObj) => {
+    if (!routeObj) return;
+    const path = routeObj.path || [];
+    // Validate that path contains valid coordinates
+    const validPath = path.filter(p => p && typeof p.latitude === 'number' && typeof p.longitude === 'number');
+    if (validPath.length === 0) return;
+    
+    set({
+      plannedRouteLocs: [],
+      plannedRoutePath: validPath,
+      plannedDistanceMeter: (routeObj.distance || 0) * 1000,
+      plannedRouteSteps: sanitizeRouteSteps(routeObj.steps),
+      isPlanning: true,
+    });
+  },
+
+  addPlannedLocation: async (coord) => {
+    const { plannedRouteLocs } = get();
+    const newLocs = [...plannedRouteLocs, coord];
+    set({ plannedRouteLocs: newLocs });
+
+    if (newLocs.length >= 2) {
+      const routeData = await fetchOSRMRoute(newLocs);
+      if (routeData) {
+        set({
+          plannedRoutePath: routeData.coordinates,
+          plannedDistanceMeter: routeData.distance,
+          plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
+        });
+      }
+    }
+  },
+
+  removeLastPlannedLocation: async () => {
+    const { plannedRouteLocs } = get();
+    if (plannedRouteLocs.length === 0) return;
+
+    const newLocs = plannedRouteLocs.slice(0, -1);
+    
+    if (newLocs.length < 2) {
+      set({ plannedRouteLocs: newLocs, plannedRoutePath: [], plannedDistanceMeter: 0, plannedRouteSteps: [] });
+    } else {
+      set({ plannedRouteLocs: newLocs });
+      const routeData = await fetchOSRMRoute(newLocs);
+      if (routeData) {
+        set({
+          plannedRoutePath: routeData.coordinates,
+          plannedDistanceMeter: routeData.distance,
+          plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
+        });
+      }
+    }
+  },
+
+  rerouteToDestination: async (originCoord) => {
+    const { plannedRouteLocs, plannedRoutePath, isRerouting } = get();
+    if (isRerouting) return null;
+    if (!originCoord || !Number.isFinite(originCoord.latitude) || !Number.isFinite(originCoord.longitude)) {
+      return null;
+    }
+
+    const destination =
+      plannedRouteLocs.length > 0
+        ? plannedRouteLocs[plannedRouteLocs.length - 1]
+        : plannedRoutePath.length > 0
+          ? plannedRoutePath[plannedRoutePath.length - 1]
+          : null;
+
+    if (!destination) return null;
+
+    set({ isRerouting: true });
+    try {
+      const routeData = await fetchOSRMRoute([originCoord, destination]);
+      if (!routeData) return null;
+
+      set({
+        plannedRouteLocs: [originCoord, destination],
+        plannedRoutePath: routeData.coordinates,
+        plannedDistanceMeter: routeData.distance,
+        plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
+      });
+      return routeData;
+    } finally {
+      set({ isRerouting: false });
+    }
+  },
+
+  // ── Session Actions ─────────────────────────────────────────────────────────
+
   startSession: (currentSteps) => {
     const state = get();
     if (state.timerInterval) clearInterval(state.timerInterval);
@@ -39,20 +157,18 @@ export const useMoveStore = create((set, get) => ({
     set({
       isActive: true,
       isPaused: false,
-      sessionStartSteps: currentSteps,
+      sessionStartSteps: currentSteps || 0,
       sessionSteps: 0,
       sessionDistance: 0,
       sessionDurationSecs: 0,
       sessionStartTime: Date.now(),
       timerInterval: interval,
       lastSession: null,
+      sessionPath: [], // Clear path on new run
+      isPlanning: false, // Exit planning mode automatically when starting
     });
   },
 
-  /**
-   * Update session with latest all-day step count — called from usePedometer listener.
-   * @param {number} currentSteps - current ALL-DAY step count
-   */
   updateSessionSteps: (currentSteps) => {
     const { isActive, isPaused, sessionStartSteps } = get();
     if (!isActive || isPaused) return;
@@ -62,29 +178,60 @@ export const useMoveStore = create((set, get) => ({
     set({ sessionSteps: steps, sessionDistance: distance });
   },
 
-  /**
-   * Stop the session and compute XP earned.
-   * @returns {object} session summary
-   */
+  updateSessionPath: (coord) => {
+    const { isActive, isPaused } = get();
+    if (!isActive || isPaused) return;
+    set((state) => ({ sessionPath: [...state.sessionPath, coord] }));
+  },
+
+  pauseSession: () => {
+    const state = get();
+    if (!state.isActive || state.isPaused) return;
+    
+    // Clear the timer so time stops accumulating
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    
+    set({
+      isPaused: true,
+      timerInterval: null,
+    });
+  },
+
+  resumeSession: () => {
+    const state = get();
+    if (!state.isActive || !state.isPaused) return;
+
+    // Restart the timer
+    const interval = setInterval(() => {
+      set((s) => ({ sessionDurationSecs: s.sessionDurationSecs + 1 }));
+    }, 1000);
+
+    set({
+      isPaused: false,
+      timerInterval: interval,
+    });
+  },
+
   stopSession: async () => {
     const state = get();
     if (state.timerInterval) clearInterval(state.timerInterval);
 
-    const xpEarned = Math.floor(state.sessionSteps / 100); // 1 XP per 100 steps
+    const xpEarned = Math.floor(state.sessionSteps / 100);
     const session = {
       steps: state.sessionSteps,
       distance: state.sessionDistance,
       durationSecs: state.sessionDurationSecs,
       xpEarned,
       date: new Date().toISOString(),
+      path: state.sessionPath,             // Save the actual driven route
+      plannedPath: state.plannedRoutePath, // Save the planned route reference
+      plannedSteps: state.plannedRouteSteps,
     };
 
-    // Save to session history in AsyncStorage
     try {
       const raw = await AsyncStorage.getItem("session_history");
       const history = raw ? JSON.parse(raw) : [];
-      history.unshift(session); // prepend (newest first)
-      // Keep last 50 sessions
+      history.unshift(session);
       await AsyncStorage.setItem("session_history", JSON.stringify(history.slice(0, 50)));
     } catch (e) {
       console.warn("Could not save session:", e);
@@ -95,31 +242,59 @@ export const useMoveStore = create((set, get) => ({
       isPaused: false,
       timerInterval: null,
       lastSession: session,
+      sessionPath: [],
     });
 
     return session;
   },
 
-  /** Load session history from AsyncStorage into state */
   loadHistory: async () => {
     try {
-      const raw = await AsyncStorage.getItem("session_history");
-      const parsed = raw ? JSON.parse(raw) : [];
-      set({ history: parsed });
+      const rawHist = await AsyncStorage.getItem("session_history");
+      const rawSaved = await AsyncStorage.getItem("saved_routes");
+      
+      set({ 
+        history: rawHist ? JSON.parse(rawHist) : [],
+        savedRoutes: rawSaved ? JSON.parse(rawSaved) : [],
+      });
     } catch {
-      set({ history: [] });
+      set({ history: [], savedRoutes: [] });
     }
   },
+  
+  saveRoute: async (sessionInfo, customName) => {
+    if (!sessionInfo || !sessionInfo.path || sessionInfo.path.length === 0) return;
+    
+    // Create a new route object based on the completed session
+    const newRoute = {
+      id: Date.now().toString(),
+      name: customName || `Route ${new Date().toLocaleDateString()}`,
+      distance: sessionInfo.distance, // stored in KM
+      path: sessionInfo.path,
+      steps: sessionInfo.plannedSteps || [],
+      date: sessionInfo.date,
+    };
+
+    try {
+      const state = get();
+      const updatedRoutes = [newRoute, ...state.savedRoutes];
+      set({ savedRoutes: updatedRoutes });
+      await AsyncStorage.setItem("saved_routes", JSON.stringify(updatedRoutes));
+    } catch (e) {
+      console.warn("Could not save route inventory:", e);
+    }
+  },
+
+  // Set the last session to null to exit summary view
+  dismissSummary: () => set({ lastSession: null }),
 }));
 
-/** Format seconds → "mm:ss" */
 export const formatDuration = (secs) => {
   const m = Math.floor(secs / 60).toString().padStart(2, "0");
   const s = (secs % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 };
 
-/** Format pace → "5'48"" */
 export const formatPace = (steps, durationSecs) => {
   if (!steps || !durationSecs) return "--'--";
   const distKm = steps * 0.0008;
