@@ -1,91 +1,55 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# OS
+.DS_Store
 
-# IDE and editors
-.idea/
+# Editors
 .vscode/
+.idea/
 
-# Dependencies
+# Node
 node_modules/
-/node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+.npm/
+.pnpm-store/
+.yarn/
 
-# Testing
-/coverage
+# Env files
+.env
+.env.*
+!.env.example
 
-# Next.js
-/.next/
-/out/
-next-env.d.ts
-*.tsbuildinfo
-
-# Production builds
-/build
-dist/
-dist
-
-# Environment files (comprehensive coverage)
-
-*token.json*
-*credentials.json*
-
-# Logs and debug files
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
-dump.rdb
+pnpm-debug.log*
 
-# System files
-.DS_Store
-*.pem
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+.cache/
+.tmp/
+tmp/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+.metro-virtual/
+caches/
+*.tmp
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
 
 # Python
 __pycache__/
-*pyc*
-venv/
+*.py[cod]
 .venv/
+venv/
 
-# Development tools
-chainlit.md
-.chainlit
-.ipynb_checkpoints/
-.ac
-
-# Deployment
-.vercel
-
-# Data and databases
-agenthub/agents/youtube/db
-
-# Archive files and large assets
-**/*.zip
-**/*.tar.gz
-**/*.tar
-**/*.tgz
-*.pack
-*.deb
-*.dylib
-
-# Build caches
-.cache/
-
-# Mobile development
-android-sdk/ -e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+# Misc
+*.swp
+*.swo

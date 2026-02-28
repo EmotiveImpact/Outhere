@@ -10,14 +10,27 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timedelta
 from bson import ObjectId
+from postgres_docstore import PostgresDocStore
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'outere_db')]
+# Database connection
+supabase_db_url = os.environ.get("SUPABASE_DB_URL")
+mongo_url = os.environ.get("MONGO_URL")
+
+if supabase_db_url:
+    client = None
+    db = PostgresDocStore(supabase_db_url)
+elif mongo_url:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get('DB_NAME', 'outere_db')]
+else:
+    # Local dev fallback: in-memory Mongo mock when MONGO_URL is not configured.
+    from mongomock_motor import AsyncMongoMockClient
+
+    client = AsyncMongoMockClient()
+    db = client[os.environ.get('DB_NAME', 'outere_db')]
 
 app = FastAPI(title="OUT 'ERE API")
 api_router = APIRouter(prefix="/api")
@@ -40,17 +53,21 @@ class UserProfile(BaseModel):
     outside_score: int = 0
     current_streak: int = 0
     longest_streak: int = 0
+    checkin_streak: int = 0
+    longest_checkin_streak: int = 0
     last_active: datetime = Field(default_factory=datetime.utcnow)
     is_outside: bool = False
     daily_goal: int = 10000
     weekly_goal: int = 70000
     avatar_color: str = "#FF6B35"
+    avatar_url: Optional[str] = None
 
 class UserCreate(BaseModel):
     device_id: str
     username: str
     city: str = "London"
     borough: str = "Central"
+    avatar_url: Optional[str] = None
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
@@ -59,6 +76,7 @@ class UserUpdate(BaseModel):
     daily_goal: Optional[int] = None
     weekly_goal: Optional[int] = None
     avatar_color: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class StepRecord(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -81,6 +99,7 @@ class StepRecordCreate(BaseModel):
 class LeaderboardEntry(BaseModel):
     rank: int
     user_id: str
+    device_id: Optional[str] = None
     username: str
     steps: int
     outside_score: int
@@ -88,6 +107,7 @@ class LeaderboardEntry(BaseModel):
     city: str
     borough: str
     avatar_color: str
+    avatar_url: Optional[str] = None
 
 class Challenge(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -105,6 +125,53 @@ class OutsideStatus(BaseModel):
     device_id: str
     is_outside: bool
 
+
+class DailyCheckInResponse(BaseModel):
+    success: bool
+    already_checked_in: bool = False
+    reward_points: int = 0
+    checkin_streak: int = 0
+    longest_checkin_streak: int = 0
+    user: UserProfile
+
+
+class MissionCreate(BaseModel):
+    creator_device_id: str
+    opponent_device_id: str
+    metric: str = "steps"  # steps | distance
+    target_value: float
+    time_limit_minutes: Optional[int] = 45
+    reward_points: int = 100
+    title: Optional[str] = None
+    require_opponent_outside: bool = False
+
+
+class MissionParticipantProgress(BaseModel):
+    device_id: str
+    username: str
+    avatar_color: str
+    avatar_url: Optional[str] = None
+    progress_value: float
+    progress_percent: float
+
+
+class MissionProgressResponse(BaseModel):
+    id: str
+    title: Optional[str] = None
+    status: str
+    challenger_device_id: Optional[str] = None
+    opponent_device_id: Optional[str] = None
+    metric: str
+    target_value: float
+    reward_points: int
+    time_limit_minutes: Optional[int] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    winner_device_id: Optional[str] = None
+    remaining_seconds: Optional[int] = None
+    challenger: MissionParticipantProgress
+    opponent: MissionParticipantProgress
+
 # ==================== HELPER FUNCTIONS ====================
 
 def calculate_outside_score(steps: int, streak: int, active_minutes: int) -> int:
@@ -118,6 +185,163 @@ async def get_or_create_user(device_id: str) -> dict:
     """Get existing user or return None"""
     user = await db.users.find_one({"device_id": device_id})
     return user
+
+
+async def calculate_checkin_streak(device_id: str) -> int:
+    records = await db.daily_checkins.find({"device_id": device_id}).sort("date", -1).to_list(365)
+    if not records:
+        return 0
+
+    dates = sorted([r["date"] for r in records], reverse=True)
+    streak = 0
+    current_date = datetime.utcnow().date()
+
+    for date_str in dates:
+        record_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if record_date == current_date:
+            streak += 1
+            current_date = current_date - timedelta(days=1)
+            continue
+        if record_date == current_date - timedelta(days=1):
+            streak += 1
+            current_date = record_date - timedelta(days=1)
+            continue
+        break
+
+    return streak
+
+
+def _mission_progress_value(mission: dict, participant_key: str, user: dict) -> float:
+    metric = mission.get("metric", "steps")
+    if metric == "distance":
+        baseline = float(mission.get(f"{participant_key}_start_distance", 0.0) or 0.0)
+        current = float(user.get("total_distance", 0.0) or 0.0)
+    else:
+        baseline = float(mission.get(f"{participant_key}_start_steps", 0.0) or 0.0)
+        current = float(user.get("total_steps", 0.0) or 0.0)
+    return max(0.0, current - baseline)
+
+
+def _mission_progress_percent(progress_value: float, target_value: float) -> float:
+    if target_value <= 0:
+        return 0.0
+    return min(100.0, round((progress_value / target_value) * 100.0, 2))
+
+
+async def _enrich_mission(mission: dict) -> dict:
+    challenger_user = await db.users.find_one({"device_id": mission["challenger_device_id"]})
+    opponent_user = await db.users.find_one({"device_id": mission["opponent_device_id"]})
+    if not challenger_user or not opponent_user:
+        raise HTTPException(status_code=404, detail="Mission participant not found")
+
+    target = float(mission.get("target_value", 0) or 0)
+    challenger_value = _mission_progress_value(mission, "challenger", challenger_user)
+    opponent_value = _mission_progress_value(mission, "opponent", opponent_user)
+    challenger_pct = _mission_progress_percent(challenger_value, target)
+    opponent_pct = _mission_progress_percent(opponent_value, target)
+
+    now = datetime.utcnow()
+    remaining_seconds = None
+    deadline = mission.get("deadline_at")
+    if mission.get("status") == "active" and deadline:
+        if isinstance(deadline, str):
+            deadline = datetime.fromisoformat(deadline)
+        remaining_seconds = max(0, int((deadline - now).total_seconds()))
+
+    return {
+        "id": mission["id"],
+        "title": mission.get("title"),
+        "status": mission.get("status", "pending"),
+        "challenger_device_id": mission.get("challenger_device_id"),
+        "opponent_device_id": mission.get("opponent_device_id"),
+        "metric": mission.get("metric", "steps"),
+        "target_value": target,
+        "reward_points": int(mission.get("reward_points", 100) or 100),
+        "time_limit_minutes": mission.get("time_limit_minutes"),
+        "started_at": mission.get("started_at"),
+        "completed_at": mission.get("completed_at"),
+        "winner_device_id": mission.get("winner_device_id"),
+        "remaining_seconds": remaining_seconds,
+        "challenger": {
+            "device_id": challenger_user["device_id"],
+            "username": challenger_user.get("username", "Unknown"),
+            "avatar_color": challenger_user.get("avatar_color", "#FF6B35"),
+            "avatar_url": challenger_user.get("avatar_url"),
+            "progress_value": round(challenger_value, 2),
+            "progress_percent": challenger_pct,
+        },
+        "opponent": {
+            "device_id": opponent_user["device_id"],
+            "username": opponent_user.get("username", "Unknown"),
+            "avatar_color": opponent_user.get("avatar_color", "#FF6B35"),
+            "avatar_url": opponent_user.get("avatar_url"),
+            "progress_value": round(opponent_value, 2),
+            "progress_percent": opponent_pct,
+        },
+    }
+
+
+async def _evaluate_active_mission(mission: dict) -> dict:
+    if mission.get("status") != "active":
+        return mission
+
+    challenger_user = await db.users.find_one({"device_id": mission["challenger_device_id"]})
+    opponent_user = await db.users.find_one({"device_id": mission["opponent_device_id"]})
+    if not challenger_user or not opponent_user:
+        return mission
+
+    target = float(mission.get("target_value", 0) or 0)
+    challenger_value = _mission_progress_value(mission, "challenger", challenger_user)
+    opponent_value = _mission_progress_value(mission, "opponent", opponent_user)
+
+    now = datetime.utcnow()
+    deadline = mission.get("deadline_at")
+    if isinstance(deadline, str):
+        deadline = datetime.fromisoformat(deadline)
+
+    should_complete = False
+    completion_reason = None
+    winner_device_id = None
+
+    if challenger_value >= target or opponent_value >= target:
+        should_complete = True
+        completion_reason = "target_reached"
+        if challenger_value > opponent_value:
+            winner_device_id = mission["challenger_device_id"]
+        elif opponent_value > challenger_value:
+            winner_device_id = mission["opponent_device_id"]
+    elif deadline and now >= deadline:
+        should_complete = True
+        completion_reason = "time_expired"
+        if challenger_value > opponent_value:
+            winner_device_id = mission["challenger_device_id"]
+        elif opponent_value > challenger_value:
+            winner_device_id = mission["opponent_device_id"]
+
+    if not should_complete:
+        return mission
+
+    update_payload = {
+        "status": "completed",
+        "completed_at": now,
+        "winner_device_id": winner_device_id,
+        "completion_reason": completion_reason,
+    }
+
+    reward_points = int(mission.get("reward_points", 100) or 100)
+    reward_applied = bool(mission.get("reward_applied", False))
+    if winner_device_id and not reward_applied:
+        winner_user = await db.users.find_one({"device_id": winner_device_id})
+        if winner_user:
+            await db.users.update_one(
+                {"device_id": winner_device_id},
+                {"$set": {"outside_score": int(winner_user.get("outside_score", 0)) + reward_points}},
+            )
+            update_payload["reward_applied"] = True
+
+    await db.missions.update_one({"id": mission["id"]}, {"$set": update_payload})
+    fresh = await db.missions.find_one({"id": mission["id"]})
+    return fresh or mission
 
 # ==================== USER ROUTES ====================
 
@@ -166,6 +390,63 @@ async def update_outside_status(device_id: str, status: OutsideStatus):
         {"$set": {"is_outside": status.is_outside, "last_active": datetime.utcnow()}}
     )
     return {"success": True}
+
+
+@api_router.post("/users/{device_id}/checkin", response_model=DailyCheckInResponse)
+async def daily_checkin(device_id: str):
+    user = await db.users.find_one({"device_id": device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    existing = await db.daily_checkins.find_one({"device_id": device_id, "date": today})
+    if existing:
+        fresh_user = await db.users.find_one({"device_id": device_id})
+        return DailyCheckInResponse(
+            success=True,
+            already_checked_in=True,
+            reward_points=0,
+            checkin_streak=fresh_user.get("checkin_streak", 0),
+            longest_checkin_streak=fresh_user.get("longest_checkin_streak", 0),
+            user=UserProfile(**fresh_user),
+        )
+
+    reward_points = 50
+    await db.daily_checkins.insert_one(
+        {
+            "id": str(uuid.uuid4()),
+            "device_id": device_id,
+            "date": today,
+            "reward_points": reward_points,
+            "created_at": datetime.utcnow(),
+        }
+    )
+
+    checkin_streak = await calculate_checkin_streak(device_id)
+    longest_checkin_streak = max(user.get("longest_checkin_streak", 0), checkin_streak)
+    new_outside_score = int(user.get("outside_score", 0)) + reward_points
+
+    await db.users.update_one(
+        {"device_id": device_id},
+        {
+            "$set": {
+                "is_outside": True,
+                "last_active": datetime.utcnow(),
+                "outside_score": new_outside_score,
+                "checkin_streak": checkin_streak,
+                "longest_checkin_streak": longest_checkin_streak,
+            }
+        },
+    )
+    fresh_user = await db.users.find_one({"device_id": device_id})
+    return DailyCheckInResponse(
+        success=True,
+        already_checked_in=False,
+        reward_points=reward_points,
+        checkin_streak=checkin_streak,
+        longest_checkin_streak=longest_checkin_streak,
+        user=UserProfile(**fresh_user),
+    )
 
 # ==================== STEP TRACKING ROUTES ====================
 
@@ -365,13 +646,15 @@ async def get_leaderboard(
                 leaderboard.append(LeaderboardEntry(
                     rank=idx + 1,
                     user_id=user["id"],
+                    device_id=user.get("device_id"),
                     username=user["username"],
                     steps=entry["steps"],
                     outside_score=user.get("outside_score", 0),
                     streak=user.get("current_streak", 0),
                     city=user.get("city", "Unknown"),
                     borough=user.get("borough", "Unknown"),
-                    avatar_color=user.get("avatar_color", "#FF6B35")
+                    avatar_color=user.get("avatar_color", "#FF6B35"),
+                    avatar_url=user.get("avatar_url"),
                 ))
         return leaderboard
     
@@ -395,13 +678,15 @@ async def get_leaderboard(
                 leaderboard.append(LeaderboardEntry(
                     rank=idx + 1,
                     user_id=user["id"],
+                    device_id=user.get("device_id"),
                     username=user["username"],
                     steps=entry["steps"],
                     outside_score=user.get("outside_score", 0),
                     streak=user.get("current_streak", 0),
                     city=user.get("city", "Unknown"),
                     borough=user.get("borough", "Unknown"),
-                    avatar_color=user.get("avatar_color", "#FF6B35")
+                    avatar_color=user.get("avatar_color", "#FF6B35"),
+                    avatar_url=user.get("avatar_url"),
                 ))
         return leaderboard
     
@@ -415,13 +700,15 @@ async def get_leaderboard(
             LeaderboardEntry(
                 rank=idx + 1,
                 user_id=user["id"],
+                device_id=user.get("device_id"),
                 username=user["username"],
                 steps=user.get("total_steps", 0),
                 outside_score=user.get("outside_score", 0),
                 streak=user.get("current_streak", 0),
                 city=user.get("city", "Unknown"),
                 borough=user.get("borough", "Unknown"),
-                avatar_color=user.get("avatar_color", "#FF6B35")
+                avatar_color=user.get("avatar_color", "#FF6B35"),
+                avatar_url=user.get("avatar_url"),
             )
             for idx, user in enumerate(users)
         ]
@@ -688,6 +975,7 @@ async def get_group_members(group_id: str):
                 "device_id": device_id,
                 "username": user.get("username", "Unknown"),
                 "avatar_color": user.get("avatar_color", "#FF6B35"),
+                "avatar_url": user.get("avatar_url"),
                 "today_steps": today_steps.get("steps", 0) if today_steps else 0,
                 "total_steps": user.get("total_steps", 0),
                 "current_streak": user.get("current_streak", 0),
@@ -733,7 +1021,8 @@ async def get_group_leaderboard(group_id: str, period: str = "daily"):
                     "device_id": device_id,
                     "username": user.get("username"),
                     "steps": user.get("total_steps", 0),
-                    "avatar_color": user.get("avatar_color", "#FF6B35")
+                    "avatar_color": user.get("avatar_color", "#FF6B35"),
+                    "avatar_url": user.get("avatar_url"),
                 })
         leaderboard.sort(key=lambda x: x["steps"], reverse=True)
         return [{"rank": i+1, **entry} for i, entry in enumerate(leaderboard)]
@@ -749,7 +1038,8 @@ async def get_group_leaderboard(group_id: str, period: str = "daily"):
                 "device_id": entry["_id"],
                 "username": user.get("username"),
                 "steps": entry["steps"],
-                "avatar_color": user.get("avatar_color", "#FF6B35")
+                "avatar_color": user.get("avatar_color", "#FF6B35"),
+                "avatar_url": user.get("avatar_url"),
             })
     
     return leaderboard
@@ -854,6 +1144,7 @@ async def get_challenge_progress(group_id: str, challenge_id: str):
                 "device_id": device_id,
                 "username": user.get("username"),
                 "avatar_color": user.get("avatar_color", "#FF6B35"),
+                "avatar_url": user.get("avatar_url"),
                 "steps": steps,
                 "target": challenge["target_steps"],
                 "progress_percent": min(100, round((steps / challenge["target_steps"]) * 100, 1)),
@@ -862,6 +1153,184 @@ async def get_challenge_progress(group_id: str, challenge_id: str):
     
     progress.sort(key=lambda x: x["steps"], reverse=True)
     return progress
+
+# ==================== MISSIONS ROUTES ====================
+
+@api_router.post("/missions")
+async def create_mission(payload: MissionCreate):
+    creator = await db.users.find_one({"device_id": payload.creator_device_id})
+    opponent = await db.users.find_one({"device_id": payload.opponent_device_id})
+    if not creator or not opponent:
+        raise HTTPException(status_code=404, detail="Mission participants not found")
+    if payload.creator_device_id == payload.opponent_device_id:
+        raise HTTPException(status_code=400, detail="Cannot challenge yourself")
+    if payload.metric not in ["steps", "distance"]:
+        raise HTTPException(status_code=400, detail="Metric must be 'steps' or 'distance'")
+    if payload.target_value <= 0:
+        raise HTTPException(status_code=400, detail="Target value must be positive")
+    if payload.require_opponent_outside and not opponent.get("is_outside", False):
+        raise HTTPException(status_code=400, detail="Opponent is not currently outside")
+
+    mission_id = str(uuid.uuid4())
+    now = datetime.utcnow()
+    mission = {
+        "id": mission_id,
+        "title": payload.title or f"Race to {int(payload.target_value):,} {payload.metric}",
+        "creator_device_id": payload.creator_device_id,
+        "challenger_device_id": payload.creator_device_id,
+        "opponent_device_id": payload.opponent_device_id,
+        "metric": payload.metric,
+        "target_value": float(payload.target_value),
+        "time_limit_minutes": payload.time_limit_minutes,
+        "reward_points": max(0, int(payload.reward_points)),
+        "status": "pending",
+        "created_at": now,
+        "updated_at": now,
+        "started_at": None,
+        "deadline_at": None,
+        "completed_at": None,
+        "winner_device_id": None,
+        "reward_applied": False,
+        "challenger_start_steps": float(creator.get("total_steps", 0) or 0),
+        "opponent_start_steps": float(opponent.get("total_steps", 0) or 0),
+        "challenger_start_distance": float(creator.get("total_distance", 0.0) or 0.0),
+        "opponent_start_distance": float(opponent.get("total_distance", 0.0) or 0.0),
+    }
+
+    await db.missions.insert_one(mission)
+    return {"success": True, "mission": await _enrich_mission(mission)}
+
+
+@api_router.get("/missions/user/{device_id}")
+async def list_user_missions(device_id: str, status: Optional[str] = None, limit: int = 20):
+    query = {
+        "$or": [
+            {"challenger_device_id": device_id},
+            {"opponent_device_id": device_id},
+        ]
+    }
+    if status:
+        query["status"] = status
+
+    missions = await db.missions.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    enriched = []
+    for mission in missions:
+        mission = await _evaluate_active_mission(mission)
+        enriched.append(await _enrich_mission(mission))
+    return enriched
+
+
+@api_router.get("/missions/{mission_id}")
+async def get_mission(mission_id: str):
+    mission = await db.missions.find_one({"id": mission_id})
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    mission = await _evaluate_active_mission(mission)
+    return await _enrich_mission(mission)
+
+
+@api_router.post("/missions/{mission_id}/accept")
+async def accept_mission(mission_id: str, device_id: str):
+    mission = await db.missions.find_one({"id": mission_id})
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    if mission.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Mission is not pending")
+    if mission.get("opponent_device_id") != device_id:
+        raise HTTPException(status_code=403, detail="Only challenged user can accept")
+
+    challenger = await db.users.find_one({"device_id": mission["challenger_device_id"]})
+    opponent = await db.users.find_one({"device_id": mission["opponent_device_id"]})
+    if not challenger or not opponent:
+        raise HTTPException(status_code=404, detail="Mission participant not found")
+
+    now = datetime.utcnow()
+    deadline_at = None
+    if mission.get("time_limit_minutes"):
+        deadline_at = now + timedelta(minutes=int(mission["time_limit_minutes"]))
+
+    await db.missions.update_one(
+        {"id": mission_id},
+        {
+            "$set": {
+                "status": "active",
+                "started_at": now,
+                "deadline_at": deadline_at,
+                "updated_at": now,
+                "challenger_start_steps": float(challenger.get("total_steps", 0) or 0),
+                "opponent_start_steps": float(opponent.get("total_steps", 0) or 0),
+                "challenger_start_distance": float(challenger.get("total_distance", 0.0) or 0.0),
+                "opponent_start_distance": float(opponent.get("total_distance", 0.0) or 0.0),
+            }
+        },
+    )
+    fresh = await db.missions.find_one({"id": mission_id})
+    return {"success": True, "mission": await _enrich_mission(fresh)}
+
+
+@api_router.post("/missions/{mission_id}/decline")
+async def decline_mission(mission_id: str, device_id: str):
+    mission = await db.missions.find_one({"id": mission_id})
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    if mission.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Mission is not pending")
+    if mission.get("opponent_device_id") != device_id:
+        raise HTTPException(status_code=403, detail="Only challenged user can decline")
+
+    await db.missions.update_one(
+        {"id": mission_id},
+        {"$set": {"status": "declined", "declined_by": device_id, "updated_at": datetime.utcnow()}},
+    )
+    fresh = await db.missions.find_one({"id": mission_id})
+    return {"success": True, "mission": await _enrich_mission(fresh)}
+
+
+@api_router.post("/missions/{mission_id}/forfeit")
+async def forfeit_mission(mission_id: str, device_id: str):
+    mission = await db.missions.find_one({"id": mission_id})
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    if mission.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Mission is not active")
+    if device_id not in [mission.get("challenger_device_id"), mission.get("opponent_device_id")]:
+        raise HTTPException(status_code=403, detail="Only mission participants can forfeit")
+
+    winner = mission["opponent_device_id"] if device_id == mission["challenger_device_id"] else mission["challenger_device_id"]
+    reward_points = int(mission.get("reward_points", 100) or 100)
+    winner_user = await db.users.find_one({"device_id": winner})
+    if winner_user and not mission.get("reward_applied", False):
+        await db.users.update_one(
+            {"device_id": winner},
+            {"$set": {"outside_score": int(winner_user.get("outside_score", 0)) + reward_points}},
+        )
+
+    await db.missions.update_one(
+        {"id": mission_id},
+        {
+            "$set": {
+                "status": "completed",
+                "completed_at": datetime.utcnow(),
+                "winner_device_id": winner,
+                "completion_reason": "forfeit",
+                "forfeit_device_id": device_id,
+                "updated_at": datetime.utcnow(),
+                "reward_applied": True,
+            }
+        },
+    )
+    fresh = await db.missions.find_one({"id": mission_id})
+    return {"success": True, "mission": await _enrich_mission(fresh)}
+
+
+@api_router.get("/missions/{mission_id}/progress", response_model=MissionProgressResponse)
+async def get_mission_progress(mission_id: str):
+    mission = await db.missions.find_one({"id": mission_id})
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    mission = await _evaluate_active_mission(mission)
+    enriched = await _enrich_mission(mission)
+    return MissionProgressResponse(**enriched)
 
 # ==================== STATS ROUTES ====================
 
@@ -922,4 +1391,11 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client is not None:
+        client.close()
+
+
+@app.on_event("startup")
+async def startup_db():
+    if isinstance(db, PostgresDocStore):
+        await db.initialize()

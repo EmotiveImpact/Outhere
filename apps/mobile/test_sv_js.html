@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+        #pano { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="pano"></div>
+    <script>
+        let panorama;
+        function initPano() {
+            panorama = new google.maps.StreetViewPanorama(
+                document.getElementById('pano'), {
+                    position: {lat: 51.5074, lng: -0.1278},
+                    pov: {heading: 165, pitch: 0},
+                    zoom: 1,
+                    disableDefaultUI: true,
+                    showRoadLabels: false,
+                    clickToGo: false, // Prevents user from clicking away from their actual GPS
+                    scrollwheel: false,
+                }
+            );
+        }
+        
+        // This will be called via React Native injectJavaScript
+        window.updateLocation = function(lat, lng, heading) {
+            if(panorama) {
+                // To avoid jumping, we might just set position.
+                panorama.setPosition({lat: lat, lng: lng});
+                // Smoothly animate the camera heading
+                panorama.setPov({heading: heading, pitch: 0});
+            }
+        };
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?callback=initPano"></script>
+</body>
+</html>
