@@ -1,139 +1,195 @@
 /**
  * Route Planning Service
- * Uses the free Open Source Routing Machine (OSRM) API to generate
- * realistic walk/run routes snapped to roads and pedestrian paths.
+ * Primary: Mapbox Directions API (mapbox/walking profile)
+ * Fallback: OSRM (free, no key)
+ *
+ * Mapbox walking profile understands park footpaths, pedestrian zones,
+ * steps, and cut-throughs that OSRM misses.
  */
 
-const OSRM_BASE_URL = "https://router.project-osrm.org/route/v1/foot";
+const MAPBOX_BASE_URL = "https://api.mapbox.com/directions/v5/mapbox/walking";
+const OSRM_BASE_URL   = "https://router.project-osrm.org/route/v1/foot";
 
-const humanizeModifier = (modifier) => {
-  if (!modifier) return "";
-  return modifier.replace(/_/g, " ");
-};
+// Hardcoded fallback so Expo env-var inlining issues don't silently break routing.
+const MAPBOX_TOKEN =
+  process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+  "pk.eyJ1IjoiZW1vdGl2ZWltcGFjdCIsImEiOiJjbW02ZDdyYnMwZTh3MnFwOWUwZHZib21tIn0.zNQu0WhiaNg-D2sTtr6KZg";
 
-const buildStepInstruction = (step) => {
-  const maneuverType = step?.maneuver?.type || "";
-  const modifier = humanizeModifier(step?.maneuver?.modifier);
-  const streetName = step?.name ? ` onto ${step.name}` : "";
+// ── Mapbox Directions ─────────────────────────────────────────────────────────
 
-  if (maneuverType === "arrive") return "Arrive at destination";
-  if (maneuverType === "depart") return modifier ? `Head ${modifier}${streetName}` : `Head out${streetName}`;
-  if (maneuverType === "roundabout") return modifier ? `Enter roundabout and take ${modifier} exit` : "Enter roundabout";
-  if (maneuverType === "turn") return modifier ? `Turn ${modifier}${streetName}` : `Turn${streetName}`;
-  if (maneuverType === "continue") return modifier ? `Continue ${modifier}${streetName}` : `Continue${streetName}`;
-  if (maneuverType === "fork") return modifier ? `Keep ${modifier}${streetName}` : `Keep${streetName}`;
-  if (maneuverType === "merge") return modifier ? `Merge ${modifier}${streetName}` : `Merge${streetName}`;
-  if (maneuverType === "end of road") return modifier ? `At end of road, turn ${modifier}${streetName}` : `At end of road${streetName}`;
-  if (maneuverType === "new name") return `Continue${streetName}`;
-
-  return streetName ? `Proceed${streetName}` : "Proceed";
-};
-
-/**
- * Fetches a route connecting an array of [latitude, longitude] coordinates.
- * 
- * @param {Array<{latitude: number, longitude: number}>} coordinates
- * @returns {Promise<{
- *   distance: number, // Total distance in meters
- *   duration: number, // Estimated duration in seconds
- *   geometry: { type: "LineString", coordinates: Array<[number, number]> }, // GeoJSON
- *   steps: Array<{
- *     location: { latitude: number, longitude: number },
- *     distance: number,
- *     duration: number,
- *     maneuverType: string,
- *     maneuverModifier: string,
- *     name: string,
- *     instruction: string,
- *   }>
- * }|null>}
- */
-export async function fetchOSRMRoute(coordinates) {
+async function fetchMapboxRoute(coordinates, options = {}) {
   if (!coordinates || coordinates.length < 2) return null;
 
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 6000;
+  const controller = new AbortController();
+  let timeoutId = null;
+
   try {
-    // OSRM requires coordinates in {longitude},{latitude} format
+    // Mapbox coords format: lon,lat;lon,lat;...
     const coordString = coordinates
       .map((c) => `${c.longitude},${c.latitude}`)
       .join(";");
 
-    // geometries=geojson returns a direct LineString we can use in react-native-maps
-    // overview=full gives us the precise path (false gives a simplified one)
-    const url = `${OSRM_BASE_URL}/${coordString}?geometries=geojson&overview=full&steps=true`;
+    const url =
+      `${MAPBOX_BASE_URL}/${coordString}` +
+      `?geometries=geojson&overview=full&steps=true&language=en` +
+      `&access_token=${MAPBOX_TOKEN}`;
 
-    const response = await fetch(url);
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    timeoutId = null;
+
     if (!response.ok) {
-        throw new Error(`OSRM API error: ${response.status}`);
+      const body = await response.text().catch(() => "");
+      console.warn("[Mapbox] Error:", response.status, body);
+      throw new Error(`Mapbox error: ${response.status}`);
     }
 
     const data = await response.json();
-
-    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
-      throw new Error("No route found");
-    }
+    if (!data.routes || data.routes.length === 0) throw new Error("No Mapbox route found");
 
     const route = data.routes[0];
-    const steps = (route.legs || []).flatMap((leg) => leg.steps || []).map((step) => {
-      const location = step?.maneuver?.location || [];
-      return {
-        location: {
-          latitude: location[1],
-          longitude: location[0],
-        },
-        distance: step?.distance || 0,
-        duration: step?.duration || 0,
-        maneuverType: step?.maneuver?.type || "",
-        maneuverModifier: step?.maneuver?.modifier || "",
-        name: step?.name || "",
-        instruction: buildStepInstruction(step),
-      };
-    }).filter((step) => Number.isFinite(step?.location?.latitude) && Number.isFinite(step?.location?.longitude));
 
-    // Convert GeoJSON [lon, lat] back to Maps {latitude, longitude} for easier rendering
-    const mapCoordinates = route.geometry.coordinates.map(([lon, lat]) => ({
+    // GeoJSON geometry: [lon, lat] → { latitude, longitude }
+    const mapCoordinates = (route.geometry?.coordinates || []).map(([lon, lat]) => ({
       latitude: lat,
       longitude: lon,
     }));
 
+    // Build steps from legs
+    const legs = route.legs || [];
+    const steps = legs
+      .flatMap((leg) =>
+        (leg.steps || []).map((step) => {
+          const loc = step.maneuver?.location || [0, 0];
+          return {
+            location:      { latitude: loc[1], longitude: loc[0] },
+            distance:      step.distance || 0,
+            duration:      step.duration || 0,
+            maneuverType:  step.maneuver?.type || "",
+            maneuverModifier: step.maneuver?.modifier || "",
+            name:          step.name || "",
+            instruction:   step.maneuver?.instruction || "Continue",
+          };
+        }),
+      )
+      .filter((s) => Number.isFinite(s.location?.latitude));
+
     return {
-      distance: route.distance, // in meters
-      duration: route.duration, // in seconds
-      coordinates: mapCoordinates, // { latitude, longitude } array
+      distance:    route.distance, // metres
+      duration:    route.duration, // seconds
+      coordinates: mapCoordinates,
       steps,
     };
   } catch (error) {
-    console.warn("Failed to fetch route:", error);
+    if (timeoutId) clearTimeout(timeoutId);
+    console.warn("[Mapbox] Routing failed, falling back to OSRM:", error.message);
     return null;
   }
 }
 
+// ── OSRM Fallback ─────────────────────────────────────────────────────────────
+
+const buildOSRMInstruction = (step, isFinalLeg) => {
+  const type     = step?.maneuver?.type || "";
+  const modifier = (step?.maneuver?.modifier || "").replace(/_/g, " ");
+  const street   = step?.name ? ` onto ${step.name}` : "";
+
+  if (type === "arrive")     return isFinalLeg ? "Arrive at destination" : "Arrive at checkpoint";
+  if (type === "depart")     return modifier ? `Head ${modifier}${street}` : `Head out${street}`;
+  if (type === "turn")       return modifier ? `Turn ${modifier}${street}` : `Turn${street}`;
+  if (type === "continue")   return modifier ? `Continue ${modifier}${street}` : `Continue${street}`;
+  if (type === "roundabout") return modifier ? `Enter roundabout, take ${modifier} exit` : "Enter roundabout";
+  if (type === "fork")       return modifier ? `Keep ${modifier}${street}` : `Keep${street}`;
+  if (type === "new name")   return `Continue${street}`;
+  return street ? `Proceed${street}` : "Proceed";
+};
+
+async function fetchOSRMRouteInternal(coordinates, options = {}) {
+  if (!coordinates || coordinates.length < 2) return null;
+
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 5000;
+  const controller = new AbortController();
+  let timeoutId = null;
+
+  try {
+    const coordString = coordinates.map((c) => `${c.longitude},${c.latitude}`).join(";");
+    const url = `${OSRM_BASE_URL}/${coordString}?geometries=geojson&overview=full&steps=true`;
+
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    timeoutId = null;
+
+    if (!response.ok) throw new Error(`OSRM error: ${response.status}`);
+
+    const data = await response.json();
+    if (data.code !== "Ok" || !data.routes?.length) throw new Error("No OSRM route");
+
+    const route = data.routes[0];
+    const legs  = route.legs || [];
+    const steps = legs
+      .flatMap((leg, legIdx) =>
+        (leg.steps || []).map((step) => {
+          const loc = step?.maneuver?.location || [];
+          return {
+            location:      { latitude: loc[1], longitude: loc[0] },
+            distance:      step?.distance || 0,
+            duration:      step?.duration || 0,
+            maneuverType:  step?.maneuver?.type || "",
+            maneuverModifier: step?.maneuver?.modifier || "",
+            name:          step?.name || "",
+            instruction:   buildOSRMInstruction(step, legIdx === legs.length - 1),
+          };
+        }),
+      )
+      .filter((s) => Number.isFinite(s.location?.latitude));
+
+    return {
+      distance:    route.distance,
+      duration:    route.duration,
+      coordinates: route.geometry.coordinates.map(([lon, lat]) => ({ latitude: lat, longitude: lon })),
+      steps,
+    };
+  } catch (error) {
+    if (timeoutId) clearTimeout(timeoutId);
+    console.warn("[OSRM] Routing failed:", error.message);
+    return null;
+  }
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
 /**
- * Computes bounding box for a set of coordinates to zoom map appropriately.
+ * Fetch a walking route. Uses Mapbox first, falls back to OSRM.
+ */
+export async function fetchOSRMRoute(coordinates, options = {}) {
+  const mapbox = await fetchMapboxRoute(coordinates, options);
+  if (mapbox) return mapbox;
+  return fetchOSRMRouteInternal(coordinates, options);
+}
+
+/**
+ * Bounding box for a set of coordinates (to zoom the map).
  */
 export function getRouteBoundingBox(coordinates) {
-  if (!coordinates || coordinates.length === 0) return null;
-  
-  let minLat = coordinates[0].latitude;
-  let maxLat = coordinates[0].latitude;
-  let minLon = coordinates[0].longitude;
-  let maxLon = coordinates[0].longitude;
+  if (!coordinates?.length) return null;
 
-  coordinates.forEach(c => {
-    if (c.latitude < minLat) minLat = c.latitude;
-    if (c.latitude > maxLat) maxLat = c.latitude;
+  let minLat = coordinates[0].latitude,  maxLat = coordinates[0].latitude;
+  let minLon = coordinates[0].longitude, maxLon = coordinates[0].longitude;
+
+  coordinates.forEach((c) => {
+    if (c.latitude  < minLat) minLat = c.latitude;
+    if (c.latitude  > maxLat) maxLat = c.latitude;
     if (c.longitude < minLon) minLon = c.longitude;
     if (c.longitude > maxLon) maxLon = c.longitude;
   });
 
-  const latitudeDelta = (maxLat - minLat) * 1.5 || 0.01;
-  const longitudeDelta = (maxLon - minLon) * 1.5 || 0.01;
-  const centerLat = (minLat + maxLat) / 2;
-  const centerLon = (minLon + maxLon) / 2;
-
   return {
-    latitude: centerLat,
-    longitude: centerLon,
-    latitudeDelta,
-    longitudeDelta
+    latitude:      (minLat + maxLat) / 2,
+    longitude:     (minLon + maxLon) / 2,
+    latitudeDelta:  (maxLat - minLat) * 1.5 || 0.01,
+    longitudeDelta: (maxLon - minLon) * 1.5 || 0.01,
   };
 }

@@ -13,11 +13,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  Easing,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import { 
@@ -41,13 +44,8 @@ import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import ConfettiCannon from "react-native-confetti-cannon";
 import Svg, { Defs, RadialGradient, Stop, Circle } from "react-native-svg";
-
-// Mock "who's moving now" — will be replaced with real club data
-const MOVING_NOW = [
-  { id: "1", name: "Sarah", avatar: "https://i.pravatar.cc/150?img=1" },
-  { id: "2", name: "Mike", avatar: "https://i.pravatar.cc/150?img=2" },
-  { id: "3", name: "Jazz", avatar: "https://i.pravatar.cc/150?img=3" },
-];
+import { createShimmerPlaceholder } from "react-native-shimmer-placeholder";
+import Slider from "@react-native-community/slider";
 
 const FREE_RUN_CTAS = [
   "BEGIN",
@@ -60,12 +58,58 @@ const FREE_RUN_CTAS = [
   "GET OUT HERE",
 ];
 
-import { useMoveStore, formatDuration, formatPace } from "@/store/useMoveStore";
+const SESSION_COMPLETE_HEADLINES = [
+  "WELL DONE",
+  "YOU SMASHED IT",
+  "THAT'S HOW WE DO",
+  "STRONG WORK",
+  "NICE ONE",
+];
+
+const LIGHT_SESSION_HEADLINES = [
+  "WHAT HAPPENED?",
+  "OK, NEXT TIME",
+  "KEEP GOING",
+  "SHAKE IT OFF",
+  "JUST A WARMUP",
+  "BACK AT IT TOMORROW",
+];
+
+const BIG_SESSION_HEADLINES = [
+  "BEAST MODE",
+  "THAT WAS SERIOUS",
+  "UNSTOPPABLE",
+  "ELITE SHIFT",
+  "MONSTER SESSION",
+];
+
+const FEELING_COPY = {
+  1: { label: "Rough", note: "Tough day" },
+  2: { label: "Okay", note: "Got through it" },
+  3: { label: "Good", note: "Solid effort" },
+  4: { label: "Great", note: "Strong session" },
+  5: { label: "Amazing", note: "Top form" },
+};
+
+import {
+  useMoveStore,
+  formatDuration,
+  formatPace,
+  MOVE_SESSION_PHASE,
+} from "@/store/useMoveStore";
 import { useUserStore } from "@/store/userStore";
 import { useClubStore, DEFAULT_CLUB_AVATAR } from "@/store/useClubStore";
 import { hapticHeavy, hapticSuccess, hapticSelection } from "@/services/haptics";
 
 const { width, height } = Dimensions.get("window");
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient);
+
+const formatCompactCount = (value) => {
+  if (!Number.isFinite(value) || value < 0) return "0";
+  if (value < 1000) return `${value}`;
+  if (value < 10000) return `${(value / 1000).toFixed(1)}K`;
+  return `${Math.round(value / 1000)}K`;
+};
 
 // Color interpolation utility for gradient polylines
 const lerpColor = (a, b, t) => {
@@ -260,6 +304,7 @@ const CountdownOverlay = ({ value }) => {
 
 export default function MoveScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const mapRef = useRef(null);
 
@@ -273,15 +318,54 @@ export default function MoveScreen() {
   const allDaySteps = todayStats?.steps ?? 0;
   const allDayDistanceKm = todayStats?.distance ?? 0;
   const addRunPost = useClubStore((s) => s.addRunPost);
+  const clubFeed = useClubStore((s) => s.feed);
+
+  const socialPresence = useMemo(() => {
+    const byName = new Map();
+    const selfName = (user?.name || "You").trim().toLowerCase();
+
+    (Array.isArray(clubFeed) ? clubFeed : []).forEach((item) => {
+      const name = (item?.user || "").trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (byName.has(key)) return;
+      byName.set(key, {
+        name,
+        avatar: item?.avatar || DEFAULT_CLUB_AVATAR,
+        isSelf: key === selfName || key === "you",
+      });
+    });
+
+    const people = Array.from(byName.values());
+    if (people.length === 0) {
+      people.push({
+        name: user?.name?.trim() || "You",
+        avatar: user?.avatar_url || DEFAULT_CLUB_AVATAR,
+        isSelf: true,
+      });
+    }
+
+    const outsideCount = people.length;
+    const friendsCount = Math.max(0, people.filter((person) => !person.isSelf).length);
+
+    return {
+      people,
+      outsideCount,
+      friendsCount,
+      outsideLabel: formatCompactCount(outsideCount),
+    };
+  }, [clubFeed, user?.name, user?.avatar_url]);
 
   // Move Store
   const {
+    sessionPhase,
     isActive,
     isPlanning,
     plannedRouteLocs,
     plannedRoutePath,
     plannedDistanceMeter,
     plannedRouteSteps,
+    isPlanningRoute,
     isRerouting,
     sessionSteps,
     sessionDistance,
@@ -298,14 +382,16 @@ export default function MoveScreen() {
     updateSessionSteps,
     updateSessionPath,
     stopSession,
-    dismissSummary,
+    resetMoveState,
     saveRoute,
     savedRoutes,
     loadHistory,
+    updateLastSessionFeeling,
     rerouteToDestination,
     isPaused,
     pauseSession,
-    resumeSession
+    resumeSession,
+    beginSessionPriming,
   } = useMoveStore();
 
   // Local State
@@ -318,6 +404,12 @@ export default function MoveScreen() {
   const [freeRunCta, setFreeRunCta] = useState(FREE_RUN_CTAS[0]);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [isAutoFollowEnabled, setIsAutoFollowEnabled] = useState(true);
+  const [isLocationBooting, setIsLocationBooting] = useState(true);
+  const [sessionFeeling, setSessionFeeling] = useState(3);
+  const [sessionFeelingVisual, setSessionFeelingVisual] = useState(3);
+  const [isInteractionLocked, setIsInteractionLocked] = useState(false);
 
   // Re-roll the CTA and snap map to current location every time tab gains focus
   useFocusEffect(
@@ -348,57 +440,139 @@ export default function MoveScreen() {
   const locationSubscription = useRef(null);
   const countdownIntervalRef = useRef(null);
   const countdownHideTimeoutRef = useRef(null);
+  const followResumeTimeoutRef = useRef(null);
+  const interactionLockTimeoutRef = useRef(null);
+  const interactionLockRef = useRef(false);
+  const autoFollowEnabledRef = useRef(true);
   const lastRerouteAtRef = useRef(0);
   const lastSpokenStepKeyRef = useRef("");
   const lastSpokenAtRef = useRef(0);
+  const isSummaryVisible =
+    sessionPhase === MOVE_SESSION_PHASE.SUMMARY && Boolean(lastSession);
+  const isSessionTransitioning =
+    sessionPhase === MOVE_SESSION_PHASE.PRIMING || isActive || isCountingDown || isSummaryVisible;
+  const idleBottomOffset = Math.max(tabBarHeight + 16, insets.bottom + 56, 92);
+  const activeBottomOffset = insets.bottom + 86;
+
+  const sessionAnim = useRef(new Animated.Value(isSessionTransitioning ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(sessionAnim, {
+      toValue: isSessionTransitioning ? 1 : 0,
+      duration: isSessionTransitioning ? 360 : 300,
+      easing: isSessionTransitioning
+        ? Easing.out(Easing.cubic)
+        : Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [isSessionTransitioning]);
+
+  const idleOpacity = sessionAnim.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [1, 0, 0],
+  });
+  const idleTopY = sessionAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -150] });
+  const idleBottomY = sessionAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 150] });
+
+  const activeOpacity = sessionAnim.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 0, 1],
+  });
+  const activeTopY = sessionAnim.interpolate({ inputRange: [0, 1], outputRange: [-150, 0] });
+  const activeBottomY = sessionAnim.interpolate({ inputRange: [0, 1], outputRange: [150, 0] });
+
+  const pace = formatPace(sessionSteps, sessionDurationSecs);
+  const calories = Math.floor(sessionSteps * 0.045); 
+  const elevation = Math.floor(sessionSteps * 0.002);
 
   // Load History on Mount
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
 
+  useEffect(() => {
+    if (!lastSession) {
+      setSessionFeeling(3);
+      setSessionFeelingVisual(3);
+      return;
+    }
+    const savedFeeling = Number(lastSession.feeling);
+    if (Number.isFinite(savedFeeling) && savedFeeling >= 1 && savedFeeling <= 5) {
+      const normalized = Math.round(savedFeeling);
+      setSessionFeeling(normalized);
+      setSessionFeelingVisual(normalized);
+    } else {
+      setSessionFeeling(3);
+      setSessionFeelingVisual(3);
+    }
+  }, [lastSession?.id, lastSession?.feeling]);
+
   // ── LOCATION EFFECTS ────────────────────────────────────────────────────────
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        setHasPermission(true);
-        const loc = await Location.getCurrentPositionAsync({});
-        setCurrentLocation(loc.coords);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          setHasPermission(true);
+          const loc = await Location.getCurrentPositionAsync({});
+          if (!cancelled) {
+            setCurrentLocation(loc.coords);
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLocationBooting(false);
+        }
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Track location during active session
   useEffect(() => {
+    let cancelled = false;
     const startTracking = async () => {
-      locationSubscription.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 2000,
-          distanceInterval: 5, // update every 5 meters
-        },
-        (loc) => {
-          updateSessionPath({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-          setCurrentLocation(loc.coords);
-          
-          // Optionally pan map to follow user
-          if (mapRef.current) {
-            mapRef.current.animateCamera({
-              center: {
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-              },
-              pitch: 45,
-              heading: loc.coords.heading || 0,
+      try {
+        const subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 2000,
+            distanceInterval: 5, // update every 5 meters
+          },
+          (loc) => {
+            updateSessionPath({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
             });
-          }
+            setCurrentLocation(loc.coords);
+
+            // Follow mode recenters camera until the user manually pans.
+            if (mapRef.current && autoFollowEnabledRef.current) {
+              mapRef.current.animateCamera({
+                center: {
+                  latitude: loc.coords.latitude,
+                  longitude: loc.coords.longitude,
+                },
+                pitch: 45,
+                heading: loc.coords.heading || 0,
+              });
+            }
+          },
+        );
+
+        if (cancelled || !useMoveStore.getState().isActive) {
+          subscription.remove();
+          return;
         }
-      );
+
+        locationSubscription.current = subscription;
+      } catch {
+        // ignore location tracking startup failures
+      }
     };
 
     if (isActive && hasPermission) {
@@ -409,8 +583,10 @@ export default function MoveScreen() {
     }
 
     return () => {
+      cancelled = true;
       if (locationSubscription.current) {
         locationSubscription.current.remove();
+        locationSubscription.current = null;
       }
     };
   }, [isActive, hasPermission]);
@@ -426,8 +602,60 @@ export default function MoveScreen() {
     return () => {
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (countdownHideTimeoutRef.current) clearTimeout(countdownHideTimeoutRef.current);
+      if (followResumeTimeoutRef.current) clearTimeout(followResumeTimeoutRef.current);
+      if (interactionLockTimeoutRef.current) clearTimeout(interactionLockTimeoutRef.current);
+      interactionLockRef.current = false;
+      // If the screen unmounts before the run starts, restore non-focus mode.
+      if (!useMoveStore.getState().isActive) {
+        useMoveStore.getState().endSessionPriming();
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isActive) {
+      setIsAutoFollowEnabled(true);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    autoFollowEnabledRef.current = isAutoFollowEnabled;
+  }, [isAutoFollowEnabled]);
+
+  const lockInteractions = useCallback((durationMs = 420) => {
+    interactionLockRef.current = true;
+    setIsInteractionLocked(true);
+    if (interactionLockTimeoutRef.current) {
+      clearTimeout(interactionLockTimeoutRef.current);
+    }
+    if (!Number.isFinite(durationMs)) {
+      interactionLockTimeoutRef.current = null;
+      return;
+    }
+    interactionLockTimeoutRef.current = setTimeout(() => {
+      interactionLockRef.current = false;
+      setIsInteractionLocked(false);
+      interactionLockTimeoutRef.current = null;
+    }, durationMs);
+  }, []);
+
+  const unlockInteractions = useCallback(() => {
+    interactionLockRef.current = false;
+    if (interactionLockTimeoutRef.current) {
+      clearTimeout(interactionLockTimeoutRef.current);
+      interactionLockTimeoutRef.current = null;
+    }
+    setIsInteractionLocked(false);
+  }, []);
+
+  const handleMapPanDrag = useCallback(() => {
+    if (!isActive) return;
+    if (followResumeTimeoutRef.current) clearTimeout(followResumeTimeoutRef.current);
+    setIsAutoFollowEnabled(false);
+    followResumeTimeoutRef.current = setTimeout(() => {
+      setIsAutoFollowEnabled(true);
+    }, 8000);
+  }, [isActive]);
 
   useEffect(() => {
     if (isActive) return;
@@ -442,10 +670,45 @@ export default function MoveScreen() {
 
   // ── HANDLERS ──────────────────────────────────────────────────────────────
 
+  const resetCountdownState = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (countdownHideTimeoutRef.current) {
+      clearTimeout(countdownHideTimeoutRef.current);
+      countdownHideTimeoutRef.current = null;
+    }
+    setIsCountingDown(false);
+    setCountdownValue(3);
+  }, []);
+
+  const resetLocalOverlays = useCallback(() => {
+    setShowSavedInventory(false);
+    setShowNameModal(false);
+    setRouteNameInput("");
+    setActiveStepIndex(0);
+  }, []);
+
   const handleStartRun = () => {
-    if (isCountingDown || isActive) return;
+    const currentMoveState = useMoveStore.getState();
+    if (
+      interactionLockRef.current ||
+      isInteractionLocked ||
+      isCountingDown ||
+      currentMoveState.isActive
+    ) {
+      return;
+    }
+
+    // Free run from idle should not inherit a previously planned route.
+    if (!isPlanning) {
+      clearPlannedRoute();
+      setActiveStepIndex(0);
+    }
 
     hapticHeavy();
+    beginSessionPriming();
     setIsCountingDown(true);
     setCountdownValue(3);
 
@@ -476,19 +739,36 @@ export default function MoveScreen() {
     }, 1000);
   };
 
+  const handleFreshRoute = () => {
+    if (interactionLockRef.current || isInteractionLocked) return;
+    hapticSelection();
+    clearPlannedRoute();
+    setPlanning(true);
+    setActiveStepIndex(0);
+  };
+
   const handleStopRun = async () => {
+    if (interactionLockRef.current || isInteractionLocked) return;
+    lockInteractions(1200);
+    resetCountdownState();
+    resetLocalOverlays();
     hapticSuccess();
-    const session = await stopSession();
-    if (session && session.xpEarned > 0) {
-      await earnXP(session.xpEarned);
-      await updateStreak();
-    }
-    // Zoom map out slightly to show full path if possible
-    if (mapRef.current && session?.path?.length > 0) {
-      mapRef.current.fitToCoordinates(session.path, {
-        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-        animated: true,
-      });
+    try {
+      const session = await stopSession();
+      if (session && session.xpEarned > 0) {
+        await earnXP(session.xpEarned);
+        await updateStreak();
+      }
+      // Zoom map out slightly to show full path if possible
+      if (mapRef.current && session?.path?.length > 0) {
+        mapRef.current.fitToCoordinates(session.path, {
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          animated: true,
+        });
+      }
+    } finally {
+      unlockInteractions();
+      lockInteractions(260);
     }
   };
 
@@ -527,11 +807,50 @@ export default function MoveScreen() {
     router.push("/(tabs)/club?tab=Feed");
   };
 
+  const handleBackToMapFromSummary = () => {
+    // Force drop all interaction locks so the user can freely interact with the map again
+    if (interactionLockTimeoutRef.current) {
+       clearTimeout(interactionLockTimeoutRef.current);
+       interactionLockTimeoutRef.current = null;
+    }
+    interactionLockRef.current = false;
+    setIsInteractionLocked(false);
+    
+    hapticSelection();
+    resetCountdownState();
+    resetLocalOverlays();
+    resetMoveState();
+  };
+
+  const handleDiscardRunToMap = () => {
+    // Force drop all interaction locks
+    if (interactionLockTimeoutRef.current) {
+       clearTimeout(interactionLockTimeoutRef.current);
+       interactionLockTimeoutRef.current = null;
+    }
+    interactionLockRef.current = false;
+    setIsInteractionLocked(false);
+    
+    hapticHeavy();
+    resetCountdownState();
+    resetLocalOverlays();
+    resetMoveState();
+  };
+
   const handleMapPress = (e) => {
+    if (interactionLockRef.current || isInteractionLocked) return;
     if (isPlanning) {
       hapticSelection();
       addPlannedLocation(e.nativeEvent.coordinate);
     }
+  };
+
+  const handleFeelingComplete = (value) => {
+    const normalized = Math.max(1, Math.min(5, Math.round(Number(value) || 3)));
+    setSessionFeeling(normalized);
+    setSessionFeelingVisual(normalized);
+    updateLastSessionFeeling(normalized);
+    hapticSelection();
   };
 
   const handleOpenDirections = async () => {
@@ -592,34 +911,39 @@ export default function MoveScreen() {
     [plannedRouteSteps],
   );
 
-  const nextDirection = useMemo(() => {
-    if (routeSteps.length === 0) return null;
+  useEffect(() => {
+    if (routeSteps.length === 0) {
+      setActiveStepIndex(0);
+      return;
+    }
+    setActiveStepIndex((prev) => Math.min(prev, routeSteps.length - 1));
+  }, [routeSteps]);
 
-    const fallbackStep = routeSteps[0];
-    if (!currentLocation) {
-      return {
-        ...fallbackStep,
-        distanceToStep: null,
-      };
+  useEffect(() => {
+    if ((!isActive && !isPlanning) || !currentLocation || routeSteps.length === 0) return;
+
+    const stepArrivalThresholdMeters = 18;
+    const maxLookAhead = Math.min(routeSteps.length - 1, activeStepIndex + 4);
+    let nextIndex = activeStepIndex;
+
+    for (let i = activeStepIndex; i <= maxLookAhead; i += 1) {
+      const stepLocation = routeSteps[i]?.location;
+      if (!stepLocation) continue;
+      const distance = getDistanceMeters(currentLocation, stepLocation);
+      if (distance <= stepArrivalThresholdMeters) {
+        nextIndex = Math.min(i + 1, routeSteps.length - 1);
+      }
     }
 
-    let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    routeSteps.forEach((step, index) => {
-      const stepLocation = step?.location;
-      if (!stepLocation) return;
-      const distance = getDistanceMeters(currentLocation, stepLocation);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = index;
-      }
-    });
+    if (nextIndex !== activeStepIndex) {
+      setActiveStepIndex(nextIndex);
+    }
+  }, [isActive, isPlanning, currentLocation, routeSteps, activeStepIndex]);
 
-    const currentStepIndex =
-      nearestDistance < 18 && nearestIndex < routeSteps.length - 1
-        ? nearestIndex + 1
-        : nearestIndex;
-    const step = routeSteps[currentStepIndex] || fallbackStep;
+  const nextDirection = useMemo(() => {
+    if (routeSteps.length === 0) return null;
+    const safeIndex = Math.min(activeStepIndex, routeSteps.length - 1);
+    const step = routeSteps[safeIndex] || routeSteps[0];
     const distanceToStep = step?.location
       ? getDistanceMeters(currentLocation, step.location)
       : null;
@@ -628,7 +952,7 @@ export default function MoveScreen() {
       ...step,
       distanceToStep,
     };
-  }, [routeSteps, currentLocation]);
+  }, [routeSteps, activeStepIndex, currentLocation]);
 
   useEffect(() => {
     if (!isActive || isPaused || isRerouting) return;
@@ -646,10 +970,13 @@ export default function MoveScreen() {
     lastRerouteAtRef.current = now;
 
     (async () => {
-      const reroute = await rerouteToDestination({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-      });
+      const reroute = await rerouteToDestination(
+        {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        },
+        plannedRouteLocs,
+      );
       if (cancelled) return;
       if (reroute?.coordinates?.length) {
         hapticSelection();
@@ -665,6 +992,7 @@ export default function MoveScreen() {
     isPaused,
     isRerouting,
     currentLocation,
+    plannedRouteLocs,
     plannedRoutePath,
     rerouteToDestination,
     speakPrompt,
@@ -684,20 +1012,24 @@ export default function MoveScreen() {
     speakPrompt(nextDirection.instruction);
   }, [isActive, isPaused, nextDirection, speakPrompt]);
 
-  const renderDirectionCard = (bottomOffset) => {
+  const renderDirectionCard = ({ bottomOffset = 0, inline = false } = {}) => {
     if (!nextDirection) return null;
     const distanceLabel = formatDistanceLabel(nextDirection.distanceToStep);
 
     return (
       <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          left: 20,
-          right: 20,
-          bottom: bottomOffset,
-          zIndex: 40,
-        }}
+        pointerEvents={inline ? "auto" : "none"}
+        style={
+          inline
+            ? { marginBottom: 12 }
+            : {
+                position: "absolute",
+                left: 20,
+                right: 20,
+                bottom: bottomOffset,
+                zIndex: 40,
+              }
+        }
       >
         <View
           style={{
@@ -722,7 +1054,7 @@ export default function MoveScreen() {
               marginRight: 10,
             }}
           >
-            <Navigation size={16} color="#00ff7f" />
+            <Navigation size={16} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -730,7 +1062,7 @@ export default function MoveScreen() {
                 Next Direction
               </Text>
               {isRerouting ? (
-                <Text style={{ color: "#00ff7f", fontSize: 10, fontWeight: "800", marginLeft: 8, textTransform: "uppercase" }}>
+                <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800", marginLeft: 8, textTransform: "uppercase" }}>
                   Rerouting...
                 </Text>
               ) : null}
@@ -777,6 +1109,25 @@ export default function MoveScreen() {
     );
   };
 
+  const renderLoadingControls = () => (
+    <View style={{ gap: 12 }}>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <ShimmerPlaceholder
+          shimmerColors={["#111111", "#1e1e1e", "#111111"]}
+          style={{ flex: 1, height: 56, borderRadius: 100 }}
+        />
+        <ShimmerPlaceholder
+          shimmerColors={["#111111", "#1e1e1e", "#111111"]}
+          style={{ flex: 1, height: 56, borderRadius: 100 }}
+        />
+      </View>
+      <ShimmerPlaceholder
+        shimmerColors={["#111111", "#1f1f1f", "#111111"]}
+        style={{ height: 60, borderRadius: 100 }}
+      />
+    </View>
+  );
+
 
 
   // Render Map Component (Now constrained inside its relative wrapper, not absoluteFill)
@@ -792,6 +1143,7 @@ export default function MoveScreen() {
       showsScale={false}
       pitchEnabled={isActive ? false : true}
       onPress={handleMapPress}
+      onPanDrag={handleMapPanDrag}
       initialRegion={{
         latitude: currentLocation ? currentLocation.latitude : 40.7128,
         longitude: currentLocation ? currentLocation.longitude : -74.006,
@@ -865,179 +1217,50 @@ export default function MoveScreen() {
     </MapView>
   );
 
+  const sessionCompleteHeadline = useMemo(() => {
+    if (!lastSession) return SESSION_COMPLETE_HEADLINES[0];
+    const steps = Number(lastSession.steps || 0);
+    const distanceKm = Number(lastSession.distance || 0);
+    const durationSecs = Number(lastSession.durationSecs || 0);
+
+    const isQuickStop = durationSecs > 0 && durationSecs <= 180;
+    const isLowMovement = distanceKm < 0.2 || steps < 250;
+    const isBigSession = durationSecs >= 1800 || distanceKm >= 5 || steps >= 6000;
+
+    let headlinePool = SESSION_COMPLETE_HEADLINES;
+    if (isQuickStop && isLowMovement) {
+      headlinePool = LIGHT_SESSION_HEADLINES;
+    } else if (isBigSession) {
+      headlinePool = BIG_SESSION_HEADLINES;
+    }
+
+    const seed = `${lastSession.date || ""}:${steps}:${distanceKm}:${durationSecs}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+    }
+    const index = Math.abs(hash) % headlinePool.length;
+    return headlinePool[index];
+  }, [lastSession]);
+
+  const sessionCelebration = useMemo(() => {
+    if (!lastSession) return { level: "none", confettiCount: 0 };
+    const steps = Number(lastSession.steps || 0);
+    const distanceKm = Number(lastSession.distance || 0);
+    const durationSecs = Number(lastSession.durationSecs || 0);
+
+    const isHigh = durationSecs >= 1800 || distanceKm >= 5 || steps >= 6000;
+    const isMid = durationSecs >= 900 || distanceKm >= 2 || steps >= 2500;
+    if (isHigh) return { level: "high", confettiCount: 140 };
+    if (isMid) return { level: "mid", confettiCount: 80 };
+    return { level: "low", confettiCount: 55 };
+  }, [lastSession]);
+
+  const sessionFeelingPreview = Math.max(1, Math.min(5, Math.round(sessionFeelingVisual || sessionFeeling)));
+  const sessionFeelingMeta = FEELING_COPY[sessionFeelingPreview] || FEELING_COPY[3];
+
   // ── UI STATES (FULL SCREEN ARCHITECTURE) ───────────────────────────────────
 
-  if (lastSession) {
-    return (
-      <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-        <StatusBar style="light" />
-        
-        {/* BACKGROUND MAP */}
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none" opacity={0.22}>
-          {renderMap()}
-        </View>
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(0,0,0,0.55)" }]} pointerEvents="none" />
-
-        {/* FULL SCREEN SUMMARY OVERLAY */}
-        <View style={{ flex: 1, paddingTop: insets.top + 40, paddingHorizontal: 24, justifyContent: "center" }}>
-          <View style={{ alignItems: "center", marginBottom: 32 }}>
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: "700", letterSpacing: 2, textTransform: "uppercase" }}>Session Complete</Text>
-            <Text style={{ color: "#fff", fontSize: 44, fontWeight: "900", letterSpacing: -1.5, marginTop: 4 }}>GREAT MOVE</Text>
-          </View>
-
-          <View style={{ backgroundColor: "#151515", borderRadius: 32, padding: 28, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-            <View style={{ alignItems: "center", marginBottom: 28 }}>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>DISTANCE</Text>
-              <Text style={{ color: "#fff", fontSize: 64, fontWeight: "900", letterSpacing: -2, fontStyle: "italic" }}>{lastSession.distance.toFixed(2)}<Text style={{fontSize: 24, color: "rgba(255,255,255,0.4)", fontStyle: "normal"}}> km</Text></Text>
-            </View>
-
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <View style={{ alignItems: "center", flex: 1 }}>
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>TIME</Text>
-                <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", letterSpacing: -0.5, fontStyle: "italic" }}>{formatDuration(lastSession.durationSecs)}</Text>
-              </View>
-              <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
-              <View style={{ alignItems: "center", flex: 1 }}>
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>PACE</Text>
-                <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", letterSpacing: -0.5, fontStyle: "italic" }}>{formatPace(lastSession.steps, lastSession.durationSecs)}</Text>
-              </View>
-              <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
-              <View style={{ alignItems: "center", flex: 1 }}>
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>EARNED</Text>
-                <Text style={{ color: "#00ff7f", fontSize: 24, fontWeight: "900", letterSpacing: -0.5, fontStyle: "italic" }}>+{lastSession.xpEarned} <Text style={{fontSize: 14, color: "#00ff7f", fontStyle: "normal"}}>XP</Text></Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={{ marginTop: 24, gap: 12 }}>
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <TouchableOpacity 
-                onPress={handleSaveRoute}
-                style={{ flex: 1, backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 20, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0,255,127,0.3)" }}
-              >
-                <BookmarkPlus color="#00ff7f" size={18} />
-                <Text style={{ color: "#00ff7f", fontSize: 15, fontWeight: "800", marginLeft: 8 }}>Save Route</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={{ flex: 1, backgroundColor: "#151515", borderRadius: 20, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }} onPress={handleShareToClubFeed}>
-                <Share2 color="#fff" size={18} />
-                <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800", marginLeft: 8 }}>Share to Club</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity onPress={() => { hapticSelection(); dismissSummary(); }} style={{ alignItems: "center", paddingVertical: 14 }}>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>Back to Map</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {lastSession.xpEarned > 0 && <ConfettiCannon count={60} origin={{ x: width / 2, y: -20 }} fadeOut={true} fallSpeed={3000} autoStart={true} />}
-      </View>
-    );
-  }
-
-  if (isActive) {
-    const pace = formatPace(sessionSteps, sessionDurationSecs);
-    // Rough mocks based on steps for premium data visualization
-    const calories = Math.floor(sessionSteps * 0.045); 
-    const elevation = Math.floor(sessionSteps * 0.002);
-
-    return (
-      <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-        <StatusBar style="light" />
-
-        {/* FULL SCREEN MAP */}
-        <View style={StyleSheet.absoluteFillObject}>
-          {renderMap()}
-        </View>
-        
-        {/* ── TOP STATS GRID (FLOATING) ── */}
-        <LinearGradient 
-          colors={['rgba(0,0,0,1)', 'rgba(10,10,10,0.88)', 'transparent']} 
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 320 }} 
-          pointerEvents="none" 
-        />
-        <View style={{ position: "absolute", top: insets.top, left: 16, right: 16 }}>
-          {/* Top Row: Layout Bar */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            {/* Live Dash Indicator */}
-            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: isPaused ? "rgba(255,165,0,0.15)" : "rgba(0,255,127,0.15)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: isPaused ? "rgba(255,165,0,0.3)" : "rgba(0,255,127,0.3)" }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isPaused ? "#ffa500" : "#00ff7f", marginRight: 8, shadowColor: isPaused ? "#ffa500" : "#00ff7f", shadowOpacity: 0.8, shadowRadius: 5 }} />
-              <Text style={{ color: isPaused ? "#ffa500" : "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>
-                {isPaused ? "PAUSED" : "LIVE DASH"}
-              </Text>
-            </View>
-
-            {/* Broadcast Icon */}
-            <TouchableOpacity onPress={() => hapticSelection()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              <Radio color="#00ff7f" size={18} />
-            </TouchableOpacity>
-          </View>
-
-          {/* 3x2 Floating Transparent Grid */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
-            {[
-              { label: "Time", value: formatDuration(sessionDurationSecs), unit: "" },
-              { label: "Distance", value: sessionDistance.toFixed(2), unit: "km" },
-              { label: "Steps", value: sessionSteps.toLocaleString(), unit: "" },
-              { label: "AVG Pace", value: pace, unit: "/km" },
-              { label: "Calories", value: calories, unit: "kcal" },
-              { label: "Elevation", value: elevation, unit: "m" },
-            ].map((stat, i) => (
-              <View key={i} style={{ width: "33%", alignItems: "center", marginBottom: 28 }}>
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>{stat.label}</Text>
-                <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-                  <Text style={{ color: "#fff", fontSize: 32, fontWeight: "900", fontStyle: "italic", letterSpacing: -1, textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 }}>{stat.value}</Text>
-                  {stat.unit ? <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "800", marginHorizontal: 4, textTransform: "uppercase", letterSpacing: 1 }}>{stat.unit}</Text> : null}
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── BOTTOM ACTION BAR (FLOATING) ── */}
-        <LinearGradient 
-          colors={['transparent', 'rgba(10,10,10,0.82)', 'rgba(0,0,0,1)']} 
-          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 200 }} 
-          pointerEvents="none" 
-        />
-        <View style={{ position: "absolute", bottom: insets.bottom + 20, left: 24, right: 24 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16 }}>
-            <TouchableOpacity 
-              onPress={() => { hapticHeavy(); stopSession(); dismissSummary(); }}
-              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#151515", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.05)" }}
-            >
-              <RotateCcw color="rgba(255,255,255,0.8)" size={24} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={() => { hapticSelection(); if(isPaused) resumeSession(); else pauseSession(); }}
-              activeOpacity={0.8}
-              style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: "#00ff7f", justifyContent: "center", alignItems: "center", shadowColor: "#00ff7f", shadowOffset: { width: 0, height: 0 }, shadowOpacity: isPaused ? 0.3 : 0.6, shadowRadius: isPaused ? 10 : 20, elevation: 10 }}
-            >
-               {isPaused ? (
-                 <Play color="#0a0a0a" fill="#0a0a0a" size={40} style={{ marginLeft: 4 }} />
-               ) : (
-                 <Pause color="#0a0a0a" fill="#0a0a0a" size={40} />
-               )}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={handleStopRun}
-              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#151515", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.05)" }}
-            >
-              <Square color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.8)" size={22} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {renderDirectionCard(insets.bottom + 130)}
-        {isCountingDown && <CountdownOverlay value={countdownValue} />}
-      </View>
-    );
-  }
-
-  // ── IDLE / PLANNING STATE (FULL SCREEN MAP WITH OVERLAYS) ─────────────────
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
@@ -1048,159 +1271,435 @@ export default function MoveScreen() {
         {renderMap()}
       </View>
 
-      {/* ── TOP OVERLAYS ── */}
-      <LinearGradient 
-        colors={['rgba(0,0,0,1)', 'rgba(10,10,10,0.82)', 'transparent']} 
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }} 
-        pointerEvents="none" 
-      />
+      {/* ── IDLE / PLANNING STATE OVERLAYS ── */}
+      <Animated.View 
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents={isSummaryVisible || isSessionTransitioning || isInteractionLocked ? "none" : "box-none"}
+      >
+        {/* Top Overlays */}
+        <Animated.View pointerEvents="box-none" style={{ opacity: idleOpacity, transform: [{ translateY: idleTopY }] }}>
+          <LinearGradient 
+            colors={['rgba(0,0,0,1)', 'rgba(10,10,10,0.82)', 'transparent']} 
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }} 
+            pointerEvents="none" 
+          />
 
-      {isPlanning && (
-        <View style={{ position: "absolute", top: insets.top, left: 16, right: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-            <Route color="#00ff7f" size={16} style={{marginRight: 8}} />
-            <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>PLANNING</Text>
-          </View>
-          <TouchableOpacity onPress={() => { hapticSelection(); clearPlannedRoute(); }} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-            <X color="#fff" size={20} />
-          </TouchableOpacity>
-        </View>
-      )}
+          {isPlanning && (
+            <View pointerEvents="box-none" style={{ position: "absolute", top: insets.top, left: 16, right: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+                <Route color="#00ff7f" size={16} style={{marginRight: 8}} />
+                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>PLANNING</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={handleOpenDirections}
+                  activeOpacity={0.9}
+                  disabled={plannedRoutePath.length === 0}
+                  style={{
+                    height: 46,
+                    paddingHorizontal: 12,
+                    borderRadius: 23,
+                    backgroundColor: "rgba(0,0,0,0.7)",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    flexDirection: "row",
+                    borderWidth: 1,
+                    borderColor: plannedRoutePath.length > 0 ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.1)",
+                  }}
+                >
+                  <Navigation size={16} color={plannedRoutePath.length > 0 ? "#fff" : "#666"} />
+                  <Text style={{ color: plannedRoutePath.length > 0 ? "#fff" : "#666", marginLeft: 6, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
+                    MAPS
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { hapticSelection(); clearPlannedRoute(); }} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+                  <X color="#fff" size={20} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
-      {/* Idle Top Live Pill & Social */}
-      {!isPlanning && (
-        <View style={{ position: "absolute", top: insets.top + 16, left: 20, right: 20, pointerEvents: "box-none", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => { hapticSelection(); setShowStepsInIdle(!showStepsInIdle); }}>
-            <BlurView intensity={80} tint="dark" style={{ height: 48, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", justifyContent: "center" }}>
-              <View style={{ flexDirection: "row", paddingHorizontal: 16, alignItems: "center" }}>
-                <View style={{ alignItems: "center", marginRight: 16 }}>
-                  {showStepsInIdle ? (
-                    <>
-                      <Text style={{ color: "#fff", fontSize: 15, fontWeight: "900" }}>{allDaySteps.toLocaleString()}</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>STEPS</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={{ color: "#fff", fontSize: 15, fontWeight: "900" }}>{allDayDistanceKm > 0 ? allDayDistanceKm.toFixed(1) : "0.0"}</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>TODAY KM</Text>
-                    </>
-                  )}
+          {!isPlanning && (
+            <View style={{ position: "absolute", top: insets.top + 16, left: 20, right: 20, pointerEvents: "box-none", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <TouchableOpacity activeOpacity={0.9} onPress={() => { hapticSelection(); setShowStepsInIdle(!showStepsInIdle); }}>
+                <BlurView intensity={80} tint="dark" style={{ height: 48, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", paddingHorizontal: 16, alignItems: "center" }}>
+                    <View style={{ alignItems: "center", marginRight: 16 }}>
+                      {showStepsInIdle ? (
+                        <>
+                          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "900" }}>{allDaySteps.toLocaleString()}</Text>
+                          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>STEPS</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "900" }}>{allDayDistanceKm > 0 ? allDayDistanceKm.toFixed(1) : "0.0"}</Text>
+                          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>TODAY KM</Text>
+                        </>
+                      )}
+                    </View>
+                    <View style={{ width: 1, height: 24, backgroundColor: "rgba(255,255,255,0.1)", marginRight: 16 }} />
+                    <View style={{ alignItems: "center" }}>
+                       <Text style={{ color: "#00ff7f", fontSize: 15, fontWeight: "900" }}>{streak}</Text>
+                       <Text style={{ color: "#00ff7f", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>STREAK</Text>
+                    </View>
+                  </View>
+                </BlurView>
+              </TouchableOpacity>
+
+              <BlurView intensity={80} tint="dark" style={{ height: 48, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", justifyContent: "center" }}>
+                 <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12 }}>
+                    <View style={{ flexDirection: "row" }}>
+                       {socialPresence.people.slice(0, 3).map((p, i) => (
+                          <Image key={`${p.name}-${i}`} source={{ uri: p.avatar }} style={{ width: 26, height: 26, borderRadius: 13, marginLeft: i === 0 ? 0 : -10, borderWidth: 2, borderColor: "#151515" }} />
+                       ))}
+                    </View>
+                    <View style={{ marginLeft: 8 }}>
+                       <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{socialPresence.outsideLabel} <Text style={{ color: "rgba(255,255,255,0.4)", fontWeight: "600", fontSize: 10 }}>OUTSIDE</Text></Text>
+                       <Text style={{ color: "#00ff7f", fontSize: 9, fontWeight: "700" }}>{socialPresence.friendsCount} FRIENDS</Text>
+                    </View>
+                 </View>
+              </BlurView>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Bottom Actions */}
+        <Animated.View pointerEvents="box-none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, opacity: idleOpacity, transform: [{ translateY: idleBottomY }] }}>
+          <LinearGradient 
+            colors={['transparent', 'rgba(10,10,10,0.72)', 'rgba(10,10,10,0.94)', 'rgba(0,0,0,1)']} 
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 300 }} 
+            pointerEvents="none" 
+          />
+          <View pointerEvents="box-none" style={{ position: "absolute", bottom: idleBottomOffset, left: 20, right: 20 }}>
+            {isLocationBooting ? (
+              renderLoadingControls()
+            ) : isPlanning ? (
+              <View>
+                <View style={{ alignItems: "center", marginBottom: 20 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>PLANNED DISTANCE</Text>
+                  <Text style={{ color: "#fff", fontSize: 56, fontWeight: "900", letterSpacing: -2, fontStyle: "italic", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 }}>{(plannedDistanceMeter / 1000).toFixed(2)}<Text style={{ fontSize: 20, color: "rgba(255,255,255,0.5)", fontStyle: "normal" }}> km</Text></Text>
+                  {isPlanningRoute ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+                      <ActivityIndicator size="small" color="#00ff7f" />
+                      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "700", marginLeft: 8, letterSpacing: 0.8, textTransform: "uppercase" }}>
+                        Drawing route...
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-                <View style={{ width: 1, height: 24, backgroundColor: "rgba(255,255,255,0.1)", marginRight: 16 }} />
-                <View style={{ alignItems: "center" }}>
-                   <Text style={{ color: "#00ff7f", fontSize: 15, fontWeight: "900" }}>{streak}</Text>
-                   <Text style={{ color: "#00ff7f", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>STREAK</Text>
+
+                {renderDirectionCard({ inline: true })}
+
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <TouchableOpacity
+                     onPress={removeLastPlannedLocation}
+                     style={{ backgroundColor: "#151515", paddingHorizontal: 20, borderRadius: 100, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
+                  >
+                     <CornerUpLeft color="rgba(255,255,255,0.8)" size={20} />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={handleStartRun}
+                    activeOpacity={0.9}
+                    disabled={plannedRoutePath.length === 0}
+                    style={{ flex: 1, flexDirection: "row", backgroundColor: plannedRoutePath.length > 0 ? "#00ff7f" : "#222", paddingVertical: 20, borderRadius: 100, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Navigation size={22} color={plannedRoutePath.length > 0 ? "#0a0a0a" : "#666"} fill={plannedRoutePath.length > 0 ? "#0a0a0a" : "#666"} style={{ transform: [{rotate: '45deg'}], marginRight: 10 }} />
+                    <Text style={{ color: plannedRoutePath.length > 0 ? "#0a0a0a" : "#666", fontSize: 18, fontWeight: "900", fontStyle: "italic", letterSpacing: 1 }}>{freeRunCta}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                     onPress={handleFreshRoute}
+                     style={{ backgroundColor: "#151515", paddingHorizontal: 20, borderRadius: 100, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
+                  >
+                     <RotateCcw color="#00ff7f" size={20} />
+                  </TouchableOpacity>
                 </View>
               </View>
-            </BlurView>
-          </TouchableOpacity>
+            ) : (
+              <View style={{ gap: 12 }}>
+                 <View style={{ flexDirection: "row", gap: 12 }}>
+                   <TouchableOpacity
+                     onPress={() => { hapticSelection(); setPlanning(true); }}
+                     style={{ flex: 1, backgroundColor: "#151515", borderRadius: 100, paddingVertical: 18, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", flexDirection: "row" }}
+                   >
+                     <Route color="#fff" size={18} style={{marginRight: 8}} />
+                     <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>Plan Route</Text>
+                   </TouchableOpacity>
 
-          <BlurView intensity={80} tint="dark" style={{ height: 48, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", justifyContent: "center" }}>
-             <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12 }}>
-                <View style={{ flexDirection: "row" }}>
-                   {MOVING_NOW.map((p, i) => (
-                      <Image key={p.id} source={{ uri: p.avatar }} style={{ width: 26, height: 26, borderRadius: 13, marginLeft: i === 0 ? 0 : -10, borderWidth: 2, borderColor: "#151515" }} />
-                   ))}
+                   <TouchableOpacity
+                     onPress={() => { hapticSelection(); setShowSavedInventory(true); }}
+                     style={{ flex: 1, backgroundColor: "#151515", borderRadius: 100, paddingVertical: 18, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", flexDirection: "row" }}
+                   >
+                     <Bookmark color="#fff" size={18} style={{marginRight: 8}} />
+                     <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>Saved</Text>
+                   </TouchableOpacity>
+                 </View>
+
+                 <TouchableOpacity
+                   onPress={handleStartRun}
+                   activeOpacity={0.9}
+                   style={{ flexDirection: "row", backgroundColor: "#00ff7f", paddingVertical: 20, borderRadius: 100, alignItems: "center", justifyContent: "center", shadowColor: "#00ff7f", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 10 }}
+                 >
+                   <Play size={24} color="#0a0a0a" fill="#0a0a0a" style={{ marginRight: 8, marginLeft: 4 }} />
+                   <Text style={{ color: "#0a0a0a", fontSize: 20, fontWeight: "900", fontStyle: "italic", letterSpacing: 1.5 }}>{freeRunCta}</Text>
+                 </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </Animated.View>
+      </Animated.View>
+
+
+      {/* ── ACTIVE SESSION OVERLAYS ── */}
+      <Animated.View 
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents={isSummaryVisible ? "none" : (isActive && !isInteractionLocked ? "box-none" : "none")}
+      >
+        {/* Top Active Stats */}
+        <Animated.View pointerEvents="box-none" style={{ opacity: activeOpacity, transform: [{ translateY: activeTopY }] }}>
+          <LinearGradient 
+            colors={['rgba(0,0,0,1)', 'rgba(10,10,10,0.88)', 'transparent']} 
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 320 }} 
+            pointerEvents="none" 
+          />
+          <View pointerEvents="box-none" style={{ position: "absolute", top: insets.top, left: 16, right: 16 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: isPaused ? "rgba(255,165,0,0.15)" : "rgba(0,255,127,0.15)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: isPaused ? "rgba(255,165,0,0.3)" : "rgba(0,255,127,0.3)" }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isPaused ? "#ffa500" : "#00ff7f", marginRight: 8, shadowColor: isPaused ? "#ffa500" : "#00ff7f", shadowOpacity: 0.8, shadowRadius: 5 }} />
+                <Text style={{ color: isPaused ? "#ffa500" : "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>
+                  {isPaused ? "PAUSED" : "LIVE DASH"}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <BlurView intensity={80} tint="dark" style={{ height: 40, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 10 }}>
+                    <View style={{ flexDirection: "row" }}>
+                      {socialPresence.people.slice(0, 3).map((p, i) => (
+                        <Image key={`${p.name}-${i}`} source={{ uri: p.avatar }} style={{ width: 20, height: 20, borderRadius: 10, marginLeft: i === 0 ? 0 : -8, borderWidth: 1.5, borderColor: "#151515" }} />
+                      ))}
+                    </View>
+                    <View style={{ marginLeft: 7 }}>
+                      <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{socialPresence.outsideLabel} <Text style={{ color: "rgba(255,255,255,0.45)", fontWeight: "700", fontSize: 9 }}>OUTSIDE</Text></Text>
+                      <Text style={{ color: "#00ff7f", fontSize: 8, fontWeight: "800", letterSpacing: 0.4 }}>{socialPresence.friendsCount} FRIENDS</Text>
+                    </View>
+                  </View>
+                </BlurView>
+                <TouchableOpacity onPress={() => hapticSelection()} style={{ width: 40, height: 40, borderRadius: 20, marginLeft: 8, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+                  <Radio color="#00ff7f" size={18} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+              {[
+                { label: "Time", value: formatDuration(sessionDurationSecs), unit: "" },
+                { label: "Distance", value: sessionDistance.toFixed(2), unit: "km" },
+                { label: "Steps", value: sessionSteps.toLocaleString(), unit: "" },
+                { label: "AVG Pace", value: pace, unit: "/km" },
+                { label: "Calories", value: calories, unit: "kcal" },
+                { label: "Elevation", value: elevation, unit: "m" },
+              ].map((stat, i) => (
+                <View key={i} style={{ width: "33%", alignItems: "center", marginBottom: 28 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>{stat.label}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                    <Text style={{ color: "#fff", fontSize: 32, fontWeight: "900", fontStyle: "italic", letterSpacing: -1, textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 }}>{stat.value}</Text>
+                    {stat.unit ? <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "800", marginHorizontal: 4, textTransform: "uppercase", letterSpacing: 1 }}>{stat.unit}</Text> : null}
+                  </View>
                 </View>
-                <View style={{ marginLeft: 8 }}>
-                   <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>240K <Text style={{ color: "rgba(255,255,255,0.4)", fontWeight: "600", fontSize: 10 }}>OUTSIDE</Text></Text>
-                   <Text style={{ color: "#00ff7f", fontSize: 9, fontWeight: "700" }}>{MOVING_NOW.length} FRIENDS</Text>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Bottom Active Actions */}
+        <Animated.View
+          pointerEvents={isActive && !isInteractionLocked ? "box-none" : "none"}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, opacity: activeOpacity, transform: [{ translateY: activeBottomY }] }}
+        >
+          <LinearGradient 
+            colors={['transparent', 'rgba(10,10,10,0.82)', 'rgba(0,0,0,1)']} 
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 200 }} 
+            pointerEvents="none" 
+          />
+          <View pointerEvents="box-none" style={{ position: "absolute", bottom: activeBottomOffset, left: 24, right: 24 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16 }}>
+              <TouchableOpacity 
+                onPress={handleDiscardRunToMap}
+                style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#151515", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.05)" }}
+              >
+                <RotateCcw color="rgba(255,255,255,0.8)" size={24} />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => { hapticSelection(); if(isPaused) resumeSession(); else pauseSession(); }}
+                activeOpacity={0.8}
+                style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: "#00ff7f", justifyContent: "center", alignItems: "center", shadowColor: "#00ff7f", shadowOffset: { width: 0, height: 0 }, shadowOpacity: isPaused ? 0.3 : 0.6, shadowRadius: isPaused ? 10 : 20, elevation: 10 }}
+              >
+                 {isPaused ? (
+                   <Play color="#0a0a0a" fill="#0a0a0a" size={40} style={{ marginLeft: 4 }} />
+                 ) : (
+                   <Pause color="#0a0a0a" fill="#0a0a0a" size={40} />
+                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={handleStopRun}
+                style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#151515", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.05)" }}
+              >
+                <Square color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.8)" size={22} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {renderDirectionCard({ bottomOffset: insets.bottom + 10 })}
+        </Animated.View>
+      </Animated.View>
+
+      {isInteractionLocked ? (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="auto" />
+      ) : null}
+
+
+      {/* ── SUMMARY SCREEN OVERLAY ── */}
+      {isSummaryVisible && (
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#0a0a0a", zIndex: 100 }]}>
+          <View style={{ flex: 1, paddingTop: insets.top, paddingHorizontal: 24 }}>
+            <ScrollView 
+              style={{ flex: 1 }} 
+              contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingBottom: 40 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={{ alignItems: "center", marginBottom: 32 }}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: "700", letterSpacing: 2, textTransform: "uppercase" }}>Session Complete</Text>
+              <Text style={{ color: "#fff", fontSize: 44, fontWeight: "900", letterSpacing: -1.5, marginTop: 4, textAlign: "center" }}>{sessionCompleteHeadline}</Text>
+            </View>
+
+            <View style={{ backgroundColor: "#151515", borderRadius: 32, padding: 28, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+              <View style={{ alignItems: "center", marginBottom: 28 }}>
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>DISTANCE</Text>
+                <Text style={{ color: "#fff", fontSize: 64, fontWeight: "900", letterSpacing: -2, fontStyle: "italic" }}>{lastSession.distance.toFixed(2)}<Text style={{fontSize: 24, color: "rgba(255,255,255,0.4)", fontStyle: "normal"}}> km</Text></Text>
+              </View>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <View style={{ alignItems: "center", flex: 1 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>TIME</Text>
+                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", letterSpacing: -0.5, fontStyle: "italic" }}>{formatDuration(lastSession.durationSecs)}</Text>
                 </View>
-             </View>
-          </BlurView>
+                <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
+                <View style={{ alignItems: "center", flex: 1 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>PACE</Text>
+                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", letterSpacing: -0.5, fontStyle: "italic" }}>{formatPace(lastSession.steps, lastSession.durationSecs)}</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
+                <View style={{ alignItems: "center", flex: 1 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>EARNED</Text>
+                  <Text style={{ color: "#00ff7f", fontSize: 24, fontWeight: "900", letterSpacing: -0.5, fontStyle: "italic" }}>+{lastSession.xpEarned} <Text style={{fontSize: 14, color: "#00ff7f", fontStyle: "normal"}}>XP</Text></Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={{ marginTop: 14, backgroundColor: "#121212", borderRadius: 22, paddingHorizontal: 18, paddingVertical: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>
+                  How Was That?
+                </Text>
+                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900", marginTop: 6 }}>
+                  {sessionFeelingMeta.label}
+                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "700", marginTop: 2 }}>
+                  {sessionFeelingMeta.note}
+                </Text>
+              </View>
+
+              <View style={{ marginTop: 20, position: "relative", justifyContent: "center" }}>
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 14,
+                    right: 14,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: "rgba(0,0,0,0.6)",
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 14,
+                    right: 14,
+                    height: 6,
+                    borderRadius: 3,
+                    overflow: "hidden",
+                  }}
+                >
+                  <LinearGradient
+                    colors={["#00ff7f", "#ffd700", "#ff4500"]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      width: `${((sessionFeelingVisual - 1) / 4) * 100}%`,
+                      top: 0,
+                      bottom: 0,
+                    }}
+                  />
+                </View>
+                <Slider
+                  minimumValue={1}
+                  maximumValue={5}
+                  step={0.01}
+                  value={sessionFeelingVisual}
+                  onValueChange={(value) => setSessionFeelingVisual(value)}
+                  onSlidingComplete={handleFeelingComplete}
+                  minimumTrackTintColor="transparent"
+                  maximumTrackTintColor="rgba(0,0,0,0.6)"
+                  thumbTintColor="#ffffff"
+                  style={{ height: 40 }}
+                />
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: -6, paddingHorizontal: 10 }}>
+                <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>Low</Text>
+                <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>High</Text>
+              </View>
+            </View>
+
+            <View style={{ marginTop: 24, gap: 12 }}>
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <TouchableOpacity 
+                  onPress={handleSaveRoute}
+                  style={{ flex: 1, backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 20, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0,255,127,0.3)" }}
+                >
+                  <BookmarkPlus color="#fff" size={18} />
+                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800", marginLeft: 8 }}>Save Route</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={{ flex: 1, backgroundColor: "#151515", borderRadius: 20, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }} onPress={handleShareToClubFeed}>
+                  <Share2 color="#fff" size={18} />
+                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800", marginLeft: 8 }}>Share to Club</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={handleBackToMapFromSummary} style={{ alignItems: "center", paddingVertical: 14 }}>
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>Back to Map</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+          {sessionCelebration.level !== "none" ? (
+            <ConfettiCannon
+              count={sessionCelebration.confettiCount}
+              origin={{ x: width / 2, y: height }}
+              autoStart={true}
+              fadeOut={true}
+              explosionSpeed={350}
+              fallSpeed={3000}
+              colors={["#00ff7f", "#ffffff", "#0d2818"]}
+            />
+          ) : null}
+          </View>
         </View>
       )}
-
-
-      {/* ── BOTTOM ACTIONS (FLOATING) ── */}
-      <LinearGradient 
-        colors={['transparent', 'rgba(10,10,10,0.72)', 'rgba(10,10,10,0.94)', 'rgba(0,0,0,1)']} 
-        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 300 }} 
-        pointerEvents="none" 
-      />
-
-      <View style={{ position: "absolute", bottom: insets.bottom + 10, left: 20, right: 20 }}>
-        {isPlanning ? (
-          <View>
-            <View style={{ alignItems: "center", marginBottom: 20 }}>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>PLANNED DISTANCE</Text>
-              <Text style={{ color: "#fff", fontSize: 56, fontWeight: "900", letterSpacing: -2, fontStyle: "italic", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 }}>{(plannedDistanceMeter / 1000).toFixed(2)}<Text style={{ fontSize: 20, color: "rgba(255,255,255,0.5)", fontStyle: "normal" }}> km</Text></Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={handleOpenDirections}
-              activeOpacity={0.9}
-              disabled={plannedRoutePath.length === 0}
-              style={{
-                marginBottom: 12,
-                flexDirection: "row",
-                backgroundColor: plannedRoutePath.length > 0 ? "#151515" : "#1d1d1d",
-                paddingVertical: 14,
-                borderRadius: 100,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: plannedRoutePath.length > 0 ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)",
-              }}
-            >
-              <Navigation size={18} color={plannedRoutePath.length > 0 ? "#fff" : "#666"} style={{ marginRight: 8 }} />
-              <Text style={{ color: plannedRoutePath.length > 0 ? "#fff" : "#666", fontSize: 14, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>
-                Open in Maps
-              </Text>
-            </TouchableOpacity>
-
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <TouchableOpacity
-                 onPress={removeLastPlannedLocation}
-                 style={{ backgroundColor: "#151515", paddingHorizontal: 20, borderRadius: 100, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
-              >
-                 <CornerUpLeft color="rgba(255,255,255,0.8)" size={20} />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                onPress={handleStartRun}
-                activeOpacity={0.9}
-                disabled={plannedRoutePath.length === 0}
-                style={{ flex: 1, flexDirection: "row", backgroundColor: plannedRoutePath.length > 0 ? "#00ff7f" : "#222", paddingVertical: 20, borderRadius: 100, alignItems: "center", justifyContent: "center" }}
-              >
-                <Navigation size={22} color={plannedRoutePath.length > 0 ? "#0a0a0a" : "#666"} fill={plannedRoutePath.length > 0 ? "#0a0a0a" : "#666"} style={{ transform: [{rotate: '45deg'}], marginRight: 10 }} />
-                <Text style={{ color: plannedRoutePath.length > 0 ? "#0a0a0a" : "#666", fontSize: 18, fontWeight: "900", fontStyle: "italic", letterSpacing: 1 }}>{freeRunCta}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View style={{ gap: 12 }}>
-             <View style={{ flexDirection: "row", gap: 12 }}>
-               <TouchableOpacity
-                 onPress={() => { hapticSelection(); setPlanning(true); }}
-                 style={{ flex: 1, backgroundColor: "#151515", borderRadius: 100, paddingVertical: 18, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", flexDirection: "row" }}
-               >
-                 <Route color="#fff" size={18} style={{marginRight: 8}} />
-                 <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>Plan Route</Text>
-               </TouchableOpacity>
-
-               <TouchableOpacity
-                 onPress={() => { hapticSelection(); setShowSavedInventory(true); }}
-                 style={{ flex: 1, backgroundColor: "#151515", borderRadius: 100, paddingVertical: 18, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", flexDirection: "row" }}
-               >
-                 <Bookmark color="#fff" size={18} style={{marginRight: 8}} />
-                 <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>Saved</Text>
-               </TouchableOpacity>
-             </View>
-
-             <TouchableOpacity
-               onPress={handleStartRun}
-               activeOpacity={0.9}
-               style={{ flexDirection: "row", backgroundColor: "#00ff7f", paddingVertical: 20, borderRadius: 100, alignItems: "center", justifyContent: "center", shadowColor: "#00ff7f", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 10 }}
-             >
-               <Play size={24} color="#0a0a0a" fill="#0a0a0a" style={{ marginRight: 8, marginLeft: 4 }} />
-               <Text style={{ color: "#0a0a0a", fontSize: 20, fontWeight: "900", fontStyle: "italic", letterSpacing: 1.5 }}>{freeRunCta}</Text>
-             </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {isPlanning ? renderDirectionCard(insets.bottom + 210) : null}
 
       {/* ── SAVED INVENTORY DARK FULL SCREEN OVERLAY ── */}
       {showSavedInventory && (
@@ -1292,7 +1791,7 @@ export default function MoveScreen() {
                       </View>
                       
                       <View style={{ backgroundColor: "rgba(0,255,127,0.1)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}>
-                        <Text style={{ color: "#00ff7f", fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>RUN</Text>
+                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>RUN</Text>
                       </View>
                     </View>
 
