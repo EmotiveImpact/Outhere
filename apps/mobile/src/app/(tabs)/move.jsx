@@ -38,6 +38,8 @@ import {
   Square,
   RotateCcw,
   Check,
+  Eye,
+  Map as MapIcon,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -145,6 +147,53 @@ const getDistanceMeters = (a, b) => {
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const y = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
   return earthRadius * y;
+};
+
+const normalizeHeading = (heading) => {
+  if (!Number.isFinite(heading)) return null;
+  if (heading < 0) return null;
+  const normalized = heading % 360;
+  return normalized >= 0 ? normalized : normalized + 360;
+};
+
+const getBearingDegrees = (from, to) => {
+  if (!from || !to) return null;
+  const fromLat = (from.latitude * Math.PI) / 180;
+  const fromLng = (from.longitude * Math.PI) / 180;
+  const toLat = (to.latitude * Math.PI) / 180;
+  const toLng = (to.longitude * Math.PI) / 180;
+  const y = Math.sin(toLng - fromLng) * Math.cos(toLat);
+  const x =
+    Math.cos(fromLat) * Math.sin(toLat) -
+    Math.sin(fromLat) * Math.cos(toLat) * Math.cos(toLng - fromLng);
+  const radians = Math.atan2(y, x);
+  const degrees = (radians * 180) / Math.PI;
+  return (degrees + 360) % 360;
+};
+
+const getOffsetCoordinate = (origin, headingDeg, distanceMeters) => {
+  if (!origin || !Number.isFinite(distanceMeters) || distanceMeters <= 0) return origin;
+  const headingRad = (headingDeg * Math.PI) / 180;
+  const earthRadius = 6378137;
+  const lat1 = (origin.latitude * Math.PI) / 180;
+  const lon1 = (origin.longitude * Math.PI) / 180;
+  const angularDistance = distanceMeters / earthRadius;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angularDistance) +
+      Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(headingRad),
+  );
+  const lon2 =
+    lon1 +
+    Math.atan2(
+      Math.sin(headingRad) * Math.sin(angularDistance) * Math.cos(lat1),
+      Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2),
+    );
+
+  return {
+    latitude: (lat2 * 180) / Math.PI,
+    longitude: (lon2 * 180) / Math.PI,
+  };
 };
 
 const formatDistanceLabel = (distanceMeters) => {
@@ -406,6 +455,10 @@ export default function MoveScreen() {
   const [countdownValue, setCountdownValue] = useState(3);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [isAutoFollowEnabled, setIsAutoFollowEnabled] = useState(true);
+  const [navMode, setNavMode] = useState("overview"); // "overview", "navigation", "street"
+  const navModeRef = useRef("overview");
+  const lastHeadingRef = useRef(0);
+  const lastCoordinateRef = useRef(null);
   const [isLocationBooting, setIsLocationBooting] = useState(true);
   const [sessionFeeling, setSessionFeeling] = useState(3);
   const [sessionFeelingVisual, setSessionFeelingVisual] = useState(3);
@@ -532,6 +585,67 @@ export default function MoveScreen() {
     };
   }, []);
 
+  const getCameraSpec = useCallback((mode) => {
+    if (mode === "street") {
+      return { pitch: 82, altitude: 45, zoom: 19.8, forwardMeters: 34, heading: "live" };
+    }
+    if (mode === "navigation") {
+      return { pitch: 67, altitude: 110, zoom: 18.5, forwardMeters: 18, heading: "live" };
+    }
+    return { pitch: 45, altitude: 800, zoom: 15.5, forwardMeters: 0, heading: "north" };
+  }, []);
+
+  const applyFollowCamera = useCallback(
+    (coords, modeOverride = null) => {
+      if (!mapRef.current || !coords) return;
+
+      const currentCoord = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      };
+
+      const previousCoord = lastCoordinateRef.current;
+      const sensorHeading = normalizeHeading(coords.heading);
+      let resolvedHeading = sensorHeading;
+      if (resolvedHeading === null && previousCoord) {
+        const movedMeters = getDistanceMeters(previousCoord, currentCoord);
+        if (Number.isFinite(movedMeters) && movedMeters > 1.5) {
+          resolvedHeading = getBearingDegrees(previousCoord, currentCoord);
+        }
+      }
+      if (resolvedHeading === null) {
+        resolvedHeading = lastHeadingRef.current;
+      }
+      if (!Number.isFinite(resolvedHeading)) {
+        resolvedHeading = 0;
+      }
+
+      const mode = modeOverride || navModeRef.current;
+      const spec = getCameraSpec(mode);
+      const center =
+        spec.forwardMeters > 0
+          ? getOffsetCoordinate(currentCoord, resolvedHeading, spec.forwardMeters)
+          : currentCoord;
+
+      const heading = spec.heading === "north" ? 0 : resolvedHeading;
+
+      mapRef.current.animateCamera(
+        {
+          center,
+          pitch: spec.pitch,
+          heading,
+          altitude: spec.altitude,
+          zoom: spec.zoom,
+        },
+        { duration: 650 },
+      );
+
+      lastCoordinateRef.current = currentCoord;
+      lastHeadingRef.current = resolvedHeading;
+    },
+    [getCameraSpec],
+  );
+
   // Track location during active session
   useEffect(() => {
     let cancelled = false;
@@ -552,14 +666,7 @@ export default function MoveScreen() {
 
             // Follow mode recenters camera until the user manually pans.
             if (mapRef.current && autoFollowEnabledRef.current) {
-              mapRef.current.animateCamera({
-                center: {
-                  latitude: loc.coords.latitude,
-                  longitude: loc.coords.longitude,
-                },
-                pitch: 45,
-                heading: loc.coords.heading || 0,
-              });
+              applyFollowCamera(loc.coords);
             }
           },
         );
@@ -589,7 +696,7 @@ export default function MoveScreen() {
         locationSubscription.current = null;
       }
     };
-  }, [isActive, hasPermission]);
+  }, [isActive, hasPermission, applyFollowCamera]);
 
   // Feed live steps to session delta
   useEffect(() => {
@@ -615,6 +722,10 @@ export default function MoveScreen() {
   useEffect(() => {
     if (!isActive) {
       setIsAutoFollowEnabled(true);
+      setNavMode("overview");
+      navModeRef.current = "overview";
+      lastCoordinateRef.current = null;
+      lastHeadingRef.current = 0;
     }
   }, [isActive]);
 
@@ -709,6 +820,9 @@ export default function MoveScreen() {
 
     hapticHeavy();
     beginSessionPriming();
+    setNavMode("street");
+    navModeRef.current = "street";
+    setIsAutoFollowEnabled(true);
     setIsCountingDown(true);
     setCountdownValue(3);
 
@@ -727,6 +841,9 @@ export default function MoveScreen() {
         setCountdownValue(0);
         hapticSuccess();
         startSession(allDaySteps);
+        if (currentLocation) {
+          applyFollowCamera(currentLocation, "street");
+        }
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
         countdownHideTimeoutRef.current = setTimeout(() => {
@@ -1139,8 +1256,10 @@ export default function MoveScreen() {
       customMapStyle={mapCustomStyle}
       showsUserLocation
       showsMyLocationButton={false}
-      showsCompass={false}
+      showsCompass={isActive && navMode !== "overview"}
       showsScale={false}
+      showsBuildings={true}
+      showsIndoors={false}
       pitchEnabled={isActive ? false : true}
       onPress={handleMapPress}
       onPanDrag={handleMapPanDrag}
@@ -1456,14 +1575,70 @@ export default function MoveScreen() {
         style={StyleSheet.absoluteFillObject}
         pointerEvents={isSummaryVisible ? "none" : (isActive && !isInteractionLocked ? "box-none" : "none")}
       >
-        {/* Top Active Stats */}
+        {/* Top Active Stats / Navigation Direction */}
         <Animated.View pointerEvents="box-none" style={{ opacity: activeOpacity, transform: [{ translateY: activeTopY }] }}>
           <LinearGradient 
-            colors={['rgba(0,0,0,1)', 'rgba(10,10,10,0.88)', 'transparent']} 
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 320 }} 
+            colors={navMode === "navigation" ? ['rgba(0,0,0,0.95)', 'rgba(10,10,10,0.6)', 'transparent'] : ['rgba(0,0,0,1)', 'rgba(10,10,10,0.88)', 'transparent']} 
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: navMode === "navigation" ? 200 : 320 }} 
             pointerEvents="none" 
           />
           <View pointerEvents="box-none" style={{ position: "absolute", top: insets.top, left: 16, right: 16 }}>
+
+            {/* Navigation / Street Mode: Big Direction Banner */}
+            {navMode !== "overview" && nextDirection && (
+              <View style={{
+                backgroundColor: "rgba(10,10,10,0.88)",
+                borderRadius: 22,
+                borderWidth: 1,
+                borderColor: "rgba(0,255,127,0.2)",
+                padding: 18,
+                marginBottom: 12,
+              }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>NEXT DIRECTION</Text>
+                    <Text numberOfLines={2} style={{ color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: -0.5 }}>
+                      {nextDirection.instruction || "Follow the route"}
+                    </Text>
+                  </View>
+                  {nextDirection.distanceToStep > 0 && (
+                    <View style={{
+                      marginLeft: 14,
+                      backgroundColor: "rgba(0,255,127,0.15)",
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: "rgba(0,255,127,0.3)",
+                    }}>
+                      <Text style={{ color: "#00ff7f", fontSize: 18, fontWeight: "900" }}>
+                        {formatDistanceLabel(nextDirection.distanceToStep)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Navigation / Street Mode: Compact Stats Row */}
+            {navMode !== "overview" && (
+              <View style={{ flexDirection: "row", justifyContent: "space-around", backgroundColor: "rgba(10,10,10,0.7)", borderRadius: 16, paddingVertical: 10, paddingHorizontal: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+                {[
+                  { value: formatDuration(sessionDurationSecs), unit: "" },
+                  { value: sessionDistance.toFixed(2), unit: "km" },
+                  { value: sessionSteps.toLocaleString(), unit: "steps" },
+                ].map((s, i) => (
+                  <View key={i} style={{ alignItems: "center" }}>
+                    <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900", fontStyle: "italic", letterSpacing: -0.5 }}>{s.value}</Text>
+                    {s.unit ? <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>{s.unit}</Text> : null}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Overview Mode: Full Stats Grid */}
+            {navMode === "overview" && (
+              <>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: isPaused ? "rgba(255,165,0,0.15)" : "rgba(0,255,127,0.15)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: isPaused ? "rgba(255,165,0,0.3)" : "rgba(0,255,127,0.3)" }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isPaused ? "#ffa500" : "#00ff7f", marginRight: 8, shadowColor: isPaused ? "#ffa500" : "#00ff7f", shadowOpacity: 0.8, shadowRadius: 5 }} />
@@ -1510,6 +1685,9 @@ export default function MoveScreen() {
                 </View>
               ))}
             </View>
+              </>
+            )}
+
           </View>
         </Animated.View>
 
@@ -1551,8 +1729,48 @@ export default function MoveScreen() {
                 <Square color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.8)" size={22} />
               </TouchableOpacity>
             </View>
+
+            {/* View Mode Toggle: Overview -> Navigation -> Street View */}
+            <TouchableOpacity
+              onPress={() => {
+                hapticSelection();
+                let next = "overview";
+                if (navMode === "overview") next = "navigation";
+                else if (navMode === "navigation") next = "street";
+                else next = "overview";
+
+                setNavMode(next);
+                navModeRef.current = next;
+                setIsAutoFollowEnabled(true);
+                if (currentLocation) applyFollowCamera(currentLocation, next);
+              }}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                alignSelf: "center",
+                marginTop: 16,
+                backgroundColor: navMode !== "overview" ? "rgba(0,255,127,0.15)" : "rgba(255,255,255,0.08)",
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                borderRadius: 24,
+                borderWidth: 1,
+                borderColor: navMode !== "overview" ? "rgba(0,255,127,0.3)" : "rgba(255,255,255,0.1)",
+              }}
+            >
+              {navMode === "street" ? (
+                <Navigation color="#00ff7f" size={16} style={{ marginRight: 8 }} />
+              ) : navMode === "navigation" ? (
+                <MapIcon color="#00ff7f" size={16} style={{ marginRight: 8 }} />
+              ) : (
+                <Eye color="#fff" size={16} style={{ marginRight: 8 }} />
+              )}
+              <Text style={{ color: navMode !== "overview" ? "#00ff7f" : "#fff", fontSize: 11, fontWeight: "900", letterSpacing: 1 }}>
+                {navMode === "street" ? "STREET LEVEL" : navMode === "navigation" ? "PILOT VIEW" : "OVERVIEW"}
+              </Text>
+            </TouchableOpacity>
           </View>
-          {renderDirectionCard({ bottomOffset: insets.bottom + 10 })}
+          {navMode === "overview" && renderDirectionCard({ bottomOffset: insets.bottom + 10 })}
         </Animated.View>
       </Animated.View>
 

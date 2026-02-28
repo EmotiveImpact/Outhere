@@ -433,7 +433,7 @@ export default function ClubScreen() {
                 <LogIn color="#00ff7f" size={20} />
               </HapticTouchable>
               <HapticTouchable onPress={() => setShowCreateModal(true)} style={{ width: 44, height: 44, backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 255, 127, 0.3)" }}>
-                <Plus color="#00ff7f" size={24} />
+                <Plus color="#fff" size={24} />
               </HapticTouchable>
             </View>
           </View>
@@ -503,7 +503,7 @@ export default function ClubScreen() {
                         borderColor: filterPeriod === p ? "#00ff7f" : "transparent",
                         marginRight: 8,
                       }}>
-                      <Text style={{ color: filterPeriod === p ? "#00ff7f" : "#888", fontSize: 13, fontWeight: "600" }}>{p}</Text>
+                      <Text style={{ color: filterPeriod === p ? "#fff" : "#888", fontSize: 13, fontWeight: "600" }}>{p}</Text>
                     </HapticTouchable>
                   ))}
 
@@ -520,8 +520,8 @@ export default function ClubScreen() {
                       borderColor: streakSort ? "#00ff7f" : "transparent",
                       marginRight: 8
                     }}>
-                    <Flame color={streakSort ? "#00ff7f" : "#888"} size={14} style={{ marginRight: 6 }} />
-                    <Text style={{ color: streakSort ? "#00ff7f" : "#888", fontSize: 13, fontWeight: "600" }}>Streak</Text>
+                    <Flame color={streakSort ? "#fff" : "#888"} size={14} style={{ marginRight: 6 }} />
+                    <Text style={{ color: streakSort ? "#fff" : "#888", fontSize: 13, fontWeight: "600" }}>Streak</Text>
                   </HapticTouchable>
 
                   <HapticTouchable
@@ -535,8 +535,8 @@ export default function ClubScreen() {
                       borderColor: cityFilter ? "#00ff7f" : "transparent",
                       marginRight: 16
                     }}>
-                    <MapPin color={cityFilter ? "#00ff7f" : "#888"} size={14} style={{ marginRight: 6 }} />
-                    <Text style={{ color: cityFilter ? "#00ff7f" : "#888", fontSize: 13, fontWeight: "600" }}>London</Text>
+                    <MapPin color={cityFilter ? "#fff" : "#888"} size={14} style={{ marginRight: 6 }} />
+                    <Text style={{ color: cityFilter ? "#fff" : "#888", fontSize: 13, fontWeight: "600" }}>London</Text>
                   </HapticTouchable>
                 </View>
               </ScrollView>
@@ -694,7 +694,7 @@ export default function ClubScreen() {
                 onPress={() => setShowPostModal(true)}
                 style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#222", marginBottom: 20, flexDirection: "row", alignItems: "center" }}>
                 <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#00ff7f22", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-                  <Plus color="#00ff7f" size={20} />
+                  <Plus color="#fff" size={20} />
                 </View>
                 <Text style={{ color: "#555", fontSize: 15, fontWeight: "600" }}>Share something with the squad...</Text>
               </HapticTouchable>
@@ -805,14 +805,14 @@ export default function ClubScreen() {
                   <View key={c.id} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: c.joined ? "#00ff7f22" : "#1a1a1a", marginBottom: i < challenges.length - 1 ? 12 : 0 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
                       <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: "rgba(0, 255, 127, 0.1)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-                        <c.icon color="#00ff7f" size={20} />
+                        <c.icon color="#fff" size={20} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{c.title}</Text>
                         <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{c.participants} runners · {c.daysLeft}d left</Text>
                       </View>
                       <HapticTouchable onPress={() => handleToggleChallenge(c.id)} style={{ backgroundColor: c.joined ? "#1e1e1e" : "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1, borderColor: c.joined ? "#2a2a2a" : "#00ff7f" }}>
-                        <Text style={{ color: c.joined ? "#555" : "#00ff7f", fontWeight: "700", fontSize: 12 }}>{c.joined ? "Joined" : "Join"}</Text>
+                        <Text style={{ color: c.joined ? "#555" : "#fff", fontWeight: "700", fontSize: 12 }}>{c.joined ? "Joined" : "Join"}</Text>
                       </HapticTouchable>
                     </View>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>

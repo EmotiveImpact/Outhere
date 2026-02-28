@@ -203,7 +203,7 @@ export default function NotificationsScreen() {
                 }}
               >
                 <Text style={{
-                  color: isActive ? "#00ff7f" : "#888",
+                  color: isActive ? "#fff" : "#888",
                   fontSize: 13,
                   fontWeight: "700",
                 }}>
@@ -248,7 +248,7 @@ export default function NotificationsScreen() {
                     borderWidth: 1,
                     borderColor: "rgba(0,255,127,0.2)",
                   }}>
-                    <IconComponent color="#00ff7f" size={22} />
+                    <IconComponent color="#fff" size={22} />
                     {!item.read && (
                       <View style={{
                         position: "absolute", top: 0, right: 0,
@@ -269,7 +269,7 @@ export default function NotificationsScreen() {
                       marginBottom: 6,
                     }}>
                       <Text style={{
-                        color: "#00ff7f",
+                        color: "#fff",
                         fontSize: 12,
                         fontWeight: "800",
                         letterSpacing: 0.5,
@@ -324,7 +324,7 @@ export default function NotificationsScreen() {
                         }}
                       >
                         <Text style={{
-                          color: "#00ff7f",
+                          color: "#fff",
                           fontSize: 13,
                           fontWeight: "700",
                         }}>

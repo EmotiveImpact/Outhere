@@ -462,16 +462,33 @@ export default function HomeScreen() {
                 {getGreeting()} {user.name || user.username}!
               </Text>
 
-              <Text
-                style={{
-                  color: "#fff",
-                  fontSize: 22,
-                  fontWeight: "600",
-                  marginTop: 2,
-                }}
-              >
-                {motivationalPhrase}
-              </Text>
+              {isCheckedIn && (streak > 0 || xp > 0) ? (
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  {streak > 0 && (
+                    <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
+                      <Flame color="#fff" size={12} style={{ marginRight: 6 }} />
+                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
+                    </View>
+                  )}
+                  {xp > 0 && (
+                    <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
+                      <Zap color="#fff" size={12} style={{ marginRight: 6 }} />
+                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 22,
+                    fontWeight: "600",
+                    marginTop: 2,
+                  }}
+                >
+                  {motivationalPhrase}
+                </Text>
+              )}
             </View>
 
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -496,18 +513,18 @@ export default function HomeScreen() {
           </View>
 
           {/* Streak + XP row */}
-          {(streak > 0 || xp > 0) && (
+          {!isCheckedIn && (streak > 0 || xp > 0) && (
             <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
               {streak > 0 && (
                 <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
-                  <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
+                  <Flame color="#fff" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
                 </View>
               )}
               {xp > 0 && (
                 <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
-                  <Zap color="#00ff7f" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
+                  <Zap color="#fff" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
                 </View>
               )}
             </View>

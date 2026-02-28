@@ -115,81 +115,88 @@ export const useMoveStore = create((set, get) => ({
     });
   },
 
-  addPlannedLocation: async (coord) => {
+  addPlannedLocation: (coord) => {
     const { plannedRouteLocs } = get();
     const newLocs = [...plannedRouteLocs, coord];
-    if (newLocs.length < 2) {
-      set({
-        plannedRouteLocs: newLocs,
-        plannedRoutePath: newLocs,
-        plannedDistanceMeter: getPathDistanceMeters(newLocs),
-        plannedRouteSteps: [],
-        isPlanningRoute: false,
-      });
-      return;
-    }
 
-    const requestId = Date.now() + Math.floor(Math.random() * 1000);
+    // Immediately show straight-line preview so the tap feels instant
     set({
       plannedRouteLocs: newLocs,
       plannedRoutePath: newLocs,
       plannedDistanceMeter: getPathDistanceMeters(newLocs),
       plannedRouteSteps: [],
-      isPlanningRoute: true,
-      planningRouteRequestId: requestId,
+      isPlanningRoute: newLocs.length >= 2,
     });
 
-    const routeData = await fetchOSRMRoute(newLocs, { timeoutMs: 5000 });
-    if (get().planningRouteRequestId !== requestId) return;
+    if (newLocs.length < 2) return;
 
-    if (routeData) {
-      set({
-        plannedRoutePath: routeData.coordinates,
-        plannedDistanceMeter: routeData.distance,
-        plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
-        isPlanningRoute: false,
-      });
-      return;
-    }
-    set({ isPlanningRoute: false });
+    // Debounce the API call — wait 800ms after last tap before fetching
+    if (useMoveStore._routeDebounce) clearTimeout(useMoveStore._routeDebounce);
+    const requestId = Date.now() + Math.floor(Math.random() * 1000);
+    set({ planningRouteRequestId: requestId });
+
+    useMoveStore._routeDebounce = setTimeout(async () => {
+      const currentLocs = get().plannedRouteLocs;
+      if (currentLocs.length < 2) return;
+
+      const routeData = await fetchOSRMRoute(currentLocs, { timeoutMs: 6000 });
+      if (get().planningRouteRequestId !== requestId) return;
+
+      if (routeData) {
+        set({
+          plannedRoutePath: routeData.coordinates,
+          plannedDistanceMeter: routeData.distance,
+          plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
+          isPlanningRoute: false,
+        });
+      } else {
+        set({ isPlanningRoute: false });
+      }
+    }, 800);
   },
 
-  removeLastPlannedLocation: async () => {
+  removeLastPlannedLocation: () => {
     const { plannedRouteLocs } = get();
     if (plannedRouteLocs.length === 0) return;
     const newLocs = plannedRouteLocs.slice(0, -1);
-    if (newLocs.length < 2) {
-      set((state) => ({
-        plannedRouteLocs: newLocs,
-        plannedRoutePath: newLocs,
-        plannedDistanceMeter: getPathDistanceMeters(newLocs),
-        plannedRouteSteps: [],
-        isPlanningRoute: false,
-        planningRouteRequestId: state.planningRouteRequestId + 1,
-      }));
-      return;
-    }
-    const requestId = Date.now() + Math.floor(Math.random() * 1000);
+
+    // Immediately update visual preview
     set({
       plannedRouteLocs: newLocs,
       plannedRoutePath: newLocs,
       plannedDistanceMeter: getPathDistanceMeters(newLocs),
       plannedRouteSteps: [],
-      isPlanningRoute: true,
-      planningRouteRequestId: requestId,
+      isPlanningRoute: newLocs.length >= 2,
     });
-    const routeData = await fetchOSRMRoute(newLocs, { timeoutMs: 5000 });
-    if (get().planningRouteRequestId !== requestId) return;
-    if (routeData) {
-      set({
-        plannedRoutePath: routeData.coordinates,
-        plannedDistanceMeter: routeData.distance,
-        plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
-        isPlanningRoute: false,
-      });
+
+    if (newLocs.length < 2) {
+      if (useMoveStore._routeDebounce) clearTimeout(useMoveStore._routeDebounce);
       return;
     }
-    set({ isPlanningRoute: false });
+
+    // Debounce API call
+    if (useMoveStore._routeDebounce) clearTimeout(useMoveStore._routeDebounce);
+    const requestId = Date.now() + Math.floor(Math.random() * 1000);
+    set({ planningRouteRequestId: requestId });
+
+    useMoveStore._routeDebounce = setTimeout(async () => {
+      const currentLocs = get().plannedRouteLocs;
+      if (currentLocs.length < 2) return;
+
+      const routeData = await fetchOSRMRoute(currentLocs, { timeoutMs: 6000 });
+      if (get().planningRouteRequestId !== requestId) return;
+
+      if (routeData) {
+        set({
+          plannedRoutePath: routeData.coordinates,
+          plannedDistanceMeter: routeData.distance,
+          plannedRouteSteps: sanitizeRouteSteps(routeData.steps),
+          isPlanningRoute: false,
+        });
+      } else {
+        set({ isPlanningRoute: false });
+      }
+    }, 800);
   },
 
   rerouteToDestination: async (originCoord, routeCheckpoints = null) => {

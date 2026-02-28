@@ -113,8 +113,8 @@ export default function Challenges() {
             Challenges
           </Text>
           <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, flexDirection: "row", alignItems: "center" }}>
-            <Zap color="#00ff7f" size={14} fill="#00ff7f" />
-            <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 14, marginLeft: 6, letterSpacing: -0.3 }}>
+            <Zap color="#fff" size={14} fill="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14, marginLeft: 6, letterSpacing: -0.3 }}>
               {yourXP.toLocaleString()} XP
             </Text>
           </View>
@@ -145,7 +145,7 @@ export default function Challenges() {
               </Text>
             </View>
             <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 16, padding: 12 }}>
-              <Trophy color="#00ff7f" size={28} />
+              <Trophy color="#fff" size={28} />
             </View>
           </View>
 
@@ -226,7 +226,7 @@ export default function Challenges() {
                     source={{ uri: friend.avatar_url }}
                     style={{ width: 40, height: 40, borderRadius: 20, marginBottom: 8 }}
                   />
-                  <Text style={{ color: selectedFriend === friend.id ? "#00ff7f" : "#888", fontSize: 12, fontWeight: "600" }}>
+                  <Text style={{ color: selectedFriend === friend.id ? "#fff" : "#888", fontSize: 12, fontWeight: "600" }}>
                     {friend.name}
                   </Text>
                 </TouchableOpacity>
@@ -303,7 +303,7 @@ export default function Challenges() {
                 </View>
               </View>
               <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 }}>
-                <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 12, letterSpacing: 0.3 }}>
+                <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12, letterSpacing: 0.3 }}>
                   {battle.stake} XP
                 </Text>
               </View>
@@ -318,7 +318,7 @@ export default function Challenges() {
                 </Text>
               </View>
               <View style={{ backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(0,255,127,0.1)", borderRadius: 12, padding: 8 }}>
-                <Swords color={battle.winning ? "#00ff7f" : "#00ff7f"} size={20} />
+                <Swords color="#fff" size={20} />
               </View>
               <View style={{ flex: 1, alignItems: "flex-end" }}>
                 <Text style={{ color: "#555", fontSize: 10, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
@@ -339,8 +339,8 @@ export default function Challenges() {
                 borderRadius: 12,
               }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {battle.winning ? <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} /> : <ShieldAlert color="#00ff7f" size={12} style={{ marginRight: 6 }} />}
-                    <Text style={{ color: battle.winning ? "#00ff7f" : "#00ff7f", fontSize: 12, fontWeight: "800", letterSpacing: 0.3 }}>
+                    {battle.winning ? <Flame color="#fff" size={12} style={{ marginRight: 6 }} /> : <ShieldAlert color="#fff" size={12} style={{ marginRight: 6 }} />}
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800", letterSpacing: 0.3 }}>
                       {battle.winning ? "You're Winning" : "Catch Up"}
                     </Text>
                   </View>
@@ -454,7 +454,7 @@ export default function Challenges() {
               </Text>
             </View>
             <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 }}>
-              <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 13 }}>+25 XP</Text>
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>+25 XP</Text>
             </View>
           </View>
           <View style={{ marginTop: 14, height: 5, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
@@ -486,7 +486,7 @@ export default function Challenges() {
               </Text>
             </View>
             <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 }}>
-              <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 13 }}>+50 XP</Text>
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>+50 XP</Text>
             </View>
           </View>
         </View>

@@ -70,9 +70,9 @@ export default function StepCounterWidget({ lastRun, isCheckedIn = true, weeklyG
         <View style={styles.headerLeft}>
           <View style={styles.iconCircle}>
             {showSteps ? (
-              <Footprints color={accentColor} size={15} />
+              <Footprints color="#fff" size={15} />
             ) : (
-              <Route color={accentColor} size={15} />
+              <Route color="#fff" size={15} />
             )}
           </View>
           <Text style={styles.headerTitle}>Daily Progress</Text>
@@ -80,7 +80,7 @@ export default function StepCounterWidget({ lastRun, isCheckedIn = true, weeklyG
 
         <TouchableOpacity onPress={cycleGoal} style={styles.goalPill}>
           <Text style={styles.goalText}>Goal: {weeklyGoal}K</Text>
-          <ChevronRight color={accentColor} size={12} style={{ marginLeft: 2 }} />
+          <ChevronRight color="#fff" size={12} style={{ marginLeft: 2 }} />
         </TouchableOpacity>
       </View>
 
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   goalText: {
-    color: "#00ff7f",
+    color: "#fff",
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,

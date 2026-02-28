@@ -1,11 +1,14 @@
+import React, { useEffect, useRef, useState } from "react";
 import { Tabs } from "expo-router";
+import { BottomTabBar } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
-import { View } from "react-native";
+import { Animated, Easing, View } from "react-native";
 import { Home, Trophy, Users } from "lucide-react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
 import { hapticSelection } from "@/services/haptics";
+import { useMoveStore } from "@/store/useMoveStore";
 
 const AnimatedIcon = ({ focused, children }) => (
   <MotiView
@@ -30,7 +33,58 @@ const fetchDashboard = async () => {
   } catch { return null; }
 };
 
+const FocusModeTabBar = ({ isFocusMode, animatedStyle, ...props }) => {
+  return (
+    <Animated.View
+      pointerEvents={isFocusMode ? "none" : "auto"}
+      style={animatedStyle}
+    >
+      <BottomTabBar {...props} />
+    </Animated.View>
+  );
+};
+
 export default function TabLayout() {
+  const isFocusMode = useMoveStore((s) => s.sessionPhase !== "idle");
+  const tabAnim = useRef(new Animated.Value(isFocusMode ? 0 : 1)).current;
+
+  useEffect(() => {
+    tabAnim.stopAnimation();
+    if (isFocusMode) {
+      Animated.timing(tabAnim, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+
+    Animated.spring(tabAnim, {
+      toValue: 1,
+      damping: 20,
+      stiffness: 220,
+      mass: 0.9,
+      useNativeDriver: true,
+    }).start();
+  }, [isFocusMode, tabAnim]);
+
+  const animatedTabBarStyle = {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    transform: [
+      {
+        translateY: tabAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [110, 0],
+        }),
+      },
+    ],
+    opacity: tabAnim,
+  };
+
   const { data } = useQuery({
     queryKey: ["dashboard"],
     queryFn: fetchDashboard,
@@ -40,6 +94,13 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => (
+        <FocusModeTabBar
+          {...props}
+          isFocusMode={isFocusMode}
+          animatedStyle={animatedTabBarStyle}
+        />
+      )}
       screenListeners={{
         tabPress: () => {
           hapticSelection();
@@ -47,7 +108,14 @@ export default function TabLayout() {
       }}
       screenOptions={{
         headerShown: false,
+        sceneStyle: {
+          backgroundColor: "#0a0a0a",
+        },
         tabBarStyle: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
           backgroundColor: "#000",
           borderTopWidth: 0,
           paddingTop: 8,

@@ -157,8 +157,73 @@ The leaderboard is your city. Your competition is your city. Your pride is your 
 | State | Zustand + AsyncStorage |
 | API | Native fetch → FastAPI + Supabase |
 | Sensors | expo-sensors (Pedometer) |
+| Routing | Mapbox Directions API (`walking` profile) |
+| Map Tiles | Google Maps (Expo Go) / Mapbox Dark v11 (Dev Build) |
 
+### 🗺️ Map & Routing
 
+The Move screen uses a **dual-layer architecture**:
+
+| Layer | Provider | Notes |
+|---|---|---|
+| **Route Calculation** | Mapbox Directions API | Walking profile — knows park footpaths, pedestrian cut-throughs. Falls back to OSRM if Mapbox fails. |
+| **Map Tiles (Expo Go)** | Google Maps | Dark custom theme. Works in Expo Go out of the box. |
+| **Map Tiles (Production)** | Mapbox Dark v11 | Premium dark map, no Google logo. Requires dev build (`npx expo run:ios`). |
+
+**To upgrade map visuals to Mapbox:**
+1. Restore `move.jsx` from the Mapbox branch: `git checkout mapbox-tiles -- apps/mobile/src/app/(tabs)/move.jsx`
+2. Add the `@rnmapbox/maps` plugin back to `app.json`
+3. Run `npx expo run:ios` (first build ~5 min, then hot-reload works normally)
+
+> **Note:** `@rnmapbox/maps` requires native modules that Expo Go does not support. This is a permanent Expo limitation, not version-specific.
+
+---
+
+### 🥽 Experimental: AR Vision Mode (Pseudo-AR)
+
+True SLAM-based AR navigation (like ARKit/ARCore) relies heavily on native modules not available in standard Expo Go. However, a "Pseudo-AR" HUD effect can be achieved by placing a live camera feed behind a highly transparent map. We prototyped this capability but removed it to keep the app lean.
+
+To revisit the AR overlay in the future, implement the following in `move.jsx`:
+
+1. Add `expo-camera` dependencies and permissions state:
+```javascript
+import { CameraView, useCameraPermissions } from "expo-camera";
+const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+```
+
+2. Define a transparent map style (`arMapStyle`):
+```javascript
+const arMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#000000" }] },
+  { elementType: "labels", stylers: [{ visibility: "off" }] },
+  // ... apply to water, poi, administrative, and road geometry
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ visibility: "off" }] },
+];
+```
+
+3. Wrap the map in a container and place the camera behind it conditionally:
+```javascript
+<View style={StyleSheet.absoluteFillObject}>
+  {navMode === "ar" && cameraPermission?.granted && (
+    <CameraView style={StyleSheet.absoluteFillObject} facing="back" />
+  )}
+  <MapView
+    style={[StyleSheet.absoluteFillObject, { opacity: navMode === "ar" ? 0.35 : 1 }]}
+    customMapStyle={navMode === "ar" ? arMapStyle : mapCustomStyle}
+    showsBuildings={navMode === "ar" ? false : true}
+    // ...
+  >
+</View>
+```
+
+4. Force camera parameters for extreme HUD orientation:
+```javascript
+mapRef.current.animateCamera({
+  pitch: isAr ? 85 : 45,
+  altitude: isAr ? 10 : 800,
+  zoom: isAr ? 21 : 15.5,
+});
+```
 
 
 ## Development Status

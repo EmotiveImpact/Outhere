@@ -411,21 +411,21 @@ export default function ProfileScreen() {
             </View>
             <View style={{ flexDirection: "row", marginTop: 12, flexWrap: "wrap", gap: 8 }}>
               <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
-                <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700" }}>{friendList.length} Friends</Text>
+                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{friendList.length} Friends</Text>
               </View>
               <View style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
                 <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{userRank > 0 ? `#${userRank}` : "Unranked"}</Text>
               </View>
               {xp > 0 && (
                 <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
-                  <Zap color="#00ff7f" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
+                  <Zap color="#fff" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
                 </View>
               )}
               {streak > 0 && (
                 <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
-                  <Flame color="#00ff7f" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
+                  <Flame color="#fff" size={12} style={{ marginRight: 6 }} />
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{streak} day streak</Text>
                 </View>
               )}
             </View>
