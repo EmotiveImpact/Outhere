@@ -14,6 +14,10 @@ const SUB_TABS = [
   { key: "news", label: "News", href: "/outside/news" },
 ];
 
+export const unstable_settings = {
+  initialRouteName: "arena",
+};
+
 const formatNumber = (value: number) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0";
@@ -82,7 +86,7 @@ export default function OutsideLayout() {
   const switchTab = useCallback(
     (tab: (typeof SUB_TABS)[number]) => {
       if (tab.key === activeTab) return;
-      router.replace(tab.href as any);
+      router.navigate(tab.href as any);
     },
     [activeTab, router]
   );

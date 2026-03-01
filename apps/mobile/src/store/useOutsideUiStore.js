@@ -7,6 +7,8 @@ export const useOutsideUiStore = create((set) => ({
     drops: 0,
     news: 0,
   },
+  eventsRsvpdIds: [],
+  eventsRsvpCounts: {},
   setScrollOffset: (route, offset) =>
     set((state) => {
       const nextOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
@@ -23,4 +25,26 @@ export const useOutsideUiStore = create((set) => ({
         },
       };
     }),
+  setEventRsvp: (eventId, isRsvpd) =>
+    set((state) => {
+      const current = Array.isArray(state.eventsRsvpdIds) ? state.eventsRsvpdIds : [];
+      const hasEvent = current.includes(eventId);
+
+      if (isRsvpd && !hasEvent) {
+        return { eventsRsvpdIds: [...current, eventId] };
+      }
+
+      if (!isRsvpd && hasEvent) {
+        return { eventsRsvpdIds: current.filter((id) => id !== eventId) };
+      }
+
+      return state;
+    }),
+  setEventRsvpCount: (eventId, count) =>
+    set((state) => ({
+      eventsRsvpCounts: {
+        ...state.eventsRsvpCounts,
+        [eventId]: Number.isFinite(Number(count)) ? Math.max(0, Number(count)) : 0,
+      },
+    })),
 }));

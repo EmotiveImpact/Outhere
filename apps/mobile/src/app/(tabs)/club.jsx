@@ -591,6 +591,10 @@ export default function ClubScreen() {
       Alert.alert("Owner Only", "Only the crew owner can upload logos.");
       return;
     }
+    if (membershipTier === "free") {
+      Alert.alert("Pro or Black Required", "Upgrade to Pro or Black to upload logos.");
+      return;
+    }
 
     const logoUrl = groupLogoInput.trim();
     if (!logoUrl) {
@@ -1426,11 +1430,12 @@ export default function ClubScreen() {
                           quality: 0.5,
                         });
                         if (!result.canceled && result.assets?.[0]?.uri) {
+                          const pickedAsset = result.assets[0];
                           setIsUploadingLogo(true);
                           try {
                             const formData = new FormData();
                             formData.append("file", {
-                              uri: result.assets[0].uri,
+                              uri: pickedAsset.uri,
                               name: "logo.jpg",
                               type: "image/jpeg",
                             });
@@ -1444,7 +1449,14 @@ export default function ClubScreen() {
                             if (data?.file) {
                               const newLogoUrl = `https://ucarecdn.com/${data.file}/`;
                               if (activeGroup?.id) {
-                                await groupsAPI.updateGroup(activeGroup.id, { logo_url: newLogoUrl });
+                                await groupsAPI.uploadLogo(activeGroup.id, {
+                                  device_id: deviceId,
+                                  logo_url: newLogoUrl,
+                                  mime_type: "image/jpeg",
+                                  width: Number(pickedAsset.width || 512),
+                                  height: Number(pickedAsset.height || 512),
+                                  size_bytes: Number(pickedAsset.fileSize || 240000),
+                                });
                                 await refreshCrewData();
                                 hapticSuccess();
                               }
@@ -1824,7 +1836,7 @@ export default function ClubScreen() {
                       </HapticTouchable>
                     </View>
 
-                    {/* Logo upload — owner + Black only */}
+                    {/* Logo upload — owner + Pro/Black only */}
                     {isOwner && (
                       <>
                         <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Crew Logo</Text>
@@ -1838,10 +1850,10 @@ export default function ClubScreen() {
                             marginBottom: 24,
                           }}
                         >
-                          {membershipTier !== "black" && (
+                          {membershipTier === "free" && (
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
                               <Crown color="#ffd700" size={12} />
-                              <Text style={{ color: "#ffd700", fontSize: 11, fontWeight: "700" }}>Black tier required to upload logos</Text>
+                              <Text style={{ color: "#ffd700", fontSize: 11, fontWeight: "700" }}>Pro or Black required to upload logos</Text>
                             </View>
                           )}
                           <TextInput
@@ -1850,13 +1862,13 @@ export default function ClubScreen() {
                             placeholder="Logo image URL (.png / .jpg)"
                             placeholderTextColor="#444"
                             autoCapitalize="none"
-                            editable={membershipTier === "black"}
+                            editable={membershipTier !== "free"}
                             style={{
                               backgroundColor: "#0d0d0f",
                               borderRadius: 10,
                               borderWidth: 1,
                               borderColor: "#2a2a2d",
-                              color: membershipTier === "black" ? "#fff" : "#555",
+                              color: membershipTier !== "free" ? "#fff" : "#555",
                               paddingHorizontal: 12,
                               paddingVertical: 10,
                               marginBottom: 10,
@@ -1864,19 +1876,19 @@ export default function ClubScreen() {
                             }}
                           />
                           <HapticTouchable
-                            disabled={isUploadingLogo || membershipTier !== "black"}
+                            disabled={isUploadingLogo || membershipTier === "free"}
                             onPress={handleUploadLogo}
                             style={{
-                              backgroundColor: membershipTier === "black" ? "#1f1f23" : "#111113",
+                              backgroundColor: membershipTier !== "free" ? "#1f1f23" : "#111113",
                               borderRadius: 12,
                               paddingVertical: 12,
                               alignItems: "center",
                               borderWidth: 1,
-                              borderColor: membershipTier === "black" ? "#2c2c30" : "#1a1a1c",
+                              borderColor: membershipTier !== "free" ? "#2c2c30" : "#1a1a1c",
                               opacity: isUploadingLogo ? 0.6 : 1,
                             }}
                           >
-                            <Text style={{ color: membershipTier === "black" ? "#aaa" : "#444", fontSize: 13, fontWeight: "700" }}>
+                            <Text style={{ color: membershipTier !== "free" ? "#aaa" : "#444", fontSize: 13, fontWeight: "700" }}>
                               {isUploadingLogo ? "Uploading..." : "Upload Logo"}
                             </Text>
                           </HapticTouchable>

@@ -139,7 +139,7 @@ const hasAccess = (tier, feature, context = {}) => {
     return false;
   }
   if (feature === "redeem_out") return safeTier !== MEMBERSHIP_TIERS.FREE;
-  if (feature === "upload_logo") return safeTier === MEMBERSHIP_TIERS.BLACK;
+  if (feature === "upload_logo") return safeTier !== MEMBERSHIP_TIERS.FREE;
   if (feature === "priority_features") return safeTier === MEMBERSHIP_TIERS.BLACK;
 
   return false;
@@ -296,6 +296,21 @@ const updateProfile = async (payload) => {
 // ── TAB DEFINITIONS ───────────────────────────────────────────────────────────
 const PROFILE_TABS = ["Overview", "Stats", "Calendar", "Wallet", "About"];
 
+const getRedeemCode = (payload) => {
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object") return null;
+  const directCode = (
+    payload.code ||
+    payload.claim_code ||
+    payload.verification_code ||
+    payload.redemption_code ||
+    null
+  );
+  if (directCode) return String(directCode);
+  if (payload.transaction_id) return String(payload.transaction_id).slice(-8).toUpperCase();
+  return null;
+};
+
 // ── ProfileBattlesList ─────────────────────────────────────────────────────────
 function ProfileBattlesList({ deviceId, router }) {
   const { data, isLoading } = useQuery({
@@ -438,8 +453,8 @@ export default function ProfileScreen() {
 
   const redeemMutation = useMutation({
     mutationFn: (rewardId) => rewardsAPI.redeem(rewardId, deviceId),
-    onSuccess: (code) => {
-      setRedeemedCode(code);
+    onSuccess: (response) => {
+      setRedeemedCode(getRedeemCode(response));
       hapticSuccess();
       refetchWallet();
     },

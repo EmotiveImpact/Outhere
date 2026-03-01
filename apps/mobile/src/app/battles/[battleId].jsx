@@ -10,6 +10,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -90,13 +91,14 @@ export default function BattleDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { battleId } = useLocalSearchParams();
+  const battleIdParam = Array.isArray(battleId) ? battleId[0] : battleId;
   const myDeviceId = useUserStore((s) => s.deviceId);
 
   const { data: battle, isLoading } = useQuery({
-    queryKey: ["battle", battleId],
-    queryFn: () => battlesAPI.get(battleId),
-    enabled: !!battleId,
-    refetchInterval: 30000,
+    queryKey: ["battle", battleIdParam],
+    queryFn: () => battlesAPI.get(battleIdParam),
+    enabled: !!battleIdParam,
+    refetchInterval: 1000,
   });
 
   const { data: creator } = useQuery({
@@ -136,12 +138,25 @@ export default function BattleDetailScreen() {
 
   const handleShare = async () => {
     try {
-      const winner = isComplete ? `Winner: ${winnerName}` : `Live Battle`;
+      const battleUrl = battleIdParam ? Linking.createURL(`/battles/${battleIdParam}`) : "";
+      const resultLabel = isComplete
+        ? (isDraw ? "Draw" : iWon ? "You Won" : "You Lost")
+        : "Live Battle";
       await Share.share({
-        message: `OutHere Battle: ${creatorName} vs ${opponentName} · ${winner} · ${creatorSteps.toLocaleString()} vs ${opponentSteps.toLocaleString()} steps`,
+        message: `OutHere Battle: ${creatorName} vs ${opponentName} · ${resultLabel} · ${creatorSteps.toLocaleString()} vs ${opponentSteps.toLocaleString()} steps${battleUrl ? ` · ${battleUrl}` : ""}`,
+        url: battleUrl || undefined,
       });
       hapticSuccess();
     } catch { /* ignore */ }
+  };
+
+  const handleBack = () => {
+    hapticSelection();
+    if (typeof router.canGoBack === "function" && router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/outside/arena");
   };
 
   if (isLoading || !battle) {
@@ -170,7 +185,7 @@ export default function BattleDetailScreen() {
         {/* Back & Share row */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <TouchableOpacity
-            onPress={() => { hapticSelection(); router.back(); }}
+            onPress={handleBack}
             style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
           >
             <ArrowLeft color="#aaa" size={16} />
@@ -350,7 +365,7 @@ export default function BattleDetailScreen() {
         }}>
           <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>Battle Info</Text>
           {[
-            ["Battle ID", battleId?.slice(0, 8) + "…"],
+            ["Battle ID", battleIdParam ? `${battleIdParam.slice(0, 8)}…` : "--"],
             ["Status", battle.status?.toUpperCase() || "ACTIVE"],
             ["Metric", battle.metric === "distance" ? "Distance (KM)" : "Steps"],
             ["Ends", battle.end_at ? new Date(battle.end_at).toLocaleString() : "--"],
