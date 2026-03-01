@@ -7,7 +7,9 @@ import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence
 const NEON = "#00ff7f";
 const SURFACE = "#161618";
 
-const CATEGORIES = {
+type NewsCategory = "update" | "recap" | "highlight" | "drop" | "event";
+
+const CATEGORIES: Record<NewsCategory, { label: string; color: string }> = {
   update: { label: "UPDATE", color: NEON },
   recap: { label: "RECAP", color: "#a78bfa" },
   highlight: { label: "HIGHLIGHT", color: "#fbbf24" },
@@ -15,7 +17,14 @@ const CATEGORIES = {
   event: { label: "EVENT", color: "#38bdf8" },
 };
 
-const NEWS_ITEMS = [
+const NEWS_ITEMS: Array<{
+  id: string;
+  category: NewsCategory;
+  title: string;
+  body: string;
+  time: string;
+  image: string | null;
+}> = [
   {
     id: "n1",
     category: "update",
@@ -95,7 +104,7 @@ export default function OutsideNewsScreen() {
         </Text>
 
         {NEWS_ITEMS.map((item) => {
-          const cat = CATEGORIES[item.category] || CATEGORIES.update;
+          const cat = CATEGORIES[item.category as NewsCategory] || CATEGORIES.update;
           return (
             <View
               key={item.id}

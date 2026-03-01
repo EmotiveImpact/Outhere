@@ -31,8 +31,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useUserStore } from "@/store/userStore";
 import { hapticSelection, hapticSuccess, hapticError } from "@/services/haptics";
 import { useMoveStore } from "@/store/useMoveStore";
-import { membershipAPI, userAPI } from "@/services/api";
+import { membershipAPI, userAPI, battlesAPI, rewardsAPI } from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { X, Gift } from "lucide-react-native";
 
 const fallbackUser = {
   id: 1,
@@ -138,7 +139,7 @@ const hasAccess = (tier, feature, context = {}) => {
     return false;
   }
   if (feature === "redeem_out") return safeTier !== MEMBERSHIP_TIERS.FREE;
-  if (feature === "upload_logo") return safeTier === MEMBERSHIP_TIERS.BLACK;
+  if (feature === "upload_logo") return safeTier !== MEMBERSHIP_TIERS.FREE;
   if (feature === "priority_features") return safeTier === MEMBERSHIP_TIERS.BLACK;
 
   return false;
@@ -270,6 +271,9 @@ const fetchProfile = async () => {
 const fetchLeaderboard = async () => {
   try { const res = await fetch("/api/leaderboard"); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
+const fetchRewards = async () => {
+  try { return await rewardsAPI.getCatalogue(); } catch { return []; }
+};
 const fetchRuns = async ({ pageParam = 0, queryKey }) => {
   try { const [, range] = queryKey; const res = await fetch(`/api/runs?range=${range}&limit=8&offset=${pageParam}`); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
@@ -292,6 +296,90 @@ const updateProfile = async (payload) => {
 // ── TAB DEFINITIONS ───────────────────────────────────────────────────────────
 const PROFILE_TABS = ["Overview", "Stats", "Calendar", "Wallet", "About"];
 
+const getRedeemCode = (payload) => {
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object") return null;
+  const directCode = (
+    payload.code ||
+    payload.claim_code ||
+    payload.verification_code ||
+    payload.redemption_code ||
+    null
+  );
+  if (directCode) return String(directCode);
+  if (payload.transaction_id) return String(payload.transaction_id).slice(-8).toUpperCase();
+  return null;
+};
+
+// ── ProfileBattlesList ─────────────────────────────────────────────────────────
+function ProfileBattlesList({ deviceId, router }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["profile-battles", deviceId],
+    queryFn: () => battlesAPI.getForUser(deviceId, "all"),
+    enabled: !!deviceId,
+    staleTime: 30000,
+  });
+
+  const battles = Array.isArray(data) ? data.slice(0, 5) : [];
+
+  const formatTimeLeft = (endAt) => {
+    const end = new Date(endAt).getTime();
+    const diff = Math.max(0, end - Date.now());
+    if (diff <= 0) return "Ended";
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
+    return `${h}h ${m}m`;
+  };
+
+  if (isLoading) return <ActivityIndicator color="#00ff7f" style={{ marginVertical: 12 }} />;
+  if (!battles.length) return <Text style={{ color: "#555", fontSize: 13 }}>No battles yet. Start one from Arena.</Text>;
+
+  return battles.map((battle, idx) => {
+    const isCreator = battle.creator_device_id === deviceId;
+    const opponentId = isCreator ? battle.opponent_device_id : battle.creator_device_id;
+    const iWon = battle.status === "complete" && battle.winner_device_id === deviceId;
+    const isComplete = battle.status === "complete";
+    const mySteps = isCreator ? (battle.creator_steps ?? 0) : (battle.opponent_steps ?? 0);
+    const theirSteps = isCreator ? (battle.opponent_steps ?? 0) : (battle.creator_steps ?? 0);
+
+    return (
+      <TouchableOpacity
+        key={battle.id || `pb-${idx}`}
+        onPress={() => { hapticSelection(); router.push(`/battles/${battle.id}`); }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 12,
+          borderBottomWidth: idx < battles.length - 1 ? 1 : 0,
+          borderBottomColor: "#242424",
+        }}
+      >
+        <View style={{ flex: 1, marginRight: 12 }}>
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+            vs {opponentId?.slice(0, 8) || "Opponent"}
+          </Text>
+          <Text style={{ color: "#555", fontSize: 11, marginTop: 2 }}>
+            {battle.metric === "distance" ? "Distance" : "Steps"} · {mySteps.toLocaleString()} vs {theirSteps.toLocaleString()}
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          {isComplete ? (
+            <Text style={{ color: iWon ? "#00ff7f" : "#ef4444", fontSize: 12, fontWeight: "800" }}>
+              {iWon ? "WON" : "LOST"}
+            </Text>
+          ) : (
+            <Text style={{ color: "#9efac8", fontSize: 12, fontWeight: "700" }}>
+              {formatTimeLeft(battle.end_at)}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  });
+}
+
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
@@ -304,6 +392,8 @@ export default function ProfileScreen() {
   const [saveMessage, setSaveMessage] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [showRunDetail, setShowRunDetail] = useState(false);
+  const [showRewardsModal, setShowRewardsModal] = useState(false);
+  const [redeemedCode, setRedeemedCode] = useState(null);
   const [selectedRun, setSelectedRun] = useState(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Overview");
   const [form, setForm] = useState({ name: "", avatar_url: "", bio: "", location: "", goal: "" });
@@ -327,6 +417,11 @@ export default function ProfileScreen() {
     queryKey: ["user", deviceId],
     queryFn: () => fetchUserByDevice(deviceId),
     enabled: !!deviceId,
+  });
+  const { data: rewardsData } = useQuery({
+    queryKey: ["rewards-catalogue"],
+    queryFn: fetchRewards,
+    staleTime: 60000,
   });
   const { data: runsPages, isLoading: isRunsLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch: refetchRuns, isRefetching: isRunsRefetching } = useInfiniteQuery({
     queryKey: ["runs", selectedRange],
@@ -354,6 +449,19 @@ export default function ProfileScreen() {
     onError: () => {
       hapticError();
     },
+  });
+
+  const redeemMutation = useMutation({
+    mutationFn: (rewardId) => rewardsAPI.redeem(rewardId, deviceId),
+    onSuccess: (response) => {
+      setRedeemedCode(getRedeemCode(response));
+      hapticSuccess();
+      refetchWallet();
+    },
+    onError: () => {
+      hapticError();
+      setSaveMessage("Failed to redeem reward.");
+    }
   });
 
   const user = userData || storeUser || profileData?.user || dashboardData?.user || fallbackUser;
@@ -452,8 +560,9 @@ export default function ProfileScreen() {
   };
 
   const handleProFeatureAttempt = (featureName) => {
-    if (canRedeemOut) {
-      setSaveMessage("OUT redemption coming soon.");
+    if (canRedeemOut && featureName === "OUT redemption") {
+      hapticSelection();
+      setShowRewardsModal(true);
       return;
     }
     hapticSelection();
@@ -944,6 +1053,18 @@ export default function ProfileScreen() {
                 <Text style={{ color: "#777", fontSize: 13 }}>No OUT transactions yet.</Text>
               )}
             </View>
+
+            {/* My Battles */}
+            <View style={{ marginTop: 16, backgroundColor: "#161618", borderRadius: 24, padding: 18 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>My Battles</Text>
+                <TouchableOpacity onPress={() => { hapticSelection(); router.push("/outside/arena"); }} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: "#555", fontSize: 12, fontWeight: "700" }}>Arena</Text>
+                  <ChevronRight color="#555" size={13} />
+                </TouchableOpacity>
+              </View>
+              <ProfileBattlesList deviceId={deviceId} router={router} />
+            </View>
           </View>
         )}
 
@@ -1046,6 +1167,81 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </Pressable>
           </Pressable>
+        </Modal>
+
+        {/* ═══ REWARDS MODAL ═══ */}
+        <Modal visible={showRewardsModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "flex-end" }}>
+            <View style={{ backgroundColor: "#161618", borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, height: "80%" }}>
+              
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Gift color="#00ff7f" size={24} />
+                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", letterSpacing: -0.5 }}>Rewards Hub</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowRewardsModal(false)} style={{ backgroundColor: "#2a2a2d", width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" }}>
+                  <X color="#aaa" size={20} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 16, padding: 16, marginBottom: 24, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: "#9efac8", fontSize: 13, fontWeight: "700", letterSpacing: 0.5 }}>YOUR BALANCE</Text>
+                <Text style={{ color: "#00ff7f", fontSize: 24, fontWeight: "900" }}>{walletOut.toLocaleString()} OUT</Text>
+              </View>
+
+              {redeemedCode ? (
+                <View style={{ backgroundColor: "#000", borderRadius: 24, padding: 32, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#00ff7f", marginTop: 20 }}>
+                  <Text style={{ color: "#00ff7f", fontSize: 18, fontWeight: "800", marginBottom: 8 }}>REWARD CLAIMED</Text>
+                  <Text style={{ color: "#aaa", fontSize: 13, textAlign: "center", marginBottom: 24 }}>Your unique redemption code:</Text>
+                  <View style={{ backgroundColor: "#161618", borderRadius: 16, padding: 20, width: "100%", alignItems: "center" }}>
+                    <Text style={{ color: "#fff", fontSize: 32, fontWeight: "900", letterSpacing: 2 }}>{redeemedCode}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setRedeemedCode(null)} style={{ marginTop: 24 }}>
+                    <Text style={{ color: "#555", fontSize: 14, fontWeight: "600" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {(Array.isArray(rewardsData) ? rewardsData : []).map((reward, i) => (
+                    <View key={reward.id || i} style={{ backgroundColor: "#1a1a1c", borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: "#2a2a2d", flexDirection: "row", alignItems: "center" }}>
+                      <View style={{ flex: 1, marginRight: 16 }}>
+                        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", marginBottom: 4 }}>{reward.title}</Text>
+                        <Text style={{ color: "#777", fontSize: 12, marginBottom: 8 }}>{reward.type === "shop_discount" ? "Store Discount" : "Event Perk"} · {reward.inventory} left</Text>
+                        <Text style={{ color: "#00ff7f", fontSize: 14, fontWeight: "900" }}>{reward.cost_out} OUT</Text>
+                      </View>
+                      <TouchableOpacity
+                        disabled={walletOut < reward.cost_out || redeemMutation.isPending}
+                        onPress={() => redeemMutation.mutate(reward.id)}
+                        style={{
+                          backgroundColor: walletOut >= reward.cost_out && !redeemMutation.isPending ? "#00ff7f" : "#2a2a2d",
+                          paddingHorizontal: 20,
+                          paddingVertical: 12,
+                          borderRadius: 14,
+                          alignItems: "center",
+                        }}
+                      >
+                        {redeemMutation.isPending && redeemMutation.variables === reward.id ? (
+                          <ActivityIndicator color="#000" size="small" />
+                        ) : (
+                          <Text style={{ color: walletOut >= reward.cost_out ? "#000" : "#555", fontWeight: "800", fontSize: 13 }}>
+                            CLAIM
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+
+                  {Array.isArray(rewardsData) && rewardsData.length === 0 && (
+                     <View style={{ alignItems: "center", marginTop: 40, padding: 20 }}>
+                       <View style={{ opacity: 0.3 }}><Gift color="#333" size={48} style={{ marginBottom: 16 }} /></View>
+                       <Text style={{ color: "#666", fontSize: 15, fontWeight: "600", textAlign: "center" }}>No rewards currently available.</Text>
+                     </View>
+                  )}
+                </ScrollView>
+              )}
+
+            </View>
+          </View>
         </Modal>
 
       </ScrollView>

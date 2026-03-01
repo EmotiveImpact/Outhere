@@ -3,7 +3,7 @@
   "main": "index",
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "patch-package && node ./scripts/cleanup-duplicate-native-deps.js",
     "android": "expo run:android",
     "ios": "expo run:ios"
   },
@@ -11,7 +11,7 @@
     "@anythingai/app": "0.1.96",
     "@expo-google-fonts/dev": "0.4.7",
     "@expo/ngrok": "4.1.3",
-    "@expo/vector-icons": "15.0.2",
+    "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "5.2.6",
     "@lucide/lab": "^0.1.2",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -28,42 +28,43 @@
     "@uploadcare/upload-client": "6.14.3",
     "color2k": "2.0.3",
     "date-fns": "4.1.0",
-    "expo": "54.0.13",
-    "expo-audio": "1.0.13",
-    "expo-av": "16.0.7",
-    "expo-blur": "15.0.7",
-    "expo-build-properties": "1.0.9",
-    "expo-calendar": "15.0.7",
-    "expo-camera": "17.0.8",
-    "expo-clipboard": "8.0.7",
-    "expo-constants": "18.0.9",
-    "expo-contacts": "15.0.9",
-    "expo-device": "8.0.9",
-    "expo-document-picker": "14.0.7",
-    "expo-font": "14.0.9",
-    "expo-gl": "16.0.7",
+    "expo": "~54.0.33",
+    "expo-asset": "~12.0.12",
+    "expo-audio": "~1.1.1",
+    "expo-av": "~16.0.8",
+    "expo-blur": "~15.0.8",
+    "expo-build-properties": "~1.0.10",
+    "expo-calendar": "~15.0.8",
+    "expo-camera": "~17.0.10",
+    "expo-clipboard": "~8.0.8",
+    "expo-constants": "~18.0.13",
+    "expo-contacts": "~15.0.11",
+    "expo-device": "~8.0.10",
+    "expo-document-picker": "~14.0.8",
+    "expo-file-system": "~19.0.21",
+    "expo-font": "~14.0.11",
+    "expo-gl": "~16.0.10",
     "expo-glass-effect": "~0.1.8",
-    "expo-haptics": "^15.0.7",
-    "expo-image": "3.0.9",
-    "expo-image-manipulator": "14.0.7",
-    "expo-image-picker": "17.0.8",
+    "expo-haptics": "~15.0.8",
+    "expo-image": "~3.0.11",
+    "expo-image-manipulator": "~14.0.8",
+    "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
-    "expo-linking": "8.0.8",
-    "expo-location": "19.0.7",
-    "expo-notifications": "0.32.12",
+    "expo-linking": "~8.0.11",
+    "expo-location": "~19.0.8",
+    "expo-notifications": "~0.32.16",
     "expo-router": "6.0.11",
-    "expo-secure-store": "15.0.7",
-    "expo-sensors": "15.0.7",
+    "expo-secure-store": "~15.0.8",
+    "expo-sensors": "~15.0.8",
     "expo-speech": "~14.0.8",
-    "expo-splash-screen": "31.0.10",
-    "expo-status-bar": "3.0.8",
+    "expo-splash-screen": "~31.0.13",
+    "expo-status-bar": "~3.0.9",
     "expo-store-review": "9.0.8",
-    "expo-symbols": "1.0.7",
-    "expo-system-ui": "6.0.7",
-    "expo-three": "8.0.0",
-    "expo-updates": "29.0.12",
-    "expo-video": "3.0.11",
-    "expo-web-browser": "15.0.8",
+    "expo-symbols": "~1.0.8",
+    "expo-system-ui": "~6.0.9",
+    "expo-updates": "~29.0.16",
+    "expo-video": "~3.0.16",
+    "expo-web-browser": "~15.0.10",
     "html-to-image": "1.11.13",
     "lodash": "4.17.21",
     "lucide-react-native": "0.525.0",
@@ -93,7 +94,6 @@
     "react-native-worklets": "0.5.1",
     "serialize-error": "12.0.0",
     "sonner-native": "0.21.0",
-    "three": "0.166.0",
     "yup": "1.6.1",
     "zod": "4.1.11",
     "zustand": "5.0.3"
@@ -101,11 +101,11 @@
   "devDependencies": {
     "@expo/cli": "54.0.1",
     "@tailwindcss/postcss": "4.1.18",
-    "@types/jest": "30.0.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "19.1.10",
     "autoprefixer": "10.4.20",
     "jest": "29.7.0",
-    "jest-expo": "54.0.12",
+    "jest-expo": "~54.0.17",
     "patch-package": "8.0.0",
     "postcss": "8.5.6",
     "tailwind-scrollbar": "3.1.0",
@@ -123,6 +123,36 @@
     "@react-navigation/native": "7.1.18",
     "@react-navigation/native-stack": "7.3.27",
     "@react-navigation/routers": "7.5.1",
-    "@react-navigation/stack": "7.4.7"
+    "@react-navigation/stack": "7.4.7",
+    "@anythingai/app": {
+      "expo-glass-effect": "0.1.9",
+      "expo-linear-gradient": "15.0.8"
+    },
+    "@teovilla/react-native-web-maps": {
+      "expo-location": "19.0.7"
+    },
+    "react-native-calendars": {
+      "react-native-safe-area-context": "5.6.0"
+    },
+    "expo-glass-effect": "$expo-glass-effect",
+    "expo-linear-gradient": "$expo-linear-gradient",
+    "react-native-safe-area-context": "5.6.0",
+    "react-server-dom-webpack": "19.0.4"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo-router",
+        "expo-store-review",
+        "react-native",
+        "@react-navigation/bottom-tabs",
+        "@react-navigation/native"
+      ]
+    },
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
   }
 }

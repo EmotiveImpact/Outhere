@@ -21,7 +21,7 @@ import {
   Trophy,
   Zap,
 } from "lucide-react-native";
-import { battlesAPI, challengesAPI, leaderboardAPI } from "@/services/api";
+import { battlesAPI, challengesAPI, leaderboardAPI, membershipAPI } from "@/services/api";
 import { hapticSelection } from "@/services/haptics";
 import { useUserStore } from "@/store/userStore";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
@@ -29,7 +29,31 @@ import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence
 const NEON = "#00ff7f";
 const SURFACE = "#161618";
 
-const fallbackRankings = {
+type RankingScope = "city" | "global";
+
+type RankingEntry = {
+  id: string;
+  name: string;
+  value: number;
+};
+
+type ChallengeEntry = {
+  id: string;
+  title: string;
+  subtitle: string;
+  progress: number;
+  target: number;
+};
+
+type ActiveBattleEntry = {
+  id: string;
+  opponentName: string;
+  endAt: string;
+};
+
+type AnyRecord = Record<string, unknown>;
+
+const fallbackRankings: Record<RankingScope, RankingEntry[]> = {
   city: [
     { id: "city-1", name: "You", value: 8420 },
     { id: "city-2", name: "Jay", value: 8050 },
@@ -42,7 +66,7 @@ const fallbackRankings = {
   ],
 };
 
-const fallbackChallenges = [
+const fallbackChallenges: ChallengeEntry[] = [
   {
     id: "challenge-1",
     title: "Daily 10K Steps",
@@ -66,7 +90,7 @@ const fallbackChallenges = [
   },
 ];
 
-const formatNumber = (value) => {
+const formatNumber = (value: unknown) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0";
   return n.toLocaleString();
@@ -78,13 +102,26 @@ export default function ArenaScreen() {
   const city = useUserStore((s) => s.user?.city);
   const deviceId = useUserStore((s) => s.deviceId);
 
-  const [rankScope, setRankScope] = useState("city");
+  const [rankScope, setRankScope] = useState<RankingScope>("city");
   const [showBattleModal, setShowBattleModal] = useState(false);
   const [opponentUsername, setOpponentUsername] = useState("");
   const [durationHours, setDurationHours] = useState(24);
   const [battleError, setBattleError] = useState("");
   const [isCreatingBattle, setIsCreatingBattle] = useState(false);
   const { scrollRef, handleScroll } = useOutsideScrollPersistence("arena");
+
+  const [membershipTier, setMembershipTier] = useState("free");
+  const { data: membershipData } = useQuery({
+    queryKey: ["membership-status", deviceId],
+    queryFn: () => membershipAPI.getStatus(deviceId),
+    enabled: !!deviceId,
+  });
+
+  React.useEffect(() => {
+    if (membershipData?.membership_tier) {
+      setMembershipTier(membershipData.membership_tier.toLowerCase());
+    }
+  }, [membershipData]);
 
   const { data: rankingData, isLoading: isRankingLoading } = useQuery({
     queryKey: ["arena", "rankings", rankScope, city],
@@ -119,38 +156,41 @@ export default function ArenaScreen() {
     refetchOnWindowFocus: false,
   });
 
-  const rankings = useMemo(() => {
-    const raw = Array.isArray(rankingData)
-      ? rankingData
-      : Array.isArray(rankingData?.leaderboard)
-        ? rankingData.leaderboard
+  const rankings = useMemo<RankingEntry[]>(() => {
+    const rankingPayload = rankingData as AnyRecord | AnyRecord[] | undefined;
+    const raw = Array.isArray(rankingPayload)
+      ? rankingPayload
+      : Array.isArray(rankingPayload?.leaderboard)
+        ? (rankingPayload.leaderboard as AnyRecord[])
         : [];
 
     if (!raw.length) return fallbackRankings[rankScope];
 
-    return raw.slice(0, 3).map((item, index) => ({
-      id: item.id || item.device_id || item.username || `rank-${index}`,
-      name: item.username || item.name || `Player ${index + 1}`,
-      value:
+    return raw.slice(0, 3).map((item: AnyRecord, index: number) => ({
+      id: String(item.id || item.device_id || item.username || `rank-${index}`),
+      name: String(item.username || item.name || `Player ${index + 1}`),
+      value: Number(
         item.steps ??
-        item.total_steps ??
-        item.score ??
-        item.distance ??
-        item.xp ??
-        0,
+          item.total_steps ??
+          item.score ??
+          item.distance ??
+          item.xp ??
+          0
+      ),
     }));
   }, [rankingData, rankScope]);
 
-  const challenges = useMemo(() => {
-    const raw = Array.isArray(challengeData)
-      ? challengeData
-      : Array.isArray(challengeData?.challenges)
-        ? challengeData.challenges
+  const challenges = useMemo<ChallengeEntry[]>(() => {
+    const challengePayload = challengeData as AnyRecord | AnyRecord[] | undefined;
+    const raw = Array.isArray(challengePayload)
+      ? challengePayload
+      : Array.isArray(challengePayload?.challenges)
+        ? (challengePayload.challenges as AnyRecord[])
         : [];
 
     if (!raw.length) return fallbackChallenges;
 
-    return raw.slice(0, 3).map((item, index) => {
+    return raw.slice(0, 3).map((item: AnyRecord, index: number) => {
       const progress = Number(
         item.progress ??
           item.current_progress ??
@@ -167,27 +207,37 @@ export default function ArenaScreen() {
       );
 
       return {
-        id: item.id || `challenge-${index}`,
-        title: item.title || item.name || `Challenge ${index + 1}`,
-        subtitle:
+        id: String(item.id || `challenge-${index}`),
+        title: String(item.title || item.name || `Challenge ${index + 1}`),
+        subtitle: String(
           item.description ||
-          (item.city ? `${item.city} challenge` : "Keep moving to complete"),
+            (item.city ? `${String(item.city)} challenge` : "Keep moving to complete")
+        ),
         progress: Number.isFinite(progress) ? progress : 0,
         target: Number.isFinite(target) && target > 0 ? target : 10000,
       };
     });
   }, [challengeData]);
 
-  const activeBattles = useMemo(() => {
-    const raw = Array.isArray(activeBattleData) ? activeBattleData : [];
-    const normalized = raw.map((battle, index) => ({
-      id: battle.id || `battle-${index}`,
-      opponentName:
+  const realActiveBattleCount = Array.isArray(activeBattleData)
+    ? activeBattleData.length
+    : 0;
+
+  const activeBattles = useMemo<ActiveBattleEntry[]>(() => {
+    const raw = Array.isArray(activeBattleData)
+      ? (activeBattleData as AnyRecord[])
+      : [];
+    const normalized: ActiveBattleEntry[] = raw.map(
+      (battle: AnyRecord, index: number) => ({
+      id: String(battle.id || `battle-${index}`),
+      opponentName: String(
         battle.creator_device_id === deviceId
-          ? battle.opponent_device_id
-          : battle.creator_device_id,
-      endAt: battle.end_at,
-    }));
+          ? battle.opponent_device_id || "Opponent"
+          : battle.creator_device_id || "Opponent"
+      ),
+      endAt: String(battle.end_at || new Date().toISOString()),
+    }),
+    );
 
     if (normalized.length >= 3) return normalized;
 
@@ -212,8 +262,10 @@ export default function ArenaScreen() {
     return [...normalized, ...fallback].slice(0, 3);
   }, [activeBattleData, deviceId]);
 
-  const formatTimeLeft = (endAt) => {
+  const formatTimeLeft = (endAt?: string) => {
+    if (!endAt) return "--";
     const end = new Date(endAt).getTime();
+    if (Number.isNaN(end)) return "--";
     const diff = Math.max(0, end - Date.now());
     if (diff <= 0) return "Ended";
     const totalMinutes = Math.floor(diff / (1000 * 60));
@@ -231,12 +283,24 @@ export default function ArenaScreen() {
       return;
     }
 
+    if (membershipTier === "free" && realActiveBattleCount >= 1) {
+      setBattleError("Free tier is limited to 1 active battle.");
+      return;
+    }
+
     setIsCreatingBattle(true);
     setBattleError("");
     try {
       const users = await leaderboardAPI.get("all-time");
-      const match = (Array.isArray(users) ? users : []).find(
-        (u) =>
+      const userPayload = users as AnyRecord | AnyRecord[] | undefined;
+      const userList = Array.isArray(userPayload)
+        ? userPayload
+        : Array.isArray(userPayload?.leaderboard)
+          ? (userPayload.leaderboard as AnyRecord[])
+          : [];
+
+      const match = userList.find(
+        (u: AnyRecord) =>
           String(u.username || "")
             .trim()
             .toLowerCase() === opponentUsername.trim().toLowerCase()
@@ -266,7 +330,8 @@ export default function ArenaScreen() {
         router.push(`/battles/${created.id}`);
       }
     } catch (error) {
-      setBattleError(error?.data?.detail || "Could not create battle");
+      const detail = (error as { data?: { detail?: string } })?.data?.detail;
+      setBattleError(detail || "Could not create battle");
     } finally {
       setIsCreatingBattle(false);
     }
@@ -383,7 +448,7 @@ export default function ArenaScreen() {
               <ActivityIndicator color={NEON} />
             </View>
           ) : (
-            rankings.map((entry, index) => (
+            rankings.map((entry: RankingEntry, index: number) => (
               <View
                 key={entry.id}
                 style={{
@@ -466,7 +531,7 @@ export default function ArenaScreen() {
               <ActivityIndicator color={NEON} />
             </View>
           ) : (
-            challenges.map((challenge, index) => {
+            challenges.map((challenge: ChallengeEntry, index: number) => {
               const progressPct = Math.min(
                 100,
                 (challenge.progress / challenge.target) * 100
