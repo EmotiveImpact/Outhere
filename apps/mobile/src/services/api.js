@@ -234,6 +234,19 @@ export const battlesAPI = {
     request(`/battles/${battleId}/cancel?device_id=${deviceId}`, { method: "POST" }),
 };
 
+// ── Rewards API ───────────────────────────────────────────────────────────────
+
+export const rewardsAPI = {
+  getCatalogue: () =>
+    request("/rewards/catalogue"),
+
+  redeem: (rewardId, deviceId) =>
+    request(`/rewards/redeem`, {
+      method: "POST",
+      body: { reward_id: rewardId, device_id: deviceId },
+    }),
+};
+
 // ── Events API ───────────────────────────────────────────────────────────────
 
 export const eventsAPI = {

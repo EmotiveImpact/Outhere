@@ -86,6 +86,19 @@ export default function ArenaScreen() {
   const [isCreatingBattle, setIsCreatingBattle] = useState(false);
   const { scrollRef, handleScroll } = useOutsideScrollPersistence("arena");
 
+  const [membershipTier, setMembershipTier] = useState("free");
+  const { data: membershipData } = useQuery({
+    queryKey: ["membership-status", deviceId],
+    queryFn: () => membershipAPI.getStatus(deviceId),
+    enabled: !!deviceId,
+  });
+
+  React.useEffect(() => {
+    if (membershipData?.membership_tier) {
+      setMembershipTier(membershipData.membership_tier.toLowerCase());
+    }
+  }, [membershipData]);
+
   const { data: rankingData, isLoading: isRankingLoading } = useQuery({
     queryKey: ["arena", "rankings", rankScope, city],
     queryFn: () =>
