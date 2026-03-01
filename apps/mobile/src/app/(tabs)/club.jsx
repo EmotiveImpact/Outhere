@@ -751,12 +751,6 @@ export default function ClubScreen() {
             </View>
             
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <HapticTouchable onPress={() => setShowJoinModal(true)} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#222", marginRight: 8 }}>
-                <LogIn color="#00ff7f" size={20} />
-              </HapticTouchable>
-              <HapticTouchable onPress={() => setShowCreateModal(true)} style={{ width: 44, height: 44, backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 255, 127, 0.3)", marginRight: 8 }}>
-                <Plus color="#fff" size={24} />
-              </HapticTouchable>
               <HapticTouchable onPress={openDrawer} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2d" }}>
                 <SlidersHorizontal color="#aaa" size={20} />
               </HapticTouchable>
@@ -1493,6 +1487,61 @@ export default function ClubScreen() {
                 </View>
 
                 {/* ── Divider ── */}
+                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
+
+                {/* ── Join / Create Section ── */}
+                <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Your Crews</Text>
+                <View style={{ marginBottom: 8 }}>
+                  <HapticTouchable
+                    onPress={() => { closeDrawer(); setTimeout(() => setShowJoinModal(true), 300); }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: "#111113",
+                      borderRadius: 14,
+                      padding: 16,
+                      marginBottom: 10,
+                      borderWidth: 1,
+                      borderColor: "#1e1e22",
+                      gap: 14,
+                    }}
+                  >
+                    <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(0,255,127,0.1)", borderWidth: 1, borderColor: "rgba(0,255,127,0.2)", alignItems: "center", justifyContent: "center" }}>
+                      <LogIn color="#00ff7f" size={18} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>Join a Crew</Text>
+                      <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>Enter an invite code from a friend</Text>
+                    </View>
+                    <ChevronRight color="#444" size={16} />
+                  </HapticTouchable>
+
+                  <HapticTouchable
+                    onPress={() => { closeDrawer(); setTimeout(() => setShowCreateModal(true), 300); }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: canCreateCrew ? "rgba(0,255,127,0.07)" : "#111113",
+                      borderRadius: 14,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: canCreateCrew ? "rgba(0,255,127,0.2)" : "#1e1e22",
+                      gap: 14,
+                    }}
+                  >
+                    <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: canCreateCrew ? "rgba(0,255,127,0.12)" : "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: canCreateCrew ? "rgba(0,255,127,0.25)" : "#2a2a2d", alignItems: "center", justifyContent: "center" }}>
+                      <Plus color={canCreateCrew ? "#00ff7f" : "#555"} size={18} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: canCreateCrew ? "#fff" : "#555", fontSize: 14, fontWeight: "700" }}>Create a Crew</Text>
+                      <Text style={{ color: canCreateCrew ? "#777" : "#444", fontSize: 12, marginTop: 2 }}>
+                        {canCreateCrew ? `${ownedCrewCount}/${ownershipLimit} crews owned` : "Pro or Black required"}
+                      </Text>
+                    </View>
+                    {!canCreateCrew ? <Crown color="#ffd700" size={14} /> : <ChevronRight color="#444" size={16} />}
+                  </HapticTouchable>
+                </View>
+
                 <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
 
                 {/* ── Invite Code Section ── */}
