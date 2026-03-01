@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions, Alert, Share } from "react-native";
+import { Animated, Easing, View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions, Alert, Share, Clipboard } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import {
   Users, Flame, Zap, Trophy, Route, Target,
   Plus, LogIn, Share2, Heart, MessageCircle, MessageSquare,
-  TrendingUp, X, MapPin, Send, Crown
+  TrendingUp, X, MapPin, Send, Crown,
+  SlidersHorizontal, Copy, ShieldCheck, ShieldX, UserX,
+  Trash2, DoorOpen, KeyRound, ChevronRight, Lock, Globe, UserCheck
 } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useSettingsStore } from "@/utils/settingsStore";
@@ -214,6 +216,123 @@ export default function ClubScreen() {
   const [groupLogoInput, setGroupLogoInput] = useState("");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  // ── MANAGE DRAWER ────────────────────────────────────────────────────────
+  const [showManageDrawer, setShowManageDrawer] = useState(false);
+  const drawerAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const [drawerSection, setDrawerSection] = useState("overview");
+
+  const openDrawer = () => {
+    setShowManageDrawer(true);
+    setDrawerSection("overview");
+    Animated.parallel([
+      Animated.spring(drawerAnim, {
+        toValue: 0,
+        damping: 24,
+        stiffness: 260,
+        mass: 0.9,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    hapticSelection();
+  };
+
+  const closeDrawer = () => {
+    Animated.parallel([
+      Animated.spring(drawerAnim, {
+        toValue: Dimensions.get("window").width,
+        damping: 26,
+        stiffness: 300,
+        mass: 0.8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setShowManageDrawer(false));
+    hapticSelection();
+  };
+
+  const handleCopyInviteCode = () => {
+    const code = activeGroup?.invite_code || inviteCodePreview;
+    Clipboard.setString(code);
+    hapticSuccess();
+    Alert.alert("Copied!", `Invite code copied: ${code}`);
+  };
+
+  const handleShareInviteCode = async () => {
+    const code = activeGroup?.invite_code || inviteCodePreview;
+    try {
+      await Share.share({
+        message: `Join my crew on OutHere! Use invite code: ${code}`,
+      });
+    } catch { /* silently fail */ }
+  };
+
+  const handleKickMember = (member) => {
+    Alert.alert(
+      "Remove Member",
+      `Remove ${member.name} from the crew?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            hapticSuccess();
+            Alert.alert("Done", `${member.name} has been removed.`);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleLeaveCrew = () => {
+    Alert.alert(
+      "Leave Crew",
+      "Are you sure you want to leave this crew?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: async () => {
+            hapticSuccess();
+            setActiveGroup(null);
+            closeDrawer();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteCrew = () => {
+    Alert.alert(
+      "Delete Crew",
+      "This is permanent. All members will be removed and the crew will be gone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Forever",
+          style: "destructive",
+          onPress: async () => {
+            hapticSuccess();
+            setActiveGroup(null);
+            closeDrawer();
+          },
+        },
+      ],
+    );
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (typeof params?.tab === "string" && TABS.includes(params.tab)) {
@@ -635,8 +754,11 @@ export default function ClubScreen() {
               <HapticTouchable onPress={() => setShowJoinModal(true)} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#222", marginRight: 8 }}>
                 <LogIn color="#00ff7f" size={20} />
               </HapticTouchable>
-              <HapticTouchable onPress={() => setShowCreateModal(true)} style={{ width: 44, height: 44, backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 255, 127, 0.3)" }}>
+              <HapticTouchable onPress={() => setShowCreateModal(true)} style={{ width: 44, height: 44, backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 255, 127, 0.3)", marginRight: 8 }}>
                 <Plus color="#fff" size={24} />
+              </HapticTouchable>
+              <HapticTouchable onPress={openDrawer} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2d" }}>
+                <SlidersHorizontal color="#aaa" size={20} />
               </HapticTouchable>
             </View>
           </View>
@@ -671,106 +793,7 @@ export default function ClubScreen() {
             )}
           </View>
 
-          {activeGroup && canManageCrew && (
-            <View style={{ backgroundColor: "#161618", borderRadius: 18, borderWidth: 1, borderColor: "#232325", padding: 14, marginBottom: 18 }}>
-              <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800", marginBottom: 10 }}>Admin Panel</Text>
-              <TextInput
-                value={groupNameInput}
-                onChangeText={setGroupNameInput}
-                placeholder="Crew name"
-                placeholderTextColor="#444"
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 }}
-              />
-              <TextInput
-                value={groupTaglineInput}
-                onChangeText={setGroupTaglineInput}
-                placeholder="Tagline"
-                placeholderTextColor="#444"
-                maxLength={80}
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 }}
-              />
-              <TextInput
-                value={groupDescriptionInput}
-                onChangeText={setGroupDescriptionInput}
-                placeholder="Description"
-                placeholderTextColor="#444"
-                maxLength={280}
-                multiline
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, minHeight: 70, textAlignVertical: "top", marginBottom: 8 }}
-              />
-
-              <View style={{ flexDirection: "row", marginBottom: 8 }}>
-                {["public", "request", "invite"].map((privacy) => (
-                  <HapticTouchable
-                    key={privacy}
-                    onPress={() => setGroupPrivacy(privacy)}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 7,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: groupPrivacy === privacy ? "rgba(0,255,127,0.5)" : "#2b2b2d",
-                      backgroundColor: groupPrivacy === privacy ? "rgba(0,255,127,0.12)" : "#1a1a1a",
-                      marginRight: 8,
-                    }}
-                  >
-                    <Text style={{ color: groupPrivacy === privacy ? "#9efac8" : "#888", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>
-                      {privacy}
-                    </Text>
-                  </HapticTouchable>
-                ))}
-              </View>
-
-              <TextInput
-                value={groupLogoInput}
-                onChangeText={setGroupLogoInput}
-                placeholder="Logo URL (.png / .jpg)"
-                placeholderTextColor="#444"
-                autoCapitalize="none"
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
-              />
-
-              <View style={{ flexDirection: "row" }}>
-                <HapticTouchable
-                  disabled={isSavingSettings}
-                  onPress={handleSaveCrewSettings}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#00ff7f",
-                    borderRadius: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingVertical: 10,
-                    marginRight: 8,
-                    opacity: isSavingSettings ? 0.6 : 1,
-                  }}
-                >
-                  <Text style={{ color: "#000", fontSize: 12, fontWeight: "800" }}>
-                    {isSavingSettings ? "Saving..." : "Save Settings"}
-                  </Text>
-                </HapticTouchable>
-                <HapticTouchable
-                  disabled={isUploadingLogo || !isOwner}
-                  onPress={handleUploadLogo}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#1f1f21",
-                    borderRadius: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingVertical: 10,
-                    borderWidth: 1,
-                    borderColor: "#2c2c2f",
-                    opacity: isUploadingLogo || !isOwner ? 0.6 : 1,
-                  }}
-                >
-                  <Text style={{ color: "#aaa", fontSize: 12, fontWeight: "800" }}>
-                    {isUploadingLogo ? "Uploading..." : "Upload Logo"}
-                  </Text>
-                </HapticTouchable>
-              </View>
-            </View>
-          )}
+          {/* Admin Panel moved into the slide-out drawer — tap the sliders button top-right */}
 
           {/* Navigation Tabs (No longer wrapped in ScrollView to match Apple cleanliness) */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#222" }}>
@@ -1341,6 +1364,487 @@ export default function ClubScreen() {
         </Modal>
 
       </View>
+
+      {/* ════════════════════════════════════════════════════════════════════
+           CLUB MANAGE DRAWER — Right-side slide-in panel
+          ════════════════════════════════════════════════════════════════════ */}
+      {showManageDrawer && (
+        <Modal visible transparent animationType="none">
+          <View style={{ flex: 1, flexDirection: "row" }}>
+            {/* ── Backdrop (tap to close) ── */}
+            <Animated.View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                opacity: backdropAnim,
+              }}
+            >
+              <Pressable style={{ flex: 1 }} onPress={closeDrawer} />
+            </Animated.View>
+
+            {/* ── Drawer Panel ── */}
+            <Animated.View
+              style={{
+                width: Dimensions.get("window").width * 0.88,
+                backgroundColor: "#0d0d0f",
+                borderLeftWidth: 1,
+                borderLeftColor: "#1e1e22",
+                transform: [{ translateX: drawerAnim }],
+              }}
+            >
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{
+                  paddingTop: 60,
+                  paddingBottom: 60,
+                  paddingHorizontal: 20,
+                }}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* ── Close button ── */}
+                <HapticTouchable
+                  onPress={closeDrawer}
+                  style={{
+                    position: "absolute",
+                    top: 16,
+                    right: 16,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: "#1a1a1c",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "#2a2a2d",
+                  }}
+                >
+                  <X color="#777" size={18} />
+                </HapticTouchable>
+
+                {/* ── Club Header ── */}
+                <View style={{ marginBottom: 28 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                    <View
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 16,
+                        backgroundColor: "#151515",
+                        borderWidth: 2,
+                        borderColor: "rgba(0,255,127,0.45)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        marginRight: 14,
+                      }}
+                    >
+                      {activeGroup?.logo_url ? (
+                        <Image source={{ uri: activeGroup.logo_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                      ) : (
+                        <Text style={{ color: "#00ff7f", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: -0.5 }} numberOfLines={1}>
+                        {activeGroup?.name || squadName}
+                      </Text>
+                      <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>
+                        {clubMeta.members} members
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Your role badge */}
+                  <View
+                    style={{
+                      alignSelf: "flex-start",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      backgroundColor:
+                        myRole === "owner" ? "rgba(255,215,0,0.1)"
+                        : myRole === "mod" ? "rgba(167,139,250,0.1)"
+                        : "rgba(255,255,255,0.06)",
+                      borderWidth: 1,
+                      borderColor:
+                        myRole === "owner" ? "rgba(255,215,0,0.25)"
+                        : myRole === "mod" ? "rgba(167,139,250,0.25)"
+                        : "#2a2a2d",
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 10,
+                    }}
+                  >
+                    {myRole === "owner" && <Crown color="#ffd700" size={12} />}
+                    {myRole === "mod" && <ShieldCheck color="#a78bfa" size={12} />}
+                    {myRole === "member" && <UserCheck color="#777" size={12} />}
+                    <Text
+                      style={{
+                        color: myRole === "owner" ? "#ffd700" : myRole === "mod" ? "#a78bfa" : "#777",
+                        fontSize: 11,
+                        fontWeight: "800",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {myRole}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* ── Divider ── */}
+                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
+
+                {/* ── Invite Code Section ── */}
+                <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Invite Code</Text>
+                <View
+                  style={{
+                    backgroundColor: "#111113",
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: "#1e1e22",
+                    padding: 16,
+                    marginBottom: 8,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <KeyRound color="#00ff7f" size={16} />
+                      <Text style={{ color: "#00ff7f", fontWeight: "900", fontSize: 22, letterSpacing: 3 }}>
+                        {activeGroup?.invite_code || inviteCodePreview}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <HapticTouchable
+                      onPress={handleCopyInviteCode}
+                      style={{
+                        flex: 1,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        backgroundColor: "rgba(0,255,127,0.1)",
+                        borderWidth: 1,
+                        borderColor: "rgba(0,255,127,0.25)",
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                      }}
+                    >
+                      <Copy color="#00ff7f" size={14} />
+                      <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "700" }}>Copy</Text>
+                    </HapticTouchable>
+                    <HapticTouchable
+                      onPress={handleShareInviteCode}
+                      style={{
+                        flex: 1,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        backgroundColor: "#1a1a1c",
+                        borderWidth: 1,
+                        borderColor: "#2a2a2d",
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                      }}
+                    >
+                      <Share2 color="#aaa" size={14} />
+                      <Text style={{ color: "#aaa", fontSize: 13, fontWeight: "700" }}>Share</Text>
+                    </HapticTouchable>
+                  </View>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24, marginTop: 16 }} />
+
+                {/* ── Members Section ── */}
+                <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Members ({clubMeta.members})</Text>
+                <View style={{ marginBottom: 8 }}>
+                  {LEADERBOARD.map((member, index) => {
+                    const isMe = member.name === "You";
+                    const role = index === 0 ? "owner" : index === 1 ? "mod" : "member";
+                    return (
+                      <View
+                        key={member.id}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          backgroundColor: isMe ? "rgba(0,255,127,0.04)" : "transparent",
+                          borderRadius: 14,
+                          paddingVertical: 10,
+                          paddingHorizontal: 4,
+                          marginBottom: 4,
+                          borderWidth: 1,
+                          borderColor: isMe ? "rgba(0,255,127,0.12)" : "transparent",
+                        }}
+                      >
+                        <View style={{ width: 40, height: 40, borderRadius: 20, overflow: "hidden", borderWidth: 1.5, borderColor: isMe ? "#00ff7f" : "#2a2a2d", marginRight: 12 }}>
+                          <Image source={{ uri: member.avatar }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: isMe ? "#00ff7f" : "#fff", fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
+                            {isMe ? "You" : member.name}
+                          </Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                            {role === "owner" && <Crown color="#ffd700" size={10} />}
+                            {role === "mod" && <ShieldCheck color="#a78bfa" size={10} />}
+                            <Text style={{ color: role === "owner" ? "#ffd700" : role === "mod" ? "#a78bfa" : "#555", fontSize: 10, fontWeight: "700" }}>
+                              {role.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
+                        {/* Remove member button — owner only, not for self */}
+                        {isOwner && !isMe && (
+                          <HapticTouchable
+                            onPress={() => handleKickMember(member)}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 10,
+                              backgroundColor: "rgba(239,68,68,0.1)",
+                              borderWidth: 1,
+                              borderColor: "rgba(239,68,68,0.2)",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <UserX color="#ef4444" size={14} />
+                          </HapticTouchable>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* ── Settings Section (owner/mod only) ── */}
+                {canManageCrew && (
+                  <>
+                    <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24, marginTop: 8 }} />
+                    <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Crew Settings</Text>
+                    <View style={{ marginBottom: 20 }}>
+                      <TextInput
+                        value={groupNameInput}
+                        onChangeText={setGroupNameInput}
+                        placeholder="Crew name"
+                        placeholderTextColor="#444"
+                        style={{
+                          backgroundColor: "#111113",
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: "#2a2a2d",
+                          color: "#fff",
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          marginBottom: 10,
+                          fontSize: 14,
+                        }}
+                      />
+                      <TextInput
+                        value={groupTaglineInput}
+                        onChangeText={setGroupTaglineInput}
+                        placeholder="Tagline (max 80 chars)"
+                        placeholderTextColor="#444"
+                        maxLength={80}
+                        style={{
+                          backgroundColor: "#111113",
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: "#2a2a2d",
+                          color: "#fff",
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          marginBottom: 10,
+                          fontSize: 14,
+                        }}
+                      />
+                      <TextInput
+                        value={groupDescriptionInput}
+                        onChangeText={setGroupDescriptionInput}
+                        placeholder="Description"
+                        placeholderTextColor="#444"
+                        maxLength={280}
+                        multiline
+                        style={{
+                          backgroundColor: "#111113",
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: "#2a2a2d",
+                          color: "#fff",
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          minHeight: 80,
+                          textAlignVertical: "top",
+                          marginBottom: 12,
+                          fontSize: 14,
+                        }}
+                      />
+
+                      {/* Privacy selector */}
+                      <Text style={{ color: "#555", fontSize: 11, fontWeight: "600", marginBottom: 8 }}>PRIVACY</Text>
+                      <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+                        {[
+                          { key: "public", label: "Public", icon: Globe },
+                          { key: "request", label: "Request", icon: UserCheck },
+                          { key: "invite", label: "Invite Only", icon: Lock },
+                        ].map(({ key, label, icon: Icon }) => (
+                          <HapticTouchable
+                            key={key}
+                            onPress={() => setGroupPrivacy(key)}
+                            style={{
+                              flex: 1,
+                              alignItems: "center",
+                              paddingVertical: 10,
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: groupPrivacy === key ? "rgba(0,255,127,0.4)" : "#2a2a2d",
+                              backgroundColor: groupPrivacy === key ? "rgba(0,255,127,0.1)" : "#111113",
+                            }}
+                          >
+                            <Icon size={14} color={groupPrivacy === key ? "#00ff7f" : "#555"} />
+                            <Text style={{ color: groupPrivacy === key ? "#9efac8" : "#666", fontSize: 10, fontWeight: "700", marginTop: 4, textTransform: "uppercase" }}>
+                              {label}
+                            </Text>
+                          </HapticTouchable>
+                        ))}
+                      </View>
+
+                      <HapticTouchable
+                        disabled={isSavingSettings}
+                        onPress={handleSaveCrewSettings}
+                        style={{
+                          backgroundColor: "#00ff7f",
+                          borderRadius: 14,
+                          paddingVertical: 14,
+                          alignItems: "center",
+                          opacity: isSavingSettings ? 0.6 : 1,
+                        }}
+                      >
+                        <Text style={{ color: "#000", fontSize: 14, fontWeight: "800" }}>
+                          {isSavingSettings ? "Saving..." : "Save Settings"}
+                        </Text>
+                      </HapticTouchable>
+                    </View>
+
+                    {/* Logo upload — owner + Black only */}
+                    {isOwner && (
+                      <>
+                        <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Crew Logo</Text>
+                        <View
+                          style={{
+                            backgroundColor: "#111113",
+                            borderRadius: 16,
+                            borderWidth: 1,
+                            borderColor: "#1e1e22",
+                            padding: 14,
+                            marginBottom: 24,
+                          }}
+                        >
+                          {membershipTier !== "black" && (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                              <Crown color="#ffd700" size={12} />
+                              <Text style={{ color: "#ffd700", fontSize: 11, fontWeight: "700" }}>Black tier required to upload logos</Text>
+                            </View>
+                          )}
+                          <TextInput
+                            value={groupLogoInput}
+                            onChangeText={setGroupLogoInput}
+                            placeholder="Logo image URL (.png / .jpg)"
+                            placeholderTextColor="#444"
+                            autoCapitalize="none"
+                            editable={membershipTier === "black"}
+                            style={{
+                              backgroundColor: "#0d0d0f",
+                              borderRadius: 10,
+                              borderWidth: 1,
+                              borderColor: "#2a2a2d",
+                              color: membershipTier === "black" ? "#fff" : "#555",
+                              paddingHorizontal: 12,
+                              paddingVertical: 10,
+                              marginBottom: 10,
+                              fontSize: 13,
+                            }}
+                          />
+                          <HapticTouchable
+                            disabled={isUploadingLogo || membershipTier !== "black"}
+                            onPress={handleUploadLogo}
+                            style={{
+                              backgroundColor: membershipTier === "black" ? "#1f1f23" : "#111113",
+                              borderRadius: 12,
+                              paddingVertical: 12,
+                              alignItems: "center",
+                              borderWidth: 1,
+                              borderColor: membershipTier === "black" ? "#2c2c30" : "#1a1a1c",
+                              opacity: isUploadingLogo ? 0.6 : 1,
+                            }}
+                          >
+                            <Text style={{ color: membershipTier === "black" ? "#aaa" : "#444", fontSize: 13, fontWeight: "700" }}>
+                              {isUploadingLogo ? "Uploading..." : "Upload Logo"}
+                            </Text>
+                          </HapticTouchable>
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {/* ── Danger Zone ── */}
+                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
+                <Text style={{ color: "rgba(239,68,68,0.6)", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Danger Zone</Text>
+                <View
+                  style={{
+                    backgroundColor: "rgba(239,68,68,0.05)",
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: "rgba(239,68,68,0.15)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {!isOwner && (
+                    <HapticTouchable
+                      onPress={handleLeaveCrew}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 16,
+                        gap: 12,
+                        borderBottomWidth: isOwner ? 0 : 0,
+                      }}
+                    >
+                      <DoorOpen color="#ef4444" size={18} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: "#ef4444", fontSize: 14, fontWeight: "700" }}>Leave Crew</Text>
+                        <Text style={{ color: "rgba(239,68,68,0.5)", fontSize: 12, marginTop: 2 }}>You'll need an invite code to rejoin</Text>
+                      </View>
+                      <ChevronRight color="rgba(239,68,68,0.4)" size={16} />
+                    </HapticTouchable>
+                  )}
+                  {isOwner && (
+                    <HapticTouchable
+                      onPress={handleDeleteCrew}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 16,
+                        gap: 12,
+                      }}
+                    >
+                      <Trash2 color="#ef4444" size={18} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: "#ef4444", fontSize: 14, fontWeight: "700" }}>Delete Crew</Text>
+                        <Text style={{ color: "rgba(239,68,68,0.5)", fontSize: 12, marginTop: 2 }}>Permanent — all members will lose access</Text>
+                      </View>
+                      <ChevronRight color="rgba(239,68,68,0.4)" size={16} />
+                    </HapticTouchable>
+                  )}
+                </View>
+
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
+
     </View>
   );
 }
