@@ -6,11 +6,11 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Dict, List, Optional
 import uuid
 from datetime import datetime, timedelta
 from bson import ObjectId
-from postgres_docstore import PostgresDocStore
+from postgres_docstore import Collection, PostgresDocStore
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -61,6 +61,9 @@ class UserProfile(BaseModel):
     weekly_goal: int = 70000
     avatar_color: str = "#FF6B35"
     avatar_url: Optional[str] = None
+    membership_tier: str = "free"  # free | pro | black
+    black_eligible: bool = False
+    event_badges: List[dict] = []
 
 class UserCreate(BaseModel):
     device_id: str
@@ -77,6 +80,21 @@ class UserUpdate(BaseModel):
     weekly_goal: Optional[int] = None
     avatar_color: Optional[str] = None
     avatar_url: Optional[str] = None
+
+
+class MembershipStatusResponse(BaseModel):
+    device_id: str
+    membership_tier: str
+    black_eligible: bool
+
+
+class MembershipUpgradeRequest(BaseModel):
+    device_id: str
+    tier: str  # pro | black
+
+
+class MembershipDowngradeRequest(BaseModel):
+    device_id: str
 
 class StepRecord(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -171,6 +189,52 @@ class MissionProgressResponse(BaseModel):
     remaining_seconds: Optional[int] = None
     challenger: MissionParticipantProgress
     opponent: MissionParticipantProgress
+
+
+class Battle(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str = "1v1"
+    metric: str = "steps"
+    creator_device_id: str
+    opponent_device_id: str
+    start_at: datetime
+    end_at: datetime
+    status: str = "active"  # pending | active | complete | cancelled
+    creator_steps: Optional[int] = None
+    opponent_steps: Optional[int] = None
+    winner_device_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BattleCreate(BaseModel):
+    creator_device_id: str
+    opponent_device_id: str
+    duration_hours: Optional[int] = None
+    end_at: Optional[datetime] = None
+    start_at: Optional[datetime] = None
+
+
+class Event(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    city: str
+    location: str
+    start_at: datetime
+    end_at: datetime
+    capacity: int
+    organiser_type: str = "outHere"  # outHere | crew | sponsor
+    rsvps: List[str] = []
+    checkins: List[str] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EventRSVPRequest(BaseModel):
+    device_id: str
+
+
+class EventCheckInRequest(BaseModel):
+    device_id: str
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -343,6 +407,373 @@ async def _evaluate_active_mission(mission: dict) -> dict:
     fresh = await db.missions.find_one({"id": mission["id"]})
     return fresh or mission
 
+
+def _parse_iso_datetime(value: str) -> datetime:
+    normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
+
+
+def _to_naive_utc(dt_value: datetime) -> datetime:
+    if dt_value.tzinfo is not None:
+        return dt_value.astimezone().replace(tzinfo=None)
+    return dt_value
+
+
+async def _sum_steps_in_window(device_id: str, start_at: datetime, end_at: datetime) -> int:
+    start_date = start_at.strftime("%Y-%m-%d")
+    end_date = end_at.strftime("%Y-%m-%d")
+    pipeline = [
+        {"$match": {
+            "device_id": device_id,
+            "date": {"$gte": start_date, "$lte": end_date}
+        }},
+        {"$group": {"_id": None, "total_steps": {"$sum": "$steps"}}}
+    ]
+    result = await db.steps.aggregate(pipeline).to_list(1)
+    if not result:
+        return 0
+    return int(result[0].get("total_steps", 0) or 0)
+
+
+async def _evaluate_battle_completion(battle: dict) -> dict:
+    if battle.get("status") in ["complete", "cancelled"]:
+        return battle
+
+    end_at = battle.get("end_at")
+    if isinstance(end_at, str):
+        end_at = _parse_iso_datetime(end_at)
+    end_at = _to_naive_utc(end_at)
+
+    now = datetime.utcnow()
+    start_at = battle.get("start_at")
+    if isinstance(start_at, str):
+        start_at = _parse_iso_datetime(start_at)
+    start_at = _to_naive_utc(start_at)
+
+    if battle.get("status") == "pending" and now >= start_at:
+        await db.battles.update_one(
+            {"id": battle["id"]},
+            {"$set": {"status": "active"}}
+        )
+        battle["status"] = "active"
+
+    if now <= end_at:
+        return battle
+
+    creator_steps = await _sum_steps_in_window(
+        battle["creator_device_id"],
+        start_at,
+        end_at,
+    )
+    opponent_steps = await _sum_steps_in_window(
+        battle["opponent_device_id"],
+        start_at,
+        end_at,
+    )
+
+    winner_device_id = None
+    if creator_steps > opponent_steps:
+        winner_device_id = battle["creator_device_id"]
+    elif opponent_steps > creator_steps:
+        winner_device_id = battle["opponent_device_id"]
+
+    battle_win_xp = int(os.environ.get("BATTLE_WIN_XP", "100"))
+    battle_win_out = int(os.environ.get("BATTLE_WIN_OUT", "10"))
+    battle_participation_xp = int(os.environ.get("BATTLE_PARTICIPATION_XP", "25"))
+    battle_participation_out = int(os.environ.get("BATTLE_PARTICIPATION_OUT", "3"))
+
+    if winner_device_id:
+        loser_device_id = (
+            battle["opponent_device_id"]
+            if winner_device_id == battle["creator_device_id"]
+            else battle["creator_device_id"]
+        )
+        await _create_xp_transaction(
+            winner_device_id,
+            "battle_win",
+            battle_win_xp,
+            {"battle_id": battle["id"], "result": "winner"},
+        )
+        await _create_out_transaction(
+            winner_device_id,
+            "battle_win",
+            battle_win_out,
+            {"battle_id": battle["id"], "result": "winner"},
+        )
+        await _create_xp_transaction(
+            loser_device_id,
+            "battle_participation",
+            battle_participation_xp,
+            {"battle_id": battle["id"], "result": "participant"},
+        )
+        await _create_out_transaction(
+            loser_device_id,
+            "battle_participation",
+            battle_participation_out,
+            {"battle_id": battle["id"], "result": "participant"},
+        )
+    else:
+        for participant in [battle["creator_device_id"], battle["opponent_device_id"]]:
+            await _create_xp_transaction(
+                participant,
+                "battle_participation",
+                battle_participation_xp,
+                {"battle_id": battle["id"], "result": "draw"},
+            )
+            await _create_out_transaction(
+                participant,
+                "battle_participation",
+                battle_participation_out,
+                {"battle_id": battle["id"], "result": "draw"},
+            )
+
+    await db.battles.update_one(
+        {"id": battle["id"]},
+        {"$set": {
+            "status": "complete",
+            "creator_steps": creator_steps,
+            "opponent_steps": opponent_steps,
+            "winner_device_id": winner_device_id,
+        }},
+    )
+    fresh = await db.battles.find_one({"id": battle["id"]})
+    return fresh or battle
+
+
+async def _create_xp_transaction(
+    device_id: str,
+    tx_type: str,
+    amount: int,
+    metadata: Optional[dict] = None,
+    created_at: Optional[datetime] = None,
+):
+    await _xp_collection().insert_one({
+        "id": str(uuid.uuid4()),
+        "device_id": device_id,
+        "type": tx_type,
+        "amount": int(amount),
+        "metadata": metadata or {},
+        "created_at": created_at or datetime.utcnow(),
+    })
+
+
+async def _create_out_transaction(
+    device_id: str,
+    tx_type: str,
+    amount: int,
+    metadata: Optional[dict] = None,
+    created_at: Optional[datetime] = None,
+):
+    await _out_collection().insert_one({
+        "id": str(uuid.uuid4()),
+        "device_id": device_id,
+        "type": tx_type,
+        "amount": int(amount),
+        "metadata": metadata or {},
+        "created_at": created_at or datetime.utcnow(),
+    })
+
+
+async def _sum_transaction_amount(collection, device_id: str) -> int:
+    result = await collection.aggregate([
+        {"$match": {"device_id": device_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]).to_list(1)
+    if not result:
+        return 0
+    return int(result[0].get("total", 0) or 0)
+
+
+def _format_recent_transactions(transactions: List[dict]) -> List[dict]:
+    formatted = []
+    for tx in transactions:
+        formatted.append({
+            "id": tx.get("id"),
+            "device_id": tx.get("device_id"),
+            "type": tx.get("type"),
+            "amount": int(tx.get("amount", 0) or 0),
+            "metadata": tx.get("metadata", {}),
+            "created_at": tx.get("created_at"),
+        })
+    return formatted
+
+
+def _xp_collection():
+    collection = getattr(db, "xp_transactions", None)
+    if collection is not None:
+        return collection
+    if isinstance(db, PostgresDocStore):
+        db.xp_transactions = Collection(db, "xp_transactions")
+        return db.xp_transactions
+    return db.xp_transactions
+
+
+def _out_collection():
+    collection = getattr(db, "out_transactions", None)
+    if collection is not None:
+        return collection
+    if isinstance(db, PostgresDocStore):
+        db.out_transactions = Collection(db, "out_transactions")
+        return db.out_transactions
+    return db.out_transactions
+
+
+def _events_collection():
+    collection = getattr(db, "events", None)
+    if collection is not None:
+        return collection
+    if isinstance(db, PostgresDocStore):
+        db.events = Collection(db, "events")
+        return db.events
+    return db.events
+
+
+def _normalize_organiser_type(value: Optional[str]) -> str:
+    organiser_type = str(value or "outHere").strip()
+    if organiser_type in ["outHere", "crew", "sponsor"]:
+        return organiser_type
+    lowered = organiser_type.lower()
+    if lowered == "outhere":
+        return "outHere"
+    if lowered in ["crew", "sponsor"]:
+        return lowered
+    return "outHere"
+
+
+def _coerce_event_doc(event: Optional[dict]) -> Optional[dict]:
+    if not event:
+        return event
+
+    normalized = dict(event)
+    for key in ["start_at", "end_at", "created_at"]:
+        value = normalized.get(key)
+        if isinstance(value, str):
+            try:
+                normalized[key] = _to_naive_utc(_parse_iso_datetime(value))
+            except Exception:
+                normalized[key] = datetime.utcnow()
+
+    if not isinstance(normalized.get("rsvps"), list):
+        normalized["rsvps"] = []
+    if not isinstance(normalized.get("checkins"), list):
+        normalized["checkins"] = []
+    if not isinstance(normalized.get("capacity"), int):
+        try:
+            normalized["capacity"] = int(normalized.get("capacity", 0) or 0)
+        except Exception:
+            normalized["capacity"] = 0
+
+    normalized["organiser_type"] = _normalize_organiser_type(
+        normalized.get("organiser_type")
+    )
+    return normalized
+
+
+async def _ensure_default_events():
+    existing_count = await _events_collection().count_documents({})
+    if existing_count > 0:
+        return
+
+    now = datetime.utcnow()
+    defaults = [
+        Event(
+            title="Tonight's Link-Up",
+            description="Easy city run and social warmup with the OutHere squad.",
+            city="London",
+            location="Southbank",
+            start_at=now - timedelta(minutes=30),
+            end_at=now + timedelta(hours=2),
+            capacity=120,
+            organiser_type="outHere",
+        ),
+        Event(
+            title="Crew Tempo Session",
+            description="Progressive tempo block hosted by local crew captains.",
+            city="London",
+            location="Victoria Park",
+            start_at=now + timedelta(days=1, hours=2),
+            end_at=now + timedelta(days=1, hours=4),
+            capacity=60,
+            organiser_type="crew",
+        ),
+        Event(
+            title="Sponsor Pop-Up Miles",
+            description="Community miles + recovery stand with sponsor giveaways.",
+            city="London",
+            location="Canary Wharf",
+            start_at=now + timedelta(days=3, hours=1),
+            end_at=now + timedelta(days=3, hours=3),
+            capacity=200,
+            organiser_type="sponsor",
+        ),
+    ]
+    for event in defaults:
+        await _events_collection().insert_one(event.dict())
+
+
+async def _award_active_day_and_streak(device_id: str, streak: int, date_str: str):
+    active_day_xp = int(os.environ.get("ACTIVE_DAY_XP", "50"))
+    active_day_out = int(os.environ.get("ACTIVE_DAY_OUT", "5"))
+    streak_bonus_xp_7 = int(os.environ.get("STREAK_BONUS_XP_7", "100"))
+    streak_bonus_out_7 = int(os.environ.get("STREAK_BONUS_OUT_7", "10"))
+    streak_bonus_xp_14 = int(os.environ.get("STREAK_BONUS_XP_14", "200"))
+    streak_bonus_out_14 = int(os.environ.get("STREAK_BONUS_OUT_14", "20"))
+    streak_bonus_xp_30 = int(os.environ.get("STREAK_BONUS_XP_30", "400"))
+    streak_bonus_out_30 = int(os.environ.get("STREAK_BONUS_OUT_30", "40"))
+
+    day_start = datetime.strptime(date_str, "%Y-%m-%d")
+    day_end = day_start + timedelta(days=1)
+
+    active_day_exists = await _xp_collection().find_one({
+        "device_id": device_id,
+        "type": "active_day",
+        "created_at": {"$gte": day_start, "$lt": day_end},
+    })
+    if not active_day_exists:
+        await _create_xp_transaction(
+            device_id,
+            "active_day",
+            active_day_xp,
+            {"date": date_str},
+            day_start,
+        )
+        await _create_out_transaction(
+            device_id,
+            "active_day",
+            active_day_out,
+            {"date": date_str},
+            day_start,
+        )
+
+    milestone_rewards = {
+        7: (streak_bonus_xp_7, streak_bonus_out_7),
+        14: (streak_bonus_xp_14, streak_bonus_out_14),
+        30: (streak_bonus_xp_30, streak_bonus_out_30),
+    }
+
+    existing_streak_txs = await _xp_collection().find({
+        "device_id": device_id,
+        "type": "streak_bonus",
+    }).to_list(200)
+
+    awarded_milestones = set()
+    for tx in existing_streak_txs:
+        metadata = tx.get("metadata", {})
+        milestone = metadata.get("milestone")
+        if isinstance(milestone, int):
+            awarded_milestones.add(milestone)
+        else:
+            try:
+                awarded_milestones.add(int(milestone))
+            except (TypeError, ValueError):
+                pass
+
+    for milestone, (xp_amount, out_amount) in milestone_rewards.items():
+        if streak >= milestone and milestone not in awarded_milestones:
+            metadata = {"milestone": milestone, "date": date_str}
+            await _create_xp_transaction(device_id, "streak_bonus", xp_amount, metadata, day_start)
+            await _create_out_transaction(device_id, "streak_bonus", out_amount, metadata, day_start)
+
 # ==================== USER ROUTES ====================
 
 @api_router.post("/users", response_model=UserProfile)
@@ -448,6 +879,78 @@ async def daily_checkin(device_id: str):
         user=UserProfile(**fresh_user),
     )
 
+
+# ==================== MEMBERSHIP ROUTES ====================
+
+@api_router.get("/membership/status/{device_id}", response_model=MembershipStatusResponse)
+async def get_membership_status(device_id: str):
+    user = await db.users.find_one({"device_id": device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    tier = user.get("membership_tier", "free")
+    if tier not in ["free", "pro", "black"]:
+        tier = "free"
+
+    return MembershipStatusResponse(
+        device_id=device_id,
+        membership_tier=tier,
+        black_eligible=bool(user.get("black_eligible", False)),
+    )
+
+
+@api_router.post("/membership/upgrade", response_model=MembershipStatusResponse)
+async def upgrade_membership(payload: MembershipUpgradeRequest):
+    user = await db.users.find_one({"device_id": payload.device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    target_tier = payload.tier.lower().strip()
+    if target_tier not in ["pro", "black"]:
+        raise HTTPException(status_code=400, detail="Invalid upgrade tier")
+
+    current_tier = user.get("membership_tier", "free")
+    if current_tier not in ["free", "pro", "black"]:
+        current_tier = "free"
+
+    black_eligible = bool(user.get("black_eligible", False))
+    if target_tier == "black":
+        if current_tier != "pro":
+            raise HTTPException(status_code=400, detail="Black upgrade requires Pro membership first")
+        if not black_eligible:
+            raise HTTPException(status_code=400, detail="User is not yet Black eligible")
+
+    await db.users.update_one(
+        {"device_id": payload.device_id},
+        {"$set": {"membership_tier": target_tier}},
+    )
+
+    updated = await db.users.find_one({"device_id": payload.device_id})
+    return MembershipStatusResponse(
+        device_id=payload.device_id,
+        membership_tier=updated.get("membership_tier", "free"),
+        black_eligible=bool(updated.get("black_eligible", False)),
+    )
+
+
+@api_router.post("/membership/downgrade", response_model=MembershipStatusResponse)
+async def downgrade_membership(payload: MembershipDowngradeRequest):
+    user = await db.users.find_one({"device_id": payload.device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.users.update_one(
+        {"device_id": payload.device_id},
+        {"$set": {"membership_tier": "free"}},
+    )
+
+    updated = await db.users.find_one({"device_id": payload.device_id})
+    return MembershipStatusResponse(
+        device_id=payload.device_id,
+        membership_tier=updated.get("membership_tier", "free"),
+        black_eligible=bool(updated.get("black_eligible", False)),
+    )
+
 # ==================== STEP TRACKING ROUTES ====================
 
 @api_router.post("/steps", response_model=StepRecord)
@@ -498,6 +1001,7 @@ async def record_steps(step_data: StepRecordCreate):
             streak,
             step_data.active_minutes
         )
+        black_eligible = bool(user.get("black_eligible", False) or streak >= 14)
         
         await db.users.update_one(
             {"device_id": step_data.device_id},
@@ -507,9 +1011,17 @@ async def record_steps(step_data: StepRecordCreate):
                 "outside_score": outside_score,
                 "current_streak": streak,
                 "longest_streak": max(user.get("longest_streak", 0), streak),
+                "black_eligible": black_eligible,
                 "last_active": datetime.utcnow()
             }}
         )
+
+        if step_data.steps > 0:
+            await _award_active_day_and_streak(
+                step_data.device_id,
+                streak,
+                step_data.date,
+            )
     
     return StepRecord(**record)
 
@@ -829,21 +1341,135 @@ class GroupCreate(BaseModel):
     description: str = ""
     creator_device_id: str
     avatar_color: str = "#FF6B35"
+    tagline: str = ""
+    privacy: str = "public"  # public | request | invite
 
 class GroupUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     avatar_color: Optional[str] = None
 
+
+class GroupSettingsUpdate(BaseModel):
+    device_id: str
+    name: Optional[str] = None
+    tagline: Optional[str] = None
+    description: Optional[str] = None
+    privacy: Optional[str] = None  # public | request | invite
+
+
+class GroupLogoUploadRequest(BaseModel):
+    device_id: str
+    logo_url: str
+    mime_type: str
+    width: int
+    height: int
+    size_bytes: int
+
 class Group(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
+    tagline: str = ""
     description: str = ""
+    privacy: str = "public"  # public | request | invite
     creator_device_id: str
     members: List[str] = []  # List of device_ids
+    roles: Dict[str, str] = {}  # device_id -> owner | mod | member
+    logo_url: Optional[str] = None
+    tier_badge: str = "starter"
+    weekly_active_members: int = 0
+    crew_xp: int = 0
     avatar_color: str = "#FF6B35"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     invite_code: str = Field(default_factory=lambda: str(uuid.uuid4())[:8].upper())
+
+
+def _normalize_membership_tier(tier: Optional[str]) -> str:
+    safe_tier = str(tier or "free").lower().strip()
+    if safe_tier in ["pro", "black"]:
+        return safe_tier
+    return "free"
+
+
+def _ownership_limit_for_tier(tier: str) -> int:
+    if tier == "black":
+        return 3
+    if tier == "pro":
+        return 1
+    return 0
+
+
+def _normalize_privacy(value: Optional[str]) -> str:
+    safe_privacy = str(value or "public").lower().strip()
+    if safe_privacy in ["public", "request", "invite"]:
+        return safe_privacy
+    return "public"
+
+
+def _compute_crew_tier_badge(weekly_active_members: int, crew_xp: int) -> str:
+    if weekly_active_members >= 20 and crew_xp >= 5000:
+        return "legend"
+    if weekly_active_members >= 10 and crew_xp >= 2000:
+        return "elite"
+    if weekly_active_members >= 5 and crew_xp >= 500:
+        return "rising"
+    return "starter"
+
+
+async def _enrich_group(group: dict) -> dict:
+    if not group:
+        return group
+
+    members = list(group.get("members", []) or [])
+    creator_device_id = group.get("creator_device_id")
+
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
+    roles = dict(roles)
+
+    if creator_device_id:
+        roles[creator_device_id] = "owner"
+    for member_id in members:
+        if roles.get(member_id) not in ["owner", "mod", "member"]:
+            roles[member_id] = "member"
+
+    if roles != group.get("roles"):
+        await db.groups.update_one(
+            {"id": group.get("id")},
+            {"$set": {"roles": roles}},
+        )
+    group["roles"] = roles
+
+    if not members:
+        group["weekly_active_members"] = 0
+        group["crew_xp"] = 0
+        group["tier_badge"] = _compute_crew_tier_badge(0, 0)
+        return group
+
+    week_start = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+    active_rows = await db.steps.aggregate([
+        {
+            "$match": {
+                "device_id": {"$in": members},
+                "date": {"$gte": week_start},
+                "steps": {"$gt": 0},
+            }
+        },
+        {"$group": {"_id": "$device_id"}},
+    ]).to_list(len(members))
+    weekly_active_members = len(active_rows)
+
+    xp_rows = await _xp_collection().aggregate([
+        {"$match": {"device_id": {"$in": members}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]).to_list(1)
+    crew_xp = int(xp_rows[0].get("total", 0) or 0) if xp_rows else 0
+
+    group["weekly_active_members"] = weekly_active_members
+    group["crew_xp"] = crew_xp
+    group["tier_badge"] = _compute_crew_tier_badge(weekly_active_members, crew_xp)
+    return group
 
 class GroupChallenge(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -888,17 +1514,35 @@ async def create_group(group_data: GroupCreate):
     user = await db.users.find_one({"device_id": group_data.creator_device_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
+    membership_tier = _normalize_membership_tier(user.get("membership_tier"))
+    ownership_limit = _ownership_limit_for_tier(membership_tier)
+    if ownership_limit == 0:
+        raise HTTPException(status_code=403, detail="Free membership cannot create crews")
+
+    owned_crews = await db.groups.count_documents({"creator_device_id": group_data.creator_device_id})
+    if owned_crews >= ownership_limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Crew ownership limit reached for {membership_tier} tier",
+        )
+
+    privacy = _normalize_privacy(group_data.privacy)
     group = Group(
-        name=group_data.name,
+        name=group_data.name.strip(),
+        tagline=group_data.tagline.strip(),
         description=group_data.description,
+        privacy=privacy,
         creator_device_id=group_data.creator_device_id,
         members=[group_data.creator_device_id],
+        roles={group_data.creator_device_id: "owner"},
         avatar_color=group_data.avatar_color
     )
     await db.groups.insert_one(group.dict())
     logger.info(f"Created new group: {group.name}")
-    return group
+    stored_group = await db.groups.find_one({"id": group.id})
+    enriched_group = await _enrich_group(stored_group or group.dict())
+    return Group(**enriched_group)
 
 @api_router.get("/groups/{group_id}", response_model=Group)
 async def get_group(group_id: str):
@@ -906,13 +1550,17 @@ async def get_group(group_id: str):
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-    return Group(**group)
+    enriched_group = await _enrich_group(group)
+    return Group(**enriched_group)
 
 @api_router.get("/groups/user/{device_id}")
 async def get_user_groups(device_id: str):
     """Get all groups a user is a member of"""
     groups = await db.groups.find({"members": device_id}).to_list(50)
-    return [Group(**g) for g in groups]
+    enriched = []
+    for group in groups:
+        enriched.append(Group(**(await _enrich_group(group))))
+    return enriched
 
 @api_router.post("/groups/{group_id}/join")
 async def join_group(group_id: str, device_id: str):
@@ -921,12 +1569,22 @@ async def join_group(group_id: str, device_id: str):
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    if device_id in group.get("members", []):
+    members = list(group.get("members", []) or [])
+    if device_id in members:
         return {"success": True, "message": "Already a member"}
-    
+
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
+    roles = dict(roles)
+
+    members.append(device_id)
+    if roles.get(device_id) not in ["owner", "mod"]:
+        roles[device_id] = "member"
+
     await db.groups.update_one(
         {"id": group_id},
-        {"$addToSet": {"members": device_id}}
+        {"$set": {"members": members, "roles": roles}}
     )
     return {"success": True, "message": "Joined group"}
 
@@ -937,22 +1595,49 @@ async def join_group_by_code(invite_code: str, device_id: str):
     if not group:
         raise HTTPException(status_code=404, detail="Invalid invite code")
     
-    if device_id in group.get("members", []):
-        return {"success": True, "message": "Already a member", "group": Group(**group)}
-    
+    members = list(group.get("members", []) or [])
+    if device_id in members:
+        enriched_group = await _enrich_group(group)
+        return {"success": True, "message": "Already a member", "group": Group(**enriched_group)}
+
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
+    roles = dict(roles)
+
+    members.append(device_id)
+    if roles.get(device_id) not in ["owner", "mod"]:
+        roles[device_id] = "member"
+
     await db.groups.update_one(
         {"invite_code": invite_code.upper()},
-        {"$addToSet": {"members": device_id}}
+        {"$set": {"members": members, "roles": roles}}
     )
     updated_group = await db.groups.find_one({"invite_code": invite_code.upper()})
-    return {"success": True, "message": "Joined group", "group": Group(**updated_group)}
+    enriched_group = await _enrich_group(updated_group)
+    return {"success": True, "message": "Joined group", "group": Group(**enriched_group)}
 
 @api_router.post("/groups/{group_id}/leave")
 async def leave_group(group_id: str, device_id: str):
     """Leave a group"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    members = [member_id for member_id in (group.get("members", []) or []) if member_id != device_id]
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
+    roles = dict(roles)
+    departed_role = roles.pop(device_id, None)
+
+    if departed_role == "owner" and members:
+        next_owner = members[0]
+        roles[next_owner] = "owner"
+
     await db.groups.update_one(
         {"id": group_id},
-        {"$pull": {"members": device_id}}
+        {"$set": {"members": members, "roles": roles}}
     )
     return {"success": True}
 
@@ -964,6 +1649,9 @@ async def get_group_members(group_id: str):
         raise HTTPException(status_code=404, detail="Group not found")
     
     today = datetime.utcnow().strftime("%Y-%m-%d")
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
     members_data = []
     
     for device_id in group.get("members", []):
@@ -980,7 +1668,11 @@ async def get_group_members(group_id: str):
                 "total_steps": user.get("total_steps", 0),
                 "current_streak": user.get("current_streak", 0),
                 "outside_score": user.get("outside_score", 0),
-                "is_creator": device_id == group.get("creator_device_id")
+                "is_creator": device_id == group.get("creator_device_id"),
+                "role": roles.get(
+                    device_id,
+                    "owner" if device_id == group.get("creator_device_id") else "member"
+                ),
             })
     
     # Sort by today's steps
@@ -1043,6 +1735,131 @@ async def get_group_leaderboard(group_id: str, period: str = "daily"):
             })
     
     return leaderboard
+
+
+@api_router.post("/groups/{group_id}/logo")
+async def upload_group_logo(group_id: str, payload: GroupLogoUploadRequest):
+    """Upload or update a crew logo URL with constraints."""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
+    caller_role = roles.get(payload.device_id)
+    if payload.device_id == group.get("creator_device_id"):
+        caller_role = "owner"
+
+    if caller_role != "owner":
+        raise HTTPException(status_code=403, detail="Only crew owners can upload logos")
+
+    user = await db.users.find_one({"device_id": payload.device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    membership_tier = _normalize_membership_tier(user.get("membership_tier"))
+    if membership_tier not in ["pro", "black"]:
+        raise HTTPException(status_code=403, detail="Pro or Black membership required for logo upload")
+
+    supported_mime = ["image/png", "image/jpeg", "image/jpg"]
+    mime_type = str(payload.mime_type or "").lower().strip()
+    if mime_type not in supported_mime:
+        raise HTTPException(status_code=400, detail="Logo must be PNG or JPG")
+
+    if payload.width <= 0 or payload.height <= 0 or payload.width != payload.height:
+        raise HTTPException(status_code=400, detail="Logo must be square")
+
+    max_logo_size_bytes = 2 * 1024 * 1024
+    if payload.size_bytes <= 0 or payload.size_bytes > max_logo_size_bytes:
+        raise HTTPException(status_code=400, detail="Logo exceeds max size (2MB)")
+
+    if payload.width > 2048:
+        raise HTTPException(status_code=400, detail="Logo dimensions exceed 2048x2048 limit")
+
+    logo_url = payload.logo_url.strip()
+    if not logo_url:
+        raise HTTPException(status_code=400, detail="Logo URL is required")
+    lower_logo_url = logo_url.lower()
+    is_supported_ext = lower_logo_url.endswith(".png") or lower_logo_url.endswith(".jpg") or lower_logo_url.endswith(".jpeg")
+    is_supported_data_uri = lower_logo_url.startswith("data:image/png") or lower_logo_url.startswith("data:image/jpeg")
+    if not is_supported_ext and not is_supported_data_uri:
+        raise HTTPException(status_code=400, detail="Logo must be PNG or JPG")
+
+    await db.groups.update_one(
+        {"id": group_id},
+        {"$set": {"logo_url": logo_url}},
+    )
+    updated = await db.groups.find_one({"id": group_id})
+    enriched_group = await _enrich_group(updated)
+    return {"success": True, "group": Group(**enriched_group), "logo_url": logo_url}
+
+
+@api_router.patch("/groups/{group_id}/settings", response_model=Group)
+async def update_group_settings(group_id: str, payload: GroupSettingsUpdate):
+    """Update crew settings. Owner/mod only."""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    roles = group.get("roles")
+    if not isinstance(roles, dict):
+        roles = {}
+    caller_role = roles.get(payload.device_id)
+    if payload.device_id == group.get("creator_device_id"):
+        caller_role = "owner"
+
+    if caller_role not in ["owner", "mod"]:
+        raise HTTPException(status_code=403, detail="Owner or mod role required")
+
+    updates = {}
+    if payload.name is not None:
+        safe_name = payload.name.strip()
+        if len(safe_name) < 3 or len(safe_name) > 30:
+            raise HTTPException(status_code=400, detail="Name must be 3-30 characters")
+        updates["name"] = safe_name
+
+    if payload.tagline is not None:
+        safe_tagline = payload.tagline.strip()
+        if len(safe_tagline) > 80:
+            raise HTTPException(status_code=400, detail="Tagline must be <= 80 characters")
+        updates["tagline"] = safe_tagline
+
+    if payload.description is not None:
+        safe_description = payload.description.strip()
+        if len(safe_description) > 280:
+            raise HTTPException(status_code=400, detail="Description must be <= 280 characters")
+        updates["description"] = safe_description
+
+    if payload.privacy is not None:
+        updates["privacy"] = _normalize_privacy(payload.privacy)
+
+    if updates:
+        await db.groups.update_one(
+            {"id": group_id},
+            {"$set": updates},
+        )
+
+    updated = await db.groups.find_one({"id": group_id})
+    enriched_group = await _enrich_group(updated)
+    return Group(**enriched_group)
+
+
+@api_router.get("/groups/{group_id}/roles")
+async def get_group_roles(group_id: str, device_id: Optional[str] = None):
+    """Get crew roles mapping and optional caller role."""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    enriched_group = await _enrich_group(group)
+    roles = enriched_group.get("roles", {}) if isinstance(enriched_group.get("roles"), dict) else {}
+    caller_role = roles.get(device_id) if device_id else None
+    return {
+        "group_id": group_id,
+        "roles": roles,
+        "caller_role": caller_role,
+    }
 
 # ==================== GROUP CHAT ROUTES ====================
 
@@ -1331,6 +2148,275 @@ async def get_mission_progress(mission_id: str):
     mission = await _evaluate_active_mission(mission)
     enriched = await _enrich_mission(mission)
     return MissionProgressResponse(**enriched)
+
+
+# ==================== BATTLES ROUTES ====================
+
+@api_router.post("/battles", response_model=Battle)
+async def create_battle(payload: BattleCreate):
+    creator = await db.users.find_one({"device_id": payload.creator_device_id})
+    opponent = await db.users.find_one({"device_id": payload.opponent_device_id})
+    if not creator or not opponent:
+        raise HTTPException(status_code=404, detail="Battle participants not found")
+    if payload.creator_device_id == payload.opponent_device_id:
+        raise HTTPException(status_code=400, detail="Cannot battle yourself")
+    if payload.duration_hours is None and payload.end_at is None:
+        raise HTTPException(status_code=400, detail="Provide duration_hours or end_at")
+
+    now = datetime.utcnow()
+    start_at = _to_naive_utc(payload.start_at or now)
+    if payload.end_at is not None:
+        end_at = _to_naive_utc(payload.end_at)
+    else:
+        hours = int(payload.duration_hours or 0)
+        if hours <= 0:
+            raise HTTPException(status_code=400, detail="duration_hours must be greater than 0")
+        end_at = start_at + timedelta(hours=hours)
+    if end_at <= start_at:
+        raise HTTPException(status_code=400, detail="end_at must be after start_at")
+
+    daily_limit = int(os.environ.get("BATTLE_DAILY_CREATE_LIMIT", "3"))
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    created_today = await db.battles.count_documents({
+        "creator_device_id": payload.creator_device_id,
+        "created_at": {"$gte": today_start, "$lt": today_end},
+    })
+    if created_today >= daily_limit:
+        raise HTTPException(status_code=429, detail="Daily battle creation limit reached")
+
+    battle = Battle(
+        creator_device_id=payload.creator_device_id,
+        opponent_device_id=payload.opponent_device_id,
+        start_at=start_at,
+        end_at=end_at,
+        status="pending" if start_at > now else "active",
+    )
+    await db.battles.insert_one(battle.dict())
+    stored = await db.battles.find_one({"id": battle.id})
+    return Battle(**stored)
+
+
+@api_router.get("/battles/{battle_id}", response_model=Battle)
+async def get_battle(battle_id: str):
+    battle = await db.battles.find_one({"id": battle_id})
+    if not battle:
+        raise HTTPException(status_code=404, detail="Battle not found")
+    battle = await _evaluate_battle_completion(battle)
+    return Battle(**battle)
+
+
+@api_router.get("/battles/user/{device_id}")
+async def list_user_battles(device_id: str, status: str = "all", limit: int = 50):
+    query = {
+        "$or": [
+            {"creator_device_id": device_id},
+            {"opponent_device_id": device_id},
+        ]
+    }
+    if status in ["active", "complete", "pending", "cancelled"]:
+        query["status"] = status
+    elif status != "all":
+        raise HTTPException(status_code=400, detail="Invalid status filter")
+
+    battles = await db.battles.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    normalized = []
+    for battle in battles:
+        battle = await _evaluate_battle_completion(battle)
+        normalized.append(Battle(**battle))
+    return normalized
+
+
+@api_router.post("/battles/{battle_id}/cancel")
+async def cancel_battle(battle_id: str, device_id: str):
+    battle = await db.battles.find_one({"id": battle_id})
+    if not battle:
+        raise HTTPException(status_code=404, detail="Battle not found")
+    if battle.get("creator_device_id") != device_id:
+        raise HTTPException(status_code=403, detail="Only creator can cancel this battle")
+    if battle.get("status") not in ["pending", "active"]:
+        raise HTTPException(status_code=400, detail="Battle cannot be cancelled")
+
+    await db.battles.update_one(
+        {"id": battle_id},
+        {"$set": {"status": "cancelled"}}
+    )
+    fresh = await db.battles.find_one({"id": battle_id})
+    return {"success": True, "battle": Battle(**fresh)}
+
+
+@api_router.get("/wallet/{device_id}")
+async def get_wallet(device_id: str):
+    user = await db.users.find_one({"device_id": device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    xp_total = await _sum_transaction_amount(_xp_collection(), device_id)
+    out_balance = await _sum_transaction_amount(_out_collection(), device_id)
+
+    recent_xp = await _xp_collection().find(
+        {"device_id": device_id}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    recent_out = await _out_collection().find(
+        {"device_id": device_id}
+    ).sort("created_at", -1).limit(20).to_list(20)
+
+    return {
+        "xp_total": xp_total,
+        "out_balance": out_balance,
+        "recent_xp": _format_recent_transactions(recent_xp),
+        "recent_out": _format_recent_transactions(recent_out),
+    }
+
+
+# ==================== EVENTS ROUTES ====================
+
+@api_router.get("/events", response_model=List[Event])
+async def get_events(city: Optional[str] = None):
+    await _ensure_default_events()
+
+    query = {}
+    if city:
+        query["city"] = city
+
+    events = await _events_collection().find(query).sort("start_at", 1).limit(100).to_list(100)
+    return [Event(**_coerce_event_doc(event)) for event in events]
+
+
+@api_router.get("/events/{event_id}", response_model=Event)
+async def get_event(event_id: str):
+    await _ensure_default_events()
+
+    event = await _events_collection().find_one({"id": event_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return Event(**_coerce_event_doc(event))
+
+
+@api_router.post("/events/{event_id}/rsvp")
+async def rsvp_event(event_id: str, payload: EventRSVPRequest):
+    user = await db.users.find_one({"device_id": payload.device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    event = await _events_collection().find_one({"id": event_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    normalized_event = _coerce_event_doc(event)
+    rsvps = list(normalized_event.get("rsvps", []))
+
+    if payload.device_id in rsvps:
+        return {
+            "success": True,
+            "already_rsvped": True,
+            "event": Event(**normalized_event),
+        }
+
+    capacity = int(normalized_event.get("capacity", 0) or 0)
+    if capacity > 0 and len(rsvps) >= capacity:
+        raise HTTPException(status_code=400, detail="Event capacity reached")
+
+    rsvps.append(payload.device_id)
+    await _events_collection().update_one(
+        {"id": event_id},
+        {"$set": {"rsvps": rsvps}},
+    )
+
+    updated_event = await _events_collection().find_one({"id": event_id})
+    return {
+        "success": True,
+        "already_rsvped": False,
+        "event": Event(**_coerce_event_doc(updated_event)),
+    }
+
+
+@api_router.post("/events/{event_id}/checkin")
+async def checkin_event(event_id: str, payload: EventCheckInRequest):
+    user = await db.users.find_one({"device_id": payload.device_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    event = await _events_collection().find_one({"id": event_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    normalized_event = _coerce_event_doc(event)
+    now = datetime.utcnow()
+    start_at = normalized_event.get("start_at")
+    end_at = normalized_event.get("end_at")
+
+    checkin_window_start = start_at - timedelta(hours=1)
+    checkin_window_end = end_at + timedelta(hours=1)
+    if now < checkin_window_start or now > checkin_window_end:
+        raise HTTPException(
+            status_code=400,
+            detail="Check-in is only available from 1 hour before start until 1 hour after end",
+        )
+
+    checkins = list(normalized_event.get("checkins", []))
+    rsvps = list(normalized_event.get("rsvps", []))
+    if payload.device_id in checkins:
+        return {
+            "success": True,
+            "already_checked_in": True,
+            "xp_awarded": 0,
+            "out_awarded": 0,
+            "event": Event(**normalized_event),
+            "user": UserProfile(**user),
+        }
+
+    if payload.device_id not in rsvps:
+        rsvps.append(payload.device_id)
+    checkins.append(payload.device_id)
+
+    await _events_collection().update_one(
+        {"id": event_id},
+        {"$set": {"rsvps": rsvps, "checkins": checkins}},
+    )
+
+    xp_reward = int(os.environ.get("EVENT_CHECKIN_XP", "120"))
+    out_reward = int(os.environ.get("EVENT_CHECKIN_OUT", "12"))
+
+    metadata = {
+        "event_id": normalized_event.get("id"),
+        "event_title": normalized_event.get("title"),
+    }
+    await _create_xp_transaction(payload.device_id, "event_checkin", xp_reward, metadata)
+    await _create_out_transaction(payload.device_id, "event_checkin", out_reward, metadata)
+
+    event_badges = list(user.get("event_badges", []) or [])
+    already_has_badge = any(
+        isinstance(badge, dict) and badge.get("event_id") == event_id
+        for badge in event_badges
+    )
+    if not already_has_badge:
+        event_badges.append(
+            {
+                "id": f"event-{event_id}",
+                "event_id": event_id,
+                "title": normalized_event.get("title", "Event"),
+                "city": normalized_event.get("city", ""),
+                "awarded_at": now,
+                "type": "event_checkin",
+            }
+        )
+
+    await db.users.update_one(
+        {"device_id": payload.device_id},
+        {"$set": {"event_badges": event_badges}},
+    )
+
+    updated_event = await _events_collection().find_one({"id": event_id})
+    updated_user = await db.users.find_one({"device_id": payload.device_id})
+    return {
+        "success": True,
+        "already_checked_in": False,
+        "xp_awarded": xp_reward,
+        "out_awarded": out_reward,
+        "event": Event(**_coerce_event_doc(updated_event)),
+        "user": UserProfile(**updated_user),
+    }
 
 # ==================== STATS ROUTES ====================
 

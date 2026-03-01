@@ -252,6 +252,7 @@ class PostgresDocStore:
         self.group_challenges = Collection(self, "group_challenges")
         self.daily_checkins = Collection(self, "daily_checkins")
         self.missions = Collection(self, "missions")
+        self.battles = Collection(self, "battles")
 
     async def initialize(self):
         async with await psycopg.AsyncConnection.connect(self.dsn) as conn:
