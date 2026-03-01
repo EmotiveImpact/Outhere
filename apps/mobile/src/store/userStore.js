@@ -31,6 +31,7 @@ export const useUserStore = create((set, get) => ({
   lastSyncAt: null,
   weeklyGoal: 20, // km — persisted separately
   xp: 0,          // XP points — persisted
+  out: 0,          // OUT currency — persisted
   streak: 0,       // consecutive check-in days — persisted
   lastCheckInDate: null, // ISO date string of last check-in
   isOutside: false, // social status — persisted
@@ -53,6 +54,7 @@ export const useUserStore = create((set, get) => ({
       const isOnboarded = await AsyncStorage.getItem("is_onboarded");
       const savedGoal = await AsyncStorage.getItem("weekly_goal");
       const savedXp = await AsyncStorage.getItem("xp");
+      const savedOut = await AsyncStorage.getItem("out_balance");
       const savedStreak = await AsyncStorage.getItem("streak");
       const savedLastCheckIn = await AsyncStorage.getItem("last_check_in_date");
       const savedIsOutside = await AsyncStorage.getItem("is_outside");
@@ -64,6 +66,7 @@ export const useUserStore = create((set, get) => ({
         isOnboarded: isOnboarded === "true",
         weeklyGoal: savedGoal ? parseInt(savedGoal, 10) : 20,
         xp: savedXp ? parseInt(savedXp, 10) : 0,
+        out: savedOut ? parseInt(savedOut, 10) : 0,
         streak: savedStreak ? parseInt(savedStreak, 10) : 0,
         lastCheckInDate: savedLastCheckIn || null,
         isOutside: savedIsOutside === "true",
@@ -124,6 +127,21 @@ export const useUserStore = create((set, get) => ({
     const newXp = current - amount;
     await AsyncStorage.setItem("xp", newXp.toString());
     set({ xp: newXp });
+    return true;
+  },
+
+  earnOUT: async (amount) => {
+    const newOut = (get().out || 0) + amount;
+    await AsyncStorage.setItem("out_balance", newOut.toString());
+    set({ out: newOut });
+  },
+
+  spendOUT: async (amount) => {
+    const current = get().out || 0;
+    if (current < amount) return false;
+    const newOut = current - amount;
+    await AsyncStorage.setItem("out_balance", newOut.toString());
+    set({ out: newOut });
     return true;
   },
 

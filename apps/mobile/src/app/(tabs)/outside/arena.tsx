@@ -13,20 +13,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
-  CalendarDays,
   ChevronRight,
   CircleAlert,
-  Clock3,
   Globe2,
   MapPin,
-  Package,
   Swords,
   Trophy,
   Zap,
 } from "lucide-react-native";
-import { battlesAPI, challengesAPI, eventsAPI, leaderboardAPI } from "@/services/api";
+import { battlesAPI, challengesAPI, leaderboardAPI } from "@/services/api";
 import { hapticSelection } from "@/services/haptics";
 import { useUserStore } from "@/store/userStore";
+import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 
 const NEON = "#00ff7f";
 const SURFACE = "#161618";
@@ -68,36 +66,6 @@ const fallbackChallenges = [
   },
 ];
 
-const fallbackEvents = [
-  {
-    id: "event-fallback-1",
-    title: "Tonight's Link-Up",
-    city: "London",
-    location: "Southbank",
-    start_at: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
-    capacity: 120,
-    rsvp_count: 34,
-  },
-  {
-    id: "event-fallback-2",
-    title: "Crew Tempo Session",
-    city: "London",
-    location: "Victoria Park",
-    start_at: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
-    capacity: 60,
-    rsvp_count: 21,
-  },
-  {
-    id: "event-fallback-3",
-    title: "Sponsor Pop-Up Miles",
-    city: "London",
-    location: "Canary Wharf",
-    start_at: new Date(Date.now() + 74 * 60 * 60 * 1000).toISOString(),
-    capacity: 200,
-    rsvp_count: 58,
-  },
-];
-
 const formatNumber = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0";
@@ -107,7 +75,6 @@ const formatNumber = (value) => {
 export default function ArenaScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const xp = useUserStore((s) => s.xp) || 0;
   const city = useUserStore((s) => s.user?.city);
   const deviceId = useUserStore((s) => s.deviceId);
 
@@ -117,6 +84,7 @@ export default function ArenaScreen() {
   const [durationHours, setDurationHours] = useState(24);
   const [battleError, setBattleError] = useState("");
   const [isCreatingBattle, setIsCreatingBattle] = useState(false);
+  const { scrollRef, handleScroll } = useOutsideScrollPersistence("arena");
 
   const { data: rankingData, isLoading: isRankingLoading } = useQuery({
     queryKey: ["arena", "rankings", rankScope, city],
@@ -126,12 +94,16 @@ export default function ArenaScreen() {
         rankScope === "city" && city ? city : undefined
       ),
     staleTime: 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const { data: challengeData, isLoading: isChallengesLoading } = useQuery({
     queryKey: ["arena", "challenges", city],
     queryFn: () => challengesAPI.getAll(city),
     staleTime: 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -143,14 +115,9 @@ export default function ArenaScreen() {
     queryFn: () => battlesAPI.getForUser(deviceId, "active"),
     enabled: !!deviceId,
     staleTime: 30 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
-
-  const { data: eventsData, isLoading: isEventsLoading } = useQuery({
-    queryKey: ["arena", "events", city],
-    queryFn: () => eventsAPI.getAll(city),
-    staleTime: 60 * 1000,
-  });
-
 
   const rankings = useMemo(() => {
     const raw = Array.isArray(rankingData)
@@ -245,37 +212,6 @@ export default function ArenaScreen() {
     return [...normalized, ...fallback].slice(0, 3);
   }, [activeBattleData, deviceId]);
 
-  const events = useMemo(() => {
-    const raw = Array.isArray(eventsData)
-      ? eventsData
-      : Array.isArray(eventsData?.events)
-        ? eventsData.events
-        : [];
-
-    if (!raw.length) return fallbackEvents;
-
-    return raw.slice(0, 3).map((event, index) => {
-      const rsvpCount = Array.isArray(event.rsvps)
-        ? event.rsvps.length
-        : Number(event.rsvp_count || 0);
-      const checkinCount = Array.isArray(event.checkins)
-        ? event.checkins.length
-        : Number(event.checkin_count || 0);
-
-      return {
-        id: event.id || `event-${index}`,
-        title: event.title || `Event ${index + 1}`,
-        city: event.city || "City",
-        location: event.location || "Location TBA",
-        start_at: event.start_at || event.startAt || new Date().toISOString(),
-        capacity: Number(event.capacity || 0),
-        organiser_type: event.organiser_type || "outHere",
-        rsvp_count: Number.isFinite(rsvpCount) ? rsvpCount : 0,
-        checkin_count: Number.isFinite(checkinCount) ? checkinCount : 0,
-      };
-    });
-  }, [eventsData]);
-
   const formatTimeLeft = (endAt) => {
     const end = new Date(endAt).getTime();
     const diff = Math.max(0, end - Date.now());
@@ -286,19 +222,6 @@ export default function ArenaScreen() {
     const minutes = totalMinutes % 60;
     if (days > 0) return `${days}d ${hours}h`;
     return `${hours}h ${minutes}m`;
-  };
-
-  const formatEventTime = (value) => {
-    if (!value) return "Time TBA";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Time TBA";
-    return date.toLocaleString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
   };
 
   const createBattle = async () => {
@@ -353,57 +276,18 @@ export default function ArenaScreen() {
     <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
       <StatusBar style="light" />
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={{
-          paddingTop: insets.top + 16,
+          paddingTop: 16,
           paddingBottom: insets.bottom + 100,
           paddingHorizontal: 20,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 24,
-          }}
-        >
-          <Text
-            style={{
-              color: "#fff",
-              fontSize: 32,
-              fontWeight: "800",
-              letterSpacing: -1,
-            }}
-          >
-            Arena
-          </Text>
-          <View
-            style={{
-              backgroundColor: "rgba(0, 255, 127, 0.1)",
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 20,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <Zap color="#fff" size={14} fill="#fff" />
-            <Text
-              style={{
-                color: "#fff",
-                fontWeight: "800",
-                fontSize: 14,
-                marginLeft: 6,
-                letterSpacing: -0.3,
-              }}
-            >
-              {formatNumber(xp)} XP
-            </Text>
-          </View>
-        </View>
-
+        {/* ─── Rankings Card ─── */}
         <View
           style={{
             backgroundColor: SURFACE,
@@ -533,6 +417,7 @@ export default function ArenaScreen() {
           )}
         </View>
 
+        {/* ─── Challenges Card ─── */}
         <View
           style={{
             backgroundColor: SURFACE,
@@ -549,9 +434,12 @@ export default function ArenaScreen() {
               marginBottom: 14,
             }}
           >
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-              Challenges
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Zap color={NEON} size={18} />
+              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
+                Challenges
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={() => {
                 hapticSelection();
@@ -638,6 +526,7 @@ export default function ArenaScreen() {
           )}
         </View>
 
+        {/* ─── Active Battles Card ─── */}
         <View
           style={{
             backgroundColor: SURFACE,
@@ -646,6 +535,7 @@ export default function ArenaScreen() {
             marginBottom: 14,
           }}
         >
+          {/* Battle creation modal */}
           <Modal
             visible={showBattleModal}
             transparent
@@ -832,110 +722,6 @@ export default function ArenaScreen() {
               </TouchableOpacity>
             ))
           )}
-        </View>
-
-        <View
-          style={{
-            backgroundColor: SURFACE,
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <CalendarDays color={NEON} size={18} />
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-              Events
-            </Text>
-          </View>
-          {isEventsLoading ? (
-            <View style={{ paddingVertical: 20, alignItems: "center" }}>
-              <ActivityIndicator color={NEON} />
-            </View>
-          ) : (
-            events.map((event, index) => (
-              <TouchableOpacity
-                key={event.id}
-                onPress={() => {
-                  if (!event.id.startsWith("event-fallback-")) {
-                    router.push(`/events/${event.id}`);
-                  }
-                }}
-                activeOpacity={0.85}
-                style={{
-                  marginTop: index === 0 ? 12 : 10,
-                  backgroundColor: "#1f1f22",
-                  borderRadius: 14,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  borderWidth: 1,
-                  borderColor: "#2a2a2d",
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 4,
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontWeight: "700", flex: 1 }} numberOfLines={1}>
-                    {event.title}
-                  </Text>
-                  <Text style={{ color: "#9efac8", fontSize: 11, fontWeight: "700", marginLeft: 10 }}>
-                    {event.organiser_type}
-                  </Text>
-                </View>
-                <Text style={{ color: "#777", fontSize: 12 }}>
-                  {event.city} • {event.location}
-                </Text>
-                <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
-                  {formatEventTime(event.start_at)}
-                </Text>
-                <Text style={{ color: "#888", fontSize: 11, marginTop: 5 }}>
-                  {formatNumber(event.rsvp_count)} RSVPs
-                  {event.capacity > 0 ? ` / ${formatNumber(event.capacity)}` : ""}
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-
-        <View
-          style={{
-            backgroundColor: SURFACE,
-            borderRadius: 24,
-            padding: 20,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Package color={NEON} size={18} />
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-              Drops
-            </Text>
-          </View>
-          <View
-            style={{
-              marginTop: 12,
-              borderWidth: 1,
-              borderColor: "rgba(0,255,127,0.22)",
-              borderRadius: 16,
-              backgroundColor: "rgba(0,255,127,0.06)",
-              paddingVertical: 14,
-              paddingHorizontal: 14,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Clock3 color={NEON} size={14} />
-              <Text style={{ color: "#9efac8", fontWeight: "700", fontSize: 12 }}>
-                00D : 00H : 00M
-              </Text>
-            </View>
-            <Text style={{ color: "#fff", fontWeight: "800", marginTop: 8 }}>
-              Drops coming soon
-            </Text>
-          </View>
         </View>
       </ScrollView>
     </View>
