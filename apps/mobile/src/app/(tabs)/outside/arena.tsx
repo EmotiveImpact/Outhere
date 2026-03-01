@@ -21,7 +21,7 @@ import {
   Trophy,
   Zap,
 } from "lucide-react-native";
-import { battlesAPI, challengesAPI, leaderboardAPI } from "@/services/api";
+import { battlesAPI, challengesAPI, leaderboardAPI, membershipAPI } from "@/services/api";
 import { hapticSelection } from "@/services/haptics";
 import { useUserStore } from "@/store/userStore";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
@@ -228,6 +228,11 @@ export default function ArenaScreen() {
     if (!deviceId) return;
     if (!opponentUsername.trim()) {
       setBattleError("Enter opponent username");
+      return;
+    }
+
+    if (membershipTier === "free" && activeBattles.length >= 1) {
+      setBattleError("Free tier is limited to 1 active battle.");
       return;
     }
 

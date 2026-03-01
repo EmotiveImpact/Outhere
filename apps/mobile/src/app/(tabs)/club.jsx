@@ -1413,7 +1413,50 @@ export default function ClubScreen() {
                 {/* ── Club Header ── */}
                 <View style={{ marginBottom: 28 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-                    <View
+                    <TouchableOpacity
+                      disabled={!isOwner || membershipTier === "free" || isUploadingLogo}
+                      onPress={async () => {
+                        hapticSelection();
+                        // Import inline to save global scope
+                        const ImagePicker = require("expo-image-picker");
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                          allowsEditing: true,
+                          aspect: [1, 1],
+                          quality: 0.5,
+                        });
+                        if (!result.canceled && result.assets?.[0]?.uri) {
+                          setIsUploadingLogo(true);
+                          try {
+                            const formData = new FormData();
+                            formData.append("file", {
+                              uri: result.assets[0].uri,
+                              name: "logo.jpg",
+                              type: "image/jpeg",
+                            });
+                            formData.append("UPLOADCARE_PUB_KEY", "b398df9a888c304f56f1"); // Weavy pub key
+                            formData.append("UPLOADCARE_STORE", "1");
+                            const res = await fetch("https://upload.uploadcare.com/base/", {
+                              method: "POST",
+                              body: formData,
+                            });
+                            const data = await res.json();
+                            if (data?.file) {
+                              const newLogoUrl = `https://ucarecdn.com/${data.file}/`;
+                              if (activeGroup?.id) {
+                                await groupsAPI.updateGroup(activeGroup.id, { logo_url: newLogoUrl });
+                                await refreshCrewData();
+                                hapticSuccess();
+                              }
+                            }
+                          } catch (err) {
+                            console.error("Upload error", err);
+                            Alert.alert("Error", "Could not upload logo.");
+                          } finally {
+                            setIsUploadingLogo(false);
+                          }
+                        }
+                      }}
                       style={{
                         width: 56,
                         height: 56,
@@ -1425,6 +1468,7 @@ export default function ClubScreen() {
                         justifyContent: "center",
                         overflow: "hidden",
                         marginRight: 14,
+                        position: "relative",
                       }}
                     >
                       {activeGroup?.logo_url ? (
@@ -1432,7 +1476,18 @@ export default function ClubScreen() {
                       ) : (
                         <Text style={{ color: "#00ff7f", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
                       )}
-                    </View>
+                      
+                      {isOwner && membershipTier !== "free" && (
+                        <View style={{ position: "absolute", bottom: 0, width: "100%", height: 20, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: "#fff", fontSize: 8, fontWeight: "700" }}>EDIT</Text>
+                        </View>
+                      )}
+                      {isUploadingLogo && (
+                        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: "#fff", fontSize: 8 }}>...</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: -0.5 }} numberOfLines={1}>
                         {activeGroup?.name || squadName}
