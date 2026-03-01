@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Clock3, Crown, Lock, Package, Sparkles } from "lucide-react-native";
+import { Clock3, Crown, Package, Sparkles } from "lucide-react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 
 const NEON = "#00ff7f";
@@ -17,12 +19,34 @@ const ACTIVE_DROP = {
   currency: "OUT",
   stock: 47,
   totalStock: 100,
+  image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=400&fit=crop",
 };
 
 const PAST_DROPS = [
-  { id: "pd1", title: "Sponsor Recovery Kit", date: "Feb 20", claimed: 100, total: 100 },
-  { id: "pd2", title: "Crew Logo Sticker Pack", date: "Feb 12", claimed: 82, total: 100 },
-  { id: "pd3", title: "OutHere Snapback Cap", date: "Jan 30", claimed: 150, total: 150 },
+  {
+    id: "pd1",
+    title: "Sponsor Recovery Kit",
+    date: "Feb 20",
+    claimed: 100,
+    total: 100,
+    image: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=200&h=200&fit=crop",
+  },
+  {
+    id: "pd2",
+    title: "Crew Logo Sticker Pack",
+    date: "Feb 12",
+    claimed: 82,
+    total: 100,
+    image: "https://images.unsplash.com/photo-1572375992501-4b0892d50c69?w=200&h=200&fit=crop",
+  },
+  {
+    id: "pd3",
+    title: "OutHere Snapback Cap",
+    date: "Jan 30",
+    claimed: 150,
+    total: 150,
+    image: "https://images.unsplash.com/photo-1588850561407-ed78c334e67a?w=200&h=200&fit=crop",
+  },
 ];
 
 const formatCountdown = (target: Date) => {
@@ -70,25 +94,38 @@ export default function OutsideDropsScreen() {
             borderRadius: 24,
             borderWidth: 1,
             borderColor: "rgba(0,255,127,0.25)",
-            padding: 20,
+            overflow: "hidden",
             marginBottom: 16,
           }}
         >
-          {/* LIVE badge */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 14,
-            }}
-          >
+          {/* Hero image with gradient overlay */}
+          <View style={{ position: "relative" }}>
+            <Image
+              source={{ uri: ACTIVE_DROP.image }}
+              style={{ width: "100%", height: 200 }}
+              contentFit="cover"
+              transition={200}
+            />
+            <LinearGradient
+              colors={["transparent", "rgba(22,22,24,0.8)", SURFACE]}
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 100,
+              }}
+            />
+            {/* LIVE badge overlay */}
             <View
               style={{
+                position: "absolute",
+                top: 12,
+                left: 12,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 6,
-                backgroundColor: "rgba(0,255,127,0.12)",
+                backgroundColor: "rgba(0,0,0,0.6)",
                 paddingHorizontal: 10,
                 paddingVertical: 4,
                 borderRadius: 20,
@@ -109,97 +146,113 @@ export default function OutsideDropsScreen() {
                 LIVE
               </Text>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Package color="#777" size={12} />
-              <Text style={{ color: "#777", fontSize: 11, fontWeight: "600" }}>
-                {ACTIVE_DROP.stock}/{ACTIVE_DROP.totalStock} left
+            {/* Stock remaining overlay */}
+            <View
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 20,
+              }}
+            >
+              <Package color="#777" size={10} />
+              <Text style={{ color: "#aaa", fontSize: 10, fontWeight: "600" }}>
+                {ACTIVE_DROP.stock}/{ACTIVE_DROP.totalStock}
               </Text>
             </View>
           </View>
 
-          {/* Title */}
-          <Text
-            style={{
-              color: "#fff",
-              fontSize: 22,
-              fontWeight: "900",
-              letterSpacing: -0.5,
-              marginBottom: 6,
-            }}
-          >
-            {ACTIVE_DROP.title}
-          </Text>
-          <Text style={{ color: "#777", fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
-            {ACTIVE_DROP.subtitle}
-          </Text>
+          <View style={{ padding: 20, paddingTop: 4 }}>
+            {/* Title */}
+            <Text
+              style={{
+                color: "#fff",
+                fontSize: 22,
+                fontWeight: "900",
+                letterSpacing: -0.5,
+                marginBottom: 6,
+              }}
+            >
+              {ACTIVE_DROP.title}
+            </Text>
+            <Text style={{ color: "#777", fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
+              {ACTIVE_DROP.subtitle}
+            </Text>
 
-          {/* Countdown timer */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              marginBottom: 16,
-            }}
-          >
-            {[
-              { val: countdown.days, label: "D" },
-              { val: countdown.hours, label: "H" },
-              { val: countdown.minutes, label: "M" },
-              { val: countdown.seconds, label: "S" },
-            ].map((unit, i) => (
-              <React.Fragment key={unit.label}>
-                {i > 0 && (
-                  <Text style={{ color: "#555", fontSize: 20, fontWeight: "800", marginHorizontal: 2 }}>
-                    :
-                  </Text>
-                )}
-                <View
-                  style={{
-                    backgroundColor: "#111113",
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: "#2a2a2d",
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    alignItems: "center",
-                    minWidth: 52,
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: -0.5 }}>
-                    {unit.val}
-                  </Text>
-                  <Text style={{ color: "#555", fontSize: 9, fontWeight: "700", marginTop: 2 }}>
-                    {unit.label}
-                  </Text>
-                </View>
-              </React.Fragment>
-            ))}
-          </View>
-
-          {/* Stock bar */}
-          <View
-            style={{
-              height: 5,
-              borderRadius: 3,
-              backgroundColor: "#232326",
-              overflow: "hidden",
-              marginBottom: 10,
-            }}
-          >
+            {/* Countdown timer */}
             <View
               style={{
-                width: `${stockPct}%`,
-                height: "100%",
-                backgroundColor: NEON,
-                borderRadius: 3,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                marginBottom: 16,
               }}
-            />
+            >
+              {[
+                { val: countdown.days, label: "D" },
+                { val: countdown.hours, label: "H" },
+                { val: countdown.minutes, label: "M" },
+                { val: countdown.seconds, label: "S" },
+              ].map((unit, i) => (
+                <React.Fragment key={unit.label}>
+                  {i > 0 && (
+                    <Text style={{ color: "#555", fontSize: 20, fontWeight: "800", marginHorizontal: 2 }}>
+                      :
+                    </Text>
+                  )}
+                  <View
+                    style={{
+                      backgroundColor: "#111113",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: "#2a2a2d",
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      alignItems: "center",
+                      minWidth: 52,
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: -0.5 }}>
+                      {unit.val}
+                    </Text>
+                    <Text style={{ color: "#555", fontSize: 9, fontWeight: "700", marginTop: 2 }}>
+                      {unit.label}
+                    </Text>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+
+            {/* Stock bar */}
+            <View
+              style={{
+                height: 5,
+                borderRadius: 3,
+                backgroundColor: "#232326",
+                overflow: "hidden",
+                marginBottom: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: `${stockPct}%`,
+                  height: "100%",
+                  backgroundColor: NEON,
+                  borderRadius: 3,
+                }}
+              />
+            </View>
+            <Text style={{ color: NEON, fontSize: 12, fontWeight: "700", textAlign: "center" }}>
+              {ACTIVE_DROP.cost} OUT to claim
+            </Text>
           </View>
-          <Text style={{ color: NEON, fontSize: 12, fontWeight: "700", textAlign: "center" }}>
-            {ACTIVE_DROP.cost} OUT to claim
-          </Text>
         </View>
 
         {/* ─── Early Access Banner ─── */}
@@ -264,15 +317,21 @@ export default function OutsideDropsScreen() {
               borderRadius: 16,
               borderWidth: 1,
               borderColor: "#1e1e20",
-              padding: 14,
+              padding: 12,
               marginBottom: 10,
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "space-between",
               opacity: 0.6,
             }}
           >
-            <View style={{ flex: 1 }}>
+            {/* Thumbnail */}
+            <Image
+              source={{ uri: drop.image }}
+              style={{ width: 48, height: 48, borderRadius: 10 }}
+              contentFit="cover"
+              transition={200}
+            />
+            <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={{ color: "#aaa", fontSize: 14, fontWeight: "700" }}>
                 {drop.title}
               </Text>

@@ -3,7 +3,7 @@ import { Tabs } from "expo-router";
 import { BottomTabBar } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Animated, Easing, View } from "react-native";
-import { Home, Trophy, Users } from "lucide-react-native";
+import { Compass, Home, Users } from "lucide-react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
@@ -146,7 +146,7 @@ export default function TabLayout() {
           href: "/outside/arena",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
-              <Trophy color={color} size={24} />
+              <Compass color={color} size={24} />
             </AnimatedIcon>
           ),
         }}
