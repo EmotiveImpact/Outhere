@@ -143,6 +143,7 @@ export default function TabLayout() {
         name="outside"
         options={{
           title: "Outside",
+          href: "/outside/arena",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <Trophy color={color} size={24} />
