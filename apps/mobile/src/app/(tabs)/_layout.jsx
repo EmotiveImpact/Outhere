@@ -140,9 +140,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="challenges"
+        name="outside"
         options={{
-          title: "Challenges",
+          title: "Outside",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <Trophy color={color} size={24} />
@@ -164,7 +164,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="club"
         options={{
-          title: "Club",
+          title: "Clubs",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <Users color={color} size={24} />
@@ -196,6 +196,12 @@ export default function TabLayout() {
               </View>
             </AnimatedIcon>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="challenges"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

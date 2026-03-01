@@ -5,12 +5,13 @@ import { Image } from "expo-image";
 import {
   Users, Flame, Zap, Trophy, Route, Target,
   Plus, LogIn, Share2, Heart, MessageCircle, MessageSquare,
-  TrendingUp, X, MapPin, Send
+  TrendingUp, X, MapPin, Send, Crown
 } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useSettingsStore } from "@/utils/settingsStore";
 import { useUserStore } from "@/store/userStore";
 import { useClubStore, DEFAULT_CLUB_AVATAR } from "@/store/useClubStore";
+import { groupsAPI, membershipAPI } from "@/services/api";
 import { StatusBar } from "expo-status-bar";
 import { hapticSelection, hapticSuccess } from "@/services/haptics";
 import Shimmer from "@/components/Shimmer";
@@ -178,6 +179,7 @@ export default function ClubScreen() {
   const { showSteps, toggleMetric } = useSettingsStore();
   const squadName = useUserStore(state => state.squadName);
   const setSquadName = useUserStore(state => state.setSquadName);
+  const deviceId = useUserStore(state => state.deviceId);
   const feed = useClubStore((state) => state.feed);
   const addPost = useClubStore((state) => state.addPost);
   const toggleFeedLike = useClubStore((state) => state.toggleLike);
@@ -202,6 +204,16 @@ export default function ClubScreen() {
   const [burstTriggers, setBurstTriggers] = useState({});
   const [challenges, setChallenges] = useState(CHALLENGES);
   const [commentsByPost, setCommentsByPost] = useState({});
+  const [membershipTier, setMembershipTier] = useState("free");
+  const [userGroups, setUserGroups] = useState([]);
+  const [activeGroup, setActiveGroup] = useState(null);
+  const [groupNameInput, setGroupNameInput] = useState("");
+  const [groupTaglineInput, setGroupTaglineInput] = useState("");
+  const [groupDescriptionInput, setGroupDescriptionInput] = useState("");
+  const [groupPrivacy, setGroupPrivacy] = useState("public");
+  const [groupLogoInput, setGroupLogoInput] = useState("");
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
     if (typeof params?.tab === "string" && TABS.includes(params.tab)) {
@@ -232,6 +244,68 @@ export default function ClubScreen() {
       return changed ? next : prev;
     });
   }, [feed]);
+
+  const ownedCrewCount = userGroups.filter((group) => group?.creator_device_id === deviceId).length;
+  const ownershipLimit = membershipTier === "black" ? 3 : membershipTier === "pro" ? 1 : 0;
+  const canCreateCrew = ownershipLimit > 0;
+  const myRole = activeGroup?.roles?.[deviceId]
+    || (activeGroup?.creator_device_id === deviceId ? "owner" : "member");
+  const isOwner = myRole === "owner";
+  const canManageCrew = myRole === "owner" || myRole === "mod";
+
+  const refreshCrewData = async () => {
+    if (!deviceId) return;
+
+    try {
+      const [membership, groups] = await Promise.all([
+        membershipAPI.getStatus(deviceId).catch(() => null),
+        groupsAPI.getUserGroups(deviceId).catch(() => []),
+      ]);
+
+      const safeTier = String(membership?.membership_tier || "free").toLowerCase();
+      setMembershipTier(["pro", "black"].includes(safeTier) ? safeTier : "free");
+
+      const safeGroups = Array.isArray(groups) ? groups : [];
+      setUserGroups(safeGroups);
+
+      if (safeGroups.length > 0) {
+        const preferredGroup =
+          safeGroups.find((group) => group?.name === squadName)
+          || safeGroups.find((group) => group?.creator_device_id === deviceId)
+          || safeGroups[0];
+        setActiveGroup(preferredGroup);
+      } else {
+        setActiveGroup(null);
+      }
+    } catch (error) {
+      console.log("Failed to refresh crew data:", error);
+    }
+  };
+
+  useEffect(() => {
+    refreshCrewData();
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (!activeGroup) return;
+
+    setClubMeta((prev) => ({
+      ...prev,
+      name: activeGroup.name || prev.name,
+      inviteCode: activeGroup.invite_code || prev.inviteCode,
+      members: Array.isArray(activeGroup.members) ? activeGroup.members.length : prev.members,
+    }));
+    setInviteCodePreview(activeGroup.invite_code || CLUB.inviteCode);
+    setGroupNameInput(activeGroup.name || "");
+    setGroupTaglineInput(activeGroup.tagline || "");
+    setGroupDescriptionInput(activeGroup.description || "");
+    setGroupPrivacy(activeGroup.privacy || "public");
+    setGroupLogoInput(activeGroup.logo_url || "");
+
+    if (activeGroup.name && activeGroup.name !== squadName) {
+      setSquadName(activeGroup.name);
+    }
+  }, [activeGroup]);
 
 
   // Mock loading trigger for shimmer demo
@@ -287,48 +361,147 @@ export default function ClubScreen() {
   };
 
   const handleJoinClub = async () => {
+    if (!deviceId) {
+      Alert.alert("Unavailable", "Device identity is not ready yet.");
+      return;
+    }
+
     const code = inviteInput.trim().toUpperCase();
     if (!code) {
       Alert.alert("Invite Code Required", "Enter an invite code to join a club.");
       return;
     }
-    if (code !== clubMeta.inviteCode && code !== CLUB.inviteCode) {
-      Alert.alert("Invalid Code", "That invite code was not found.");
-      return;
-    }
+
     try {
-      await setSquadName(clubMeta.name);
+      const response = await groupsAPI.joinByCode(code, deviceId);
+      const joinedGroup = response?.group || null;
+      if (joinedGroup?.name) {
+        await setSquadName(joinedGroup.name);
+      }
+      if (joinedGroup) {
+        setActiveGroup(joinedGroup);
+      }
+      await refreshCrewData();
       setInviteInput("");
       setShowJoinModal(false);
       hapticSuccess();
-      Alert.alert("Joined Club", `You joined ${clubMeta.name}.`);
-    } catch {
-      Alert.alert("Join Failed", "Unable to join this club right now.");
+      Alert.alert("Joined Club", `You joined ${joinedGroup?.name || "your crew"}.`);
+    } catch (error) {
+      const detail = error?.data?.detail;
+      Alert.alert("Join Failed", detail || "Unable to join this club right now.");
     }
   };
 
   const handleCreateClub = async () => {
+    if (!deviceId) {
+      Alert.alert("Unavailable", "Device identity is not ready yet.");
+      return;
+    }
+
+    if (!canCreateCrew) {
+      Alert.alert("Pro or Black Required", "Upgrade to Pro or Black to create a crew.");
+      return;
+    }
+
+    if (ownedCrewCount >= ownershipLimit) {
+      Alert.alert("Ownership Limit Reached", `Your ${membershipTier.toUpperCase()} tier can own up to ${ownershipLimit} crew${ownershipLimit > 1 ? "s" : ""}.`);
+      return;
+    }
+
     const name = createClubName.trim();
     if (name.length < 3) {
       Alert.alert("Invalid Club Name", "Club name must be at least 3 characters.");
       return;
     }
-    const nextInviteCode = generateInviteCode(name);
+
     try {
-      await setSquadName(name);
-      setClubMeta((prev) => ({
-        ...prev,
+      const createdGroup = await groupsAPI.create({
         name,
-        inviteCode: nextInviteCode,
-        members: prev.members + 1,
-      }));
-      setInviteCodePreview(nextInviteCode);
+        description: "",
+        creator_device_id: deviceId,
+      });
+      if (createdGroup?.name) {
+        await setSquadName(createdGroup.name);
+      }
+      setActiveGroup(createdGroup || null);
+      await refreshCrewData();
       setCreateClubName("");
       setShowCreateModal(false);
       hapticSuccess();
-      Alert.alert("Club Created", `Invite code: ${nextInviteCode}`);
-    } catch {
-      Alert.alert("Create Failed", "Unable to create club right now.");
+      Alert.alert("Club Created", `Invite code: ${createdGroup?.invite_code || generateInviteCode(name)}`);
+    } catch (error) {
+      const detail = error?.data?.detail;
+      Alert.alert("Create Failed", detail || "Unable to create club right now.");
+    }
+  };
+
+  const handleSaveCrewSettings = async () => {
+    if (!activeGroup?.id || !deviceId) return;
+    if (!canManageCrew) {
+      Alert.alert("Admin Only", "Only crew owners or mods can update crew settings.");
+      return;
+    }
+
+    setIsSavingSettings(true);
+    try {
+      const updatedGroup = await groupsAPI.updateSettings(activeGroup.id, {
+        device_id: deviceId,
+        name: groupNameInput,
+        tagline: groupTaglineInput,
+        description: groupDescriptionInput,
+        privacy: groupPrivacy,
+      });
+      setActiveGroup(updatedGroup || activeGroup);
+      if (updatedGroup?.name) {
+        await setSquadName(updatedGroup.name);
+      }
+      await refreshCrewData();
+      hapticSuccess();
+      Alert.alert("Crew Updated", "Crew settings were saved.");
+    } catch (error) {
+      const detail = error?.data?.detail;
+      Alert.alert("Update Failed", detail || "Unable to update crew settings right now.");
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleUploadLogo = async () => {
+    if (!activeGroup?.id || !deviceId) return;
+    if (!isOwner) {
+      Alert.alert("Owner Only", "Only the crew owner can upload logos.");
+      return;
+    }
+
+    const logoUrl = groupLogoInput.trim();
+    if (!logoUrl) {
+      Alert.alert("Logo Required", "Add a PNG or JPG logo URL first.");
+      return;
+    }
+
+    const lower = logoUrl.toLowerCase();
+    const mimeType = lower.endsWith(".png") ? "image/png" : "image/jpeg";
+
+    setIsUploadingLogo(true);
+    try {
+      const response = await groupsAPI.uploadLogo(activeGroup.id, {
+        device_id: deviceId,
+        logo_url: logoUrl,
+        mime_type: mimeType,
+        width: 512,
+        height: 512,
+        size_bytes: 240000,
+      });
+      const updatedGroup = response?.group || activeGroup;
+      setActiveGroup(updatedGroup);
+      await refreshCrewData();
+      hapticSuccess();
+      Alert.alert("Logo Updated", "Crew logo uploaded.");
+    } catch (error) {
+      const detail = error?.data?.detail;
+      Alert.alert("Upload Failed", detail || "Unable to upload logo right now.");
+    } finally {
+      setIsUploadingLogo(false);
     }
   };
 
@@ -423,9 +596,39 @@ export default function ClubScreen() {
           
           {/* Title & Actions Row */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
-            <View>
-              <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" }}>Your Club</Text>
-              <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", letterSpacing: -1, marginTop: 4 }}>{squadName}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, marginRight: 12 }}>
+              <View
+                style={{
+                  width: 58,
+                  height: 58,
+                  borderRadius: 18,
+                  backgroundColor: "#151515",
+                  borderWidth: 2,
+                  borderColor: "rgba(0,255,127,0.45)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  marginRight: 12,
+                }}
+              >
+                {activeGroup?.logo_url ? (
+                  <Image source={{ uri: activeGroup.logo_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                ) : (
+                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
+                )}
+              </View>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" }}>Your Crew</Text>
+                <Text style={{ color: "#fff", fontSize: 30, fontWeight: "800", letterSpacing: -1, marginTop: 4 }} numberOfLines={1}>
+                  {activeGroup?.name || squadName}
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+                  <Crown color="#00ff7f" size={12} />
+                  <Text style={{ color: "#8af6be", fontSize: 11, fontWeight: "700", marginLeft: 6, textTransform: "uppercase" }}>
+                    {String(activeGroup?.tier_badge || "starter")}
+                  </Text>
+                </View>
+              </View>
             </View>
             
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -455,6 +658,119 @@ export default function ClubScreen() {
               <Text style={{ color: "#777", fontSize: 13, fontWeight: "500", marginTop: 2 }}>Global Rank</Text>
             </View>
           </View>
+
+          <View style={{ backgroundColor: "#141416", borderRadius: 16, borderWidth: 1, borderColor: "#1f1f21", padding: 14, marginBottom: 16 }}>
+            <Text style={{ color: "#9efac8", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>Membership</Text>
+            <Text style={{ color: "#fff", marginTop: 6, fontSize: 14, fontWeight: "700" }}>
+              {membershipTier.toUpperCase()} · Ownership {ownedCrewCount}/{ownershipLimit || 0}
+            </Text>
+            {membershipTier === "free" && (
+              <Text style={{ color: "#888", marginTop: 4, fontSize: 12 }}>
+                Free members cannot create crews or upload logos.
+              </Text>
+            )}
+          </View>
+
+          {activeGroup && canManageCrew && (
+            <View style={{ backgroundColor: "#161618", borderRadius: 18, borderWidth: 1, borderColor: "#232325", padding: 14, marginBottom: 18 }}>
+              <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800", marginBottom: 10 }}>Admin Panel</Text>
+              <TextInput
+                value={groupNameInput}
+                onChangeText={setGroupNameInput}
+                placeholder="Crew name"
+                placeholderTextColor="#444"
+                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 }}
+              />
+              <TextInput
+                value={groupTaglineInput}
+                onChangeText={setGroupTaglineInput}
+                placeholder="Tagline"
+                placeholderTextColor="#444"
+                maxLength={80}
+                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 }}
+              />
+              <TextInput
+                value={groupDescriptionInput}
+                onChangeText={setGroupDescriptionInput}
+                placeholder="Description"
+                placeholderTextColor="#444"
+                maxLength={280}
+                multiline
+                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, minHeight: 70, textAlignVertical: "top", marginBottom: 8 }}
+              />
+
+              <View style={{ flexDirection: "row", marginBottom: 8 }}>
+                {["public", "request", "invite"].map((privacy) => (
+                  <HapticTouchable
+                    key={privacy}
+                    onPress={() => setGroupPrivacy(privacy)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 7,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: groupPrivacy === privacy ? "rgba(0,255,127,0.5)" : "#2b2b2d",
+                      backgroundColor: groupPrivacy === privacy ? "rgba(0,255,127,0.12)" : "#1a1a1a",
+                      marginRight: 8,
+                    }}
+                  >
+                    <Text style={{ color: groupPrivacy === privacy ? "#9efac8" : "#888", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>
+                      {privacy}
+                    </Text>
+                  </HapticTouchable>
+                ))}
+              </View>
+
+              <TextInput
+                value={groupLogoInput}
+                onChangeText={setGroupLogoInput}
+                placeholder="Logo URL (.png / .jpg)"
+                placeholderTextColor="#444"
+                autoCapitalize="none"
+                style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#262628", color: "#fff", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+              />
+
+              <View style={{ flexDirection: "row" }}>
+                <HapticTouchable
+                  disabled={isSavingSettings}
+                  onPress={handleSaveCrewSettings}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#00ff7f",
+                    borderRadius: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: 10,
+                    marginRight: 8,
+                    opacity: isSavingSettings ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: "#000", fontSize: 12, fontWeight: "800" }}>
+                    {isSavingSettings ? "Saving..." : "Save Settings"}
+                  </Text>
+                </HapticTouchable>
+                <HapticTouchable
+                  disabled={isUploadingLogo || !isOwner}
+                  onPress={handleUploadLogo}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#1f1f21",
+                    borderRadius: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: 10,
+                    borderWidth: 1,
+                    borderColor: "#2c2c2f",
+                    opacity: isUploadingLogo || !isOwner ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: "#aaa", fontSize: 12, fontWeight: "800" }}>
+                    {isUploadingLogo ? "Uploading..." : "Upload Logo"}
+                  </Text>
+                </HapticTouchable>
+              </View>
+            </View>
+          )}
 
           {/* Navigation Tabs (No longer wrapped in ScrollView to match Apple cleanliness) */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#222" }}>
@@ -910,7 +1226,15 @@ export default function ClubScreen() {
                 <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Create a Club</Text>
                 <HapticTouchable onPress={() => setShowCreateModal(false)}><X color="#555" size={22} /></HapticTouchable>
               </View>
-              <Text style={{ color: "#555", fontSize: 13, marginBottom: 14 }}>Give your club a name to get started (max 25 chars).</Text>
+              <Text style={{ color: "#555", fontSize: 13, marginBottom: 10 }}>Give your crew a name to get started (max 25 chars).</Text>
+              <Text style={{ color: "#8af6be", fontSize: 12, marginBottom: 12 }}>
+                {membershipTier.toUpperCase()} tier · Ownership {ownedCrewCount}/{ownershipLimit || 0}
+              </Text>
+              {!canCreateCrew && (
+                <Text style={{ color: "#888", fontSize: 12, marginBottom: 10 }}>
+                  Upgrade to Pro or Black to create a crew.
+                </Text>
+              )}
               <TextInput
                 value={createClubName}
                 onChangeText={setCreateClubName}
@@ -923,8 +1247,19 @@ export default function ClubScreen() {
                 <Text style={{ color: "#555", fontSize: 12, marginBottom: 4 }}>Your invite code</Text>
                 <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 20, letterSpacing: 3 }}>{inviteCodePreview}</Text>
               </View>
-              <HapticTouchable onPress={handleCreateClub} style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
-                <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Create Club</Text>
+              <HapticTouchable
+                onPress={handleCreateClub}
+                disabled={!canCreateCrew || ownedCrewCount >= ownershipLimit}
+                style={{
+                  backgroundColor: !canCreateCrew || ownedCrewCount >= ownershipLimit ? "#2a2a2a" : "#00ff7f",
+                  padding: 16,
+                  borderRadius: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: !canCreateCrew || ownedCrewCount >= ownershipLimit ? "#777" : "#000", fontWeight: "800", fontSize: 16 }}>
+                  Create Club
+                </Text>
               </HapticTouchable>
             </Pressable>
           </Pressable>

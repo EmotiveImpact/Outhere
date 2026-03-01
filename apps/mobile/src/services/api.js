@@ -66,6 +66,25 @@ export const userAPI = {
     request(`/users/${deviceId}/checkin`, { method: "POST" }),
 };
 
+// ── Membership API ─────────────────────────────────────────────────────────────
+
+export const membershipAPI = {
+  getStatus: (deviceId) =>
+    request(`/membership/status/${deviceId}`),
+
+  upgrade: (deviceId, tier) =>
+    request("/membership/upgrade", {
+      method: "POST",
+      body: { device_id: deviceId, tier },
+    }),
+
+  downgrade: (deviceId) =>
+    request("/membership/downgrade", {
+      method: "POST",
+      body: { device_id: deviceId },
+    }),
+};
+
 // ── Steps API ───────────────────────────────────────────────────────────────────
 
 export const stepsAPI = {
@@ -140,6 +159,15 @@ export const groupsAPI = {
   getLeaderboard: (groupId, period = "daily") =>
     request(`/groups/${groupId}/leaderboard?period=${period}`),
 
+  uploadLogo: (groupId, data) =>
+    request(`/groups/${groupId}/logo`, { method: "POST", body: data }),
+
+  updateSettings: (groupId, data) =>
+    request(`/groups/${groupId}/settings`, { method: "PATCH", body: data }),
+
+  getRoles: (groupId, deviceId) =>
+    request(`/groups/${groupId}/roles${deviceId ? `?device_id=${deviceId}` : ""}`),
+
   // Chat
   sendMessage: (groupId, data) =>
     request(`/groups/${groupId}/messages`, { method: "POST", body: { group_id: groupId, ...data } }),
@@ -188,4 +216,42 @@ export const missionsAPI = {
 
   forfeit: (missionId, deviceId) =>
     request(`/missions/${missionId}/forfeit?device_id=${deviceId}`, { method: "POST" }),
+};
+
+// ── Battles API ───────────────────────────────────────────────────────────────
+
+export const battlesAPI = {
+  create: (data) =>
+    request("/battles", { method: "POST", body: data }),
+
+  get: (battleId) =>
+    request(`/battles/${battleId}`),
+
+  getForUser: (deviceId, status = "all") =>
+    request(`/battles/user/${deviceId}?status=${status}`),
+
+  cancel: (battleId, deviceId) =>
+    request(`/battles/${battleId}/cancel?device_id=${deviceId}`, { method: "POST" }),
+};
+
+// ── Events API ───────────────────────────────────────────────────────────────
+
+export const eventsAPI = {
+  getAll: (city) =>
+    request(`/events${city ? `?city=${encodeURIComponent(city)}` : ""}`),
+
+  get: (eventId) =>
+    request(`/events/${eventId}`),
+
+  rsvp: (eventId, deviceId) =>
+    request(`/events/${eventId}/rsvp`, {
+      method: "POST",
+      body: { device_id: deviceId },
+    }),
+
+  checkIn: (eventId, deviceId) =>
+    request(`/events/${eventId}/checkin`, {
+      method: "POST",
+      body: { device_id: deviceId },
+    }),
 };

@@ -22,12 +22,16 @@ import {
   ChevronRight,
   Zap,
   Flame,
+  Crown,
+  Lock,
+  ShieldAlert,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useUserStore } from "@/store/userStore";
 import { hapticSelection, hapticSuccess, hapticError } from "@/services/haptics";
 import { useMoveStore } from "@/store/useMoveStore";
+import { membershipAPI, userAPI } from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const fallbackUser = {
@@ -109,6 +113,36 @@ const formatFieldLabel = (key) =>
   key
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const MEMBERSHIP_TIERS = {
+  FREE: "free",
+  PRO: "pro",
+  BLACK: "black",
+};
+
+const normalizeTier = (tier) => {
+  if (tier === MEMBERSHIP_TIERS.PRO) return MEMBERSHIP_TIERS.PRO;
+  if (tier === MEMBERSHIP_TIERS.BLACK) return MEMBERSHIP_TIERS.BLACK;
+  return MEMBERSHIP_TIERS.FREE;
+};
+
+const hasAccess = (tier, feature, context = {}) => {
+  const safeTier = normalizeTier(tier);
+  const ownedCrews = Number.isFinite(Number(context.ownedCrews)) ? Number(context.ownedCrews) : 0;
+
+  if (feature === "full_battles") return safeTier !== MEMBERSHIP_TIERS.FREE;
+  if (feature === "join_crew") return safeTier !== MEMBERSHIP_TIERS.FREE || ownedCrews < 1;
+  if (feature === "create_crew") {
+    if (safeTier === MEMBERSHIP_TIERS.BLACK) return ownedCrews < 3;
+    if (safeTier === MEMBERSHIP_TIERS.PRO) return ownedCrews < 1;
+    return false;
+  }
+  if (feature === "redeem_out") return safeTier !== MEMBERSHIP_TIERS.FREE;
+  if (feature === "upload_logo") return safeTier === MEMBERSHIP_TIERS.BLACK;
+  if (feature === "priority_features") return safeTier === MEMBERSHIP_TIERS.BLACK;
+
+  return false;
+};
 
 const getRunStreak = (runs) => {
   if (!runs.length) return 0;
@@ -239,12 +273,24 @@ const fetchLeaderboard = async () => {
 const fetchRuns = async ({ pageParam = 0, queryKey }) => {
   try { const [, range] = queryKey; const res = await fetch(`/api/runs?range=${range}&limit=8&offset=${pageParam}`); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
+const fetchWallet = async (deviceId) => {
+  if (!deviceId) return null;
+  try { const res = await fetch(`/api/wallet/${deviceId}`); if (!res.ok) return null; return res.json(); } catch { return null; }
+};
+const fetchMembershipStatus = async (deviceId) => {
+  if (!deviceId) return null;
+  try { return await membershipAPI.getStatus(deviceId); } catch { return null; }
+};
+const fetchUserByDevice = async (deviceId) => {
+  if (!deviceId) return null;
+  try { return await userAPI.get(deviceId); } catch { return null; }
+};
 const updateProfile = async (payload) => {
   try { const res = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if (!res.ok) return null; return res.json(); } catch { return null; }
 };
 
 // ── TAB DEFINITIONS ───────────────────────────────────────────────────────────
-const PROFILE_TABS = ["Overview", "Stats", "Calendar", "About"];
+const PROFILE_TABS = ["Overview", "Stats", "Calendar", "Wallet", "About"];
 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 
@@ -261,10 +307,27 @@ export default function ProfileScreen() {
   const [selectedRun, setSelectedRun] = useState(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Overview");
   const [form, setForm] = useState({ name: "", avatar_url: "", bio: "", location: "", goal: "" });
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallFeature, setPaywallFeature] = useState("feature");
 
   const { data: dashboardData, isLoading: isDashboardLoading, isRefetching: isDashboardRefetching, refetch: refetchDashboard } = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboard });
   const { data: profileData, isLoading: isProfileLoading, isRefetching: isProfileRefetching, refetch: refetchProfile } = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
   const { data: friendsData, isRefetching: isFriendsRefetching, refetch: refetchFriends } = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
+  const { data: walletData, isRefetching: isWalletRefetching, refetch: refetchWallet } = useQuery({
+    queryKey: ["wallet", deviceId],
+    queryFn: () => fetchWallet(deviceId),
+    enabled: !!deviceId,
+  });
+  const { data: membershipData, isRefetching: isMembershipRefetching, refetch: refetchMembership } = useQuery({
+    queryKey: ["membership", deviceId],
+    queryFn: () => fetchMembershipStatus(deviceId),
+    enabled: !!deviceId,
+  });
+  const { data: userData, isRefetching: isUserRefetching, refetch: refetchUser } = useQuery({
+    queryKey: ["user", deviceId],
+    queryFn: () => fetchUserByDevice(deviceId),
+    enabled: !!deviceId,
+  });
   const { data: runsPages, isLoading: isRunsLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch: refetchRuns, isRefetching: isRunsRefetching } = useInfiniteQuery({
     queryKey: ["runs", selectedRange],
     queryFn: fetchRuns,
@@ -274,14 +337,35 @@ export default function ProfileScreen() {
 
   const saveProfileMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => { setSaveMessage("Profile updated."); setIsEditing(false); queryClient.invalidateQueries({ queryKey: ["profile"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["leaderboard"] }); },
+    onSuccess: () => { setSaveMessage("Profile updated."); setIsEditing(false); queryClient.invalidateQueries({ queryKey: ["profile"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["leaderboard"] }); queryClient.invalidateQueries({ queryKey: ["user", deviceId] }); },
     onError: () => { setSaveMessage("Could not update profile right now."); },
   });
+  const membershipMutation = useMutation({
+    mutationFn: ({ tier, downgrade = false }) => {
+      if (!deviceId) return null;
+      if (downgrade) return membershipAPI.downgrade(deviceId);
+      return membershipAPI.upgrade(deviceId, tier);
+    },
+    onSuccess: () => {
+      hapticSuccess();
+      queryClient.invalidateQueries({ queryKey: ["membership", deviceId] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: () => {
+      hapticError();
+    },
+  });
 
-  const user = storeUser || profileData?.user || dashboardData?.user || fallbackUser;
+  const user = userData || storeUser || profileData?.user || dashboardData?.user || fallbackUser;
   const events = Array.isArray(dashboardData?.events) ? dashboardData.events : [];
+  const eventBadges = Array.isArray(user?.event_badges) ? user.event_badges : [];
   const friendList = Array.isArray(friendsData) ? friendsData : [];
   const userRank = friendList.findIndex((friend) => friend.id === user.id) + 1;
+  const walletXp = Number.isFinite(Number(walletData?.xp_total)) ? Number(walletData?.xp_total) : xp;
+  const walletOut = Number.isFinite(Number(walletData?.out_balance)) ? Number(walletData?.out_balance) : 0;
+  const membershipTier = normalizeTier(membershipData?.membership_tier || user?.membership_tier || "free");
+  const blackEligible = Boolean(membershipData?.black_eligible || user?.black_eligible);
+  const canRedeemOut = hasAccess(membershipTier, "redeem_out");
 
   const { history: localHistory, loadHistory } = useMoveStore();
 
@@ -337,7 +421,7 @@ export default function ProfileScreen() {
   }, [profileData?.summary, allRuns]);
 
   const trend = useMemo(() => getLast7DaysTrend(allRuns), [allRuns]);
-  const achievements = useMemo(() => getAchievements({ summary: profileSummary, friendCount: friendList.length, eventsCount: events.length }), [profileSummary, friendList.length, events.length]);
+  const achievements = useMemo(() => getAchievements({ summary: profileSummary, friendCount: friendList.length, eventsCount: Math.max(events.length, eventBadges.length) }), [profileSummary, friendList.length, events.length, eventBadges.length]);
   const markedDates = useMemo(() => {
     const marks = {};
     allRuns.forEach(run => {
@@ -352,14 +436,29 @@ export default function ProfileScreen() {
   const userFields = useMemo(() => getUserFields(user), [user]);
 
   const isScreenLoading = isDashboardLoading || isProfileLoading || isRunsLoading;
-  const refreshing = isDashboardRefetching || isProfileRefetching || isFriendsRefetching || isRunsRefetching;
+  const refreshing = isDashboardRefetching || isProfileRefetching || isFriendsRefetching || isRunsRefetching || isWalletRefetching || isMembershipRefetching || isUserRefetching;
 
-  const onRefresh = () => { refetchDashboard(); refetchProfile(); refetchFriends(); refetchRuns(); };
+  const onRefresh = () => { refetchDashboard(); refetchProfile(); refetchFriends(); refetchRuns(); refetchWallet(); refetchMembership(); refetchUser(); };
 
   const handleSaveProfile = () => {
     setSaveMessage("");
     hapticSelection();
     saveProfileMutation.mutate({ name: form.name, avatar_url: form.avatar_url, bio: form.bio, location: form.location, goal: form.goal });
+  };
+
+  const handleUpgrade = (tier) => {
+    hapticSelection();
+    membershipMutation.mutate({ tier });
+  };
+
+  const handleProFeatureAttempt = (featureName) => {
+    if (canRedeemOut) {
+      setSaveMessage("OUT redemption coming soon.");
+      return;
+    }
+    hapticSelection();
+    setPaywallFeature(featureName);
+    setShowPaywall(true);
   };
 
   const handleRetakeOnboarding = async () => {
@@ -416,12 +515,15 @@ export default function ProfileScreen() {
               <View style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
                 <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{userRank > 0 ? `#${userRank}` : "Unranked"}</Text>
               </View>
-              {xp > 0 && (
+              {walletXp > 0 && (
                 <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
                   <Zap color="#fff" size={12} style={{ marginRight: 6 }} />
-                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{xp.toLocaleString()} XP</Text>
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{walletXp.toLocaleString()} XP</Text>
                 </View>
               )}
+              <View style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{walletOut.toLocaleString()} OUT</Text>
+              </View>
               {streak > 0 && (
                 <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center" }}>
                   <Flame color="#fff" size={12} style={{ marginRight: 6 }} />
@@ -429,6 +531,55 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
+          </View>
+        </View>
+
+        {/* ═══ MEMBERSHIP CARD ═══ */}
+        <View style={{ marginTop: 14, backgroundColor: "#161618", borderRadius: 24, padding: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Crown color="#00ff7f" size={16} />
+              <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800", marginLeft: 8 }}>
+                Membership: {membershipTier.toUpperCase()}
+              </Text>
+            </View>
+            {membershipMutation.isPending && <ActivityIndicator color="#00ff7f" size="small" />}
+          </View>
+
+          <Text style={{ color: blackEligible ? "#9efac8" : "#777", fontSize: 12, marginTop: 10 }}>
+            {blackEligible ? "Black eligible unlocked." : "Black unlocks at 14-day active streak."}
+          </Text>
+
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+            {membershipTier === "free" && (
+              <TouchableOpacity
+                onPress={() => handleUpgrade("pro")}
+                style={{ backgroundColor: "#00ff7f", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 }}
+              >
+                <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>Upgrade to Pro</Text>
+              </TouchableOpacity>
+            )}
+
+            {membershipTier === "pro" && blackEligible && (
+              <TouchableOpacity
+                onPress={() => handleUpgrade("black")}
+                style={{ backgroundColor: "#00ff7f", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 }}
+              >
+                <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>Upgrade to Black</Text>
+              </TouchableOpacity>
+            )}
+
+            {membershipTier === "pro" && !blackEligible && (
+              <View style={{ backgroundColor: "#1f1f21", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 }}>
+                <Text style={{ color: "#888", fontWeight: "700", fontSize: 12 }}>Keep your streak to unlock Black</Text>
+              </View>
+            )}
+
+            {membershipTier === "black" && (
+              <View style={{ backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 }}>
+                <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 12 }}>Black Active</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -488,7 +639,7 @@ export default function ProfileScreen() {
                 </View>
                 <View style={{ width: 1, backgroundColor: "rgba(0,0,0,0.1)", marginHorizontal: 15 }} />
                 <View>
-                  <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>+{xp} <Text style={{ fontSize: 12 }}>XP</Text></Text>
+                  <Text style={{ color: "#000", fontSize: 22, fontWeight: "800" }}>+{walletXp} <Text style={{ fontSize: 12 }}>XP</Text></Text>
                   <Text style={{ color: "rgba(0,0,0,0.5)", fontSize: 11, fontWeight: "700", marginTop: 4 }}>EARNED WEEKLY</Text>
                 </View>
               </View>
@@ -554,6 +705,45 @@ export default function ProfileScreen() {
                   </View>
                 ))}
               </ScrollView>
+            </View>
+
+            <View style={{ marginTop: 20 }}>
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Event Badges</Text>
+              {eventBadges.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }} contentContainerStyle={{ paddingRight: 20 }}>
+                  {eventBadges.map((badge, index) => (
+                    <View
+                      key={badge.id || `event-badge-${index}`}
+                      style={{
+                        width: 190,
+                        backgroundColor: "#161618",
+                        borderRadius: 22,
+                        padding: 16,
+                        marginRight: 12,
+                        borderWidth: 1,
+                        borderColor: "rgba(0,255,127,0.18)",
+                      }}
+                    >
+                      <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(0,255,127,0.12)", alignItems: "center", justifyContent: "center" }}>
+                        <Trophy size={16} color="#00ff7f" />
+                      </View>
+                      <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700", marginTop: 10 }} numberOfLines={1}>
+                        {badge.title || "Event Badge"}
+                      </Text>
+                      <Text style={{ color: "#888", fontSize: 12, marginTop: 6 }} numberOfLines={1}>
+                        {badge.city || "OutHere Event"}
+                      </Text>
+                      <Text style={{ color: "#666", fontSize: 11, marginTop: 6 }}>
+                        {formatCalendarDate(badge.awarded_at)}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, marginTop: 10 }}>
+                  <Text style={{ color: "#888" }}>Check in at events to earn badges.</Text>
+                </View>
+              )}
             </View>
 
             <TouchableOpacity onPress={handleRetakeOnboarding} style={{ backgroundColor: "#2a2a2a", borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 24, borderWidth: 1, borderColor: "#333" }}>
@@ -663,6 +853,101 @@ export default function ProfileScreen() {
         )}
 
         {/* ════════════════════════════════════════════════════════════════════════
+            TAB: WALLET — XP/OUT Totals + Recent Ledger Transactions
+            ════════════════════════════════════════════════════════════════════════ */}
+        {activeProfileTab === "Wallet" && (
+          <View style={{ marginTop: 20 }}>
+            <View style={{ backgroundColor: "#161618", borderRadius: 28, padding: 20 }}>
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Wallet</Text>
+              <View style={{ flexDirection: "row", marginTop: 14, gap: 10 }}>
+                <View style={{ flex: 1, backgroundColor: "rgba(0,255,127,0.1)", borderRadius: 16, padding: 14 }}>
+                  <Text style={{ color: "#9efac8", fontSize: 11, fontWeight: "700", letterSpacing: 1 }}>XP TOTAL</Text>
+                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 4 }}>{walletXp.toLocaleString()}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 16, padding: 14 }}>
+                  <Text style={{ color: "#aaa", fontSize: 11, fontWeight: "700", letterSpacing: 1 }}>OUT BALANCE</Text>
+                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 4 }}>{walletOut.toLocaleString()}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleProFeatureAttempt("OUT redemption")}
+                style={{
+                  marginTop: 12,
+                  backgroundColor: canRedeemOut ? "rgba(0,255,127,0.12)" : "#1f1f21",
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: canRedeemOut ? "rgba(0,255,127,0.3)" : "#2a2a2d",
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text style={{ color: canRedeemOut ? "#9efac8" : "#aaa", fontWeight: "700", fontSize: 12 }}>
+                  Redeem OUT
+                </Text>
+                {!canRedeemOut && <Lock color="#888" size={13} />}
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 16, backgroundColor: "#161618", borderRadius: 24, padding: 18 }}>
+              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", marginBottom: 10 }}>Recent XP</Text>
+              {(walletData?.recent_xp || []).length > 0 ? (
+                walletData.recent_xp.slice(0, 8).map((tx, idx) => (
+                  <View
+                    key={tx.id || `xp-${idx}`}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      paddingVertical: 10,
+                      borderBottomWidth: idx === Math.min(walletData.recent_xp.length, 8) - 1 ? 0 : 1,
+                      borderBottomColor: "#242424",
+                    }}
+                  >
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>{formatFieldLabel(tx.type || "xp")}</Text>
+                      <Text style={{ color: "#666", fontSize: 11, marginTop: 2 }}>{formatCalendarDate(tx.created_at)}</Text>
+                    </View>
+                    <Text style={{ color: "#00ff7f", fontWeight: "800" }}>+{toInt(tx.amount).toLocaleString()} XP</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ color: "#777", fontSize: 13 }}>No XP transactions yet.</Text>
+              )}
+            </View>
+
+            <View style={{ marginTop: 16, backgroundColor: "#161618", borderRadius: 24, padding: 18 }}>
+              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", marginBottom: 10 }}>Recent OUT</Text>
+              {(walletData?.recent_out || []).length > 0 ? (
+                walletData.recent_out.slice(0, 8).map((tx, idx) => (
+                  <View
+                    key={tx.id || `out-${idx}`}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      paddingVertical: 10,
+                      borderBottomWidth: idx === Math.min(walletData.recent_out.length, 8) - 1 ? 0 : 1,
+                      borderBottomColor: "#242424",
+                    }}
+                  >
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>{formatFieldLabel(tx.type || "out")}</Text>
+                      <Text style={{ color: "#666", fontSize: 11, marginTop: 2 }}>{formatCalendarDate(tx.created_at)}</Text>
+                    </View>
+                    <Text style={{ color: "#fff", fontWeight: "800" }}>+{toInt(tx.amount).toLocaleString()} OUT</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ color: "#777", fontSize: 13 }}>No OUT transactions yet.</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════════
             TAB: ABOUT — Events, User Data, Logout
             ════════════════════════════════════════════════════════════════════════ */}
         {activeProfileTab === "About" && (
@@ -705,6 +990,35 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* ═══ PAYWALL MODAL ═══ */}
+        <Modal visible={showPaywall} transparent animationType="fade">
+          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", paddingHorizontal: 24 }} onPress={() => setShowPaywall(false)}>
+            <Pressable style={{ backgroundColor: "#101012", borderRadius: 20, borderWidth: 1, borderColor: "#242424", padding: 20 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+                <ShieldAlert color="#00ff7f" size={16} />
+                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", marginLeft: 8 }}>Pro Feature</Text>
+              </View>
+              <Text style={{ color: "#aaa", fontSize: 13, lineHeight: 20 }}>
+                {paywallFeature} requires Pro or Black membership.
+              </Text>
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 14, gap: 8 }}>
+                <TouchableOpacity onPress={() => setShowPaywall(false)} style={{ backgroundColor: "#1f1f21", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: "#aaa", fontWeight: "700" }}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowPaywall(false);
+                    if (membershipTier === "free") handleUpgrade("pro");
+                  }}
+                  style={{ backgroundColor: "#00ff7f", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }}
+                >
+                  <Text style={{ color: "#000", fontWeight: "800" }}>Upgrade</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* ═══ RUN DETAIL MODAL ═══ */}
         <Modal visible={showRunDetail} transparent animationType="slide">
