@@ -908,6 +908,14 @@ export default function MoveScreen() {
   const handleShareToClubFeed = () => {
     if (!lastSession) return;
 
+    // Force drop all interaction locks so the user can freely interact with the map again
+    if (interactionLockTimeoutRef.current) {
+       clearTimeout(interactionLockTimeoutRef.current);
+       interactionLockTimeoutRef.current = null;
+    }
+    interactionLockRef.current = false;
+    setIsInteractionLocked(false);
+
     const userName = user?.name?.trim() || "You";
     const userAvatar = user?.avatar_url || DEFAULT_CLUB_AVATAR;
     const pace = formatPace(lastSession.steps, lastSession.durationSecs);
@@ -921,6 +929,10 @@ export default function MoveScreen() {
     });
 
     hapticSuccess();
+    resetCountdownState();
+    resetLocalOverlays();
+    resetMoveState();
+    
     router.push("/(tabs)/club?tab=Feed");
   };
 
