@@ -1,11 +1,13 @@
-import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Clock3, MapPin, Users, Zap } from "lucide-react-native";
+import { CheckCircle2, Clock3, MapPin, Users, Zap } from "lucide-react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
-import { hapticSelection } from "@/services/haptics";
+import { hapticSelection, hapticSuccess } from "@/services/haptics";
+import { eventsAPI } from "@/services/api";
+import { useUserStore } from "@/store/userStore";
 
 const NEON = "#00ff7f";
 const SURFACE = "#161618";
@@ -73,7 +75,7 @@ const EVENTS = [
   },
 ];
 
-const ORGANIZER_COLORS = {
+const ORGANIZER_COLORS: Record<string, string> = {
   outHere: NEON,
   crew: "#a78bfa",
   sponsor: "#fbbf24",
@@ -82,6 +84,54 @@ const ORGANIZER_COLORS = {
 export default function OutsideEventsScreen() {
   const { scrollRef, handleScroll } = useOutsideScrollPersistence("events");
   const router = useRouter();
+  const deviceId = useUserStore((s) => s.deviceId);
+
+  // rsvp state: Set of event IDs the user has RSVP'd to
+  const [rsvpd, setRsvpd] = useState<Set<string>>(new Set());
+  // loading state per event
+  const [rsvpLoading, setRsvpLoading] = useState<Set<string>>(new Set());
+  // local RSVP count overrides
+  const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
+
+  const handleRsvp = async (eventId: string, baseCount: number) => {
+    if (!deviceId) return;
+    hapticSelection();
+
+    const alreadyIn = rsvpd.has(eventId);
+    // Optimistic update
+    setRsvpd((prev) => {
+      const next = new Set(prev);
+      alreadyIn ? next.delete(eventId) : next.add(eventId);
+      return next;
+    });
+    setRsvpCounts((prev) => ({
+      ...prev,
+      [eventId]: (prev[eventId] ?? baseCount) + (alreadyIn ? -1 : 1),
+    }));
+    setRsvpLoading((prev) => new Set(prev).add(eventId));
+
+    try {
+      await eventsAPI.rsvp(eventId, deviceId);
+      hapticSuccess();
+    } catch {
+      // Revert on failure
+      setRsvpd((prev) => {
+        const next = new Set(prev);
+        alreadyIn ? next.add(eventId) : next.delete(eventId);
+        return next;
+      });
+      setRsvpCounts((prev) => ({
+        ...prev,
+        [eventId]: prev[eventId] ?? baseCount,
+      }));
+    } finally {
+      setRsvpLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
@@ -120,8 +170,11 @@ export default function OutsideEventsScreen() {
         </View>
 
         {EVENTS.map((event) => {
-          const fillPct = Math.min(100, (event.rsvpCount / event.capacity) * 100);
+          const currentCount = rsvpCounts[event.id] ?? event.rsvpCount;
+          const fillPct = Math.min(100, (currentCount / event.capacity) * 100);
           const organizerColor = ORGANIZER_COLORS[event.organizer] || NEON;
+          const isRsvpd = rsvpd.has(event.id);
+          const isLoading = rsvpLoading.has(event.id);
 
           return (
             <TouchableOpacity
@@ -225,10 +278,10 @@ export default function OutsideEventsScreen() {
                         marginBottom: 4,
                       }}
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                         <Users color="#777" size={11} />
                         <Text style={{ color: "#777", fontSize: 11, fontWeight: "600" }}>
-                          {event.rsvpCount}/{event.capacity}
+                          {currentCount}/{event.capacity}
                         </Text>
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
@@ -250,26 +303,39 @@ export default function OutsideEventsScreen() {
                         style={{
                           width: `${fillPct}%`,
                           height: "100%",
-                          backgroundColor: "rgba(0,255,127,0.5)",
+                          backgroundColor: isRsvpd ? NEON : "rgba(0,255,127,0.5)",
                           borderRadius: 2,
                         }}
                       />
                     </View>
                   </View>
                   <TouchableOpacity
-                    onPress={() => hapticSelection()}
+                    onPress={() => handleRsvp(event.id, event.rsvpCount)}
+                    disabled={isLoading}
                     style={{
-                      backgroundColor: "rgba(0,255,127,0.12)",
+                      backgroundColor: isRsvpd ? NEON : "rgba(0,255,127,0.12)",
                       borderWidth: 1,
-                      borderColor: "rgba(0,255,127,0.3)",
+                      borderColor: isRsvpd ? NEON : "rgba(0,255,127,0.3)",
                       borderRadius: 12,
                       paddingHorizontal: 14,
                       paddingVertical: 7,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 5,
+                      minWidth: 72,
+                      justifyContent: "center",
                     }}
                   >
-                    <Text style={{ color: NEON, fontSize: 12, fontWeight: "800" }}>
-                      RSVP
-                    </Text>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color={NEON} />
+                    ) : isRsvpd ? (
+                      <>
+                        <CheckCircle2 color="#000" size={12} />
+                        <Text style={{ color: "#000", fontSize: 12, fontWeight: "800" }}>Going</Text>
+                      </>
+                    ) : (
+                      <Text style={{ color: NEON, fontSize: 12, fontWeight: "800" }}>RSVP</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>

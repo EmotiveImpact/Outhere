@@ -31,7 +31,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useUserStore } from "@/store/userStore";
 import { hapticSelection, hapticSuccess, hapticError } from "@/services/haptics";
 import { useMoveStore } from "@/store/useMoveStore";
-import { membershipAPI, userAPI } from "@/services/api";
+import { membershipAPI, userAPI, battlesAPI } from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const fallbackUser = {
@@ -291,6 +291,75 @@ const updateProfile = async (payload) => {
 
 // ── TAB DEFINITIONS ───────────────────────────────────────────────────────────
 const PROFILE_TABS = ["Overview", "Stats", "Calendar", "Wallet", "About"];
+
+// ── ProfileBattlesList ─────────────────────────────────────────────────────────
+function ProfileBattlesList({ deviceId, router }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["profile-battles", deviceId],
+    queryFn: () => battlesAPI.getForUser(deviceId, "all"),
+    enabled: !!deviceId,
+    staleTime: 30000,
+  });
+
+  const battles = Array.isArray(data) ? data.slice(0, 5) : [];
+
+  const formatTimeLeft = (endAt) => {
+    const end = new Date(endAt).getTime();
+    const diff = Math.max(0, end - Date.now());
+    if (diff <= 0) return "Ended";
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
+    return `${h}h ${m}m`;
+  };
+
+  if (isLoading) return <ActivityIndicator color="#00ff7f" style={{ marginVertical: 12 }} />;
+  if (!battles.length) return <Text style={{ color: "#555", fontSize: 13 }}>No battles yet. Start one from Arena.</Text>;
+
+  return battles.map((battle, idx) => {
+    const isCreator = battle.creator_device_id === deviceId;
+    const opponentId = isCreator ? battle.opponent_device_id : battle.creator_device_id;
+    const iWon = battle.status === "complete" && battle.winner_device_id === deviceId;
+    const isComplete = battle.status === "complete";
+    const mySteps = isCreator ? (battle.creator_steps ?? 0) : (battle.opponent_steps ?? 0);
+    const theirSteps = isCreator ? (battle.opponent_steps ?? 0) : (battle.creator_steps ?? 0);
+
+    return (
+      <TouchableOpacity
+        key={battle.id || `pb-${idx}`}
+        onPress={() => { hapticSelection(); router.push(`/battles/${battle.id}`); }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 12,
+          borderBottomWidth: idx < battles.length - 1 ? 1 : 0,
+          borderBottomColor: "#242424",
+        }}
+      >
+        <View style={{ flex: 1, marginRight: 12 }}>
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+            vs {opponentId?.slice(0, 8) || "Opponent"}
+          </Text>
+          <Text style={{ color: "#555", fontSize: 11, marginTop: 2 }}>
+            {battle.metric === "distance" ? "Distance" : "Steps"} · {mySteps.toLocaleString()} vs {theirSteps.toLocaleString()}
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          {isComplete ? (
+            <Text style={{ color: iWon ? "#00ff7f" : "#ef4444", fontSize: 12, fontWeight: "800" }}>
+              {iWon ? "WON" : "LOST"}
+            </Text>
+          ) : (
+            <Text style={{ color: "#9efac8", fontSize: 12, fontWeight: "700" }}>
+              {formatTimeLeft(battle.end_at)}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  });
+}
 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 
@@ -943,6 +1012,18 @@ export default function ProfileScreen() {
               ) : (
                 <Text style={{ color: "#777", fontSize: 13 }}>No OUT transactions yet.</Text>
               )}
+            </View>
+
+            {/* My Battles */}
+            <View style={{ marginTop: 16, backgroundColor: "#161618", borderRadius: 24, padding: 18 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>My Battles</Text>
+                <TouchableOpacity onPress={() => { hapticSelection(); router.push("/outside/arena"); }} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: "#555", fontSize: 12, fontWeight: "700" }}>Arena</Text>
+                  <ChevronRight color="#555" size={13} />
+                </TouchableOpacity>
+              </View>
+              <ProfileBattlesList deviceId={deviceId} router={router} />
             </View>
           </View>
         )}
