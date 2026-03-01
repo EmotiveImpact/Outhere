@@ -165,7 +165,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="club"
         options={{
-          title: "Clubs",
+          title: "Crew",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
               <Users color={color} size={24} />
