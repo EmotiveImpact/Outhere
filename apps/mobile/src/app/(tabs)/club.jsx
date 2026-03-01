@@ -713,47 +713,42 @@ export default function ClubScreen() {
         {/* ── UNIFIED TOP HEADER ── */}
         <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 }}>
           
-          {/* Title & Actions Row */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, marginRight: 12 }}>
-              <View
-                style={{
-                  width: 58,
-                  height: 58,
-                  borderRadius: 18,
-                  backgroundColor: "#151515",
-                  borderWidth: 2,
-                  borderColor: "rgba(0,255,127,0.45)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  marginRight: 12,
-                }}
-              >
-                {activeGroup?.logo_url ? (
-                  <Image source={{ uri: activeGroup.logo_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                ) : (
-                  <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
-                )}
-              </View>
-              <View style={{ flexShrink: 1 }}>
-                <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" }}>Your Crew</Text>
-                <Text style={{ color: "#fff", fontSize: 30, fontWeight: "800", letterSpacing: -1, marginTop: 4 }} numberOfLines={1}>
-                  {activeGroup?.name || squadName}
+          {/* Title & Actions Row — tap avatar to open crew drawer */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}>
+            <HapticTouchable
+              onPress={openDrawer}
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: 18,
+                backgroundColor: "#151515",
+                borderWidth: 2,
+                borderColor: "rgba(0,255,127,0.45)",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                marginRight: 14,
+                flexShrink: 0,
+              }}
+            >
+              {activeGroup?.logo_url ? (
+                <Image source={{ uri: activeGroup.logo_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+              ) : (
+                <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
+              )}
+            </HapticTouchable>
+
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" }}>Your Crew</Text>
+              <Text style={{ color: "#fff", fontSize: 30, fontWeight: "800", letterSpacing: -1, marginTop: 2 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {activeGroup?.name || squadName}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
+                <Crown color="#00ff7f" size={11} />
+                <Text style={{ color: "#8af6be", fontSize: 11, fontWeight: "700", marginLeft: 5, textTransform: "uppercase" }}>
+                  {String(activeGroup?.tier_badge || "starter")}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
-                  <Crown color="#00ff7f" size={12} />
-                  <Text style={{ color: "#8af6be", fontSize: 11, fontWeight: "700", marginLeft: 6, textTransform: "uppercase" }}>
-                    {String(activeGroup?.tier_badge || "starter")}
-                  </Text>
-                </View>
               </View>
-            </View>
-            
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <HapticTouchable onPress={openDrawer} style={{ width: 44, height: 44, backgroundColor: "#151515", borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2d" }}>
-                <SlidersHorizontal color="#aaa" size={20} />
-              </HapticTouchable>
             </View>
           </View>
 
