@@ -106,11 +106,13 @@ config.cacheStores = () => [
   }),
 ];
 config.resetCache = false;
-config.fileMapCacheDirectory = cacheDir;
+const originalReporterUpdate = config.reporter?.update;
 config.reporter = {
   ...config.reporter,
   update: (event) => {
-    config.reporter?.update(event);
+    if (typeof originalReporterUpdate === 'function') {
+      originalReporterUpdate(event);
+    }
     const reportableErrors = [
       'error',
       'bundling_error',
