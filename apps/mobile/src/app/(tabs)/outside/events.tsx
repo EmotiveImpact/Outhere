@@ -1,7 +1,8 @@
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { CalendarDays, Clock3, MapPin, Users, Zap } from "lucide-react-native";
+import { Clock3, MapPin, Users, Zap } from "lucide-react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 import { hapticSelection } from "@/services/haptics";
@@ -20,6 +21,7 @@ const EVENTS = [
     rsvpCount: 89,
     capacity: 150,
     xpReward: 200,
+    image: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=600&h=300&fit=crop",
   },
   {
     id: "e2",
@@ -31,6 +33,7 @@ const EVENTS = [
     rsvpCount: 34,
     capacity: 60,
     xpReward: 100,
+    image: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=600&h=300&fit=crop",
   },
   {
     id: "e3",
@@ -42,6 +45,7 @@ const EVENTS = [
     rsvpCount: 112,
     capacity: 200,
     xpReward: 300,
+    image: "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=600&h=300&fit=crop",
   },
   {
     id: "e4",
@@ -53,6 +57,7 @@ const EVENTS = [
     rsvpCount: 22,
     capacity: 40,
     xpReward: 150,
+    image: "https://images.unsplash.com/photo-1519834785169-98be25ec3f84?w=600&h=300&fit=crop",
   },
   {
     id: "e5",
@@ -64,6 +69,7 @@ const EVENTS = [
     rsvpCount: 47,
     capacity: 80,
     xpReward: 125,
+    image: "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=600&h=300&fit=crop",
   },
 ];
 
@@ -130,134 +136,142 @@ export default function OutsideEventsScreen() {
                 borderRadius: 20,
                 borderWidth: 1,
                 borderColor: "#232326",
-                padding: 16,
-                marginBottom: 12,
+                overflow: "hidden",
+                marginBottom: 14,
               }}
             >
-              {/* Top row: Title + organizer badge */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: 8,
-                }}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "800", flex: 1 }}
-                  numberOfLines={1}
-                >
-                  {event.title}
-                </Text>
+              {/* Event cover image */}
+              <Image
+                source={{ uri: event.image }}
+                style={{ width: "100%", height: 140 }}
+                contentFit="cover"
+                transition={200}
+              />
+
+              <View style={{ padding: 16 }}>
+                {/* Top row: Title + organizer badge */}
                 <View
                   style={{
-                    backgroundColor: `${organizerColor}15`,
-                    borderWidth: 1,
-                    borderColor: `${organizerColor}30`,
-                    borderRadius: 8,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    marginLeft: 10,
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: 8,
                   }}
                 >
                   <Text
+                    style={{ color: "#fff", fontSize: 16, fontWeight: "800", flex: 1 }}
+                    numberOfLines={1}
+                  >
+                    {event.title}
+                  </Text>
+                  <View
                     style={{
-                      color: organizerColor,
-                      fontSize: 10,
-                      fontWeight: "700",
-                      textTransform: "uppercase",
+                      backgroundColor: `${organizerColor}15`,
+                      borderWidth: 1,
+                      borderColor: `${organizerColor}30`,
+                      borderRadius: 8,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      marginLeft: 10,
                     }}
                   >
-                    {event.organizer}
+                    <Text
+                      style={{
+                        color: organizerColor,
+                        fontSize: 10,
+                        fontWeight: "700",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {event.organizer}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Location + Date row */}
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                  <MapPin color="#9efac8" size={13} />
+                  <Text
+                    style={{
+                      color: "#9efac8",
+                      fontSize: 12,
+                      fontWeight: "700",
+                      marginLeft: 6,
+                    }}
+                  >
+                    {event.city} · {event.location}
                   </Text>
                 </View>
-              </View>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+                  <Clock3 color="#666" size={12} />
+                  <Text style={{ color: "#666", fontSize: 12, marginLeft: 6 }}>
+                    {event.date}
+                  </Text>
+                </View>
 
-              {/* Location row */}
-              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                <MapPin color="#9efac8" size={13} />
-                <Text
+                {/* Bottom row: RSVP bar + XP + RSVP button */}
+                <View
                   style={{
-                    color: "#9efac8",
-                    fontSize: 12,
-                    fontWeight: "700",
-                    marginLeft: 6,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                   }}
                 >
-                  {event.city} · {event.location}
-                </Text>
-              </View>
-
-              {/* Date row */}
-              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                <Clock3 color="#666" size={12} />
-                <Text style={{ color: "#666", fontSize: 12, marginLeft: 6 }}>
-                  {event.date}
-                </Text>
-              </View>
-
-              {/* Bottom row: RSVP bar + XP reward + RSVP button */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      marginBottom: 4,
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Users color="#777" size={11} />
-                      <Text style={{ color: "#777", fontSize: 11, fontWeight: "600" }}>
-                        {event.rsvpCount}/{event.capacity}
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                      <Zap color={NEON} size={10} fill={NEON} />
-                      <Text style={{ color: NEON, fontSize: 10, fontWeight: "700" }}>
-                        +{event.xpReward} XP
-                      </Text>
-                    </View>
-                  </View>
-                  <View
-                    style={{
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: "#232326",
-                      overflow: "hidden",
-                    }}
-                  >
+                  <View style={{ flex: 1, marginRight: 12 }}>
                     <View
                       style={{
-                        width: `${fillPct}%`,
-                        height: "100%",
-                        backgroundColor: "rgba(0,255,127,0.5)",
-                        borderRadius: 2,
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
                       }}
-                    />
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Users color="#777" size={11} />
+                        <Text style={{ color: "#777", fontSize: 11, fontWeight: "600" }}>
+                          {event.rsvpCount}/{event.capacity}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <Zap color={NEON} size={10} fill={NEON} />
+                        <Text style={{ color: NEON, fontSize: 10, fontWeight: "700" }}>
+                          +{event.xpReward} XP
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={{
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor: "#232326",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: `${fillPct}%`,
+                          height: "100%",
+                          backgroundColor: "rgba(0,255,127,0.5)",
+                          borderRadius: 2,
+                        }}
+                      />
+                    </View>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => hapticSelection()}
+                    style={{
+                      backgroundColor: "rgba(0,255,127,0.12)",
+                      borderWidth: 1,
+                      borderColor: "rgba(0,255,127,0.3)",
+                      borderRadius: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 7,
+                    }}
+                  >
+                    <Text style={{ color: NEON, fontSize: 12, fontWeight: "800" }}>
+                      RSVP
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => hapticSelection()}
-                  style={{
-                    backgroundColor: "rgba(0,255,127,0.12)",
-                    borderWidth: 1,
-                    borderColor: "rgba(0,255,127,0.3)",
-                    borderRadius: 12,
-                    paddingHorizontal: 14,
-                    paddingVertical: 7,
-                  }}
-                >
-                  <Text style={{ color: NEON, fontSize: 12, fontWeight: "800" }}>
-                    RSVP
-                  </Text>
-                </TouchableOpacity>
               </View>
             </TouchableOpacity>
           );
