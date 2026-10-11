@@ -79,7 +79,7 @@ const WrappedImage = forwardRef<ExpoImage.Image, ImageProps>(function WrappedIma
       if (Platform.OS === 'web') {
         setFallbackSource({ uri: buildGridPlaceholder(width, height) });
       } else {
-        setFallbackSource(require('../../src/__create/placeholder.svg'));
+        setFallbackSource(require('../../assets/images/placeholder.svg'));
       }
     },
     [source, fallbackSource, onError, style]

@@ -7,6 +7,13 @@ import { stepsAPI } from "../services/api";
 const STEP_LENGTH_METERS = 0.762; // Average step length
 const SYNC_INTERVAL = 30000; // Sync every 30 seconds
 
+// The user's local calendar day (YYYY-MM-DD). toISOString() gives the UTC day,
+// which is a day behind/ahead around midnight outside GMT.
+const localDateString = (d = new Date()) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 /**
  * usePedometer — real device step counting with backend sync.
  *
@@ -28,6 +35,9 @@ export const usePedometer = () => {
   const subscriptionRef = useRef(null);
   const syncIntervalRef = useRef(null);
   const baseStepsRef = useRef(0);
+  // Latest step total, read by the sync interval. The interval holds on to the
+  // syncSteps it was created with, so reading state there would always see 0.
+  const stepsRef = useRef(0);
 
   const { deviceId, updateTodayStats, setSyncStatus } = useUserStore();
 
@@ -58,8 +68,10 @@ export const usePedometer = () => {
   }, []);
 
   // Get steps from today
+  // Only called after checkPermission() has succeeded, so it doesn't gate on
+  // isPedometerAvailable (which may not have updated yet in this render).
   const getTodaySteps = useCallback(async () => {
-    if (!isPedometerAvailable || Platform.OS === "web") return 0;
+    if (Platform.OS === "web") return 0;
 
     try {
       const start = new Date();
@@ -72,16 +84,18 @@ export const usePedometer = () => {
       console.log("Error getting today steps:", error);
       return 0;
     }
-  }, [isPedometerAvailable]);
+  }, []);
 
   // Sync steps with backend
   const syncSteps = useCallback(async () => {
-    if (!deviceId) return;
+    // Nothing counted yet (or baseline unavailable): don't overwrite the
+    // server's total for today with 0.
+    if (!deviceId || stepsRef.current <= 0) return;
 
     try {
       setSyncStatus("syncing");
-      const today = new Date().toISOString().split("T")[0];
-      const totalSteps = currentSteps;
+      const today = localDateString();
+      const totalSteps = stepsRef.current;
       const totalDistance = (totalSteps * STEP_LENGTH_METERS) / 1000; // km
 
       await stepsAPI.record({
@@ -104,7 +118,7 @@ export const usePedometer = () => {
       console.log("Error syncing steps:", error);
       setSyncStatus("error");
     }
-  }, [deviceId, currentSteps, updateTodayStats, setSyncStatus]);
+  }, [deviceId, updateTodayStats, setSyncStatus]);
 
   // Start tracking
   const startTracking = useCallback(async () => {
@@ -120,6 +134,7 @@ export const usePedometer = () => {
       // Get baseline steps for today
       const todaySteps = await getTodaySteps();
       baseStepsRef.current = todaySteps;
+      stepsRef.current = todaySteps;
       setCurrentSteps(todaySteps);
       setDistance((todaySteps * STEP_LENGTH_METERS) / 1000);
 
@@ -127,6 +142,7 @@ export const usePedometer = () => {
       subscriptionRef.current = Pedometer.watchStepCount((result) => {
         const newSteps = baseStepsRef.current + result.steps;
         const newDistance = (newSteps * STEP_LENGTH_METERS) / 1000;
+        stepsRef.current = newSteps;
         setSessionSteps(result.steps);
         setCurrentSteps(newSteps);
         setDistance(newDistance);
@@ -136,7 +152,7 @@ export const usePedometer = () => {
         updateTodayStats({
           steps: newSteps,
           distance: newDistance,
-          date: new Date().toISOString().split("T")[0],
+          date: localDateString(),
         });
       });
 
@@ -170,6 +186,7 @@ export const usePedometer = () => {
   const simulateSteps = useCallback((steps) => {
     setCurrentSteps((prev) => {
       const newSteps = prev + steps;
+      stepsRef.current = newSteps;
       setDistance((newSteps * STEP_LENGTH_METERS) / 1000);
       return newSteps;
     });

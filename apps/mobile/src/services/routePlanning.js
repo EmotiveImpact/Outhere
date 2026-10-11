@@ -11,14 +11,14 @@ const MAPBOX_BASE_URL = "https://api.mapbox.com/directions/v5/mapbox/walking";
 const OSRM_BASE_URL   = "https://router.project-osrm.org/route/v1/foot";
 
 // Hardcoded fallback so Expo env-var inlining issues don't silently break routing.
-const MAPBOX_TOKEN =
-  process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ||
-  "pk.eyJ1IjoiZW1vdGl2ZWltcGFjdCIsImEiOiJjbW02ZDdyYnMwZTh3MnFwOWUwZHZib21tIn0.zNQu0WhiaNg-D2sTtr6KZg";
+// Without a token we skip Mapbox and fall back to OSRM below.
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
 // ── Mapbox Directions ─────────────────────────────────────────────────────────
 
 async function fetchMapboxRoute(coordinates, options = {}) {
   if (!coordinates || coordinates.length < 2) return null;
+  if (!MAPBOX_TOKEN) return null;
 
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 6000;
   const controller = new AbortController();

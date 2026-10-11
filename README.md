@@ -6,10 +6,13 @@ OUT HERE is an urban movement app built with React Native + Expo. It rewards rea
 
 ## Monorepo Structure
 
-- `apps/mobile` - Expo mobile app (primary client)
-- `backend` - API/backend services
-- `Docs` - PRD, build plan, and task specs
+- `apps/mobile` - Expo mobile app (the app)
+- `apps/web` - early web app generated on Anything (not yet part of the plan)
+- `backend` - FastAPI server, in use until the Supabase move in the roadmap
+- `Docs` - PRD, [roadmap](Docs/ROADMAP.md), build plan and task specs
 - `marketing` - website/marketing assets
+
+Where the app is heading, phase by phase, is in [Docs/ROADMAP.md](Docs/ROADMAP.md).
 
 ## Mobile Navigation (Current)
 
@@ -65,9 +68,13 @@ npm install
 
 ### Run mobile app
 
+The app uses native modules that Expo Go doesn't include, so run it as a development build.
+The `ios/` and `android/` folders are generated from `app.json` and are not committed.
+
 ```bash
 cd apps/mobile
-npx expo start
+cp .env.example .env   # then fill in
+npx expo run:ios       # or: npx expo run:android
 ```
 
 Useful options:
@@ -90,12 +97,25 @@ This ensures duplicate transitive native modules are cleaned up after install so
 
 ## Environment
 
-Mobile uses `apps/mobile/.env` for `EXPO_PUBLIC_*` values (API URLs, keys, app config).
+Mobile uses `apps/mobile/.env` for `EXPO_PUBLIC_*` values; see `apps/mobile/.env.example`.
+The backend uses `backend/.env`; see `backend/.env.example`.
 
-## Status
+## Backend
 
-Current baseline (after install):
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn server:app --reload --port 8000
+# in another shell, with the server running:
+EXPO_PUBLIC_BACKEND_URL=http://localhost:8000 python tests/api_smoke_test.py
+```
 
-- `npx expo-doctor` passes
-- `npx tsc --noEmit` passes
-- `npx expo start` boots Metro successfully
+With no database configured the server runs on an in-memory mock, which is fine for local work only.
+
+## Checks
+
+```bash
+cd apps/mobile
+npx tsc --noEmit                              # type check (TypeScript files only)
+npx expo export --platform ios --platform android   # confirms the app bundles
+```

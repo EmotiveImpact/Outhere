@@ -1264,7 +1264,10 @@ export default function MoveScreen() {
     <MapView
       ref={mapRef}
       style={StyleSheet.absoluteFillObject}
-      provider={PROVIDER_GOOGLE}  // Required to apply customMapStyle on iOS
+      // Google Maps on iOS needs an extra native SDK and API key we don't ship,
+      // so iOS uses Apple Maps in dark mode; customMapStyle applies on Android.
+      provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+      userInterfaceStyle="dark"
       customMapStyle={mapCustomStyle}
       showsUserLocation
       showsMyLocationButton={false}

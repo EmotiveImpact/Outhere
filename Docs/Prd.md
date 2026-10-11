@@ -2,8 +2,8 @@
 
 ## Status
 - This document defines product behaviour, rules, and UX requirements.
-- Engineering execution order lives in docs/BUILD_PLAN.md.
-- Codex tasks live in docs/TASKS/.
+- Engineering execution order lives in Docs/ROADMAP.md (phases) and Docs/build_plan.md (original tasks).
+- Task specs live in Docs/Task/.
 
 ## Non-negotiables
 - City-first identity (no borough dependency).
@@ -14,8 +14,8 @@
 - Tabs: Home, Move, Outside/Arena, Clubs (Crews), Profile.
 
 ## Current repo notes
-- Expo Router tabs live in frontend/app/(tabs)/
-- API client in frontend/src/services/api.ts defines current endpoints.
+- Expo Router tabs live in apps/mobile/src/app/(tabs)/
+- API client in apps/mobile/src/services/api.js defines current endpoints.
 
 ## Product Requirements Document (PRD)
 

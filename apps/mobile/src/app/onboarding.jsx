@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -125,8 +126,17 @@ export default function OnboardingScreen() {
           console.log("Failed to join squad by code during onboarding:", e);
         }
       }
-    } catch {
-      setUser(localUser);
+    } catch (err) {
+      // Don't onboard into a local-only account the server has never seen;
+      // nothing the user does afterwards would sync.
+      console.log("Failed to create user during onboarding:", err);
+      setOnboardLoading(false);
+      hapticError();
+      Alert.alert(
+        "Couldn't sign you up",
+        "Check your connection and try again."
+      );
+      return;
     }
 
     await setOnboarded(true);
@@ -339,9 +349,11 @@ export default function OnboardingScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={handleDevBypass} style={{ alignItems: "center", marginTop: 24, paddingVertical: 12 }}>
-                <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: "700", letterSpacing: 1 }}>⚡ DEV BYPASS</Text>
-              </TouchableOpacity>
+              {__DEV__ && (
+                <TouchableOpacity onPress={handleDevBypass} style={{ alignItems: "center", marginTop: 24, paddingVertical: 12 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: "700", letterSpacing: 1 }}>⚡ DEV BYPASS</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
           </ScrollView>

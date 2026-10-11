@@ -1,4 +1,3 @@
-import { useAuth } from "@/utils/auth/useAuth";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -21,20 +20,21 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  const { initiate, isReady: authReady } = useAuth();
   const initializeDevice = useUserStore((s) => s.initializeDevice);
+  const storeLoading = useUserStore((s) => s.isLoading);
 
   const [fontsLoaded] = useFonts({
     "ClashGrotesk-Bold": require("../../assets/fonts/ClashGrotesk-Bold.ttf"),
     "ClashGrotesk-Medium": require("../../assets/fonts/ClashGrotesk-Medium.ttf"),
   });
 
-  const isReady = authReady && fontsLoaded;
+  // Wait for the persisted store too, so index.jsx doesn't redirect
+  // already-onboarded users to /welcome before their flag has loaded.
+  const isReady = fontsLoaded && !storeLoading;
 
   useEffect(() => {
-    initiate();
     initializeDevice();
-  }, [initiate, initializeDevice]);
+  }, [initializeDevice]);
 
   useEffect(() => {
     if (isReady) {

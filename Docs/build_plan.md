@@ -1,5 +1,8 @@
-# docs/BUILD_PLAN.md
-# OutHere Build Plan (Single Source of Execution Truth)
+# Docs/build_plan.md
+# OutHere Build Plan
+
+> Tasks 001 to 008 below are largely built as a demo. The current plan for making them real
+> (accounts, real data, payments, launch) lives in [ROADMAP.md](ROADMAP.md).
 
 ## Goal
 Deliver OutHere in stable, shippable increments without breaking existing tracking, UI, or API.
@@ -38,10 +41,10 @@ This plan is deliberately strict because it prevents the agent from “helpfully
 ---
 
 ## Repo structure assumptions (for agent context)
-- Frontend lives in: `frontend/`
+- Frontend lives in: `apps/mobile/` (the old `frontend/` app was removed in phase 0)
 - Backend lives in: `backend/`
-- Tabs and navigation live in: `frontend/app/(tabs)/`
-- API client lives in: `frontend/src/services/api.ts`
+- Tabs and navigation live in: `apps/mobile/src/app/(tabs)/`
+- API client lives in: `apps/mobile/src/services/api.js`
 If the repo differs, tasks must be adjusted to actual paths without inventing new architecture.
 
 ---
@@ -49,15 +52,15 @@ If the repo differs, tasks must be adjusted to actual paths without inventing ne
 ## Working Method (How to Run Codex)
 For each task:
 1. Ensure the following files exist and are current:
-   - `docs/PRD.md`
-   - `docs/BUILD_PLAN.md` (this file)
-   - `docs/TASKS/00X_*.md` (the task you are running)
+   - `Docs/Prd.md`
+   - `Docs/build_plan.md` (this file)
+   - `Docs/Task/00X_*.md` (the task you are running)
 2. Create a branch named:
    - `task/00X-short-name`
 3. Run Codex with instructions:
-   - Read `docs/PRD.md`
-   - Read `docs/BUILD_PLAN.md`
-   - Read the target task file in `docs/TASKS/`
+   - Read `Docs/Prd.md`
+   - Read `Docs/build_plan.md`
+   - Read the target task file in `Docs/Task/`
    - Implement **only** that task file
    - Output **git diff patch only**
 4. Apply patch locally.
@@ -98,10 +101,10 @@ If a task introduces regressions:
 
 # Execution Tasks (These are the ONLY tasks to run)
 These tasks must be completed in order.
-They are stored as markdown files in `docs/TASKS/` and numbered 001–008.
+They are stored as markdown files in `Docs/Task/` and numbered 001–008.
 
 ## TASK-001 - Arena Tab (Replace Challenges) + Hub Layout
-**Task file:** `docs/TASKS/001_ARENA_TAB.md`
+**Task file:** `Docs/Task/001_ARENA_TAB.md`
 
 Purpose:
 - Establish the new product centre: Arena as the hub.
@@ -119,7 +122,7 @@ Smoke test focus:
 ---
 
 ## TASK-002 - Backend: 1v1 Battles (Create, List, Detail, Complete)
-**Task file:** `docs/TASKS/002_BATTLES_1V1_BACKEND.md`
+**Task file:** `Docs/Task/002_BATTLES_1V1_BACKEND.md`
 
 Purpose:
 - Create the first “competitive retention loop”.
@@ -140,7 +143,7 @@ Smoke test focus:
 ---
 
 ## TASK-003 - Frontend: 1v1 Battles UI (Create + List + Detail)
-**Task file:** `docs/TASKS/003_BATTLES_1V1_FRONTEND.md`
+**Task file:** `Docs/Task/003_BATTLES_1V1_FRONTEND.md`
 
 Purpose:
 - Make battles visible and usable from Arena.
@@ -157,7 +160,7 @@ Smoke test focus:
 ---
 
 ## TASK-004 - XP + OUT Ledgers (Server Source of Truth) + Client UI
-**Task file:** `docs/TASKS/004_XP_OUT_LEDGER.md`
+**Task file:** `Docs/Task/004_XP_OUT_LEDGER.md`
 
 Purpose:
 - Establish the platform economy correctly from day one.
@@ -179,7 +182,7 @@ Smoke test focus:
 ---
 
 ## TASK-005 - Memberships: Free, Pro, Black + Feature Gating + Black Eligibility (14-day)
-**Task file:** `docs/TASKS/005_MEMBERSHIPS_GATING.md`
+**Task file:** `Docs/Task/005_MEMBERSHIPS_GATING.md`
 
 Purpose:
 - Add monetisation and status access control without breaking the UX.
@@ -200,7 +203,7 @@ Smoke test focus:
 ---
 
 ## TASK-006 - Crews: Ownership, Roles, Logo Upload (Pro/Black) + No Custom Colours
-**Task file:** `docs/TASKS/006_CREW_OWNERSHIP_LOGOS.md`
+**Task file:** `Docs/Task/006_CREW_OWNERSHIP_LOGOS.md`
 
 Purpose:
 - Turn crews into identity assets and community engines, without design chaos.
@@ -223,7 +226,7 @@ Smoke test focus:
 ---
 
 ## TASK-007 - Drops + Rewards Catalogue + OUT Redemption
-**Task file:** `docs/TASKS/007_REWARDS_DROPS_SHOP.md`
+**Task file:** `Docs/Task/007_REWARDS_DROPS_SHOP.md`
 
 Purpose:
 - Introduce the commerce loop (drops + redemption) without building a full e-commerce platform prematurely.
@@ -246,7 +249,7 @@ Smoke test focus:
 ---
 
 ## TASK-008 - Events: List, RSVP, Check-in, Rewards
-**Task file:** `docs/TASKS/008_EVENTS_RSVP_CHECKIN.md`
+**Task file:** `Docs/Task/008_EVENTS_RSVP_CHECKIN.md`
 
 Purpose:
 - Make OutHere physical and sponsor-ready, linking digital status to real-world presence.
