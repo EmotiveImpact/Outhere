@@ -1,257 +1,174 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Slot, usePathname, useRouter } from "expo-router";
-import { Animated, LayoutChangeEvent, Text, TouchableOpacity, View } from "react-native";
+import { Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Coins, Zap } from "lucide-react-native";
-import { useUserStore } from "@/store/userStore";
-
-const NEON = "#00ff7f";
+import { useProfile } from "@/data/hooks";
+import { C, F, R, S } from "@/components/ui";
+import { compactNumber } from "@/utils/format";
+import { hapticSelection } from "@/services/haptics";
 
 const SUB_TABS = [
   { key: "arena", label: "Arena", href: "/outside/arena" },
   { key: "events", label: "Events", href: "/outside/events" },
   { key: "drops", label: "Drops", href: "/outside/drops" },
   { key: "news", label: "News", href: "/outside/news" },
-];
+] as const;
 
 export const unstable_settings = {
   initialRouteName: "arena",
 };
 
-const formatNumber = (value: number) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0";
-  return n.toLocaleString();
-};
+const SPRING = { damping: 24, stiffness: 300, mass: 0.7, useNativeDriver: false };
 
 export default function OutsideLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  const profile = useProfile().data as { xp?: number; out?: number } | null | undefined;
 
-  const xp = useUserStore((s) => s.xp) || 0;
-  const out = useUserStore((s) => s.out) || 0;
-
-  const activeTab =
-    SUB_TABS.find((tab) => pathname?.startsWith(tab.href))?.key || "arena";
+  const activeTab = SUB_TABS.find((tab) => pathname?.startsWith(tab.href))?.key || "arena";
   const activeIndex = SUB_TABS.findIndex((t) => t.key === activeTab);
 
-  // Animated underline position and width
+  // Sliding underline under the active sub tab.
   const underlineX = useRef(new Animated.Value(0)).current;
   const underlineW = useRef(new Animated.Value(0)).current;
-  const tabMeasurements = useRef<{ x: number; width: number }[]>([]);
+  const layouts = useRef<{ x: number; width: number }[]>([]);
   const [measured, setMeasured] = useState(false);
 
-  const handleTabLayout = useCallback(
+  const onTabLayout = useCallback(
     (index: number, event: LayoutChangeEvent) => {
       const { x, width } = event.nativeEvent.layout;
-      tabMeasurements.current[index] = { x, width };
-
-      if (tabMeasurements.current.filter(Boolean).length === SUB_TABS.length) {
-        setMeasured(true);
-        const m = tabMeasurements.current[activeIndex];
+      layouts.current[index] = { x, width };
+      if (layouts.current.filter(Boolean).length === SUB_TABS.length) {
+        const m = layouts.current[activeIndex];
         if (m) {
           underlineX.setValue(m.x);
           underlineW.setValue(m.width);
         }
+        setMeasured(true);
       }
     },
     [activeIndex, underlineX, underlineW]
   );
 
-  // Animate underline when active tab changes
   useEffect(() => {
     if (!measured) return;
-    const m = tabMeasurements.current[activeIndex];
+    const m = layouts.current[activeIndex];
     if (!m) return;
-
     Animated.parallel([
-      Animated.spring(underlineX, {
-        toValue: m.x,
-        damping: 24,
-        stiffness: 300,
-        mass: 0.7,
-        useNativeDriver: false,
-      }),
-      Animated.spring(underlineW, {
-        toValue: m.width,
-        damping: 24,
-        stiffness: 300,
-        mass: 0.7,
-        useNativeDriver: false,
-      }),
+      Animated.spring(underlineX, { toValue: m.x, ...SPRING }),
+      Animated.spring(underlineW, { toValue: m.width, ...SPRING }),
     ]).start();
   }, [activeIndex, measured, underlineX, underlineW]);
 
-  const switchTab = useCallback(
-    (tab: (typeof SUB_TABS)[number]) => {
-      if (tab.key === activeTab) return;
-      router.navigate(tab.href as any);
-    },
-    [activeTab, router]
-  );
+  const switchTab = (tab: (typeof SUB_TABS)[number]) => {
+    if (tab.key === activeTab) return;
+    hapticSelection();
+    router.navigate(tab.href as any);
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      {/* ─── Persistent Outside Header ─── */}
-      <View
-        style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 20,
-          paddingBottom: 0,
-          backgroundColor: "#0a0a0a",
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 18,
-          }}
-        >
-          {/* Left: Title + Live dot */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text
-              style={{
-                color: "#fff",
-                fontSize: 28,
-                fontWeight: "900",
-                letterSpacing: -1,
-              }}
-            >
-              Outside
-            </Text>
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: NEON,
-                shadowColor: NEON,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8,
-                shadowRadius: 6,
-              }}
-            />
+    <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: insets.top + S.sm }]}>
+        <View style={styles.topRow}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Outside</Text>
+            <View style={styles.liveDot} />
           </View>
 
-          {/* Right: XP pill + OUT pill */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View
-              style={{
-                backgroundColor: "rgba(0, 255, 127, 0.1)",
-                borderWidth: 1,
-                borderColor: "rgba(0, 255, 127, 0.25)",
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 16,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
+          <View style={styles.balances}>
+            <Pressable
+              onPress={() => {
+                hapticSelection();
+                router.push("/(tabs)/profile" as any);
               }}
+              accessibilityLabel="Your XP"
+              style={({ pressed }) => [styles.balance, styles.balanceXp, pressed && { opacity: 0.7 }]}
             >
-              <Zap color={NEON} size={12} fill={NEON} />
-              <Text
-                style={{
-                  color: "#fff",
-                  fontWeight: "800",
-                  fontSize: 12,
-                  letterSpacing: -0.3,
-                }}
-              >
-                {formatNumber(xp)}
-              </Text>
-            </View>
-            <View
-              style={{
-                backgroundColor: "rgba(255, 215, 0, 0.08)",
-                borderWidth: 1,
-                borderColor: "rgba(255, 215, 0, 0.2)",
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 16,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
+              <Zap color={C.accent} size={13} fill={C.accent} />
+              <Text style={styles.balanceText}>{compactNumber(profile?.xp ?? 0)}</Text>
+              <Text style={styles.balanceUnit}>XP</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                hapticSelection();
+                router.push("/rewards" as any);
               }}
+              accessibilityLabel="Your OUT balance"
+              style={({ pressed }) => [styles.balance, styles.balanceOut, pressed && { opacity: 0.7 }]}
             >
-              <Coins color="#ffd700" size={12} />
-              <Text
-                style={{
-                  color: "#ffd700",
-                  fontWeight: "800",
-                  fontSize: 12,
-                  letterSpacing: -0.3,
-                }}
-              >
-                {formatNumber(out)}
-              </Text>
-            </View>
+              <Coins color={C.gold} size={13} />
+              <Text style={[styles.balanceText, { color: C.gold }]}>{compactNumber(profile?.out ?? 0)}</Text>
+              <Text style={[styles.balanceUnit, { color: "rgba(255,215,0,0.6)" }]}>OUT</Text>
+            </Pressable>
           </View>
         </View>
 
-        {/* ─── Clean Text Tabs with Sliding Underline ─── */}
-        <View
-          style={{
-            flexDirection: "row",
-            borderBottomWidth: 1,
-            borderColor: "#1c1c1f",
-            position: "relative",
-          }}
-        >
+        <View style={styles.tabs}>
           {SUB_TABS.map((tab, index) => {
-            const isActive = tab.key === activeTab;
+            const active = tab.key === activeTab;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={tab.key}
-                onLayout={(e) => handleTabLayout(index, e)}
+                onLayout={(e) => onTabLayout(index, e)}
                 onPress={() => switchTab(tab)}
-                activeOpacity={0.7}
-                style={{
-                  paddingBottom: 12,
-                  paddingHorizontal: 2,
-                  marginRight: 20,
-                }}
+                hitSlop={{ top: 8, bottom: 4, left: 6, right: 6 }}
+                style={styles.tab}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
               >
-                <Text
-                  style={{
-                    color: isActive ? "#fff" : "#555",
-                    fontSize: 15,
-                    fontWeight: isActive ? "800" : "600",
-                  }}
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
+              </Pressable>
             );
           })}
-
-          {/* Animated green underline */}
-          {measured && (
-            <Animated.View
-              style={{
-                position: "absolute",
-                bottom: 0,
-                height: 2.5,
-                borderRadius: 2,
-                backgroundColor: NEON,
-                shadowColor: NEON,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.5,
-                shadowRadius: 6,
-                left: underlineX,
-                width: underlineW,
-              }}
-            />
-          )}
+          {measured ? <Animated.View style={[styles.underline, { left: underlineX, width: underlineW }]} /> : null}
         </View>
       </View>
 
-      {/* ─── Subpage Content ─── */}
       <View style={{ flex: 1 }}>
         <Slot />
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
+  header: { paddingHorizontal: S.gutter, backgroundColor: C.bg },
+  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: S.lg },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  title: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.5 },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    backgroundColor: C.accent,
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+  },
+  balances: { flexDirection: "row", alignItems: "center", gap: S.sm },
+  balance: { flexDirection: "row", alignItems: "center", gap: 5, height: 30, paddingHorizontal: 11, borderRadius: R.full, borderWidth: 1 },
+  balanceXp: { backgroundColor: C.accentDim, borderColor: "rgba(0,255,127,0.25)" },
+  balanceOut: { backgroundColor: "rgba(255,215,0,0.08)", borderColor: "rgba(255,215,0,0.22)" },
+  balanceText: { color: C.text, fontFamily: F.display, fontSize: 14 },
+  balanceUnit: { color: "rgba(0,255,127,0.7)", fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
+  tabs: { flexDirection: "row", gap: S.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.borderStrong },
+  tab: { paddingBottom: S.md, paddingHorizontal: 2 },
+  tabText: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 16 },
+  tabTextActive: { color: C.text },
+  underline: {
+    position: "absolute",
+    bottom: -StyleSheet.hairlineWidth,
+    height: 2.5,
+    borderRadius: 2,
+    backgroundColor: C.accent,
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+  },
+});

@@ -141,7 +141,8 @@ export const CREW_FEED = {
 export const EVENTS = [
   {
     id: "e_linkup",
-    title: "Tonight's Link-Up",
+    startHour: 19,
+    title: "The Weekly Link-Up",
     description: "An easy social walk along the South Bank, finishing with food at the market. All paces welcome.",
     city: "London",
     location: "Southbank Centre, SE1",
@@ -158,6 +159,7 @@ export const EVENTS = [
   },
   {
     id: "e_brixton_night",
+    startHour: 20,
     title: "Brixton Night Loop",
     description: "8km loop through Brixton, Herne Hill and Brockwell Park with South Side Striders.",
     city: "London",
@@ -175,6 +177,7 @@ export const EVENTS = [
   },
   {
     id: "e_canal",
+    startHour: 10,
     title: "Regent's Canal Walk",
     description: "Camden Lock to Little Venice at a chatty pace, coffee stop halfway.",
     city: "London",
@@ -192,6 +195,7 @@ export const EVENTS = [
   },
   {
     id: "e_pro_preview",
+    startHour: 18.5,
     title: "Drop Preview: Night Shift Pack",
     description: "First look at the Night Shift collection with a 5km shakeout before the doors open. Pro and Black members only.",
     city: "London",
@@ -209,6 +213,7 @@ export const EVENTS = [
   },
   {
     id: "e_manny",
+    startHour: 18,
     title: "Castlefield Social Run",
     description: "6km easy run around Castlefield and the canals with Manny Movers.",
     city: "Manchester",
@@ -226,6 +231,7 @@ export const EVENTS = [
   },
   {
     id: "e_black_supper",
+    startHour: 6,
     title: "Black Members' Sunrise & Supper",
     description: "Sunrise walk up Primrose Hill followed by a private breakfast. Black members only.",
     city: "London",
@@ -302,6 +308,8 @@ export const DROPS = [
 export const NEWS = [
   {
     id: "n_season",
+    link: "/(tabs)/outside/arena",
+    linkLabel: "Open the Arena",
     title: "Season 1 is live",
     summary: "Four weeks, city ladders and a Black membership for the top mover in every city.",
     body: "Season 1 runs for four weeks from today. Every step you take counts towards your city ladder, and the top mover in each city at the end of the season earns a year of Black membership.\n\nCrews have their own ladder too, ranked on total distance. Check the Arena for live standings.",
@@ -311,6 +319,8 @@ export const NEWS = [
   },
   {
     id: "n_nightshift",
+    link: "/drops/d_nightshift",
+    linkLabel: "See the Night Shift Pack",
     title: "Night Shift Pack lands this week",
     summary: "Reflective kit for after-dark miles. Pro and Black get 24 hours early access.",
     body: "The Night Shift Pack drops this week: a reflective tee, cap and socks built for running after dark. Pro and Black members get a 24 hour head start, and you can set a reminder from the Drops tab.",
@@ -320,6 +330,8 @@ export const NEWS = [
   },
   {
     id: "n_crews",
+    link: "/(tabs)/club",
+    linkLabel: "Find a crew",
     title: "Crew battles are coming",
     summary: "Put your crew against another, totals decide the winner.",
     body: "Crew battles are next on the roadmap. Owners will be able to challenge another crew over a set window, with every member's movement counting towards the total.",
@@ -329,6 +341,8 @@ export const NEWS = [
   },
   {
     id: "n_recap",
+    link: "/(tabs)/outside/events",
+    linkLabel: "See upcoming events",
     title: "Recap: 300 of you took over the South Bank",
     summary: "Our biggest link-up yet, in pictures.",
     body: "Over 300 of you turned up for the South Bank link-up last month. Thank you. The next one is on the Events tab, and RSVPs are filling up fast.",
@@ -338,6 +352,8 @@ export const NEWS = [
   },
   {
     id: "n_accra",
+    link: "/crew/c_accra",
+    linkLabel: "Meet Accra After Dark",
     title: "OutHere lands in Accra",
     summary: "Accra After Dark is our first crew in Ghana.",
     body: "Accra After Dark is now live, running sunrise sessions on Labadi beach and night loops through Osu. Welcome to the movement.",

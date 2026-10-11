@@ -1,10 +1,17 @@
 import * as Haptics from "expo-haptics";
 
 /**
- * Haptic feedback utilities — wrapping expo-haptics for consistent use.
+ * Haptic feedback utilities wrapping expo-haptics. Every helper respects the
+ * player's haptics setting, kept in step by EngineBridge.
  */
 
+let enabled = true;
+export const setHapticsEnabled = (value) => {
+  enabled = value !== false;
+};
+
 export const hapticSelection = async () => {
+  if (!enabled) return;
   try {
     await Haptics.selectionAsync();
   } catch {
@@ -13,6 +20,7 @@ export const hapticSelection = async () => {
 };
 
 export const hapticSuccess = async () => {
+  if (!enabled) return;
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   } catch {
@@ -21,6 +29,7 @@ export const hapticSuccess = async () => {
 };
 
 export const hapticError = async () => {
+  if (!enabled) return;
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
   } catch {
@@ -29,6 +38,7 @@ export const hapticError = async () => {
 };
 
 export const hapticImpact = async (style = Haptics.ImpactFeedbackStyle.Medium) => {
+  if (!enabled) return;
   try {
     await Haptics.impactAsync(style);
   } catch {
@@ -37,6 +47,7 @@ export const hapticImpact = async (style = Haptics.ImpactFeedbackStyle.Medium) =
 };
 
 export const hapticHeavy = async () => {
+  if (!enabled) return;
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   } catch {

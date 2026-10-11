@@ -283,7 +283,7 @@ export const TierBadge = ({ tier, style }) =>
 
 // ── Data display ──────────────────────────────────────────────────────────────
 
-export function Avatar({ uri, name = "", size = 44, ring, outside = false, style }) {
+export function Avatar({ uri, name = "", size = 44, ring, colour, outside = false, style }) {
   const initials = name
     .split(/[\s._]+/)
     .filter(Boolean)
@@ -298,7 +298,7 @@ export function Avatar({ uri, name = "", size = 44, ring, outside = false, style
           height: size,
           borderRadius: size / 2,
           overflow: "hidden",
-          backgroundColor: C.surfaceHigh,
+          backgroundColor: !uri && colour ? colour : C.surfaceHigh,
           alignItems: "center",
           justifyContent: "center",
           borderWidth: ring ? 2 : 0,
@@ -308,7 +308,7 @@ export function Avatar({ uri, name = "", size = 44, ring, outside = false, style
         {uri ? (
           <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
         ) : (
-          <Text style={{ color: C.textDim, fontFamily: F.displayMedium, fontSize: size * 0.36 }}>{initials || "?"}</Text>
+          <Text style={{ color: colour ? C.bg : C.textDim, fontFamily: F.displayMedium, fontSize: size * 0.36 }}>{initials || "?"}</Text>
         )}
       </View>
       {outside ? (

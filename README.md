@@ -8,7 +8,7 @@ OUT HERE is an urban movement app built with React Native + Expo. It rewards rea
 
 - `apps/mobile` - Expo mobile app (the app)
 - `apps/web` - early web app generated on Anything (not yet part of the plan)
-- `backend` - FastAPI server, in use until the Supabase move in the roadmap
+- `backend` - FastAPI server, not used by the app while it runs local-first
 - `Docs` - PRD, [roadmap](Docs/ROADMAP.md), build plan and task specs
 - `marketing` - website/marketing assets
 
@@ -48,8 +48,8 @@ Bottom tabs:
 - Expo Router
 - React Query
 - Zustand + AsyncStorage
-- Supabase + FastAPI integrations via app API layer
-- Mapbox / maps integrations (mobile-specific)
+- Local-first data engine (`apps/mobile/src/data`); server stack to be chosen
+- react-native-maps, with OSRM (or Mapbox when a token is set) for route snapping
 
 ## Local Development
 
@@ -68,14 +68,17 @@ npm install
 
 ### Run mobile app
 
-The app uses native modules that Expo Go doesn't include, so run it as a development build.
-The `ios/` and `android/` folders are generated from `app.json` and are not committed.
+Every feature runs on the phone for now (see `apps/mobile/src/data/README.md`), so there is no server to start and the app runs in Expo Go.
 
 ```bash
 cd apps/mobile
-cp .env.example .env   # then fill in
-npx expo run:ios       # or: npx expo run:android
+npm install
+npx expo start
 ```
+
+Scan the QR code with the Expo Go app (iOS: the Camera app). Press `i` or `a` for a simulator, or `w` for the browser. Simulators and the browser have no step counter: in a development build, Settings has a Developer section to add steps, fill two weeks of history or reset.
+
+For a standalone development build instead: `npx expo run:ios` or `npx expo run:android` (the `ios/` and `android/` folders are generated, not committed).
 
 Useful options:
 
@@ -117,5 +120,6 @@ With no database configured the server runs on an in-memory mock, which is fine 
 ```bash
 cd apps/mobile
 npx tsc --noEmit                              # type check (TypeScript files only)
+npx jest                                      # engine tests
 npx expo export --platform ios --platform android   # confirms the app bundles
 ```

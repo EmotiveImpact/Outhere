@@ -1,365 +1,279 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ImageBackground,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
-import { useUserStore } from "@/store/userStore";
-import { hapticHeavy, hapticSuccess, hapticSelection, hapticError } from "@/services/haptics";
-import { userAPI, groupsAPI } from "@/services/api";
-import { CITIES } from "@/constants/theme";
-import { BlurView } from "expo-blur";
-import { Check, X, Search, Users } from "lucide-react-native";
+// Profile setup: username, city, optional crew code, a quick word on step
+// counting, then engine.createProfile and into the app.
 
-// Mock/Static list of major cities for autocomplete
-const MAJOR_CITIES = [
-  "London", "Manchester", "Birmingham", "Leeds", "Glasgow", "Sheffield", 
-  "Liverpool", "Bristol", "Edinburgh", "Leicester", "Coventry", "Belfast",
-  "Paris", "Berlin", "New York", "Los Angeles", "Tokyo", "Lagos"
-];
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { MotiView } from "moti";
+import { Pedometer } from "expo-sensors";
+import { AtSign, Check, ChevronLeft, Footprints, MapPin, ShieldCheck, Users, X } from "lucide-react-native";
+import { engine, useEngineMutation } from "@/data/hooks";
+import { CITIES } from "@/constants/theme";
+import { hapticError, hapticSuccess } from "@/services/haptics";
+import { Body, Button, C, F, Label, ProgressBar, R, Row, S, Title } from "@/components/ui";
+
+const STEPS = ["username", "city", "crew", "motion"];
+
+const randomUsername = () => `mover${Math.floor(1000 + Math.random() * 9000)}`;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  
-  const { deviceId, setOnboarded, setUser } = useUserStore();
+  const [step, setStep] = useState(0);
+  const [username, setUsername] = useState("");
+  const [check, setCheck] = useState({ state: "idle", reason: null }); // idle | checking | ok | bad
+  const [city, setCity] = useState("London");
+  const [crewCode, setCrewCode] = useState("");
+  const [motion, setMotion] = useState("unknown"); // unknown | asking | granted | denied | unavailable
+  const reqId = useRef(0);
 
-  const [onboardUsername, setOnboardUsername] = useState("");
-  const [onboardCity, setOnboardCity] = useState("");
-  const [clubCode, setClubCode] = useState("");
-  const [onboardLoading, setOnboardLoading] = useState(false);
-
-  // Username Availability State
-  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
-  const [usernameStatus, setUsernameStatus] = useState("idle"); // 'idle' | 'checking' | 'available' | 'taken' | 'error'
-
-  // City Autocomplete State
-  const [showCityResults, setShowCityResults] = useState(false);
-  const [filteredCities, setFilteredCities] = useState([]);
-
-  // Debounced Username Check
+  // Live username check, debounced.
   useEffect(() => {
-    if (onboardUsername.length < 3) {
-      setUsernameStatus("idle");
-      return;
+    const value = username.trim();
+    if (!value) {
+      setCheck({ state: "idle", reason: null });
+      return undefined;
     }
-
-    setUsernameStatus("checking");
-    const timer = setTimeout(async () => {
+    setCheck({ state: "checking", reason: null });
+    const id = ++reqId.current;
+    const t = setTimeout(async () => {
       try {
-        // In real backend: await userAPI.checkUsername(onboardUsername)
-        // For now, we mock valid if not 'admin' or 'dev'
-        const isTaken = ["admin", "dev", "test", "root"].includes(onboardUsername.toLowerCase());
-        
-        if (isTaken) {
-          setUsernameStatus("taken");
-          hapticError();
-        } else {
-          setUsernameStatus("available");
-        }
-      } catch (err) {
-        setUsernameStatus("error");
+        const res = await engine.checkUsername(value);
+        if (id !== reqId.current) return;
+        setCheck(res.available ? { state: "ok", reason: null } : { state: "bad", reason: res.reason });
+      } catch (e) {
+        if (id === reqId.current) setCheck({ state: "bad", reason: e?.message || "Couldn't check that name." });
       }
-    }, 600);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [username]);
 
-    return () => clearTimeout(timer);
-  }, [onboardUsername]);
+  const create = useEngineMutation(engine.createProfile, {
+    onSuccess: (profile, vars) => {
+      hapticSuccess();
+      const wanted = vars?.crewCode;
+      if (wanted && !profile?.crewsCount) {
+        Alert.alert("Crew code not found", `We couldn't find a crew with ${wanted}. You can join one from the Club tab.`);
+      }
+      router.replace("/(tabs)");
+    },
+  });
 
-  // City Filter
-  useEffect(() => {
-    if (onboardCity.length > 0) {
-      const results = MAJOR_CITIES.filter(city => 
-        city.toLowerCase().includes(onboardCity.toLowerCase())
-      );
-      setFilteredCities(results);
-      setShowCityResults(results.length > 0 && onboardCity !== results[0]);
-    } else {
-      setShowCityResults(false);
-    }
-  }, [onboardCity]);
+  const finish = () => create.mutate({ username: username.trim(), city, crewCode: crewCode.trim() || undefined });
 
-  const handleOnboard = async () => {
-    if (!onboardUsername.trim() || usernameStatus !== "available") {
-      hapticError();
-      return;
-    }
-    setOnboardLoading(true);
-    hapticSelection();
-    
-    const localUser = {
-      id: deviceId || "local",
-      device_id: deviceId || "local",
-      username: onboardUsername.trim(),
-      name: onboardUsername.trim(),
-      city: onboardCity || "London",
-      total_steps: 0,
-      total_distance: 0,
-      outside_score: 0,
-      current_streak: 1,
-      longest_streak: 1,
-      daily_goal: 10000,
-      weekly_goal: 20,
-      avatar_color: "#00ff7f",
-      is_outside: false,
-    };
-
+  const askMotion = async () => {
+    if (Platform.OS === "web") return setMotion("unavailable");
+    setMotion("asking");
     try {
-      // 1. Create User
-      const apiUser = await userAPI.create(localUser);
-      setUser(apiUser);
-
-      // 2. Optional Group Join by Code
-      if (clubCode.trim()) {
-        try {
-          await groupsAPI.joinByCode(clubCode.trim(), deviceId);
-        } catch (e) {
-          console.log("Failed to join squad by code during onboarding:", e);
-        }
-      }
-    } catch (err) {
-      // Don't onboard into a local-only account the server has never seen;
-      // nothing the user does afterwards would sync.
-      console.log("Failed to create user during onboarding:", err);
-      setOnboardLoading(false);
-      hapticError();
-      Alert.alert(
-        "Couldn't sign you up",
-        "Check your connection and try again."
-      );
-      return;
+      const available = await Pedometer.isAvailableAsync();
+      if (!available) return setMotion("unavailable");
+      const { status } = await Pedometer.requestPermissionsAsync();
+      setMotion(status === "granted" ? "granted" : "denied");
+    } catch {
+      setMotion("unavailable");
     }
-
-    await setOnboarded(true);
-    setOnboardLoading(false);
-    hapticSuccess();
-    router.replace("/(tabs)");
   };
 
-  const handleDevBypass = async () => {
-    hapticSelection();
-    setUser({
-      id: deviceId || "dev",
-      device_id: deviceId || "dev",
-      username: "dev_user",
-      name: "Dev",
-      city: "London",
-      total_steps: 4200,
-      total_distance: 3.2,
-      outside_score: 42,
-      current_streak: 3,
-      longest_streak: 7,
-      daily_goal: 10000,
-      weekly_goal: 20,
-      avatar_color: "#00ff7f",
-      is_outside: true,
-    });
-    await setOnboarded(true);
-    router.replace("/(tabs)");
+  const key = STEPS[step];
+  const canNext = key === "username" ? check.state === "ok" : true;
+
+  const next = () => {
+    if (!canNext) return hapticError();
+    if (step < STEPS.length - 1) setStep(step + 1);
+    else finish();
   };
+  const back = () => (step === 0 ? (router.canGoBack() ? router.back() : router.replace("/welcome")) : setStep(step - 1));
 
   return (
-    <ImageBackground 
-      source={require("../../assets/images/onboarding_bg.png")} 
-      style={{ flex: 1, backgroundColor: "#0a0a0a" }}
-    >
-      <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
-        <StatusBar style="light" />
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              paddingTop: insets.top + 40,
-              paddingBottom: insets.bottom + 40,
-              paddingHorizontal: 28,
-            }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Header */}
-            <View>
-              <Text style={{ color: "#fff", fontSize: 44, fontWeight: "900", letterSpacing: -1.5 }}>
-                OUTHERE
-              </Text>
-              <Text style={{ color: "#00ff7f", fontSize: 18, fontWeight: "800", marginTop: 4, letterSpacing: 2 }}>
-                WE OUTSIDE.
-              </Text>
-            </View>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.gutter }}>
+        <Row style={{ justifyContent: "space-between", height: 44 }}>
+          <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" }}>
+            <ChevronLeft size={22} color={C.text} />
+          </Pressable>
+          <Label>
+            Step {step + 1} of {STEPS.length}
+          </Label>
+          {__DEV__ ? (
+            <Pressable
+              hitSlop={12}
+              onPress={() => create.mutate({ username: randomUsername(), city: "London" })}
+              style={{ paddingHorizontal: 12, height: 32, borderRadius: R.full, borderWidth: 1, borderColor: C.border, justifyContent: "center" }}
+            >
+              <Text style={{ color: C.textMute, fontSize: 12, fontWeight: "700" }}>Skip (dev)</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
+        </Row>
+        <ProgressBar value={(step + 1) / STEPS.length} height={4} style={{ marginTop: S.md }} />
+      </View>
 
-            {/* Form */}
-            <View style={{ marginTop: 40 }}>
-              
-              {/* Username Section */}
-              <View style={{ marginBottom: 24 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>
-                    CHOOSE YOUR TAG
-                  </Text>
-                  {usernameStatus === "checking" && <ActivityIndicator size="small" color="#00ff7f" />}
-                  {usernameStatus === "available" && <Text style={{ color: "#00ff7f", fontSize: 10, fontWeight: "800" }}>AVAILABLE</Text>}
-                  {usernameStatus === "taken" && <Text style={{ color: "#ff453a", fontSize: 10, fontWeight: "800" }}>TAG TAKEN</Text>}
-                </View>
-                
-                <View style={{ 
-                  flexDirection: "row", 
-                  alignItems: "center", 
-                  backgroundColor: "rgba(20,20,22,0.8)", 
-                  borderRadius: 20, 
-                  paddingHorizontal: 18, 
-                  paddingVertical: 16,
-                  borderWidth: 1,
-                  borderColor: usernameStatus === "taken" ? "#ff453a" : usernameStatus === "available" ? "#00ff7f" : "transparent"
-                }}>
-                  <Text style={{ color: "#555", fontSize: 18, marginRight: 8 }}>@</Text>
-                  <TextInput
-                    style={{ flex: 1, color: "#fff", fontSize: 18, fontWeight: "600" }}
-                    value={onboardUsername}
-                    onChangeText={setOnboardUsername}
-                    placeholder="your username"
-                    placeholderTextColor="#444"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={20}
-                  />
-                  {usernameStatus === "available" && <Check size={20} color="#00ff7f" />}
-                  {usernameStatus === "taken" && <X size={20} color="#ff453a" />}
-                </View>
-                {usernameStatus === "taken" && (
-                  <Text style={{ color: "#ff453a", fontSize: 12, marginTop: 8, fontWeight: "600" }}>
-                    That tag is already out there. Pick another.
-                  </Text>
-                )}
-              </View>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.xxl, paddingBottom: S.xl }} keyboardShouldPersistTaps="handled">
+        <MotiView key={key} from={{ opacity: 0, translateX: 16 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "timing", duration: 280 }}>
+          {key === "username" && <UsernameStep value={username} onChange={setUsername} check={check} onSubmit={next} />}
+          {key === "city" && <CityStep value={city} onChange={setCity} />}
+          {key === "crew" && <CrewStep value={crewCode} onChange={setCrewCode} />}
+          {key === "motion" && <MotionStep status={motion} onAsk={askMotion} />}
+        </MotiView>
+      </ScrollView>
 
-              {/* City Autocomplete Section */}
-              <View style={{ marginBottom: 24, zIndex: 10 }}>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>
-                  YOUR CITY
-                </Text>
-                <View style={{ 
-                  flexDirection: "row", 
-                  alignItems: "center", 
-                  backgroundColor: "rgba(20,20,22,0.8)", 
-                  borderRadius: 20, 
-                  paddingHorizontal: 18, 
-                  paddingVertical: 16 
-                }}>
-                  <Search size={18} color="#555" style={{ marginRight: 12 }} />
-                  <TextInput
-                    style={{ flex: 1, color: "#fff", fontSize: 18, fontWeight: "600" }}
-                    value={onboardCity}
-                    onChangeText={setOnboardCity}
-                    placeholder="e.g. London"
-                    placeholderTextColor="#444"
-                    onFocus={() => setShowCityResults(filteredCities.length > 0)}
-                  />
-                </View>
-
-                {showCityResults && (
-                  <View style={{ 
-                    position: "absolute", 
-                    top: 80, 
-                    left: 0, 
-                    right: 0, 
-                    backgroundColor: "#161618", 
-                    borderRadius: 20, 
-                    padding: 8, 
-                    borderWidth: 1,
-                    borderColor: "#333",
-                    zIndex: 100,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 10 },
-                    shadowOpacity: 0.5,
-                    shadowRadius: 15,
-                  }}>
-                    {filteredCities.slice(0, 4).map((city) => (
-                      <TouchableOpacity
-                        key={city}
-                        onPress={() => {
-                          setOnboardCity(city);
-                          setShowCityResults(false);
-                          hapticSelection();
-                        }}
-                        style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: "#222" }}
-                      >
-                        <Text style={{ color: "#fff", fontWeight: "600" }}>{city}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              {/* SQUAD Code Section */}
-              <View style={{ marginBottom: 24 }}>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>
-                  SQUAD CODE (OPTIONAL)
-                </Text>
-                <View style={{ 
-                  flexDirection: "row", 
-                  alignItems: "center", 
-                  backgroundColor: "rgba(20,20,22,0.8)", 
-                  borderRadius: 20, 
-                  paddingHorizontal: 18, 
-                  paddingVertical: 16 
-                }}>
-                  <Users size={18} color="#555" style={{ marginRight: 12 }} />
-                  <TextInput
-                    style={{ flex: 1, color: "#fff", fontSize: 18, fontWeight: "600" }}
-                    value={clubCode}
-                    onChangeText={setClubCode}
-                    placeholder="SQUAD JOIN CODE"
-                    placeholderTextColor="#444"
-                    autoCapitalize="characters"
-                  />
-                </View>
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 8 }}>
-                  If you have an invite code for your squad, drop it here.
-                </Text>
-              </View>
-
-            </View>
-
-            {/* Bottom Section */}
-            <View style={{ marginTop: "auto" }}>
-              <TouchableOpacity
-                onPress={handleOnboard}
-                disabled={usernameStatus !== "available" || onboardLoading}
-                style={{
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: usernameStatus === "available" ? "#00ff7f" : "rgba(30,30,30,0.8)",
-                  borderRadius: 20,
-                  paddingVertical: 18,
-                  opacity: usernameStatus === "available" ? 1 : 0.5,
-                }}
-              >
-                <Text style={{ color: usernameStatus === "available" ? "#000" : "#888", fontSize: 17, fontWeight: "800", letterSpacing: 0.5 }}>
-                  {onboardLoading ? "SETTING UP..." : "LET'S GO →"}
-                </Text>
-              </TouchableOpacity>
-
-              {__DEV__ && (
-                <TouchableOpacity onPress={handleDevBypass} style={{ alignItems: "center", marginTop: 24, paddingVertical: 12 }}>
-                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: "700", letterSpacing: 1 }}>⚡ DEV BYPASS</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </BlurView>
-    </ImageBackground>
+      <View style={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + S.lg, gap: S.sm }}>
+        <Button
+          title={key === "motion" ? "Let's go" : key === "crew" && !crewCode.trim() ? "Skip for now" : "Continue"}
+          size="lg"
+          full
+          disabled={!canNext}
+          loading={create.isPending}
+          onPress={next}
+          variant={key === "crew" && !crewCode.trim() ? "secondary" : "primary"}
+        />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
+// ── Steps ─────────────────────────────────────────────────────────────────────
+
+const StepTitle = ({ title, body }) => (
+  <View style={{ marginBottom: S.xxl }}>
+    <Title size={34}>{title}</Title>
+    <Body dim size={16} style={{ marginTop: S.sm }}>
+      {body}
+    </Body>
+  </View>
+);
+
+function UsernameStep({ value, onChange, check, onSubmit }) {
+  const tone = check.state === "ok" ? C.accent : check.state === "bad" ? C.danger : C.border;
+  return (
+    <>
+      <StepTitle title="Pick your name" body="This is how people find you, battle you and see you on the board." />
+      <Row gap={S.sm} style={{ height: 58, borderRadius: R.md, borderWidth: 1, borderColor: tone, backgroundColor: C.surface, paddingHorizontal: S.lg }}>
+        <AtSign size={18} color={C.textMute} />
+        <TextInput
+          value={value}
+          onChangeText={(t) => onChange(t.replace(/\s/g, "").toLowerCase())}
+          placeholder="username"
+          placeholderTextColor={C.textMute}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus
+          maxLength={20}
+          returnKeyType="next"
+          onSubmitEditing={onSubmit}
+          style={{ flex: 1, color: C.text, fontSize: 18, fontFamily: F.displayMedium }}
+        />
+        {check.state === "ok" ? <Check size={20} color={C.accent} /> : check.state === "bad" ? <X size={20} color={C.danger} /> : null}
+      </Row>
+      <Body size={13} style={{ marginTop: S.sm, color: check.state === "bad" ? C.danger : check.state === "ok" ? C.accent : C.textMute }}>
+        {check.state === "checking"
+          ? "Checking..."
+          : check.state === "ok"
+            ? "Nice, that one's yours."
+            : check.state === "bad"
+              ? check.reason
+              : "3 to 20 characters: letters, numbers, dots and underscores."}
+      </Body>
+    </>
+  );
+}
+
+function CityStep({ value, onChange }) {
+  return (
+    <>
+      <StepTitle title="Where are you based?" body="Your city sets your local leaderboard, events and who's out near you." />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: S.sm }}>
+        {CITIES.map((c) => {
+          const active = c.name === value;
+          return (
+            <Pressable
+              key={c.name}
+              onPress={() => onChange(c.name)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingHorizontal: S.lg,
+                height: 46,
+                borderRadius: R.full,
+                borderWidth: 1,
+                borderColor: active ? C.accent : C.border,
+                backgroundColor: active ? C.accentDim : C.surface,
+              }}
+            >
+              <MapPin size={15} color={active ? C.accent : C.textMute} />
+              <Text style={{ color: active ? C.accent : C.text, fontSize: 15, fontWeight: "600" }}>{c.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
+function CrewStep({ value, onChange }) {
+  return (
+    <>
+      <StepTitle title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew. No code? Skip it." />
+      <Row gap={S.sm} style={{ height: 58, borderRadius: R.md, borderWidth: 1, borderColor: value ? C.accent : C.border, backgroundColor: C.surface, paddingHorizontal: S.lg }}>
+        <Users size={18} color={C.textMute} />
+        <TextInput
+          value={value}
+          onChangeText={(t) => onChange(t.replace(/\s/g, "").toUpperCase())}
+          placeholder="e.g. NORTH3"
+          placeholderTextColor={C.textMute}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={10}
+          style={{ flex: 1, color: C.text, fontSize: 18, fontFamily: F.displayMedium, letterSpacing: 2 }}
+        />
+      </Row>
+      <Body mute size={13} style={{ marginTop: S.sm }}>
+        You can join or start a crew any time from the Club tab.
+      </Body>
+    </>
+  );
+}
+
+function MotionStep({ status, onAsk }) {
+  const granted = status === "granted";
+  const note = {
+    denied: "No worries. You can turn on Motion & Fitness for OutHere in your phone's settings later.",
+    unavailable: "This device doesn't have a step counter we can read. You can still log runs from the Move tab.",
+  }[status];
+  return (
+    <>
+      <StepTitle title="Your steps do the work" body="OutHere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
+      <View style={{ gap: S.lg, marginBottom: S.xxl }}>
+        {[
+          { icon: Footprints, text: "5 XP for every 1,000 steps, plus bonuses for active days and hitting your goal." },
+          { icon: ShieldCheck, text: "Only step counts are read. Your data stays on this phone." },
+        ].map(({ icon: Icon, text }) => (
+          <Row key={text} gap={S.md} style={{ alignItems: "flex-start" }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" }}>
+              <Icon size={17} color={C.accent} />
+            </View>
+            <Body dim style={{ flex: 1, marginTop: 6 }}>
+              {text}
+            </Body>
+          </Row>
+        ))}
+      </View>
+      {granted ? (
+        <Row gap={S.sm} style={{ padding: S.lg, borderRadius: R.md, backgroundColor: C.accentDim }}>
+          <Check size={18} color={C.accent} />
+          <Text style={{ color: C.accent, fontWeight: "700" }}>Step counting is on</Text>
+        </Row>
+      ) : (
+        <Button title="Turn on step counting" variant="outline" full icon={Footprints} loading={status === "asking"} onPress={onAsk} />
+      )}
+      {note ? (
+        <Body mute size={13} style={{ marginTop: S.md }}>
+          {note}
+        </Body>
+      ) : null}
+    </>
+  );
+}

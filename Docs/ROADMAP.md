@@ -4,7 +4,7 @@ The app's screens and navigation are largely built, but much of what they show i
 
 Each phase starts only once the previous phase's "done when" check passes.
 
-## Phase 0: Clean foundation (in progress)
+## Phase 0: Clean foundation (done)
 
 - One app: `apps/mobile`. The old Emergent `frontend/` app and generated root clutter are removed.
 - The Anything (create.xyz) runtime is gone: no fetch override, launcher menu, remote error reporting or sandbox messaging.
@@ -16,6 +16,17 @@ Each phase starts only once the previous phase's "done when" check passes.
 - The backend installs from `requirements.txt` and its smoke tests live in `backend/tests`.
 
 **Done when:** the app bundles for iOS, Android and web with only OutHere's own config.
+
+## Phase 0.5: The whole app working on the phone (done)
+
+The server decision is parked so the product can be built and felt first.
+
+- `src/data/engine.js` owns all data in AsyncStorage, simulates a seeded world of 24 players and 5 crews, and applies the rules for XP, OUT, streaks, battles, crews, events, drops, rewards and memberships.
+- Every screen reads through React Query hooks (`src/data/hooks.js`) and is built from one design kit (`src/components/ui`). All mock arrays, fake fallbacks, `/api/*` fetches and dead buttons are gone.
+- Membership limits are enforced and open an upgrade sheet. Payments are not live, so switching plan is free in this build.
+- The old `services/api.js` client and the unused Mapbox and RevenueCat packages are removed, so the app runs in Expo Go.
+
+**Done when:** every tab and detail screen works end to end offline. A server later replaces `engine.js` behind the same functions.
 
 ## Phase 1: Accounts and real data
 

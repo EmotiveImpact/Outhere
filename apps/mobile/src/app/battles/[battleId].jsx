@@ -1,382 +1,242 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  ScrollView,
-  Share,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useEffect } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Linking from "expo-linking";
-import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Clock3,
-  Share2,
-  Swords,
-  Trophy,
-  Zap,
-  Timer,
-  Shield,
-} from "lucide-react-native";
-import { Image } from "expo-image";
-import { battlesAPI, userAPI } from "@/services/api";
-import { useUserStore } from "@/store/userStore";
-import { hapticSelection, hapticSuccess } from "@/services/haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { MotiView } from "moti";
+import { Check, Clock3, Coins, Flag, RotateCcw, Swords, Trophy, X, Zap } from "lucide-react-native";
+import { engine, useBattle, useEngineMutation } from "@/data/hooks";
+import { Avatar, Body, Button, C, Card, EmptyState, F, Header, Label, Loading, ProgressBar, R, Row, S, Screen, Title } from "@/components/ui";
+import { TugBar, statusPill } from "@/components/arena/BattleCard";
+import { battlePrize, BATTLE_PRIZES, durationLabel, metricShort, metricUnit, metricValue, playerName, useNow } from "@/components/arena/shared";
+import { countdown, dateLabel, formatDuration, timeLabel } from "@/utils/format";
+import { hapticSuccess } from "@/services/haptics";
 
-const NEON = "#00ff7f";
-const SURFACE = "#161618";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const formatNumber = (value) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0";
-  return n.toLocaleString();
-};
-
-const useCountdown = (endAt) => {
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    const tick = () => {
-      if (!endAt) { setTime("--"); return; }
-      const end = new Date(endAt).getTime();
-      const diff = Math.max(0, end - Date.now());
-      if (diff <= 0) { setTime("Ended"); return; }
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      if (d > 0) setTime(`${d}d ${h}h ${m}m`);
-      else setTime(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [endAt]);
-
-  return time;
-};
-
-// Animated step bar
-function StepBar({ value, total, color, delay = 0 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  const pct = total > 0 ? Math.min(1, value / total) : 0;
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: pct,
-      duration: 900,
-      delay,
-      useNativeDriver: false,
-    }).start();
-  }, [pct]);
-
-  const width = anim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
-
-  return (
-    <View style={{ height: 6, backgroundColor: "#232326", borderRadius: 3, overflow: "hidden" }}>
-      <Animated.View style={{ width, height: "100%", backgroundColor: color, borderRadius: 3 }} />
-    </View>
-  );
-}
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
-export default function BattleDetailScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+export default function BattleScreen() {
   const { battleId } = useLocalSearchParams();
-  const battleIdParam = Array.isArray(battleId) ? battleId[0] : battleId;
-  const myDeviceId = useUserStore((s) => s.deviceId);
+  const id = Array.isArray(battleId) ? battleId[0] : battleId;
+  const router = useRouter();
+  const now = useNow(1000);
+  const { data: battle, isPending, error, refetch, isRefetching } = useBattle(id);
 
-  const { data: battle, isLoading } = useQuery({
-    queryKey: ["battle", battleIdParam],
-    queryFn: () => battlesAPI.get(battleIdParam),
-    enabled: !!battleIdParam,
-    refetchInterval: 1000,
+  const respond = useEngineMutation(engine.respondToBattle, {
+    onSuccess: (_, [, accept]) => {
+      if (accept) hapticSuccess();
+      else router.back();
+    },
   });
+  const cancel = useEngineMutation(engine.cancelBattle);
 
-  const { data: creator } = useQuery({
-    queryKey: ["battle-user", battle?.creator_device_id],
-    queryFn: () => userAPI.get(battle?.creator_device_id),
-    enabled: !!battle?.creator_device_id,
-    refetchInterval: 60000,
-  });
+  const live = battle?.status === "active";
+  const ended = live && battle.endAt && now >= battle.endAt;
 
-  const { data: opponent } = useQuery({
-    queryKey: ["battle-user", battle?.opponent_device_id],
-    queryFn: () => userAPI.get(battle?.opponent_device_id),
-    enabled: !!battle?.opponent_device_id,
-    refetchInterval: 60000,
-  });
+  // Settle as soon as the clock runs out, and keep live scores moving.
+  useEffect(() => {
+    if (ended) refetch();
+  }, [ended, refetch]);
+  useEffect(() => {
+    if (!live) return undefined;
+    const t = setInterval(() => refetch(), 30 * 1000);
+    return () => clearInterval(t);
+  }, [live, refetch]);
 
-  const countdown = useCountdown(battle?.end_at);
-
-  const creatorSteps = battle?.creator_steps ?? 0;
-  const opponentSteps = battle?.opponent_steps ?? 0;
-  const totalSteps = Math.max(creatorSteps + opponentSteps, 1);
-
-  const isComplete = battle?.status === "complete";
-  const myIsCreator = battle?.creator_device_id === myDeviceId;
-  const iWon = isComplete && battle?.winner_device_id === myDeviceId;
-  const isDraw = isComplete && !battle?.winner_device_id;
-
-  const winnerName = useMemo(() => {
-    if (!battle?.winner_device_id) return "Draw";
-    if (battle.winner_device_id === battle.creator_device_id) return creator?.username || "Creator";
-    if (battle.winner_device_id === battle.opponent_device_id) return opponent?.username || "Opponent";
-    return "Winner";
-  }, [battle, creator, opponent]);
-
-  const creatorName = creator?.username || "You";
-  const opponentName = opponent?.username || "Opponent";
-
-  const handleShare = async () => {
-    try {
-      const battleUrl = battleIdParam ? Linking.createURL(`/battles/${battleIdParam}`) : "";
-      const resultLabel = isComplete
-        ? (isDraw ? "Draw" : iWon ? "You Won" : "You Lost")
-        : "Live Battle";
-      await Share.share({
-        message: `OutHere Battle: ${creatorName} vs ${opponentName} · ${resultLabel} · ${creatorSteps.toLocaleString()} vs ${opponentSteps.toLocaleString()} steps${battleUrl ? ` · ${battleUrl}` : ""}`,
-        url: battleUrl || undefined,
-      });
-      hapticSuccess();
-    } catch { /* ignore */ }
-  };
-
-  const handleBack = () => {
-    hapticSelection();
-    if (typeof router.canGoBack === "function" && router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace("/outside/arena");
-  };
-
-  if (isLoading || !battle) {
+  if (isPending) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(0,255,127,0.1)", alignItems: "center", justifyContent: "center" }}>
-          <Swords color={NEON} size={22} />
-        </View>
-        <Text style={{ color: "#555", fontSize: 13, marginTop: 12, fontWeight: "600" }}>Loading battle...</Text>
-      </View>
+      <Screen header={<Header back title="Battle" />}>
+        <Loading />
+      </Screen>
     );
   }
 
+  if (error || !battle) {
+    return (
+      <Screen header={<Header back title="Battle" />}>
+        <EmptyState icon={Swords} title="Battle not found" body="It may have been called off or declined." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
+      </Screen>
+    );
+  }
+
+  const { me, opponent, metric } = battle;
+  const opp = opponent.player;
+  const top = Math.max(me.value, opponent.value, 1);
+  const gap = Math.abs(me.value - opponent.value);
+  const prize = battle.prize || battlePrize(battle.result);
+  const remaining = Math.max(0, (battle.endAt || 0) - now);
+  // Engine battles do not say who started them yet; assume me unless told otherwise.
+  const canCancel = live && battle.isChallenger !== false;
+  const rematch = () => router.push(`/battles/new?opponent=${opp?.id}`);
+
+  const confirmCancel = () =>
+    Alert.alert("Call it off?", `The battle with ${opp?.name} ends now with no winner and no XP.`, [
+      { text: "Keep going", style: "cancel" },
+      { text: "Call it off", style: "destructive", onPress: () => cancel.mutate(battle.id) },
+    ]);
+
+  const standing = live
+    ? battle.leader === "me"
+      ? `You're ahead by ${metricValue(metric, gap)}`
+      : battle.leader
+        ? `${opp?.name} is ahead by ${metricValue(metric, gap)}`
+        : "Dead level. Get moving."
+    : null;
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 48,
-          paddingHorizontal: 20,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Back & Share row */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-          >
-            <ArrowLeft color="#aaa" size={16} />
-            <Text style={{ color: "#aaa", fontWeight: "700", fontSize: 14 }}>Arena</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleShare}
-            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: SURFACE, borderWidth: 1, borderColor: "#2a2a2d", alignItems: "center", justifyContent: "center" }}
-          >
-            <Share2 color="#777" size={16} />
-          </TouchableOpacity>
-        </View>
+    <Screen header={<Header back title="Battle" subtitle={`${durationLabel(battle.durationHours)} · ${metric === "distance" ? "Distance" : "Steps"}`} />} onRefresh={refetch} refreshing={isRefetching}>
+      <Card padding={0} style={{ overflow: "hidden" }} highlight={battle.result === "won" || (live && battle.leader === "me")}>
+        <LinearGradient colors={["rgba(0,255,127,0.14)", "rgba(0,255,127,0)"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ padding: S.xl }}>
+          <Row style={{ justifyContent: "space-between" }}>
+            {statusPill(battle)}
+            {live ? (
+              <Row gap={6}>
+                <Clock3 size={14} color={C.textDim} />
+                <Text style={styles.meta}>Ends {timeLabel(battle.endAt)}</Text>
+              </Row>
+            ) : null}
+          </Row>
 
-        {/* Status badge */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            backgroundColor: isComplete ? "rgba(255,255,255,0.06)" : "rgba(0,255,127,0.1)",
-            borderWidth: 1,
-            borderColor: isComplete ? "#2a2a2d" : "rgba(0,255,127,0.25)",
-            borderRadius: 20,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-          }}>
-            {!isComplete && (
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: NEON, shadowColor: NEON, shadowOpacity: 0.9, shadowRadius: 4 }} />
-            )}
-            <Text style={{ color: isComplete ? "#777" : NEON, fontSize: 12, fontWeight: "800", letterSpacing: 0.5 }}>
-              {isComplete ? "FINISHED" : "LIVE"}
-            </Text>
-          </View>
-          <Text style={{ color: "#444", fontSize: 12 }}>
-            {battle.metric === "distance" ? "Distance" : "Steps"} · {battle.duration_hours ? `${battle.duration_hours}h` : ""}
-          </Text>
-        </View>
-
-        {/* ─── VS Card ─── */}
-        <View style={{
-          backgroundColor: SURFACE,
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: "#1e1e22",
-          padding: 20,
-          marginBottom: 14,
-        }}>
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-            <Swords color={NEON} size={16} />
-            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800", marginLeft: 8 }}>Battle</Text>
-          </View>
-
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
-            {/* Creator */}
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#222", borderWidth: 1.5, borderColor: myIsCreator ? NEON : "#2a2a2d", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-                  {creator?.avatar_url
-                    ? <Image source={{ uri: creator.avatar_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                    : <Text style={{ color: "#555", fontWeight: "800", fontSize: 13 }}>{creatorName[0]?.toUpperCase()}</Text>
-                  }
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: myIsCreator ? NEON : "#fff", fontWeight: "700", fontSize: 13 }} numberOfLines={1}>{creatorName}</Text>
-                  {myIsCreator && <Text style={{ color: "#555", fontSize: 10 }}>You</Text>}
-                </View>
-              </View>
-              <Text style={{ color: "#fff", fontSize: 28, fontWeight: "900", letterSpacing: -1, marginBottom: 6 }}>
-                {formatNumber(creatorSteps)}
-              </Text>
-              <StepBar value={creatorSteps} total={totalSteps} color={myIsCreator ? NEON : "#555"} delay={100} />
+          {live ? (
+            <View style={{ alignItems: "center", marginTop: S.xl }}>
+              <Text style={styles.clock}>{remaining > 86_400_000 ? countdown(battle.endAt, now) : formatDuration(remaining / 1000)}</Text>
+              <Label style={{ marginTop: 2 }}>left on the clock</Label>
             </View>
+          ) : null}
 
-            {/* VS divider */}
-            <View style={{ alignItems: "center", paddingBottom: 8 }}>
-              <Text style={{ color: "#333", fontSize: 13, fontWeight: "900" }}>VS</Text>
+          <Row style={{ marginTop: S.xl, alignItems: "flex-start" }}>
+            <Fighter player={me.player} value={me.value} metric={metric} lead={battle.leader === "me" || battle.result === "won"} />
+            <View style={styles.vsBubble}>
+              <Text style={styles.vs}>VS</Text>
             </View>
+            <Fighter
+              player={opp}
+              value={opponent.value}
+              metric={metric}
+              lead={(battle.leader && battle.leader !== "me") || battle.result === "lost"}
+              onPress={() => router.push(`/player/${opp?.id}`)}
+            />
+          </Row>
 
-            {/* Opponent */}
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, flexDirection: "row-reverse" }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#222", borderWidth: 1.5, borderColor: !myIsCreator ? NEON : "#2a2a2d", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-                  {opponent?.avatar_url
-                    ? <Image source={{ uri: opponent.avatar_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                    : <Text style={{ color: "#555", fontWeight: "800", fontSize: 13 }}>{opponentName[0]?.toUpperCase()}</Text>
-                  }
-                </View>
-                <View style={{ flex: 1, alignItems: "flex-end" }}>
-                  <Text style={{ color: !myIsCreator ? NEON : "#fff", fontWeight: "700", fontSize: 13 }} numberOfLines={1}>{opponentName}</Text>
-                  {!myIsCreator && <Text style={{ color: "#555", fontSize: 10 }}>You</Text>}
-                </View>
-              </View>
-              <Text style={{ color: "#fff", fontSize: 28, fontWeight: "900", letterSpacing: -1, marginBottom: 6, textAlign: "right" }}>
-                {formatNumber(opponentSteps)}
-              </Text>
-              <StepBar value={opponentSteps} total={totalSteps} color={!myIsCreator ? NEON : "#555"} delay={200} />
-            </View>
-          </View>
-        </View>
+          {battle.status !== "pending" ? <TugBar mine={me.value} theirs={opponent.value} height={10} style={{ marginTop: S.xl }} /> : null}
+          {standing ? <Body dim size={14} style={{ textAlign: "center", marginTop: S.md }}>{standing}</Body> : null}
+        </LinearGradient>
+      </Card>
 
-        {/* ─── Countdown / Status Card ─── */}
-        {!isComplete && (
-          <View style={{
-            backgroundColor: SURFACE,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: "#1e1e22",
-            padding: 16,
-            marginBottom: 14,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(0,255,127,0.1)", alignItems: "center", justifyContent: "center" }}>
-              <Timer color={NEON} size={18} />
-            </View>
-            <View>
-              <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", marginBottom: 2 }}>Time Remaining</Text>
-              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: -0.5, fontVariant: ["tabular-nums"] }}>{countdown}</Text>
-            </View>
-          </View>
-        )}
+      {battle.status === "complete" ? (
+        <MotiView from={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", damping: 16 }}>
+          <Card style={{ marginTop: S.lg, alignItems: "center", paddingVertical: S.xl }} highlight={battle.result === "won"}>
+            <Trophy size={30} color={battle.result === "won" ? C.gold : C.textMute} />
+            <Title size={26} style={{ marginTop: S.sm }}>
+              {battle.result === "won" ? "You won" : battle.result === "lost" ? `${opp?.name} took it` : "Honours even"}
+            </Title>
+            <Body dim size={14} style={{ marginTop: 4, textAlign: "center" }}>
+              {metricValue(metric, me.value)} to {metricValue(metric, opponent.value)}
+            </Body>
+            {prize ? (
+              <Row gap={S.sm} style={{ marginTop: S.lg }}>
+                <Reward icon={Zap} colour={C.accent} label={`+${prize.xp} XP`} />
+                {prize.out ? <Reward icon={Coins} colour={C.gold} label={`+${prize.out} OUT`} /> : null}
+              </Row>
+            ) : null}
+          </Card>
+        </MotiView>
+      ) : null}
 
-        {/* ─── Winner Card ─── */}
-        {isComplete && (
-          <View style={{
-            backgroundColor: isDraw ? "rgba(255,255,255,0.04)" : iWon ? "rgba(0,255,127,0.08)" : "rgba(239,68,68,0.06)",
-            borderRadius: 24,
-            borderWidth: 1,
-            borderColor: isDraw ? "#2a2a2d" : iWon ? "rgba(0,255,127,0.25)" : "rgba(239,68,68,0.2)",
-            padding: 20,
-            marginBottom: 14,
-          }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <Trophy color={isDraw ? "#777" : iWon ? NEON : "#ef4444"} size={20} />
-              <Text style={{ color: isDraw ? "#777" : iWon ? "#fff" : "#ef4444", fontSize: 20, fontWeight: "900" }}>
-                {isDraw ? "Draw" : iWon ? "You Won!" : "You Lost"}
-              </Text>
-            </View>
+      {battle.status === "cancelled" ? (
+        <Card style={{ marginTop: S.lg, alignItems: "center" }}>
+          <Flag size={24} color={C.textMute} />
+          <Title size={20} style={{ marginTop: S.sm }}>Called off</Title>
+          <Body dim size={14} style={{ marginTop: 4 }}>No winner, no XP. Run it back any time.</Body>
+        </Card>
+      ) : null}
 
-            <Text style={{ color: "#555", fontSize: 13, marginBottom: 4 }}>
-              Winner: <Text style={{ color: "#fff", fontWeight: "700" }}>{winnerName}</Text>
-            </Text>
-            <Text style={{ color: "#555", fontSize: 13, marginBottom: 16 }}>
-              Score: <Text style={{ color: NEON, fontWeight: "700" }}>{formatNumber(creatorSteps)}</Text>
-              {" vs "}
-              <Text style={{ color: "#999", fontWeight: "700" }}>{formatNumber(opponentSteps)}</Text>
-              {" steps"}
-            </Text>
+      {battle.status !== "pending" ? (
+        <Card style={{ marginTop: S.lg, gap: S.lg }}>
+          <Label>Progress</Label>
+          <Track name="You" value={me.value} metric={metric} share={me.value / top} colour={C.accent} />
+          <Track name={opp?.name} value={opponent.value} metric={metric} share={opponent.value / top} colour={C.textDim} />
+        </Card>
+      ) : null}
 
-            <TouchableOpacity
-              onPress={handleShare}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-                alignSelf: "flex-start",
-                backgroundColor: iWon ? NEON : "#1f1f22",
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: 12,
-              }}
-            >
-              <Share2 color={iWon ? "#000" : "#aaa"} size={14} />
-              <Text style={{ color: iWon ? "#000" : "#aaa", fontWeight: "800", fontSize: 13 }}>Share Result</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+      <Card style={{ marginTop: S.lg, gap: S.md }}>
+        <Info label="Format" value={`${durationLabel(battle.durationHours)} · most ${metric === "distance" ? "distance" : "steps"} wins`} />
+        {battle.startAt ? <Info label="Started" value={`${dateLabel(battle.startAt)}, ${timeLabel(battle.startAt)}`} /> : <Info label="Sent" value={`${dateLabel(battle.createdAt)}, ${timeLabel(battle.createdAt)}`} />}
+        {battle.endAt ? <Info label={live ? "Ends" : "Ended"} value={`${dateLabel(battle.endAt)}, ${timeLabel(battle.endAt)}`} /> : null}
+        <Info label="Prize" value={`Winner ${BATTLE_PRIZES.win.xp} XP + ${BATTLE_PRIZES.win.out} OUT, otherwise ${BATTLE_PRIZES.other.xp} XP`} />
+      </Card>
 
-        {/* ─── Battle Info ─── */}
-        <View style={{
-          backgroundColor: SURFACE,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: "#1e1e22",
-          padding: 16,
-        }}>
-          <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>Battle Info</Text>
-          {[
-            ["Battle ID", battleIdParam ? `${battleIdParam.slice(0, 8)}…` : "--"],
-            ["Status", battle.status?.toUpperCase() || "ACTIVE"],
-            ["Metric", battle.metric === "distance" ? "Distance (KM)" : "Steps"],
-            ["Ends", battle.end_at ? new Date(battle.end_at).toLocaleString() : "--"],
-          ].map(([label, value]) => (
-            <View key={label} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#1e1e22" }}>
-              <Text style={{ color: "#555", fontSize: 13 }}>{label}</Text>
-              <Text style={{ color: "#aaa", fontSize: 13, fontWeight: "600" }}>{value}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+      <View style={{ marginTop: S.xl, gap: S.md }}>
+        {battle.incoming ? (
+          <Row>
+            <Button title="Decline" variant="secondary" icon={X} onPress={() => respond.mutate([battle.id, false])} disabled={respond.isPending} style={{ flex: 1 }} />
+            <Button title="Accept" icon={Check} onPress={() => respond.mutate([battle.id, true])} loading={respond.isPending} style={{ flex: 1 }} />
+          </Row>
+        ) : null}
+        {battle.status === "complete" || battle.status === "cancelled" ? <Button title={`Rematch ${opp?.name}`} icon={RotateCcw} onPress={rematch} full /> : null}
+        {canCancel ? <Button title="Call it off" variant="danger" icon={Flag} onPress={confirmCancel} loading={cancel.isPending} full /> : null}
+      </View>
+    </Screen>
+  );
+}
+
+function Fighter({ player, value, metric, lead, onPress }) {
+  const body = (
+    <View style={{ alignItems: "center" }}>
+      <Avatar uri={player?.avatar} name={player?.name || ""} size={76} ring={lead ? C.accent : C.borderStrong} />
+      <Text style={styles.fighterName} numberOfLines={1}>
+        {playerName(player)}
+      </Text>
+      <Text style={[styles.fighterValue, lead && { color: C.accent }]} numberOfLines={1} adjustsFontSizeToFit>
+        {metricShort(metric, value)}
+      </Text>
+      <Text style={styles.fighterUnit}>{metricUnit(metric)}</Text>
+    </View>
+  );
+  if (!onPress) return <View style={{ flex: 1 }}>{body}</View>;
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.7 }]}>
+      {body}
+    </Pressable>
+  );
+}
+
+function Track({ name, value, metric, share, colour }) {
+  return (
+    <View>
+      <Row style={{ justifyContent: "space-between", marginBottom: S.sm }}>
+        <Text style={styles.trackName}>{name}</Text>
+        <Text style={styles.trackValue}>{metricValue(metric, value)}</Text>
+      </Row>
+      <ProgressBar value={share} colour={colour} height={8} />
     </View>
   );
 }
+
+function Info({ label, value }) {
+  return (
+    <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }} gap={S.lg}>
+      <Body mute size={14}>{label}</Body>
+      <Body size={14} style={{ flex: 1, textAlign: "right" }}>{value}</Body>
+    </Row>
+  );
+}
+
+function Reward({ icon: Icon, colour, label }) {
+  return (
+    <View style={[styles.reward, { borderColor: colour }]}>
+      <Icon size={15} color={colour} />
+      <Text style={[styles.rewardText, { color: colour }]}>{label}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  meta: { color: C.textDim, fontSize: 12, fontWeight: "600" },
+  clock: { color: C.text, fontFamily: F.display, fontSize: 46, letterSpacing: -1, fontVariant: ["tabular-nums"] },
+  vsBubble: { width: 40, height: 40, borderRadius: 20, marginTop: 18, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" },
+  vs: { color: C.textDim, fontFamily: F.display, fontSize: 13 },
+  fighterName: { color: C.textDim, fontSize: 14, fontWeight: "600", marginTop: S.sm, maxWidth: "90%" },
+  fighterValue: { color: C.text, fontFamily: F.display, fontSize: 34, marginTop: 2 },
+  fighterUnit: { color: C.textMute, fontSize: 12, fontWeight: "600" },
+  trackName: { color: C.text, fontSize: 14, fontWeight: "600" },
+  trackValue: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 14 },
+  reward: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 14, borderRadius: R.full, borderWidth: 1 },
+  rewardText: { fontFamily: F.display, fontSize: 15 },
+});

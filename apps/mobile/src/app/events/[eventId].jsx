@@ -1,281 +1,177 @@
-import React, { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useState } from "react";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  CalendarDays,
-  MapPin,
-  Ticket,
-  Trophy,
-} from "lucide-react-native";
-import { eventsAPI } from "@/services/api";
-import { useUserStore } from "@/store/userStore";
-
-const NEON = "#00ff7f";
-
-const formatDateTime = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Time TBA";
-  return date.toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
+import { MotiView } from "moti";
+import { CalendarCheck, Coins, Clock3, Lock, MapPin, Navigation, Sparkles, UserRound, Zap } from "lucide-react-native";
+import { engine, useEngineMutation, useEvent } from "@/data/hooks";
+import { Body, Button, C, Card, EmptyState, F, Header, Label, Loading, ProgressBar, R, Row, S, Screen, Spacer, Title } from "@/components/ui";
+import { EventPills } from "@/components/happenings/EventCard";
+import { HeroScreen, InfoLine, openDirections, whenLabel } from "@/components/happenings/shared";
+import { hapticSuccess } from "@/services/haptics";
+import { countdown, formatNumber, tierLabel } from "@/utils/format";
 
 export default function EventDetailScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { eventId } = useLocalSearchParams();
-  const deviceId = useUserStore((state) => state.deviceId);
-  const setUser = useUserStore((state) => state.setUser);
+  const id = Array.isArray(eventId) ? eventId[0] : eventId;
+  const { data: event, isPending, error, refetch, isRefetching } = useEvent(id);
+  const [earned, setEarned] = useState(false);
 
-  const [actionMessage, setActionMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const {
-    data: event,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["event", eventId],
-    queryFn: () => eventsAPI.get(eventId),
-    enabled: !!eventId,
-    refetchInterval: 30000,
+  const rsvp = useEngineMutation(engine.rsvpEvent, { onSuccess: (v) => v?.isGoing && hapticSuccess() });
+  const checkIn = useEngineMutation(engine.checkInEvent, {
+    onSuccess: () => {
+      hapticSuccess();
+      setEarned(true);
+    },
   });
 
-  const rsvpCount = Array.isArray(event?.rsvps) ? event.rsvps.length : 0;
-  const checkinCount = Array.isArray(event?.checkins) ? event.checkins.length : 0;
-
-  const isRsvped = useMemo(() => {
-    if (!deviceId || !Array.isArray(event?.rsvps)) return false;
-    return event.rsvps.includes(deviceId);
-  }, [event?.rsvps, deviceId]);
-
-  const isCheckedIn = useMemo(() => {
-    if (!deviceId || !Array.isArray(event?.checkins)) return false;
-    return event.checkins.includes(deviceId);
-  }, [event?.checkins, deviceId]);
-
-  const handleRSVP = async () => {
-    if (!deviceId || !eventId) return;
-    setIsSubmitting(true);
-    setActionMessage("");
-    try {
-      const response = await eventsAPI.rsvp(eventId, deviceId);
-      await refetch();
-      setActionMessage(
-        response?.already_rsvped ? "You already RSVPed." : "RSVP confirmed."
-      );
-    } catch (error) {
-      setActionMessage(error?.data?.detail || "Could not RSVP right now.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCheckIn = async () => {
-    if (!deviceId || !eventId) return;
-    setIsSubmitting(true);
-    setActionMessage("");
-    try {
-      const response = await eventsAPI.checkIn(eventId, deviceId);
-      if (response?.user) {
-        setUser(response.user);
-      }
-      await refetch();
-      if (response?.already_checked_in) {
-        setActionMessage("Already checked in.");
-      } else {
-        setActionMessage(
-          `Checked in. +${response?.xp_awarded || 0} XP · +${response?.out_awarded || 0} OUT`
-        );
-      }
-    } catch (error) {
-      setActionMessage(error?.data?.detail || "Check-in not available yet.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoading || !event) {
+  if (isPending) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#0a0a0a",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator color={NEON} />
-      </View>
+      <Screen header={<Header back title="Event" />}>
+        <Loading />
+      </Screen>
+    );
+  }
+  if (error || !event) {
+    return (
+      <Screen header={<Header back title="Event" />}>
+        <EmptyState
+          icon={CalendarCheck}
+          title="Event not found"
+          body="It may have been moved or cancelled."
+          action="See all events"
+          onAction={() => router.replace("/outside/events")}
+        />
+      </Screen>
     );
   }
 
+  const locked = !event.canAttend;
+  const fill = event.capacity ? event.rsvpCount / event.capacity : 0;
+
+  const footer = (() => {
+    if (locked) {
+      return (
+        <Button
+          full
+          size="lg"
+          icon={Lock}
+          title={`Unlock with ${tierLabel(event.tierRequired)}`}
+          loading={rsvp.isPending}
+          onPress={() => rsvp.mutate([event.id, true])}
+        />
+      );
+    }
+    if (event.checkInOpen && !event.checkedIn) {
+      return <Button full size="lg" icon={MapPin} title="I'm here, check me in" loading={checkIn.isPending} onPress={() => checkIn.mutate(event.id)} />;
+    }
+    if (event.checkedIn) return null;
+    if (event.isGoing) {
+      return <Button full size="lg" variant="secondary" title="Going. Tap to cancel" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, false])} />;
+    }
+    if (event.isFull) return <Button full size="lg" variant="secondary" title="Event full" disabled />;
+    return <Button full size="lg" title="I'm going" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, true])} />;
+  })();
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 32,
-          paddingHorizontal: 20,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            alignSelf: "flex-start",
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <ArrowLeft color="#aaa" size={16} />
-          <Text style={{ color: "#aaa", marginLeft: 6, fontWeight: "700" }}>
-            Back
-          </Text>
-        </TouchableOpacity>
+    <HeroScreen image={event.image} footer={footer} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} />}>
+      <EventPills event={event} />
+      <Title size={32} style={{ marginTop: S.md }}>
+        {event.title}
+      </Title>
+      <View style={{ gap: 10, marginTop: S.lg }}>
+        <InfoLine icon={UserRound} size={14}>{`Hosted by ${event.organiser}`}</InfoLine>
+        <InfoLine icon={Clock3} size={14} colour={event.status === "live" ? C.accent : C.textDim}>
+          {event.status === "live"
+            ? `Live now. ${whenLabel(event.startAt, event.endAt)}`
+            : `${whenLabel(event.startAt, event.endAt)} (in ${countdown(event.startAt)})`}
+        </InfoLine>
+        <InfoLine icon={MapPin} size={14}>{`${event.location}, ${event.city}`}</InfoLine>
+      </View>
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={Navigation}
+        title="Get directions"
+        onPress={() => openDirections(event.location, event.city)}
+        style={{ alignSelf: "flex-start", marginTop: S.lg }}
+      />
 
-        <View
-          style={{
-            backgroundColor: "#161618",
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-            <CalendarDays color={NEON} size={18} />
-            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800", marginLeft: 8 }}>
-              Event Detail
-            </Text>
-          </View>
-          <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>
-            {event.title}
-          </Text>
-          <Text style={{ color: "#888", fontSize: 13, marginTop: 10, lineHeight: 20 }}>
-            {event.description}
-          </Text>
-          <View style={{ marginTop: 14 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
-              <MapPin color="#9efac8" size={14} />
-              <Text style={{ color: "#9efac8", marginLeft: 6, fontWeight: "700" }}>
-                {event.city} • {event.location}
-              </Text>
-            </View>
-            <Text style={{ color: "#aaa", fontSize: 12 }}>
-              Starts: {formatDateTime(event.start_at)}
-            </Text>
-            <Text style={{ color: "#aaa", fontSize: 12, marginTop: 2 }}>
-              Ends: {formatDateTime(event.end_at)}
-            </Text>
-            <Text style={{ color: "#666", fontSize: 11, marginTop: 6 }}>
-              Check-in window: 1 hour before start until 1 hour after end
-            </Text>
-          </View>
+      {earned || event.checkedIn ? (
+        <MotiView from={earned ? { opacity: 0, scale: 0.92 } : undefined} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", damping: 14 }}>
+          <Card highlight style={{ marginTop: S.xl }}>
+            <Row gap={S.md}>
+              <View style={styles.badge}>
+                <Sparkles size={22} color={C.accentText} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Title size={19}>{earned ? "You're checked in" : "Checked in"}</Title>
+                <Body dim size={14}>{`+${formatNumber(event.rewardXp)} XP and +${formatNumber(event.rewardOut)} OUT added to your balance.`}</Body>
+              </View>
+            </Row>
+          </Card>
+        </MotiView>
+      ) : null}
+
+      {locked ? (
+        <Card style={{ marginTop: S.xl }}>
+          <Row gap={S.md}>
+            <Lock size={20} color={event.tierRequired === "black" ? C.black : C.pro} />
+            <Body dim size={14} style={{ flex: 1 }}>
+              {event.tierRequired === "black" ? "This one is for Black members only." : "This one is for Pro and Black members."} Upgrade to RSVP and earn the
+              check-in reward.
+            </Body>
+          </Row>
+        </Card>
+      ) : null}
+
+      <Body dim style={{ marginTop: S.xl, lineHeight: 23 }}>
+        {event.description}
+      </Body>
+
+      <Card style={{ marginTop: S.xl }}>
+        <Row style={{ justifyContent: "space-between", marginBottom: S.md }}>
+          <Label>Who's going</Label>
+          <Text style={styles.small}>{event.isFull ? "Full" : `${event.spotsLeft} spots left`}</Text>
+        </Row>
+        <Row style={{ alignItems: "flex-end", marginBottom: S.md }} gap={6}>
+          <Text style={styles.big}>{formatNumber(event.rsvpCount)}</Text>
+          <Text style={[styles.small, { marginBottom: 6 }]}>of {formatNumber(event.capacity)}</Text>
+        </Row>
+        <ProgressBar value={fill} colour={event.isFull ? C.fire : C.accent} />
+        {event.isGoing && !event.checkedIn ? (
+          <Body mute size={13} style={{ marginTop: S.md }}>
+            {"You're on the list. Check-in opens an hour before the start."}
+          </Body>
+        ) : null}
+      </Card>
+
+      <Label style={{ marginTop: S.xl, marginBottom: S.md }}>Show up and earn</Label>
+      <Row gap={S.md}>
+        <View style={styles.rewardTile}>
+          <Zap size={18} color={C.accent} fill={C.accent} />
+          <Text style={styles.rewardValue}>+{formatNumber(event.rewardXp)}</Text>
+          <Body mute size={12}>
+            XP
+          </Body>
         </View>
-
-        <View
-          style={{
-            backgroundColor: "#161618",
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-            <Ticket color={NEON} size={16} />
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", marginLeft: 8 }}>
-              Attendance
-            </Text>
-          </View>
-          <Text style={{ color: "#fff", fontWeight: "700" }}>
-            {rsvpCount} RSVPs
-            {event.capacity > 0 ? ` / ${event.capacity}` : ""}
-          </Text>
-          <Text style={{ color: "#aaa", marginTop: 4 }}>{checkinCount} checked in</Text>
-
-          <View style={{ flexDirection: "row", marginTop: 14 }}>
-            <TouchableOpacity
-              disabled={isSubmitting || !deviceId}
-              onPress={handleRSVP}
-              style={{
-                flex: 1,
-                backgroundColor: isRsvped ? "#1f1f21" : NEON,
-                borderRadius: 12,
-                paddingVertical: 11,
-                alignItems: "center",
-                marginRight: 8,
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
-              <Text style={{ color: isRsvped ? "#bbb" : "#000", fontWeight: "800" }}>
-                {isRsvped ? "RSVPed" : "RSVP"}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              disabled={isSubmitting || !deviceId}
-              onPress={handleCheckIn}
-              style={{
-                flex: 1,
-                backgroundColor: isCheckedIn ? "#1f1f21" : "rgba(0,255,127,0.12)",
-                borderRadius: 12,
-                paddingVertical: 11,
-                alignItems: "center",
-                borderWidth: 1,
-                borderColor: isCheckedIn ? "#2a2a2d" : "rgba(0,255,127,0.35)",
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
-              <Text style={{ color: isCheckedIn ? "#bbb" : "#9efac8", fontWeight: "800" }}>
-                {isCheckedIn ? "Checked In" : "Check In"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {!!actionMessage && (
-            <Text style={{ color: "#9efac8", fontSize: 12, marginTop: 10 }}>
-              {actionMessage}
-            </Text>
-          )}
+        <View style={styles.rewardTile}>
+          <Coins size={18} color={C.gold} />
+          <Text style={[styles.rewardValue, { color: C.gold }]}>+{formatNumber(event.rewardOut)}</Text>
+          <Body mute size={12}>
+            OUT
+          </Body>
         </View>
-
-        <View
-          style={{
-            backgroundColor: "rgba(0,255,127,0.08)",
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: "rgba(0,255,127,0.25)",
-            padding: 16,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-            <Trophy color={NEON} size={16} />
-            <Text style={{ color: "#fff", fontWeight: "800", marginLeft: 8 }}>
-              Check-In Rewards
-            </Text>
-          </View>
-          <Text style={{ color: "#9efac8", fontWeight: "700" }}>
-            Event check-in awards XP + OUT and unlocks an event badge.
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
+      </Row>
+      <Spacer h={S.xl} />
+    </HeroScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
+  big: { color: C.text, fontFamily: F.display, fontSize: 34 },
+  rewardTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, borderWidth: 1, borderColor: C.border, padding: S.lg, gap: 6 },
+  rewardValue: { color: C.accent, fontFamily: F.display, fontSize: 28 },
+});

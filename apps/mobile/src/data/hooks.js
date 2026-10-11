@@ -7,6 +7,7 @@ import { Alert } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import * as engine from "./engine";
+import { setHapticsEnabled } from "@/services/haptics";
 
 export { engine };
 
@@ -48,7 +49,16 @@ export function EngineBridge() {
         qc.invalidateQueries({ queryKey: [KEY] });
       }, 0);
     };
-    const unsubscribe = engine.subscribe(refresh);
+    const syncHaptics = () =>
+      engine
+        .getSettings()
+        .then((s) => setHapticsEnabled(s?.haptics))
+        .catch(() => {});
+    syncHaptics();
+    const unsubscribe = engine.subscribe(() => {
+      refresh();
+      syncHaptics();
+    });
     const tick = setInterval(refresh, 60 * 1000);
     return () => {
       unsubscribe();

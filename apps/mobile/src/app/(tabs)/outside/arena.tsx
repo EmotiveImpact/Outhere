@@ -1,794 +1,214 @@
-import React, { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import React, { useCallback, useRef, useState } from "react";
+import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import {
-  ChevronRight,
-  CircleAlert,
-  Globe2,
-  MapPin,
-  Swords,
-  Trophy,
-  Zap,
-} from "lucide-react-native";
-import { battlesAPI, challengesAPI, leaderboardAPI, membershipAPI } from "@/services/api";
-import { hapticSelection } from "@/services/haptics";
-import { useUserStore } from "@/store/userStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MotiView } from "moti";
+import { EyeOff, Users } from "lucide-react-native";
+import { useBattleLimits, useBattles, useLeaderboard } from "@/data/hooks";
+import * as UI from "@/components/ui";
+import BattlesHubJs from "@/components/arena/BattlesHub";
+import * as Leader from "@/components/arena/LeaderRow";
+import { METRICS } from "@/components/arena/shared";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
+import { hapticSelection } from "@/services/haptics";
 
-const NEON = "#00ff7f";
-const SURFACE = "#161618";
-
-type RankingScope = "city" | "global";
-
-type RankingEntry = {
-  id: string;
-  name: string;
-  value: number;
-};
-
-type ChallengeEntry = {
-  id: string;
-  title: string;
-  subtitle: string;
-  progress: number;
-  target: number;
-};
-
-type ActiveBattleEntry = {
-  id: string;
-  opponentName: string;
-  endAt: string;
-};
-
-type AnyRecord = Record<string, unknown>;
-
-const fallbackRankings: Record<RankingScope, RankingEntry[]> = {
-  city: [
-    { id: "city-1", name: "You", value: 8420 },
-    { id: "city-2", name: "Jay", value: 8050 },
-    { id: "city-3", name: "Mina", value: 7920 },
-  ],
-  global: [
-    { id: "global-1", name: "Niko", value: 21420 },
-    { id: "global-2", name: "Isha", value: 20990 },
-    { id: "global-3", name: "Raf", value: 20440 },
-  ],
-};
-
-const fallbackChallenges: ChallengeEntry[] = [
-  {
-    id: "challenge-1",
-    title: "Daily 10K Steps",
-    subtitle: "Hit 10,000 steps today",
-    progress: 6500,
-    target: 10000,
-  },
-  {
-    id: "challenge-2",
-    title: "City Sprint",
-    subtitle: "Add 20,000 steps this week",
-    progress: 12400,
-    target: 20000,
-  },
-  {
-    id: "challenge-3",
-    title: "Streak Builder",
-    subtitle: "Check in 5 days in a row",
-    progress: 2,
-    target: 5,
-  },
+const SCOPES = [
+  { value: "city", label: "City" },
+  { value: "global", label: "Global" },
+  { value: "friends", label: "Friends" },
 ];
 
-const formatNumber = (value: unknown) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0";
-  return n.toLocaleString();
-};
+// The design kit and arena components are plain JS; their inferred prop types
+// mark every prop as required, so read them loosely here.
+const { Body, C, EmptyState, Loading, R, S, Segment, TAB_BAR_SPACE, Title } = UI as any;
+const { LeaderRow, Podium } = Leader as any;
+const BattlesHub = BattlesHubJs as any;
+
+const PERIODS = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+];
+
+const PERIOD_TEXT: Record<string, string> = { today: "Today", week: "This week", month: "Last 30 days" };
+
+// Room the floating tab bar covers at the bottom of the screen.
+const TAB_BAR_COVER = 66;
 
 export default function ArenaScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const city = useUserStore((s) => s.user?.city);
-  const deviceId = useUserStore((s) => s.deviceId);
+  const insets = useSafeAreaInsets();
+  const [scope, setScope] = useState("city");
+  const [period, setPeriod] = useState("week");
+  const [metric, setMetric] = useState("steps");
 
-  const [rankScope, setRankScope] = useState<RankingScope>("city");
-  const [showBattleModal, setShowBattleModal] = useState(false);
-  const [opponentUsername, setOpponentUsername] = useState("");
-  const [durationHours, setDurationHours] = useState(24);
-  const [battleError, setBattleError] = useState("");
-  const [isCreatingBattle, setIsCreatingBattle] = useState(false);
+  const board = useLeaderboard({ scope, period, metric });
+  const battles = useBattles();
+  const limits = useBattleLimits();
   const { scrollRef, handleScroll } = useOutsideScrollPersistence("arena");
 
-  const [membershipTier, setMembershipTier] = useState("free");
-  const { data: membershipData } = useQuery({
-    queryKey: ["membership-status", deviceId],
-    queryFn: () => membershipAPI.getStatus(deviceId),
-    enabled: !!deviceId,
-  });
+  const data: any = board.data;
+  const entries: any[] = data?.entries || [];
+  const meEntry = data?.me || null;
+  const timeless = metric === "xp" || metric === "streak";
+  const openPlayer = (entry: any) => router.push(entry.isMe ? "/(tabs)/profile" : (`/player/${entry.player.id}` as any));
 
-  React.useEffect(() => {
-    if (membershipData?.membership_tier) {
-      setMembershipTier(membershipData.membership_tier.toLowerCase());
-    }
-  }, [membershipData]);
+  // Track where my row sits so it can be pinned while it is off screen.
+  const geo = useRef({ scrollY: 0, viewH: 0, listY: 0, rowsY: 0, rowY: -1, rowH: 0, inPodium: false });
+  const [meVisible, setMeVisible] = useState(true);
+  const checkVisible = useCallback(() => {
+    const g = geo.current;
+    if (g.rowY < 0 || !g.viewH) return setMeVisible(true);
+    const top = g.listY + (g.inPodium ? 0 : g.rowsY) + g.rowY;
+    const bottom = top + g.rowH;
+    const visibleBottom = g.scrollY + g.viewH - TAB_BAR_COVER - insets.bottom;
+    setMeVisible(bottom > g.scrollY + 8 && top < visibleBottom - 8);
+  }, [insets.bottom]);
 
-  const { data: rankingData, isLoading: isRankingLoading } = useQuery({
-    queryKey: ["arena", "rankings", rankScope, city],
-    queryFn: () =>
-      leaderboardAPI.get(
-        "daily",
-        rankScope === "city" && city ? city : undefined
-      ),
-    staleTime: 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: challengeData, isLoading: isChallengesLoading } = useQuery({
-    queryKey: ["arena", "challenges", city],
-    queryFn: () => challengesAPI.getAll(city),
-    staleTime: 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: activeBattleData,
-    isLoading: isBattlesLoading,
-    refetch: refetchBattles,
-  } = useQuery({
-    queryKey: ["arena", "battles", "active", deviceId],
-    queryFn: () => battlesAPI.getForUser(deviceId, "active"),
-    enabled: !!deviceId,
-    staleTime: 30 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const rankings = useMemo<RankingEntry[]>(() => {
-    const rankingPayload = rankingData as AnyRecord | AnyRecord[] | undefined;
-    const raw = Array.isArray(rankingPayload)
-      ? rankingPayload
-      : Array.isArray(rankingPayload?.leaderboard)
-        ? (rankingPayload.leaderboard as AnyRecord[])
-        : [];
-
-    if (!raw.length) return fallbackRankings[rankScope];
-
-    return raw.slice(0, 3).map((item: AnyRecord, index: number) => ({
-      id: String(item.id || item.device_id || item.username || `rank-${index}`),
-      name: String(item.username || item.name || `Player ${index + 1}`),
-      value: Number(
-        item.steps ??
-          item.total_steps ??
-          item.score ??
-          item.distance ??
-          item.xp ??
-          0
-      ),
-    }));
-  }, [rankingData, rankScope]);
-
-  const challenges = useMemo<ChallengeEntry[]>(() => {
-    const challengePayload = challengeData as AnyRecord | AnyRecord[] | undefined;
-    const raw = Array.isArray(challengePayload)
-      ? challengePayload
-      : Array.isArray(challengePayload?.challenges)
-        ? (challengePayload.challenges as AnyRecord[])
-        : [];
-
-    if (!raw.length) return fallbackChallenges;
-
-    return raw.slice(0, 3).map((item: AnyRecord, index: number) => {
-      const progress = Number(
-        item.progress ??
-          item.current_progress ??
-          item.current ??
-          item.steps_done ??
-          0
-      );
-      const target = Number(
-        item.target ??
-          item.target_steps ??
-          item.goal ??
-          item.goal_steps ??
-          10000
-      );
-
-      return {
-        id: String(item.id || `challenge-${index}`),
-        title: String(item.title || item.name || `Challenge ${index + 1}`),
-        subtitle: String(
-          item.description ||
-            (item.city ? `${String(item.city)} challenge` : "Keep moving to complete")
-        ),
-        progress: Number.isFinite(progress) ? progress : 0,
-        target: Number.isFinite(target) && target > 0 ? target : 10000,
-      };
-    });
-  }, [challengeData]);
-
-  const realActiveBattleCount = Array.isArray(activeBattleData)
-    ? activeBattleData.length
-    : 0;
-
-  const activeBattles = useMemo<ActiveBattleEntry[]>(() => {
-    const raw = Array.isArray(activeBattleData)
-      ? (activeBattleData as AnyRecord[])
-      : [];
-    const normalized: ActiveBattleEntry[] = raw.map(
-      (battle: AnyRecord, index: number) => ({
-      id: String(battle.id || `battle-${index}`),
-      opponentName: String(
-        battle.creator_device_id === deviceId
-          ? battle.opponent_device_id || "Opponent"
-          : battle.creator_device_id || "Opponent"
-      ),
-      endAt: String(battle.end_at || new Date().toISOString()),
-    }),
-    );
-
-    if (normalized.length >= 3) return normalized;
-
-    const fallback = [
-      {
-        id: "fallback-b1",
-        opponentName: "sarah.run",
-        endAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "fallback-b2",
-        opponentName: "mike.steps",
-        endAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "fallback-b3",
-        opponentName: "lena.moves",
-        endAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-
-    return [...normalized, ...fallback].slice(0, 3);
-  }, [activeBattleData, deviceId]);
-
-  const formatTimeLeft = (endAt?: string) => {
-    if (!endAt) return "--";
-    const end = new Date(endAt).getTime();
-    if (Number.isNaN(end)) return "--";
-    const diff = Math.max(0, end - Date.now());
-    if (diff <= 0) return "Ended";
-    const totalMinutes = Math.floor(diff / (1000 * 60));
-    const days = Math.floor(totalMinutes / (60 * 24));
-    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-    const minutes = totalMinutes % 60;
-    if (days > 0) return `${days}d ${hours}h`;
-    return `${hours}h ${minutes}m`;
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    geo.current.scrollY = e.nativeEvent.contentOffset.y;
+    checkVisible();
+    handleScroll(e);
+  };
+  const onMyRowLayout = (e: LayoutChangeEvent, inPodium = false) => {
+    geo.current.inPodium = inPodium;
+    geo.current.rowY = e.nativeEvent.layout.y;
+    geo.current.rowH = e.nativeEvent.layout.height;
+    checkVisible();
   };
 
-  const createBattle = async () => {
-    if (!deviceId) return;
-    if (!opponentUsername.trim()) {
-      setBattleError("Enter opponent username");
-      return;
-    }
-
-    if (membershipTier === "free" && realActiveBattleCount >= 1) {
-      setBattleError("Free tier is limited to 1 active battle.");
-      return;
-    }
-
-    setIsCreatingBattle(true);
-    setBattleError("");
-    try {
-      const users = await leaderboardAPI.get("all-time");
-      const userPayload = users as AnyRecord | AnyRecord[] | undefined;
-      const userList = Array.isArray(userPayload)
-        ? userPayload
-        : Array.isArray(userPayload?.leaderboard)
-          ? (userPayload.leaderboard as AnyRecord[])
-          : [];
-
-      const match = userList.find(
-        (u: AnyRecord) =>
-          String(u.username || "")
-            .trim()
-            .toLowerCase() === opponentUsername.trim().toLowerCase()
-      );
-
-      if (!match?.device_id) {
-        setBattleError("Username not found");
-        return;
-      }
-      if (match.device_id === deviceId) {
-        setBattleError("Choose another opponent");
-        return;
-      }
-
-      const created = await battlesAPI.create({
-        creator_device_id: deviceId,
-        opponent_device_id: match.device_id,
-        duration_hours: durationHours,
-      });
-
-      setShowBattleModal(false);
-      setOpponentUsername("");
-      setDurationHours(24);
-      await refetchBattles();
-
-      if (created?.id) {
-        router.push(`/battles/${created.id}`);
-      }
-    } catch (error) {
-      const detail = (error as { data?: { detail?: string } })?.data?.detail;
-      setBattleError(detail || "Could not create battle");
-    } finally {
-      setIsCreatingBattle(false);
-    }
+  const refreshing = board.isRefetching || battles.isRefetching;
+  const onRefresh = () => {
+    board.refetch();
+    battles.refetch();
+    limits.refetch();
   };
+
+  const podium = entries.length >= 3 && scope !== "friends" ? entries.slice(0, 3) : [];
+  const rows = entries.slice(podium.length);
+  const meInPodium = podium.some((e) => e.isMe);
+  if (!meEntry && geo.current.rowY !== -1) geo.current.rowY = -1;
+
+  const scopeText = scope === "city" ? data?.city || "Your city" : scope === "global" ? "Everywhere" : "You and who you follow";
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
         ref={scrollRef}
-        style={{ flex: 1 }}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={{
-          paddingTop: 16,
-          paddingBottom: insets.bottom + 100,
-          paddingHorizontal: 20,
+        onScroll={onScroll}
+        scrollEventThrottle={32}
+        onLayout={(e) => {
+          geo.current.viewH = e.nativeEvent.layout.height;
+          checkVisible();
         }}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: TAB_BAR_SPACE + insets.bottom + 64 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
       >
-        {/* ─── Rankings Card ─── */}
-        <View
-          style={{
-            backgroundColor: SURFACE,
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 14,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Trophy color={NEON} size={18} />
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-                Rankings
-              </Text>
-            </View>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  hapticSelection();
-                  setRankScope("city");
-                }}
-                style={{
-                  backgroundColor:
-                    rankScope === "city" ? "rgba(0,255,127,0.15)" : "#1f1f22",
-                  borderWidth: 1,
-                  borderColor:
-                    rankScope === "city" ? "rgba(0,255,127,0.35)" : "#2a2a2d",
-                  borderRadius: 14,
-                  paddingHorizontal: 10,
-                  paddingVertical: 7,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                <MapPin color={rankScope === "city" ? NEON : "#777"} size={12} />
-                <Text
-                  style={{
-                    color: rankScope === "city" ? "#fff" : "#888",
-                    fontSize: 12,
-                    fontWeight: "700",
-                  }}
-                >
-                  City
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  hapticSelection();
-                  setRankScope("global");
-                }}
-                style={{
-                  backgroundColor:
-                    rankScope === "global"
-                      ? "rgba(0,255,127,0.15)"
-                      : "#1f1f22",
-                  borderWidth: 1,
-                  borderColor:
-                    rankScope === "global"
-                      ? "rgba(0,255,127,0.35)"
-                      : "#2a2a2d",
-                  borderRadius: 14,
-                  paddingHorizontal: 10,
-                  paddingVertical: 7,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                <Globe2 color={rankScope === "global" ? NEON : "#777"} size={12} />
-                <Text
-                  style={{
-                    color: rankScope === "global" ? "#fff" : "#888",
-                    fontSize: 12,
-                    fontWeight: "700",
-                  }}
-                >
-                  Global
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        <BattlesHub />
 
-          {isRankingLoading ? (
-            <View style={{ paddingVertical: 24, alignItems: "center" }}>
-              <ActivityIndicator color={NEON} />
-            </View>
-          ) : (
-            rankings.map((entry: RankingEntry, index: number) => (
-              <View
-                key={entry.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingVertical: 10,
-                  borderBottomWidth: index === rankings.length - 1 ? 0 : 1,
-                  borderBottomColor: "#202024",
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text
-                    style={{
-                      color: "#777",
-                      width: 24,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {index + 1}
-                  </Text>
-                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>
-                    {entry.name}
-                  </Text>
-                </View>
-                <Text style={{ color: NEON, fontWeight: "800" }}>
-                  {formatNumber(entry.value)}
-                </Text>
-              </View>
-            ))
-          )}
+        <View style={styles.rankHead}>
+          <Title size={24}>Rankings</Title>
+          <Body dim size={13} style={{ marginTop: 2 }}>
+            {scopeText} · {timeless ? (metric === "xp" ? "All time" : "Current streaks") : PERIOD_TEXT[period]}
+          </Body>
         </View>
 
-        {/* ─── Challenges Card ─── */}
-        <View
-          style={{
-            backgroundColor: SURFACE,
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 14,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Zap color={NEON} size={18} />
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-                Challenges
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                hapticSelection();
-                router.push("/challenges");
-              }}
-              style={{ flexDirection: "row", alignItems: "center" }}
-            >
-              <Text
-                style={{
-                  color: "#888",
-                  fontSize: 12,
-                  fontWeight: "700",
-                  marginRight: 3,
-                }}
-              >
-                View all
-              </Text>
-              <ChevronRight color="#888" size={13} />
-            </TouchableOpacity>
-          </View>
+        <Segment options={SCOPES} value={scope} onChange={setScope} />
 
-          {isChallengesLoading ? (
-            <View style={{ paddingVertical: 24, alignItems: "center" }}>
-              <ActivityIndicator color={NEON} />
-            </View>
-          ) : (
-            challenges.map((challenge: ChallengeEntry, index: number) => {
-              const progressPct = Math.min(
-                100,
-                (challenge.progress / challenge.target) * 100
-              );
-
-              return (
-                <View
-                  key={challenge.id}
-                  style={{
-                    marginBottom: index === challenges.length - 1 ? 0 : 14,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 4,
-                    }}
-                  >
-                    <Text style={{ color: "#fff", fontWeight: "700", flex: 1 }}>
-                      {challenge.title}
-                    </Text>
-                    <Text style={{ color: NEON, fontWeight: "800", fontSize: 12 }}>
-                      {formatNumber(challenge.progress)}/{formatNumber(challenge.target)}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      color: "#666",
-                      fontSize: 12,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {challenge.subtitle}
-                  </Text>
-                  <View
-                    style={{
-                      height: 5,
-                      borderRadius: 3,
-                      backgroundColor: "#232326",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: `${progressPct}%`,
-                        height: "100%",
-                        backgroundColor: NEON,
-                        borderRadius: 3,
-                      }}
-                    />
-                  </View>
-                </View>
-              );
-            })
-          )}
-        </View>
-
-        {/* ─── Active Battles Card ─── */}
-        <View
-          style={{
-            backgroundColor: SURFACE,
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          {/* Battle creation modal */}
-          <Modal
-            visible={showBattleModal}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowBattleModal(false)}
-          >
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.7)",
-                justifyContent: "center",
-                paddingHorizontal: 20,
-              }}
-            >
-              <View
-                style={{
-                  backgroundColor: "#111113",
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: "#2a2a2d",
-                  padding: 18,
-                }}
-              >
-                <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 14 }}>
-                  New Battle
-                </Text>
-                <Text style={{ color: "#777", fontSize: 12, marginBottom: 8 }}>
-                  Opponent username
-                </Text>
-                <TextInput
-                  value={opponentUsername}
-                  onChangeText={setOpponentUsername}
-                  placeholder="e.g. sarah.run"
-                  placeholderTextColor="#555"
-                  autoCapitalize="none"
-                  style={{
-                    backgroundColor: "#1b1b1d",
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: "#2a2a2d",
-                    color: "#fff",
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    marginBottom: 14,
-                  }}
-                />
-                <Text style={{ color: "#777", fontSize: 12, marginBottom: 8 }}>
-                  Duration
-                </Text>
-                <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                  {[2, 6, 24, 168].map((hours) => (
-                    <TouchableOpacity
-                      key={hours}
-                      onPress={() => setDurationHours(hours)}
-                      style={{
-                        backgroundColor:
-                          durationHours === hours ? "rgba(0,255,127,0.2)" : "#1b1b1d",
-                        borderColor:
-                          durationHours === hours ? "rgba(0,255,127,0.4)" : "#2a2a2d",
-                        borderWidth: 1,
-                        borderRadius: 10,
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
-                      }}
-                    >
-                      <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>
-                        {hours === 168 ? "7d" : `${hours}h`}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {!!battleError && (
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                    <CircleAlert color="#ff6b6b" size={14} />
-                    <Text style={{ color: "#ff6b6b", marginLeft: 6, fontSize: 12 }}>
-                      {battleError}
-                    </Text>
-                  </View>
-                )}
-                <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
-                  <TouchableOpacity
-                    onPress={() => setShowBattleModal(false)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 9,
-                      borderRadius: 10,
-                      backgroundColor: "#1b1b1d",
-                    }}
-                  >
-                    <Text style={{ color: "#aaa", fontWeight: "700" }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={createBattle}
-                    disabled={isCreatingBattle}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 9,
-                      borderRadius: 10,
-                      backgroundColor: NEON,
-                    }}
-                  >
-                    <Text style={{ color: "#000", fontWeight: "800" }}>
-                      {isCreatingBattle ? "Creating..." : "Create"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 10,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Swords color={NEON} size={18} />
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-                Active Battles
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                hapticSelection();
-                setShowBattleModal(true);
-              }}
-              style={{
-                backgroundColor: NEON,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 14,
-              }}
-            >
-              <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>
-                New Battle
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {isBattlesLoading ? (
-            <View style={{ paddingVertical: 20, alignItems: "center" }}>
-              <ActivityIndicator color={NEON} />
-            </View>
-          ) : (
-            activeBattles.map((battle, index) => (
-              <TouchableOpacity
-                key={battle.id}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: S.md, marginHorizontal: -S.gutter }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: S.sm }}>
+          {METRICS.map((m) => {
+            const active = m.value === metric;
+            return (
+              <Pressable
+                key={m.value}
                 onPress={() => {
-                  if (!battle.id.startsWith("fallback-")) {
-                    router.push(`/battles/${battle.id}`);
-                  }
+                  hapticSelection();
+                  setMetric(m.value);
                 }}
-                activeOpacity={0.8}
-                style={{
-                  backgroundColor: "#1e1e20",
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: "#2a2a2d",
-                  padding: 12,
-                  marginTop: index === 0 ? 2 : 10,
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{m.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {!timeless ? <Segment options={PERIODS} value={period} onChange={setPeriod} style={{ marginTop: S.md }} /> : null}
+
+        {data?.hiddenMe ? (
+          <Pressable onPress={() => router.push("/settings")} style={styles.notice}>
+            <EyeOff size={16} color={C.textDim} />
+            <Body dim size={13} style={{ flex: 1 }}>
+              You're hidden from rankings. Tap to change it in Settings.
+            </Body>
+          </Pressable>
+        ) : null}
+
+        <View
+          style={{ marginTop: S.xl }}
+          onLayout={(e) => {
+            geo.current.listY = e.nativeEvent.layout.y;
+            checkVisible();
+          }}
+        >
+          {board.isPending ? (
+            <Loading />
+          ) : scope === "friends" && entries.filter((e) => !e.isMe).length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No one to race yet"
+              body="Follow players from their profile and they'll show up here. Start by checking who's top in your city."
+              action="See my city"
+              onAction={() => setScope("city")}
+            />
+          ) : entries.length === 0 ? (
+            <EmptyState icon={Users} title="Nobody here yet" body="Rankings fill up as people move. Check back soon." />
+          ) : (
+            <MotiView key={`${scope}-${period}-${metric}`} from={{ opacity: 0, translateY: 6 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 220 }}>
+              {podium.length ? (
+                <View onLayout={meInPodium ? (e) => onMyRowLayout(e, true) : undefined}>
+                  <Podium entries={podium} metric={metric} onPress={openPlayer} />
+                </View>
+              ) : null}
+              <View
+                style={{ gap: 2 }}
+                onLayout={(e) => {
+                  geo.current.rowsY = e.nativeEvent.layout.y;
+                  checkVisible();
                 }}
               >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>
-                    vs {battle.opponentName}
-                  </Text>
-                  <Text style={{ color: "#9efac8", fontSize: 12, fontWeight: "700" }}>
-                    {formatTimeLeft(battle.endAt)}
-                  </Text>
-                </View>
-                <Text style={{ color: "#666", fontSize: 12 }}>
-                  Tap to view battle detail
-                </Text>
-              </TouchableOpacity>
-            ))
+                {rows.map((entry) => (
+                  <View key={entry.player.id} onLayout={entry.isMe ? (e) => onMyRowLayout(e) : undefined}>
+                    <LeaderRow entry={entry} metric={metric} onPress={openPlayer} />
+                  </View>
+                ))}
+              </View>
+            </MotiView>
           )}
         </View>
       </ScrollView>
+
+      {meEntry && !meVisible && !board.isPending ? (
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 180 }}
+          style={[styles.pinned, { bottom: TAB_BAR_COVER + insets.bottom + S.sm }]}
+        >
+          <LeaderRow entry={meEntry} metric={metric} onPress={openPlayer} pinned />
+        </MotiView>
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  rankHead: { marginTop: S.xxl + S.sm, marginBottom: S.lg },
+  chip: { height: 34, paddingHorizontal: S.lg, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
+  chipActive: { borderColor: C.accent, backgroundColor: C.accentDim },
+  chipText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
+  chipTextActive: { color: C.accent },
+  notice: { flexDirection: "row", alignItems: "center", gap: S.sm, marginTop: S.lg, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  pinned: { position: "absolute", left: S.gutter - 4, right: S.gutter - 4 },
+});

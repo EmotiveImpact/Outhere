@@ -732,7 +732,7 @@ export const unfollow = async (pid) =>
 export const getOutsideNow = async (city) =>
   read((s) => {
     const people = PLAYERS.filter((p) => (!city || p.city === city) && playerIsOutside(p.id)).map((p) => personView(s, p.id));
-    if (s.me?.isOutside && (!city || s.me.city === city)) people.unshift(personView(s, ME));
+    if (s.me?.isOutside && s.settings?.privacy?.showOutsideStatus !== false && (!city || s.me.city === city)) people.unshift(personView(s, ME));
     return { count: people.length, people };
   });
 
@@ -857,10 +857,10 @@ const settleBattles = (s) => {
       b.completedAt = Date.now();
       const player = playerById[opp];
       if (b.winnerId === ME) {
-        award(s, { xp: 150, out: 15, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
+        b.prize = award(s, { xp: 150, out: 15, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
         notify(s, { type: "battles", title: `You beat ${player?.name} 🏆`, body: "150 XP and 15 OUT are yours.", link: `/battles/${b.id}` });
       } else {
-        award(s, { xp: 25, label: "Battle played", reason: "battle", refId: b.id });
+        b.prize = award(s, { xp: 25, label: "Battle played", reason: "battle", refId: b.id });
         notify(s, { type: "battles", title: b.winnerId ? `${player?.name} won this one` : "Battle drawn", body: "25 XP for showing up. Run it back?", link: `/battles/${b.id}` });
       }
       any = true;
@@ -880,6 +880,8 @@ const battleView = (s, b) => {
     durationHours: b.durationHours,
     status: b.status,
     incoming: b.status === "pending" && b.opponentId === ME,
+    isChallenger: b.creatorId === ME,
+    prize: b.prize || null,
     createdAt: b.createdAt,
     startAt: b.startAt || null,
     endAt: b.endAt || null,
@@ -1256,7 +1258,10 @@ export const deleteRun = async (id) =>
 // Seed events repeat weekly so the calendar never runs dry.
 const eventOccurrence = (s, ev) => {
   const week = 7 * DAY_MS;
-  const base = s.seededAt + ev.startInHours * HOUR_MS;
+  // Events start at a sensible local time: the day comes from startInHours,
+  // the time of day from startHour.
+  const dayStart = startOfDay(s.seededAt + ev.startInHours * HOUR_MS).getTime();
+  const base = ev.startHour == null ? s.seededAt + ev.startInHours * HOUR_MS : dayStart + ev.startHour * HOUR_MS;
   const duration = ev.durationHours * HOUR_MS;
   const now = Date.now();
   const k = Math.max(0, Math.ceil((now - duration - 30 * 60 * 1000 - base) / week));

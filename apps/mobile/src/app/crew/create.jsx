@@ -1,0 +1,141 @@
+// Create a crew: name, tagline, city, accent colour and privacy.
+
+import React, { useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Lock, Sparkles } from "lucide-react-native";
+import { Body, Button, C, Card, Header, Label, Row, S, Segment } from "@/components/ui";
+import { CITIES } from "@/constants/theme";
+import { CREW_ACCENTS } from "@/data/seed";
+import { engine, useCrewLimits, useEngineMutation, useProfile, useUpgradePrompt } from "@/data/hooks";
+import { hapticSuccess } from "@/services/haptics";
+import { tierLabel } from "@/utils/format";
+import CrewCard from "@/components/crew/CrewCard";
+import { AccentPicker, useCrewFocus } from "@/components/crew/shared";
+
+export default function CreateCrew() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { data: profile } = useProfile();
+  const limits = useCrewLimits();
+  const openUpgrade = useUpgradePrompt((s) => s.open);
+  const focus = useCrewFocus((s) => s.focus);
+
+  const [name, setName] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [city, setCity] = useState(null);
+  const [accent, setAccent] = useState(CREW_ACCENTS[0]);
+  const [privacy, setPrivacy] = useState("public");
+
+  const chosenCity = city || profile?.city || CITIES[0]?.name;
+  const l = limits.data;
+  const blocked = l && !l.canCreate;
+
+  const create = useEngineMutation(engine.createCrew, {
+    onSuccess: (crew) => {
+      hapticSuccess();
+      focus(crew.id);
+      router.dismissTo("/(tabs)/club");
+    },
+  });
+
+  const submit = () => {
+    if (blocked) {
+      openUpgrade(l.maxOwned === 0 ? "pro" : "black", l.maxOwned === 0 ? "Owning a crew is a Pro feature." : `You already own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}.`);
+      return;
+    }
+    create.mutate({ name: name.trim(), tagline: tagline.trim(), city: chosenCity, accent, privacy });
+  };
+
+  const preview = {
+    id: "preview",
+    name: name.trim() || "Your crew name",
+    tagline: tagline.trim() || "Your tagline goes here",
+    city: chosenCity,
+    accent,
+    privacy,
+    memberCount: 1,
+    weekKm: 0,
+    badgeTier: "Bronze",
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
+      <Header back title="Create a crew" />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {l ? (
+            <Card highlight={!blocked} style={{ marginBottom: S.lg }} padding={S.md}>
+              <Row gap={S.sm}>
+                {blocked ? <Lock size={16} color={C.warn} /> : <Sparkles size={16} color={C.accent} />}
+                <Body size={14} style={{ flex: 1 }}>
+                  {blocked
+                    ? l.maxOwned === 0
+                      ? "Owning a crew is a Pro feature. You can still fill this in and upgrade when you hit create."
+                      : `You own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}. Black lets you own up to 3.`
+                    : `You can own ${l.maxOwned - l.owned} more crew${l.maxOwned - l.owned === 1 ? "" : "s"} on ${tierLabel(l.tier)}.`}
+                </Body>
+              </Row>
+            </Card>
+          ) : null}
+
+          <Label style={{ marginBottom: S.sm }}>Preview</Label>
+          <CrewCard crew={preview} />
+
+          <Label style={{ marginTop: S.md }}>Name</Label>
+          <TextInput value={name} onChangeText={setName} placeholder="e.g. Peckham Night Walkers" placeholderTextColor={C.textMute} maxLength={32} style={styles.input} />
+          <Body mute size={12} style={{ marginTop: 6 }}>At least 3 characters. Must be unique.</Body>
+
+          <Label style={{ marginTop: S.lg }}>Tagline</Label>
+          <TextInput value={tagline} onChangeText={setTagline} placeholder="What your crew is about" placeholderTextColor={C.textMute} maxLength={80} style={styles.input} />
+
+          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>City</Label>
+          <View style={styles.wrap}>
+            {CITIES.map((c) => {
+              const active = c.name === chosenCity;
+              return (
+                <Pressable key={c.name} onPress={() => setCity(c.name)} style={[styles.chip, active && { backgroundColor: C.accent, borderColor: C.accent }]}>
+                  <Text style={[styles.chipText, active && { color: C.accentText }]}>{c.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Accent colour</Label>
+          <AccentPicker colours={CREW_ACCENTS} value={accent} onChange={setAccent} />
+
+          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Who can join</Label>
+          <Segment
+            options={[
+              { value: "public", label: "Anyone" },
+              { value: "invite", label: "Invite code only" },
+            ]}
+            value={privacy}
+            onChange={setPrivacy}
+          />
+          <Body mute size={12} style={{ marginTop: 6 }}>
+            {privacy === "public" ? "Shows up in Discover and anyone can join." : "Still listed in Discover, but people need your code to join."}
+          </Body>
+
+          <Button
+            title={blocked ? "Upgrade to create" : "Create crew"}
+            onPress={submit}
+            loading={create.isPending}
+            disabled={!blocked && name.trim().length < 3}
+            full
+            size="lg"
+            style={{ marginTop: S.xxl }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  input: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 15, marginTop: S.sm },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
+  chip: { height: 36, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, justifyContent: "center" },
+  chipText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
+});
