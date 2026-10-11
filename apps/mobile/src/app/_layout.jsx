@@ -2,57 +2,70 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
+import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useUserStore } from "@/store/userStore";
+import { EngineBridge, useProfile } from "@/data/hooks";
+import { useStepSync } from "@/hooks/useStepSync";
+import UpgradeSheet from "@/components/ui/UpgradeSheet";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      cacheTime: 1000 * 60 * 30,
-      retry: 1,
+      retry: false,
       refetchOnWindowFocus: false,
     },
   },
 });
 
-export default function RootLayout() {
-  const initializeDevice = useUserStore((s) => s.initializeDevice);
-  const storeLoading = useUserStore((s) => s.isLoading);
+// Counts steps once the player has a profile.
+function StepSync() {
+  const { data: profile } = useProfile();
+  useStepSync(!!profile);
+  return null;
+}
 
+function RootStack() {
   const [fontsLoaded] = useFonts({
     "ClashGrotesk-Bold": require("../../assets/fonts/ClashGrotesk-Bold.ttf"),
     "ClashGrotesk-Medium": require("../../assets/fonts/ClashGrotesk-Medium.ttf"),
   });
-
-  // Wait for the persisted store too, so index.jsx doesn't redirect
-  // already-onboarded users to /welcome before their flag has loaded.
-  const isReady = fontsLoaded && !storeLoading;
-
-  useEffect(() => {
-    initializeDevice();
-  }, [initializeDevice]);
+  // Wait for the stored profile too, so app/index.jsx routes correctly first time.
+  const { isPending } = useProfile();
+  const isReady = fontsLoaded && !isPending;
 
   useEffect(() => {
-    if (isReady) {
-      SplashScreen.hideAsync();
-    }
+    if (isReady) SplashScreen.hideAsync();
   }, [isReady]);
 
-  if (!isReady) {
-    return null;
-  }
+  if (!isReady) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <>
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0a0a0a" }, animation: "slide_from_right" }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="welcome" options={{ animation: "fade" }} />
+        <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+      </Stack>
+      <StepSync />
+      <UpgradeSheet />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
+          <EngineBridge />
+          <RootStack />
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

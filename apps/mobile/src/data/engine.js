@@ -1,0 +1,1536 @@
+// OutHere local engine.
+//
+// Until the server stack is chosen, the whole product runs on the phone: this
+// module owns the data (persisted in AsyncStorage), simulates the other players
+// in the seeded world, and applies the game rules (XP, OUT, streaks, battles,
+// crews, events, drops, rewards). Every function is async and returns plain
+// objects, so a server-backed implementation can replace it behind the same
+// interface later.
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  CHALLENGE_TEMPLATES,
+  CREWS,
+  CREW_CHAT,
+  CREW_FEED,
+  DROPS,
+  EVENTS,
+  NEWS,
+  PLAYERS,
+  REWARDS,
+} from "./seed";
+import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./time";
+import { noise, randomCode, randomId } from "./random";
+
+const STORAGE_KEY = "outhere.engine.v1";
+const ME = "me";
+const STEP_KM = 0.000762;
+const ACTIVE_DAY_STEPS = 3000;
+
+// ── Rules ─────────────────────────────────────────────────────────────────────
+
+export const TIERS = ["free", "pro", "black"];
+const tierRank = (tier) => Math.max(0, TIERS.indexOf(tier));
+export const tierAtLeast = (tier, required) => tierRank(tier) >= tierRank(required);
+
+export const TIER_RULES = {
+  free: { xpMultiplier: 1, maxCrewsJoined: 1, maxCrewsOwned: 0, battlesPerWeek: 1, maxActiveBattles: 1, redemptionsPerWeek: 1, historyDays: 7 },
+  pro: { xpMultiplier: 1.2, maxCrewsJoined: 3, maxCrewsOwned: 1, battlesPerWeek: Infinity, maxActiveBattles: 5, redemptionsPerWeek: 3, historyDays: 90 },
+  black: { xpMultiplier: 1.5, maxCrewsJoined: 10, maxCrewsOwned: 3, battlesPerWeek: Infinity, maxActiveBattles: 10, redemptionsPerWeek: 10, historyDays: 365 },
+};
+
+export const TIER_PERKS = {
+  free: ["Step tracking and streaks", "City and global rankings", "Join 1 crew", "1 battle a week", "1 reward a week"],
+  pro: ["Everything in Free", "Own a crew and upload its logo", "Unlimited battles", "1.2x XP", "3 rewards a week", "24 hour early access to drops", "Pro-only events"],
+  black: ["Everything in Pro", "Own up to 3 crews", "Obsidian verified badge", "1.5x XP", "10 rewards a week", "Black-only events and drops"],
+};
+
+export const BLACK_STREAK_DAYS = 14;
+
+const LEVEL_TITLES = [
+  [1, "Rookie"],
+  [3, "Regular"],
+  [5, "Mover"],
+  [8, "Road Runner"],
+  [12, "Street Legend"],
+  [16, "Icon"],
+];
+
+const xpForLevel = (level) => 75 * (level - 1) * level;
+
+export const levelFromXp = (xp) => {
+  let level = 1;
+  while (xpForLevel(level + 1) <= xp) level += 1;
+  const floor = xpForLevel(level);
+  const next = xpForLevel(level + 1);
+  let title = LEVEL_TITLES[0][1];
+  for (const [min, name] of LEVEL_TITLES) if (level >= min) title = name;
+  return { level, title, xpIntoLevel: xp - floor, xpForNext: next - floor, nextLevelAt: next, progress: (xp - floor) / (next - floor) };
+};
+
+export const crewBadgeTier = (weekKm) => {
+  if (weekKm >= 300) return "Obsidian";
+  if (weekKm >= 200) return "Platinum";
+  if (weekKm >= 120) return "Gold";
+  if (weekKm >= 50) return "Silver";
+  return "Bronze";
+};
+
+export class EngineError extends Error {
+  constructor(code, message, extra = {}) {
+    super(message);
+    this.code = code;
+    Object.assign(this, extra);
+  }
+}
+
+const tierError = (requiredTier, message) => new EngineError("TIER_REQUIRED", message, { requiredTier });
+
+// ── State, persistence and change events ──────────────────────────────────────
+
+let state = null;
+let loading = null;
+let saveTimer = null;
+const listeners = new Set();
+
+const freshState = () => ({
+  version: 1,
+  seededAt: Date.now(),
+  me: null,
+  days: {},
+  ledger: [],
+  streakAwards: {},
+  following: [],
+  crews: Object.fromEntries(
+    CREWS.map((c, i) => [
+      c.id,
+      {
+        id: c.id,
+        name: c.name,
+        tagline: c.tagline,
+        city: c.city,
+        accent: c.accent,
+        logo: c.logo,
+        privacy: c.privacy,
+        weeklyGoalKm: c.weeklyGoalKm,
+        inviteCode: ["SOUTH1", "EAST22", "NORTH3", "MANNY4", "ACCRA5"][i] || randomCode(),
+        ownerId: c.ownerId,
+        createdAt: Date.now() - (60 + i * 20) * DAY_MS,
+        members: c.members.map((id, j) => ({ id, role: id === c.ownerId ? "owner" : j === 1 ? "admin" : "member", joinedAt: Date.now() - (50 - j * 5) * DAY_MS })),
+      },
+    ])
+  ),
+  crewChat: Object.fromEntries(
+    Object.entries(CREW_CHAT).map(([crewId, lines]) => [
+      crewId,
+      lines.map(([authorId, text, hoursAgo]) => ({ id: randomId("m"), authorId, text, at: Date.now() - hoursAgo * HOUR_MS })),
+    ])
+  ),
+  crewFeed: Object.fromEntries(
+    Object.entries(CREW_FEED).map(([crewId, posts]) => [
+      crewId,
+      posts.map(([authorId, km, minutes, caption, hoursAgo]) => ({
+        id: randomId("post"),
+        authorId,
+        km,
+        minutes,
+        caption,
+        at: Date.now() - hoursAgo * HOUR_MS,
+        likes: PLAYERS.filter((p) => noise(`${crewId}${caption}${p.id}`) > 0.75).map((p) => p.id),
+        comments: Math.floor(noise(`${caption}c`) * 6),
+      })),
+    ])
+  ),
+  battles: [],
+  challenges: {},
+  events: {},
+  drops: {},
+  redemptions: [],
+  notifications: [],
+  runs: [],
+  settings: {
+    units: "km",
+    haptics: true,
+    notifications: { battles: true, crews: true, drops: true, events: true, rewards: true },
+    privacy: { showOnLeaderboards: true, showOutsideStatus: true },
+  },
+});
+
+const load = async () => {
+  if (state) return state;
+  if (!loading) {
+    loading = (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        state = raw ? { ...freshState(), ...JSON.parse(raw) } : freshState();
+      } catch (e) {
+        console.warn("[engine] load failed, starting fresh", e);
+        state = freshState();
+      }
+      return state;
+    })();
+  }
+  return loading;
+};
+
+const persist = () => {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch((e) => console.warn("[engine] save failed", e));
+  }, 250);
+};
+
+const changed = () => {
+  persist();
+  listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      console.warn("[engine] listener failed", e);
+    }
+  });
+};
+
+export const subscribe = (fn) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
+
+// Runs fn against the loaded state. Mutating calls pass mutate=true.
+const read = async (fn) => {
+  await load();
+  return fn(state);
+};
+const write = async (fn) => {
+  await load();
+  const result = fn(state);
+  changed();
+  return result;
+};
+
+const requireMe = (s) => {
+  if (!s.me) throw new EngineError("NO_PROFILE", "Create your profile first.");
+  return s.me;
+};
+
+// ── Simulated players ─────────────────────────────────────────────────────────
+
+const playerById = Object.fromEntries(PLAYERS.map((p) => [p.id, p]));
+
+// Share of a day's steps done by a given time of day: quiet overnight,
+// a morning and evening bump, nearly done by 10pm.
+const dayFraction = (ms) => {
+  const d = new Date(ms);
+  const h = d.getHours() + d.getMinutes() / 60;
+  if (h <= 6) return 0;
+  if (h >= 22.5) return 1;
+  const x = (h - 6) / 16.5;
+  return Math.min(1, x * x * (3 - 2 * x));
+};
+
+const playerDayTotal = (pid, key) => {
+  const p = playerById[pid];
+  if (!p) return 0;
+  const date = startOfDay(key);
+  const weekend = date.getDay() === 0 || date.getDay() === 6;
+  const n = noise(`${pid}:${key}`);
+  const rest = n < 0.08; // the odd lazy day
+  return Math.round(p.base * (rest ? 0.3 : 0.6 + n * 0.8) * (weekend ? 1.12 : 1));
+};
+
+const playerStepsBetween = (pid, from, to) => {
+  if (to <= from) return 0;
+  let total = 0;
+  let cursor = startOfDay(from).getTime();
+  while (cursor < to) {
+    const dayStart = cursor;
+    const dayEnd = addDays(new Date(cursor), 1).getTime();
+    const key = dayKey(new Date(cursor));
+    const a = Math.max(from, dayStart);
+    const b = Math.min(to, dayEnd);
+    const fracA = a <= dayStart ? 0 : dayFraction(a);
+    const fracB = b >= dayEnd ? 1 : dayFraction(b);
+    total += playerDayTotal(pid, key) * Math.max(0, fracB - fracA);
+    cursor = dayEnd;
+  }
+  return Math.round(total);
+};
+
+const playerStepsToday = (pid) => playerStepsBetween(pid, startOfDay().getTime(), Date.now());
+
+const playerStreak = (pid) => {
+  let streak = 0;
+  for (let i = 1; i < 120; i += 1) {
+    if (playerDayTotal(pid, dayKey(addDays(new Date(), -i))) < ACTIVE_DAY_STEPS) break;
+    streak += 1;
+  }
+  return streak + (playerStepsToday(pid) >= ACTIVE_DAY_STEPS ? 1 : 0);
+};
+
+const playerIsOutside = (pid) => {
+  const h = new Date().getHours();
+  if (h < 6 || h > 22) return false;
+  return noise(`${pid}:${dayKey()}:${h}`) > 0.62;
+};
+
+const playerXp = (pid) => {
+  const p = playerById[pid];
+  return Math.round(p.base * 0.6 + noise(`${pid}:xp`) * 3000);
+};
+
+const publicPlayer = (pid) => {
+  const p = playerById[pid];
+  if (!p) return null;
+  return { id: p.id, username: p.username, name: p.name, city: p.city, area: p.area, avatar: p.avatar, color: p.color, tier: p.tier, bio: p.bio, isMe: false };
+};
+
+// ── My steps ──────────────────────────────────────────────────────────────────
+
+const myDay = (s, key) => s.days[key] || { steps: 0, distance: 0, activeMinutes: 0, samples: [], checkedIn: false, awards: {} };
+
+// My step count at a moment, from the samples recorded as the pedometer syncs.
+const myStepsAt = (s, ms) => {
+  const day = s.days[dayKey(new Date(ms))];
+  if (!day) return 0;
+  if (ms >= addDays(new Date(ms), 1).getTime() - 1) return day.steps;
+  let value = 0;
+  for (const [t, steps] of day.samples || []) {
+    if (t <= ms) value = steps;
+    else break;
+  }
+  return value;
+};
+
+const myStepsBetween = (s, from, to) => {
+  if (to <= from) return 0;
+  let total = 0;
+  let cursor = startOfDay(from).getTime();
+  while (cursor < to) {
+    const dayEnd = addDays(new Date(cursor), 1).getTime();
+    const a = Math.max(from, cursor);
+    const b = Math.min(to, dayEnd);
+    const atA = a <= cursor ? 0 : myStepsAt(s, a);
+    const atB = b >= dayEnd ? myDay(s, dayKey(new Date(cursor))).steps : myStepsAt(s, b);
+    total += Math.max(0, atB - atA);
+    cursor = dayEnd;
+  }
+  return total;
+};
+
+const myDistanceBetween = (s, from, to) => {
+  // Distance from the pedometer is per day; spread it pro rata over steps.
+  let total = 0;
+  let cursor = startOfDay(from).getTime();
+  while (cursor < to) {
+    const dayEnd = addDays(new Date(cursor), 1).getTime();
+    const day = myDay(s, dayKey(new Date(cursor)));
+    const steps = myStepsBetween(s, Math.max(from, cursor), Math.min(to, dayEnd));
+    const kmPerStep = day.steps > 0 && day.distance > 0 ? day.distance / day.steps : STEP_KM;
+    total += steps * kmPerStep;
+    cursor = dayEnd;
+  }
+  return total;
+};
+
+const isActiveDay = (day) => !!day && (day.checkedIn || day.steps >= ACTIVE_DAY_STEPS);
+
+const computeStreak = (s) => {
+  let streak = 0;
+  const todayActive = isActiveDay(s.days[dayKey()]);
+  for (let i = todayActive ? 0 : 1; i < 3650; i += 1) {
+    if (!isActiveDay(s.days[dayKey(addDays(new Date(), -i))])) break;
+    streak += 1;
+  }
+  return streak;
+};
+
+const computeLongestStreak = (s) => {
+  const keys = Object.keys(s.days).filter((k) => isActiveDay(s.days[k])).sort();
+  let best = 0;
+  let run = 0;
+  let prev = null;
+  for (const k of keys) {
+    run = prev && dayKey(addDays(prev, 1)) === k ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = k;
+  }
+  return best;
+};
+
+// ── Ledger ────────────────────────────────────────────────────────────────────
+
+const balance = (s, type) => s.ledger.filter((t) => t.type === type).reduce((sum, t) => sum + t.amount, 0);
+
+const award = (s, { xp = 0, out = 0, label, reason, refId }) => {
+  const at = Date.now();
+  const mult = s.me ? TIER_RULES[s.me.tier || "free"].xpMultiplier : 1;
+  const xpAmount = Math.round(xp * mult);
+  if (xpAmount) s.ledger.push({ id: randomId("tx"), type: "xp", amount: xpAmount, label, reason, refId, at });
+  if (out) s.ledger.push({ id: randomId("tx"), type: "out", amount: out, label, reason, refId, at });
+  return { xp: xpAmount, out };
+};
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+const notify = (s, { type, title, body, link, image }) => {
+  if (s.settings?.notifications && s.settings.notifications[type] === false) return;
+  s.notifications.unshift({ id: randomId("n"), type, title, body, link, image, at: Date.now(), read: false });
+  s.notifications = s.notifications.slice(0, 100);
+};
+
+// ── Streak and eligibility side effects ───────────────────────────────────────
+
+const applyStreakEffects = (s) => {
+  if (!s.me) return;
+  const streak = computeStreak(s);
+  for (const milestone of [3, 7, 14, 30, 60, 100]) {
+    if (streak >= milestone && !s.streakAwards[milestone]) {
+      s.streakAwards[milestone] = Date.now();
+      const xp = milestone * 20;
+      const out = milestone * 2;
+      award(s, { xp, out, label: `${milestone} day streak`, reason: "streak" });
+      notify(s, { type: "rewards", title: `${milestone} day streak 🔥`, body: `You earned ${xp} XP and ${out} OUT. Keep it going.`, link: "/(tabs)/profile" });
+    }
+  }
+  if (streak >= BLACK_STREAK_DAYS && !s.me.blackEligible) {
+    s.me.blackEligible = true;
+    notify(s, { type: "rewards", title: "You're Black eligible", body: `A ${BLACK_STREAK_DAYS} day streak unlocks the option to go Black. It stays unlocked.`, link: "/membership" });
+  }
+};
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
+const RESERVED = new Set(["admin", "outhere", "support", "root", "test", "dev", "official"]);
+
+const usernameProblem = (s, raw) => {
+  const name = (raw || "").trim().toLowerCase();
+  if (!USERNAME_RE.test(name)) return "3 to 20 characters: letters, numbers, dots and underscores.";
+  if (RESERVED.has(name)) return "That name is reserved.";
+  if (PLAYERS.some((p) => p.username === name)) return "That name is taken.";
+  return null;
+};
+
+export const checkUsername = async (raw) =>
+  read((s) => {
+    const problem = usernameProblem(s, raw);
+    return { available: !problem, reason: problem };
+  });
+
+export const createProfile = async ({ username, city = "London", crewCode }) =>
+  write((s) => {
+    const problem = usernameProblem(s, username);
+    if (problem) throw new EngineError("BAD_USERNAME", problem);
+    const name = username.trim().toLowerCase();
+    s.me = {
+      id: ME,
+      username: name,
+      name: username.trim(),
+      city,
+      area: "",
+      bio: "",
+      avatar: null,
+      color: "#00ff7f",
+      tier: "free",
+      blackEligible: false,
+      dailyGoal: 10000,
+      weeklyGoalKm: 20,
+      isOutside: false,
+      createdAt: Date.now(),
+    };
+    award(s, { xp: 100, out: 20, label: "Welcome to OutHere", reason: "welcome" });
+    // Start with a few people nearby to follow, so Home isn't empty.
+    const local = PLAYERS.filter((p) => p.city === city);
+    s.following = (local.length >= 3 ? local : PLAYERS.filter((p) => p.city === "London")).slice(0, 5).map((p) => p.id);
+    // An opening challenge from a local mover.
+    const challenger = local[1] || PLAYERS[1];
+    s.battles.push({
+      id: randomId("b"),
+      metric: "steps",
+      creatorId: challenger.id,
+      opponentId: ME,
+      durationHours: 24,
+      status: "pending",
+      createdAt: Date.now(),
+    });
+    notify(s, { type: "rewards", title: "Welcome to OutHere", body: "You've got 100 XP and 20 OUT to start. Check in daily to build your streak.", link: "/(tabs)" });
+    notify(s, { type: "battles", title: `${challenger.name} challenged you`, body: "24 hour step battle. Accept it in the Arena.", link: "/(tabs)/outside/arena" });
+    if (crewCode) {
+      const crew = Object.values(s.crews).find((c) => c.inviteCode.toLowerCase() === crewCode.trim().toLowerCase());
+      if (crew) joinCrewInState(s, crew, true);
+    }
+    return profileView(s);
+  });
+
+const myBattleRecord = (s) => {
+  const done = s.battles.filter((b) => b.status === "complete");
+  return {
+    wins: done.filter((b) => b.winnerId === ME).length,
+    losses: done.filter((b) => b.winnerId && b.winnerId !== ME).length,
+    draws: done.filter((b) => !b.winnerId).length,
+  };
+};
+
+const eventCheckinCount = (s) => Object.values(s.events).filter((e) => e.checkedIn).length;
+
+const profileView = (s) => {
+  const me = s.me;
+  if (!me) return null;
+  const xp = balance(s, "xp");
+  const out = balance(s, "out");
+  const streak = computeStreak(s);
+  const totalSteps = Object.values(s.days).reduce((sum, d) => sum + (d.steps || 0), 0);
+  const totalDistance = Object.values(s.days).reduce((sum, d) => sum + (d.distance || 0), 0);
+  const record = myBattleRecord(s);
+  const events = eventCheckinCount(s);
+  const today = myDay(s, dayKey());
+  const weekStart = startOfWeek().getTime();
+  const weekRunsKm = s.runs.filter((r) => r.endedAt >= weekStart).reduce((sum, r) => sum + r.distanceKm, 0);
+  const weekStepsKm = myDistanceBetween(s, weekStart, Date.now());
+  return {
+    ...me,
+    xp,
+    out,
+    level: levelFromXp(xp),
+    streak,
+    longestStreak: Math.max(streak, computeLongestStreak(s)),
+    checkedInToday: !!today.checkedIn,
+    today: { steps: today.steps, distance: today.distance, activeMinutes: today.activeMinutes },
+    totals: { steps: totalSteps, distance: Math.round(totalDistance * 10) / 10, runs: s.runs.length },
+    week: { distanceKm: Math.round(weekStepsKm * 10) / 10, runsKm: Math.round(weekRunsKm * 10) / 10 },
+    outsideScore: Math.round(totalSteps / 100 + streak * 50 + record.wins * 100 + events * 150),
+    battleRecord: record,
+    eventsAttended: events,
+    crewsCount: Object.values(s.crews).filter((c) => c.members.some((m) => m.id === ME)).length,
+    followingCount: s.following.length,
+    followersCount: Math.max(s.following.length, Math.round(3 + noise(me.username) * 20 + record.wins * 2)),
+    badges: badgesFor(s, { streak, record, events }),
+  };
+};
+
+const badgesFor = (s, { streak, record, events }) => {
+  const longest = Math.max(streak, computeLongestStreak(s));
+  const list = [
+    { id: "founder", title: "Founder", description: "Joined OutHere in the first season.", earned: true, icon: "star" },
+    { id: "streak7", title: "7 Day Streak", description: "Active 7 days in a row.", earned: longest >= 7, icon: "flame" },
+    { id: "streak30", title: "30 Day Streak", description: "Active 30 days in a row.", earned: longest >= 30, icon: "flame" },
+    { id: "battle1", title: "First Win", description: "Win a battle.", earned: record.wins >= 1, icon: "swords" },
+    { id: "battle10", title: "10 Wins", description: "Win 10 battles.", earned: record.wins >= 10, icon: "trophy" },
+    { id: "event1", title: "Link-Up", description: "Check in at an event.", earned: events >= 1, icon: "map-pin" },
+    { id: "event3", title: "Regular", description: "Check in at 3 events.", earned: events >= 3, icon: "map-pin" },
+    { id: "crew", title: "Crew Member", description: "Join a crew.", earned: Object.values(s.crews).some((c) => c.members.some((m) => m.id === ME)), icon: "users" },
+    { id: "run10", title: "10K Club", description: "Log a 10 km run.", earned: s.runs.some((r) => r.distanceKm >= 10), icon: "route" },
+  ];
+  return list;
+};
+
+export const getProfile = async () => read(profileView);
+
+export const updateProfile = async (patch) =>
+  write((s) => {
+    const me = requireMe(s);
+    const next = { ...patch };
+    if (next.username !== undefined && next.username.trim().toLowerCase() !== me.username) {
+      const problem = usernameProblem(s, next.username);
+      if (problem) throw new EngineError("BAD_USERNAME", problem);
+      next.username = next.username.trim().toLowerCase();
+    }
+    for (const key of ["username", "name", "city", "area", "bio", "avatar", "dailyGoal", "weeklyGoalKm", "isOutside", "color"]) {
+      if (next[key] !== undefined) me[key] = next[key];
+    }
+    return profileView(s);
+  });
+
+// Wipes everything on this phone. There is no server copy yet.
+export const resetAll = async () => {
+  await load();
+  state = freshState();
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  changed();
+};
+
+// ── Membership ────────────────────────────────────────────────────────────────
+
+export const getMembership = async () =>
+  read((s) => {
+    const me = requireMe(s);
+    return {
+      tier: me.tier,
+      blackEligible: me.blackEligible,
+      streak: computeStreak(s),
+      streakNeeded: BLACK_STREAK_DAYS,
+      rules: TIER_RULES[me.tier],
+      perks: TIER_PERKS,
+      paymentsLive: false,
+    };
+  });
+
+// Payments aren't wired up yet, so changing tier is free in this build.
+export const setTier = async (tier) =>
+  write((s) => {
+    const me = requireMe(s);
+    if (!TIERS.includes(tier)) throw new EngineError("BAD_TIER", "Unknown membership.");
+    if (tier === "black" && !me.blackEligible) {
+      throw new EngineError("NOT_ELIGIBLE", `Black unlocks after a ${BLACK_STREAK_DAYS} day streak.`);
+    }
+    me.tier = tier;
+    if (tier !== "free") notify(s, { type: "rewards", title: `Welcome to ${tier === "pro" ? "Pro" : "Black"}`, body: "Your new perks are live.", link: "/membership" });
+    return profileView(s);
+  });
+
+// ── Steps and check-ins ───────────────────────────────────────────────────────
+
+export const recordSteps = async ({ date = dayKey(), steps, distance, activeMinutes }) =>
+  write((s) => {
+    if (!s.me) return null;
+    const day = { ...myDay(s, date) };
+    // The pedometer can report a lower total after a restart (or 0 on Android
+    // before it has a baseline). Never go backwards within a day.
+    if (steps > day.steps) {
+      day.steps = Math.round(steps);
+      day.distance = distance != null ? Math.max(day.distance, distance) : day.steps * STEP_KM;
+      day.activeMinutes = Math.max(day.activeMinutes || 0, activeMinutes || Math.floor(day.steps / 100));
+      day.samples = [...(day.samples || []), [Date.now(), day.steps]].slice(-300);
+    }
+    day.awards = { ...(day.awards || {}) };
+    // 5 XP per 1,000 steps, credited as the day goes.
+    const thousands = Math.floor(day.steps / 1000);
+    const credited = day.awards.thousands || 0;
+    if (thousands > credited) {
+      award(s, { xp: (thousands - credited) * 5, label: "Steps", reason: "steps" });
+      day.awards.thousands = thousands;
+    }
+    if (day.steps >= ACTIVE_DAY_STEPS && !day.awards.active) {
+      day.awards.active = true;
+      award(s, { xp: 50, out: 5, label: "Active day", reason: "active_day" });
+    }
+    if (day.steps >= (s.me.dailyGoal || 10000) && !day.awards.goal) {
+      day.awards.goal = true;
+      award(s, { xp: 40, out: 4, label: "Daily goal hit", reason: "goal" });
+    }
+    s.days[date] = day;
+    applyStreakEffects(s);
+    return { steps: day.steps, distance: day.distance };
+  });
+
+export const checkIn = async () =>
+  write((s) => {
+    requireMe(s);
+    const key = dayKey();
+    const day = { ...myDay(s, key) };
+    if (day.checkedIn) return { alreadyCheckedIn: true, streak: computeStreak(s), xp: 0, out: 0 };
+    day.checkedIn = true;
+    day.checkedInAt = Date.now();
+    s.days[key] = day;
+    const got = award(s, { xp: 20, out: 2, label: "Daily check-in", reason: "checkin" });
+    applyStreakEffects(s);
+    return { alreadyCheckedIn: false, streak: computeStreak(s), ...got };
+  });
+
+export const getStepHistory = async (days = 7) =>
+  read((s) => {
+    const out = [];
+    for (let i = days - 1; i >= 0; i -= 1) {
+      const key = dayKey(addDays(new Date(), -i));
+      const d = myDay(s, key);
+      out.push({ date: key, steps: d.steps, distance: d.distance, activeMinutes: d.activeMinutes, checkedIn: !!d.checkedIn, active: isActiveDay(d) });
+    }
+    return out;
+  });
+
+// Hourly steps for today, for the Home chart.
+export const getTodayByHour = async () =>
+  read((s) => {
+    const start = startOfDay().getTime();
+    const hours = [];
+    for (let h = 0; h < 24; h += 1) {
+      const a = start + h * HOUR_MS;
+      const b = Math.min(Date.now(), a + HOUR_MS);
+      hours.push({ hour: h, steps: b > a ? myStepsBetween(s, a, b) : 0 });
+    }
+    return hours;
+  });
+
+// Developer helpers for simulators without a step counter.
+export const devAddSteps = async (amount = 1500) => {
+  const today = await read((s) => myDay(s, dayKey()).steps);
+  return recordSteps({ date: dayKey(), steps: today + amount, distance: (today + amount) * STEP_KM });
+};
+
+export const devFillHistory = async (days = 13) =>
+  write((s) => {
+    for (let i = days; i >= 1; i -= 1) {
+      const key = dayKey(addDays(new Date(), -i));
+      if (s.days[key]?.steps) continue;
+      const steps = Math.round(4000 + noise(`dev:${key}`) * 9000);
+      const end = addDays(new Date(), -i + 1).getTime() - 1;
+      s.days[key] = { steps, distance: steps * STEP_KM, activeMinutes: Math.floor(steps / 100), samples: [[end - 2 * HOUR_MS, steps]], checkedIn: false, awards: { thousands: Math.floor(steps / 1000), active: true } };
+      award(s, { xp: Math.floor(steps / 1000) * 5 + 50, out: 5, label: "Steps (demo history)", reason: "steps" });
+    }
+    applyStreakEffects(s);
+  });
+
+// ── Wallet ────────────────────────────────────────────────────────────────────
+
+export const getWallet = async () =>
+  read((s) => ({
+    xp: balance(s, "xp"),
+    out: balance(s, "out"),
+    level: levelFromXp(balance(s, "xp")),
+    transactions: [...s.ledger].sort((a, b) => b.at - a.at).slice(0, 60),
+  }));
+
+// ── People ────────────────────────────────────────────────────────────────────
+
+const meAsPlayer = (s) => ({ id: ME, username: s.me.username, name: s.me.name, city: s.me.city, area: s.me.area, avatar: s.me.avatar, color: s.me.color, tier: s.me.tier, bio: s.me.bio, isMe: true });
+
+const personView = (s, pid) => {
+  if (pid === ME) return { ...meAsPlayer(s), todaySteps: myDay(s, dayKey()).steps, isOutside: !!s.me.isOutside, streak: computeStreak(s) };
+  const p = publicPlayer(pid);
+  if (!p) return null;
+  return { ...p, todaySteps: playerStepsToday(pid), isOutside: playerIsOutside(pid), streak: playerStreak(pid), isFollowing: s.following.includes(pid) };
+};
+
+export const getFriends = async () =>
+  read((s) => s.following.map((pid) => personView(s, pid)).filter(Boolean).sort((a, b) => Number(b.isOutside) - Number(a.isOutside) || b.todaySteps - a.todaySteps));
+
+export const searchPlayers = async (query = "") =>
+  read((s) => {
+    const q = query.trim().toLowerCase();
+    return PLAYERS.filter((p) => !q || p.username.includes(q) || p.name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q))
+      .map((p) => personView(s, p.id))
+      .slice(0, 30);
+  });
+
+export const getPlayer = async (pid) =>
+  read((s) => {
+    const person = personView(s, pid);
+    if (!person) throw new EngineError("NOT_FOUND", "Player not found.");
+    const weekStart = startOfWeek().getTime();
+    const vsMe = s.battles.filter((b) => b.status === "complete" && (b.creatorId === pid || b.opponentId === pid));
+    return {
+      ...person,
+      weekSteps: pid === ME ? myStepsBetween(s, weekStart, Date.now()) : playerStepsBetween(pid, weekStart, Date.now()),
+      xp: pid === ME ? balance(s, "xp") : playerXp(pid),
+      crews: Object.values(s.crews).filter((c) => c.members.some((m) => m.id === pid)).map((c) => ({ id: c.id, name: c.name, logo: c.logo, accent: c.accent })),
+      recordVsMe: { wins: vsMe.filter((b) => b.winnerId === ME).length, losses: vsMe.filter((b) => b.winnerId === pid).length },
+    };
+  });
+
+export const follow = async (pid) =>
+  write((s) => {
+    if (!playerById[pid]) throw new EngineError("NOT_FOUND", "Player not found.");
+    if (!s.following.includes(pid)) s.following.push(pid);
+  });
+
+export const unfollow = async (pid) =>
+  write((s) => {
+    s.following = s.following.filter((id) => id !== pid);
+  });
+
+export const getOutsideNow = async (city) =>
+  read((s) => {
+    const people = PLAYERS.filter((p) => (!city || p.city === city) && playerIsOutside(p.id)).map((p) => personView(s, p.id));
+    if (s.me?.isOutside && (!city || s.me.city === city)) people.unshift(personView(s, ME));
+    return { count: people.length, people };
+  });
+
+// ── Leaderboards ──────────────────────────────────────────────────────────────
+
+const periodStart = (period) => {
+  if (period === "today") return startOfDay().getTime();
+  if (period === "week") return startOfWeek().getTime();
+  return addDays(new Date(), -29).getTime(); // "month": the last 30 days
+};
+
+export const getLeaderboard = async ({ scope = "city", period = "week", metric = "steps" } = {}) =>
+  read((s) => {
+    const me = s.me;
+    let ids;
+    if (scope === "friends") ids = [...s.following];
+    else if (scope === "city" && me) ids = PLAYERS.filter((p) => p.city === me.city).map((p) => p.id);
+    else ids = PLAYERS.map((p) => p.id);
+    const from = periodStart(period);
+    const now = Date.now();
+    const valueFor = (pid) => {
+      if (metric === "xp") return pid === ME ? balance(s, "xp") : playerXp(pid);
+      if (metric === "streak") return pid === ME ? computeStreak(s) : playerStreak(pid);
+      const steps = pid === ME ? myStepsBetween(s, from, now) : playerStepsBetween(pid, from, now);
+      if (metric === "distance") return Math.round((pid === ME ? myDistanceBetween(s, from, now) : steps * STEP_KM) * 10) / 10;
+      return steps;
+    };
+    const showMe = me && s.settings.privacy.showOnLeaderboards;
+    if (showMe) ids.push(ME);
+    const rows = ids
+      .map((pid) => ({ player: pid === ME ? meAsPlayer(s) : publicPlayer(pid), value: valueFor(pid) }))
+      .sort((a, b) => b.value - a.value)
+      .map((row, i) => ({ ...row, rank: i + 1, isMe: row.player.id === ME }));
+    return { scope, period, metric, city: me?.city, entries: rows, me: rows.find((r) => r.isMe) || null, hiddenMe: !!me && !showMe };
+  });
+
+// ── Challenges ────────────────────────────────────────────────────────────────
+
+const challengeWindow = (tpl) => {
+  const now = new Date();
+  if (tpl.period === "day") {
+    const start = startOfDay(now);
+    return { start: start.getTime(), end: addDays(start, 1).getTime(), key: dayKey(start) };
+  }
+  if (tpl.period === "weekend") {
+    const sat = addDays(startOfWeek(now), 5);
+    return { start: sat.getTime(), end: addDays(sat, 2).getTime(), key: dayKey(sat) };
+  }
+  const start = startOfWeek(now);
+  return { start: start.getTime(), end: addDays(start, 7).getTime(), key: dayKey(start) };
+};
+
+const challengeView = (s, tpl) => {
+  const w = challengeWindow(tpl);
+  const id = `${tpl.id}:${w.key}`;
+  const mine = s.challenges[id] || {};
+  const to = Math.min(Date.now(), w.end);
+  const raw = tpl.metric === "distance" ? myDistanceBetween(s, w.start, to) : myStepsBetween(s, w.start, to);
+  const progress = tpl.metric === "distance" ? Math.round(raw * 10) / 10 : raw;
+  const now = Date.now();
+  const status = mine.claimed ? "claimed" : progress >= tpl.target && mine.joined ? "complete" : mine.joined ? "joined" : now < w.start ? "upcoming" : "open";
+  return {
+    id,
+    templateId: tpl.id,
+    title: tpl.scope === "city" && s.me ? `${s.me.city} ${tpl.title}` : tpl.title,
+    description: tpl.description,
+    metric: tpl.metric,
+    target: tpl.target,
+    rewardXp: tpl.rewardXp,
+    rewardOut: tpl.rewardOut,
+    period: tpl.period,
+    startsAt: w.start,
+    endsAt: w.end,
+    progress,
+    percent: Math.min(1, progress / tpl.target),
+    joined: !!mine.joined,
+    status,
+    participants: Math.round(120 + noise(id) * 900) + (mine.joined ? 1 : 0),
+  };
+};
+
+export const listChallenges = async () => read((s) => CHALLENGE_TEMPLATES.map((tpl) => challengeView(s, tpl)));
+
+export const joinChallenge = async (id) =>
+  write((s) => {
+    requireMe(s);
+    s.challenges[id] = { ...(s.challenges[id] || {}), joined: true, joinedAt: Date.now() };
+  });
+
+export const claimChallenge = async (id) =>
+  write((s) => {
+    const tpl = CHALLENGE_TEMPLATES.find((t) => id.startsWith(`${t.id}:`));
+    if (!tpl) throw new EngineError("NOT_FOUND", "Challenge not found.");
+    const view = challengeView(s, tpl);
+    if (view.status !== "complete") throw new EngineError("NOT_COMPLETE", "Finish the challenge first.");
+    s.challenges[id] = { ...s.challenges[id], claimed: true, claimedAt: Date.now() };
+    return award(s, { xp: tpl.rewardXp, out: tpl.rewardOut, label: view.title, reason: "challenge", refId: id });
+  });
+
+// ── Battles ───────────────────────────────────────────────────────────────────
+
+export const BATTLE_DURATIONS = [2, 6, 24, 168];
+
+const battleValue = (s, b, pid) => {
+  if (!b.startAt) return 0;
+  const to = Math.min(Date.now(), b.endAt);
+  const steps = pid === ME ? myStepsBetween(s, b.startAt, to) : playerStepsBetween(pid, b.startAt, to);
+  if (b.metric === "distance") return Math.round((pid === ME ? myDistanceBetween(s, b.startAt, to) : steps * STEP_KM) * 100) / 100;
+  return steps;
+};
+
+const settleBattles = (s) => {
+  let any = false;
+  for (const b of s.battles) {
+    if (b.status === "active" && Date.now() >= b.endAt) {
+      const opp = b.creatorId === ME ? b.opponentId : b.creatorId;
+      const mine = battleValue(s, b, ME);
+      const theirs = battleValue(s, b, opp);
+      b.status = "complete";
+      b.final = { me: mine, opponent: theirs };
+      b.winnerId = mine > theirs ? ME : theirs > mine ? opp : null;
+      b.completedAt = Date.now();
+      const player = playerById[opp];
+      if (b.winnerId === ME) {
+        award(s, { xp: 150, out: 15, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
+        notify(s, { type: "battles", title: `You beat ${player?.name} 🏆`, body: "150 XP and 15 OUT are yours.", link: `/battles/${b.id}` });
+      } else {
+        award(s, { xp: 25, label: "Battle played", reason: "battle", refId: b.id });
+        notify(s, { type: "battles", title: b.winnerId ? `${player?.name} won this one` : "Battle drawn", body: "25 XP for showing up. Run it back?", link: `/battles/${b.id}` });
+      }
+      any = true;
+    }
+  }
+  return any;
+};
+
+const battleView = (s, b) => {
+  const oppId = b.creatorId === ME ? b.opponentId : b.creatorId;
+  const done = b.status === "complete";
+  const mine = done ? b.final.me : battleValue(s, b, ME);
+  const theirs = done ? b.final.opponent : battleValue(s, b, oppId);
+  return {
+    id: b.id,
+    metric: b.metric,
+    durationHours: b.durationHours,
+    status: b.status,
+    incoming: b.status === "pending" && b.opponentId === ME,
+    createdAt: b.createdAt,
+    startAt: b.startAt || null,
+    endAt: b.endAt || null,
+    remainingMs: b.status === "active" ? Math.max(0, b.endAt - Date.now()) : 0,
+    me: { player: meAsPlayer(s), value: mine },
+    opponent: { player: publicPlayer(oppId), value: theirs },
+    leader: mine === theirs ? null : mine > theirs ? ME : oppId,
+    winnerId: b.winnerId ?? null,
+    result: done ? (b.winnerId === ME ? "won" : b.winnerId ? "lost" : "draw") : null,
+  };
+};
+
+const settleIfNeeded = async () => {
+  await load();
+  if (settleBattles(state)) changed();
+};
+
+export const listBattles = async (status = "all") => {
+  await settleIfNeeded();
+  return read((s) =>
+    s.battles
+      .filter((b) => b.status !== "declined" && (status === "all" || b.status === status))
+      .map((b) => battleView(s, b))
+      .sort((a, b) => (a.status === "pending" ? -1 : 0) - (b.status === "pending" ? -1 : 0) || (b.startAt || b.createdAt) - (a.startAt || a.createdAt))
+  );
+};
+
+export const getBattle = async (id) => {
+  await settleIfNeeded();
+  return read((s) => {
+    const b = s.battles.find((x) => x.id === id);
+    if (!b) throw new EngineError("NOT_FOUND", "Battle not found.");
+    return battleView(s, b);
+  });
+};
+
+export const getBattleLimits = async () =>
+  read((s) => {
+    const me = requireMe(s);
+    const rules = TIER_RULES[me.tier];
+    const weekAgo = Date.now() - 7 * DAY_MS;
+    const createdThisWeek = s.battles.filter((b) => b.creatorId === ME && b.createdAt >= weekAgo).length;
+    const active = s.battles.filter((b) => b.status === "active").length;
+    return { tier: me.tier, createdThisWeek, active, battlesPerWeek: rules.battlesPerWeek, maxActive: rules.maxActiveBattles, canCreate: createdThisWeek < rules.battlesPerWeek && active < rules.maxActiveBattles };
+  });
+
+export const createBattle = async ({ opponentId, durationHours = 24, metric = "steps" }) =>
+  write((s) => {
+    const me = requireMe(s);
+    if (!playerById[opponentId]) throw new EngineError("NOT_FOUND", "Pick an opponent.");
+    const rules = TIER_RULES[me.tier];
+    const weekAgo = Date.now() - 7 * DAY_MS;
+    if (s.battles.filter((b) => b.creatorId === ME && b.createdAt >= weekAgo).length >= rules.battlesPerWeek) {
+      throw tierError("pro", "Free members can start 1 battle a week. Go Pro for unlimited battles.");
+    }
+    if (s.battles.filter((b) => b.status === "active").length >= rules.maxActiveBattles) {
+      throw new EngineError("TOO_MANY", `You can have ${rules.maxActiveBattles} active battles at once.`);
+    }
+    // Simulated players accept straight away.
+    const now = Date.now();
+    const b = { id: randomId("b"), metric, creatorId: ME, opponentId, durationHours, status: "active", createdAt: now, startAt: now, endAt: now + durationHours * HOUR_MS };
+    s.battles.push(b);
+    return battleView(s, b);
+  });
+
+export const respondToBattle = async (id, accept) =>
+  write((s) => {
+    const b = s.battles.find((x) => x.id === id);
+    if (!b || b.status !== "pending") throw new EngineError("NOT_FOUND", "That challenge has gone.");
+    if (accept) {
+      b.status = "active";
+      b.startAt = Date.now();
+      b.endAt = b.startAt + b.durationHours * HOUR_MS;
+    } else {
+      b.status = "declined";
+    }
+    return battleView(s, b);
+  });
+
+export const cancelBattle = async (id) =>
+  write((s) => {
+    const b = s.battles.find((x) => x.id === id);
+    if (!b || b.status !== "active") throw new EngineError("NOT_FOUND", "Only active battles can be cancelled.");
+    if (b.creatorId !== ME) throw new EngineError("FORBIDDEN", "Only the challenger can cancel.");
+    b.status = "cancelled";
+    return battleView(s, b);
+  });
+
+// ── Crews ─────────────────────────────────────────────────────────────────────
+
+const isMember = (crew, pid = ME) => crew.members.some((m) => m.id === pid);
+const myRole = (crew) => crew.members.find((m) => m.id === ME)?.role || null;
+
+const crewWeekKm = (s, crew) => {
+  const from = startOfWeek().getTime();
+  const now = Date.now();
+  return crew.members.reduce((sum, m) => sum + (m.id === ME ? myDistanceBetween(s, from, now) : playerStepsBetween(m.id, from, now) * STEP_KM), 0);
+};
+
+const crewView = (s, crew, detailed = false) => {
+  const weekKm = Math.round(crewWeekKm(s, crew) * 10) / 10;
+  const view = {
+    id: crew.id,
+    name: crew.name,
+    tagline: crew.tagline,
+    city: crew.city,
+    accent: crew.accent,
+    logo: crew.logo,
+    privacy: crew.privacy,
+    weeklyGoalKm: crew.weeklyGoalKm,
+    weekKm,
+    badgeTier: crewBadgeTier(weekKm),
+    memberCount: crew.members.length,
+    isMember: isMember(crew),
+    myRole: myRole(crew),
+    inviteCode: isMember(crew) ? crew.inviteCode : null,
+    ownerId: crew.ownerId,
+    owner: crew.ownerId === ME ? (s.me ? meAsPlayer(s) : null) : publicPlayer(crew.ownerId),
+    verified: (crew.ownerId === ME ? s.me?.tier : playerById[crew.ownerId]?.tier) === "black",
+    previewMembers: crew.members.slice(0, 5).map((m) => (m.id === ME ? meAsPlayer(s) : publicPlayer(m.id))).filter(Boolean),
+  };
+  if (detailed) {
+    const from = startOfWeek().getTime();
+    view.members = crew.members
+      .map((m) => ({
+        role: m.role,
+        joinedAt: m.joinedAt,
+        player: m.id === ME ? meAsPlayer(s) : publicPlayer(m.id),
+        weekSteps: m.id === ME ? myStepsBetween(s, from, Date.now()) : playerStepsBetween(m.id, from, Date.now()),
+        isOutside: m.id === ME ? !!s.me?.isOutside : playerIsOutside(m.id),
+      }))
+      .filter((m) => m.player);
+  }
+  return view;
+};
+
+const joinCrewInState = (s, crew, viaCode = false) => {
+  const me = requireMe(s);
+  if (isMember(crew)) return;
+  if (crew.privacy === "invite" && !viaCode) throw new EngineError("INVITE_ONLY", "This crew is invite only. Ask a member for the code.");
+  const joined = Object.values(s.crews).filter((c) => isMember(c)).length;
+  const limit = TIER_RULES[me.tier].maxCrewsJoined;
+  if (joined >= limit) throw tierError(me.tier === "free" ? "pro" : "black", `Your membership lets you be in ${limit} crew${limit === 1 ? "" : "s"}. Upgrade to join more.`);
+  crew.members.push({ id: ME, role: "member", joinedAt: Date.now() });
+  notify(s, { type: "crews", title: `You joined ${crew.name}`, body: "Say hello in the crew chat.", link: `/crew/${crew.id}` });
+};
+
+export const listMyCrews = async () => read((s) => Object.values(s.crews).filter((c) => isMember(c)).map((c) => crewView(s, c)));
+
+export const discoverCrews = async (query = "") =>
+  read((s) => {
+    const q = query.trim().toLowerCase();
+    return Object.values(s.crews)
+      .filter((c) => !isMember(c) && (!q || c.name.toLowerCase().includes(q) || c.city.toLowerCase().includes(q)))
+      .map((c) => crewView(s, c))
+      .sort((a, b) => Number(b.city === s.me?.city) - Number(a.city === s.me?.city) || b.weekKm - a.weekKm);
+  });
+
+export const getCrew = async (id) =>
+  read((s) => {
+    const crew = s.crews[id];
+    if (!crew) throw new EngineError("NOT_FOUND", "Crew not found.");
+    return crewView(s, crew, true);
+  });
+
+export const getCrewLimits = async () =>
+  read((s) => {
+    const me = requireMe(s);
+    const rules = TIER_RULES[me.tier];
+    const owned = Object.values(s.crews).filter((c) => c.ownerId === ME).length;
+    const joined = Object.values(s.crews).filter((c) => isMember(c)).length;
+    return { tier: me.tier, owned, joined, maxOwned: rules.maxCrewsOwned, maxJoined: rules.maxCrewsJoined, canCreate: owned < rules.maxCrewsOwned, canJoin: joined < rules.maxCrewsJoined };
+  });
+
+export const createCrew = async ({ name, tagline = "", city, accent = "#00ff7f", privacy = "public", logo = null }) =>
+  write((s) => {
+    const me = requireMe(s);
+    const rules = TIER_RULES[me.tier];
+    const owned = Object.values(s.crews).filter((c) => c.ownerId === ME).length;
+    if (rules.maxCrewsOwned === 0) throw tierError("pro", "Owning a crew is a Pro feature.");
+    if (owned >= rules.maxCrewsOwned) throw tierError("black", `You can own ${rules.maxCrewsOwned} crew${rules.maxCrewsOwned === 1 ? "" : "s"} on ${me.tier === "pro" ? "Pro" : "Black"}.`);
+    const clean = (name || "").trim();
+    if (clean.length < 3) throw new EngineError("BAD_NAME", "Crew names need at least 3 characters.");
+    if (Object.values(s.crews).some((c) => c.name.toLowerCase() === clean.toLowerCase())) throw new EngineError("BAD_NAME", "A crew with that name already exists.");
+    const id = randomId("c");
+    s.crews[id] = { id, name: clean, tagline: tagline.trim(), city: city || me.city, accent, logo, privacy, weeklyGoalKm: 100, inviteCode: randomCode(6), ownerId: ME, createdAt: Date.now(), members: [{ id: ME, role: "owner", joinedAt: Date.now() }] };
+    s.crewChat[id] = [];
+    s.crewFeed[id] = [];
+    return crewView(s, s.crews[id], true);
+  });
+
+export const joinCrew = async (id) =>
+  write((s) => {
+    const crew = s.crews[id];
+    if (!crew) throw new EngineError("NOT_FOUND", "Crew not found.");
+    joinCrewInState(s, crew);
+    return crewView(s, crew, true);
+  });
+
+export const joinCrewByCode = async (code) =>
+  write((s) => {
+    const crew = Object.values(s.crews).find((c) => c.inviteCode.toLowerCase() === (code || "").trim().toLowerCase());
+    if (!crew) throw new EngineError("BAD_CODE", "No crew has that code.");
+    joinCrewInState(s, crew, true);
+    return crewView(s, crew, true);
+  });
+
+export const leaveCrew = async (id) =>
+  write((s) => {
+    const crew = s.crews[id];
+    if (!crew || !isMember(crew)) return;
+    crew.members = crew.members.filter((m) => m.id !== ME);
+    if (crew.ownerId === ME) {
+      if (crew.members.length === 0) {
+        delete s.crews[id];
+        return;
+      }
+      const next = crew.members.find((m) => m.role === "admin") || crew.members[0];
+      next.role = "owner";
+      crew.ownerId = next.id;
+    }
+  });
+
+const requireCrewRole = (crew, roles) => {
+  if (!roles.includes(myRole(crew))) throw new EngineError("FORBIDDEN", "Only crew admins can do that.");
+};
+
+export const updateCrew = async (id, patch) =>
+  write((s) => {
+    const crew = s.crews[id];
+    if (!crew) throw new EngineError("NOT_FOUND", "Crew not found.");
+    requireCrewRole(crew, ["owner", "admin"]);
+    if (patch.logo !== undefined) {
+      if (crew.ownerId !== ME) throw new EngineError("FORBIDDEN", "Only the owner can change the logo.");
+      if (!tierAtLeast(s.me.tier, "pro")) throw tierError("pro", "Crew logos are a Pro feature.");
+    }
+    for (const key of ["name", "tagline", "accent", "privacy", "logo", "weeklyGoalKm", "city"]) {
+      if (patch[key] !== undefined) crew[key] = patch[key];
+    }
+    return crewView(s, crew, true);
+  });
+
+export const deleteCrew = async (id) =>
+  write((s) => {
+    const crew = s.crews[id];
+    if (!crew) return;
+    if (crew.ownerId !== ME) throw new EngineError("FORBIDDEN", "Only the owner can delete the crew.");
+    delete s.crews[id];
+    delete s.crewChat[id];
+    delete s.crewFeed[id];
+  });
+
+export const removeCrewMember = async (crewId, pid) =>
+  write((s) => {
+    const crew = s.crews[crewId];
+    if (!crew) throw new EngineError("NOT_FOUND", "Crew not found.");
+    requireCrewRole(crew, ["owner", "admin"]);
+    if (pid === crew.ownerId) throw new EngineError("FORBIDDEN", "You can't remove the owner.");
+    crew.members = crew.members.filter((m) => m.id !== pid);
+    return crewView(s, crew, true);
+  });
+
+export const setCrewRole = async (crewId, pid, role) =>
+  write((s) => {
+    const crew = s.crews[crewId];
+    if (!crew) throw new EngineError("NOT_FOUND", "Crew not found.");
+    requireCrewRole(crew, ["owner"]);
+    const member = crew.members.find((m) => m.id === pid);
+    if (!member || member.role === "owner") throw new EngineError("FORBIDDEN", "Can't change that member's role.");
+    member.role = role === "admin" ? "admin" : "member";
+    return crewView(s, crew, true);
+  });
+
+export const getCrewLeaderboard = async (id, period = "week") =>
+  read((s) => {
+    const crew = s.crews[id];
+    if (!crew) throw new EngineError("NOT_FOUND", "Crew not found.");
+    const from = periodStart(period);
+    return crew.members
+      .map((m) => ({ player: m.id === ME ? meAsPlayer(s) : publicPlayer(m.id), steps: m.id === ME ? myStepsBetween(s, from, Date.now()) : playerStepsBetween(m.id, from, Date.now()), role: m.role }))
+      .filter((r) => r.player)
+      .sort((a, b) => b.steps - a.steps)
+      .map((r, i) => ({ ...r, rank: i + 1, isMe: r.player.id === ME, km: Math.round(r.steps * STEP_KM * 10) / 10 }));
+  });
+
+export const getCrewMessages = async (id) =>
+  read((s) => {
+    const crew = s.crews[id];
+    if (!crew || !isMember(crew)) throw new EngineError("FORBIDDEN", "Join the crew to see the chat.");
+    return (s.crewChat[id] || []).map((m) => ({ ...m, author: m.authorId === ME ? meAsPlayer(s) : publicPlayer(m.authorId), isMine: m.authorId === ME }));
+  });
+
+export const sendCrewMessage = async (id, text) =>
+  write((s) => {
+    const crew = s.crews[id];
+    if (!crew || !isMember(crew)) throw new EngineError("FORBIDDEN", "Join the crew to chat.");
+    const clean = (text || "").trim();
+    if (!clean) return null;
+    const msg = { id: randomId("m"), authorId: ME, text: clean.slice(0, 1000), at: Date.now() };
+    s.crewChat[id] = [...(s.crewChat[id] || []), msg].slice(-300);
+    return { ...msg, author: meAsPlayer(s), isMine: true };
+  });
+
+export const getCrewFeed = async (id) =>
+  read((s) =>
+    (s.crewFeed[id] || [])
+      .map((p) => ({ ...p, author: p.authorId === ME ? meAsPlayer(s) : publicPlayer(p.authorId), likeCount: p.likes.length, likedByMe: p.likes.includes(ME), isMine: p.authorId === ME }))
+      .sort((a, b) => b.at - a.at)
+  );
+
+export const togglePostLike = async (crewId, postId) =>
+  write((s) => {
+    const post = (s.crewFeed[crewId] || []).find((p) => p.id === postId);
+    if (!post) return;
+    post.likes = post.likes.includes(ME) ? post.likes.filter((x) => x !== ME) : [...post.likes, ME];
+  });
+
+export const shareRunToCrew = async (crewId, { runId, caption = "" }) =>
+  write((s) => {
+    const crew = s.crews[crewId];
+    if (!crew || !isMember(crew)) throw new EngineError("FORBIDDEN", "Join the crew to post.");
+    const run = s.runs.find((r) => r.id === runId);
+    if (!run) throw new EngineError("NOT_FOUND", "Run not found.");
+    const post = { id: randomId("post"), authorId: ME, km: run.distanceKm, minutes: Math.round(run.durationSec / 60), caption: caption.trim(), runId, at: Date.now(), likes: [], comments: 0 };
+    s.crewFeed[crewId] = [post, ...(s.crewFeed[crewId] || [])];
+    return post;
+  });
+
+export const deletePost = async (crewId, postId) =>
+  write((s) => {
+    s.crewFeed[crewId] = (s.crewFeed[crewId] || []).filter((p) => !(p.id === postId && p.authorId === ME));
+  });
+
+// ── Runs (Move tab sessions) ──────────────────────────────────────────────────
+
+export const saveRun = async (run) =>
+  write((s) => {
+    requireMe(s);
+    const distanceKm = Math.max(0, Number(run.distanceKm) || 0);
+    const durationSec = Math.max(0, Math.round(Number(run.durationSec) || 0));
+    const saved = {
+      id: run.id || randomId("run"),
+      title: run.title || defaultRunTitle(run.startedAt || Date.now()),
+      type: run.type || "run",
+      startedAt: run.startedAt || Date.now() - durationSec * 1000,
+      endedAt: run.endedAt || Date.now(),
+      distanceKm: Math.round(distanceKm * 100) / 100,
+      durationSec,
+      paceSecPerKm: distanceKm > 0 ? Math.round(durationSec / distanceKm) : null,
+      calories: run.calories ?? Math.round(distanceKm * 62),
+      route: Array.isArray(run.route) ? run.route.filter((_, i, arr) => arr.length <= 500 || i % Math.ceil(arr.length / 500) === 0) : [],
+    };
+    s.runs = [saved, ...s.runs.filter((r) => r.id !== saved.id)];
+    const xp = Math.round(saved.distanceKm * 10);
+    if (xp > 0) award(s, { xp, out: Math.floor(saved.distanceKm), label: `${saved.distanceKm} km ${saved.type}`, reason: "run", refId: saved.id });
+    return saved;
+  });
+
+const defaultRunTitle = (ms) => {
+  const h = new Date(ms).getHours();
+  const part = h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
+  return `${part} run`;
+};
+
+export const listRuns = async ({ limit = 50 } = {}) => read((s) => s.runs.slice(0, limit));
+export const getRun = async (id) => read((s) => s.runs.find((r) => r.id === id) || null);
+export const deleteRun = async (id) =>
+  write((s) => {
+    s.runs = s.runs.filter((r) => r.id !== id);
+  });
+
+// ── Events ────────────────────────────────────────────────────────────────────
+
+// Seed events repeat weekly so the calendar never runs dry.
+const eventOccurrence = (s, ev) => {
+  const week = 7 * DAY_MS;
+  const base = s.seededAt + ev.startInHours * HOUR_MS;
+  const duration = ev.durationHours * HOUR_MS;
+  const now = Date.now();
+  const k = Math.max(0, Math.ceil((now - duration - 30 * 60 * 1000 - base) / week));
+  const start = base + k * week;
+  return { start, end: start + duration };
+};
+
+const eventView = (s, ev) => {
+  const { start, end } = eventOccurrence(s, ev);
+  const occId = `${ev.id}@${start}`;
+  const mine = s.events[occId] || {};
+  const now = Date.now();
+  const going = !!mine.rsvp;
+  const count = ev.seedRsvps + Math.floor(noise(occId) * 6) + (going ? 1 : 0);
+  const tier = s.me?.tier || "free";
+  return {
+    id: ev.id,
+    occurrenceId: occId,
+    title: ev.title,
+    description: ev.description,
+    city: ev.city,
+    location: ev.location,
+    image: ev.image,
+    organiser: ev.organiser,
+    organiserType: ev.organiserType,
+    tierRequired: ev.tierRequired,
+    canAttend: tierAtLeast(tier, ev.tierRequired),
+    startAt: start,
+    endAt: end,
+    capacity: ev.capacity,
+    rsvpCount: Math.min(ev.capacity, count),
+    spotsLeft: Math.max(0, ev.capacity - count),
+    isFull: count >= ev.capacity && !going,
+    isGoing: going,
+    checkedIn: !!mine.checkedIn,
+    status: now < start ? "upcoming" : now <= end ? "live" : "ended",
+    checkInOpen: now >= start - HOUR_MS && now <= end + 30 * 60 * 1000,
+    rewardXp: ev.rewardXp,
+    rewardOut: ev.rewardOut,
+  };
+};
+
+export const listEvents = async ({ city } = {}) =>
+  read((s) =>
+    EVENTS.map((ev) => eventView(s, ev))
+      .filter((e) => !city || e.city === city)
+      .sort((a, b) => a.startAt - b.startAt)
+  );
+
+export const getEvent = async (id) =>
+  read((s) => {
+    const ev = EVENTS.find((e) => e.id === id);
+    if (!ev) throw new EngineError("NOT_FOUND", "Event not found.");
+    return eventView(s, ev);
+  });
+
+export const rsvpEvent = async (id, going = true) =>
+  write((s) => {
+    requireMe(s);
+    const ev = EVENTS.find((e) => e.id === id);
+    if (!ev) throw new EngineError("NOT_FOUND", "Event not found.");
+    const view = eventView(s, ev);
+    if (going) {
+      if (!view.canAttend) throw tierError(ev.tierRequired, `This event is for ${ev.tierRequired === "black" ? "Black" : "Pro and Black"} members.`);
+      if (view.isFull) throw new EngineError("FULL", "This event is full.");
+    }
+    s.events[view.occurrenceId] = { ...(s.events[view.occurrenceId] || {}), rsvp: going, rsvpAt: Date.now() };
+    return eventView(s, ev);
+  });
+
+export const checkInEvent = async (id) =>
+  write((s) => {
+    requireMe(s);
+    const ev = EVENTS.find((e) => e.id === id);
+    if (!ev) throw new EngineError("NOT_FOUND", "Event not found.");
+    const view = eventView(s, ev);
+    if (!view.canAttend) throw tierError(ev.tierRequired, "This event is members only.");
+    if (view.checkedIn) return view;
+    if (!view.checkInOpen) throw new EngineError("CLOSED", "Check-in opens an hour before the start.");
+    s.events[view.occurrenceId] = { ...(s.events[view.occurrenceId] || {}), rsvp: true, checkedIn: true, checkedInAt: Date.now() };
+    award(s, { xp: ev.rewardXp, out: ev.rewardOut, label: `Checked in: ${ev.title}`, reason: "event", refId: view.occurrenceId });
+    notify(s, { type: "events", title: "Checked in ✅", body: `${ev.rewardXp} XP and ${ev.rewardOut} OUT for showing up to ${ev.title}.`, link: `/events/${ev.id}` });
+    return eventView(s, ev);
+  });
+
+// ── Drops ─────────────────────────────────────────────────────────────────────
+
+const dropView = (s, d) => {
+  const releaseAt = s.seededAt + d.releaseInHours * HOUR_MS;
+  const earlyAt = releaseAt - d.earlyAccessHours * HOUR_MS;
+  const now = Date.now();
+  const tier = s.me?.tier || "free";
+  const early = tierAtLeast(tier, "pro");
+  const sold = now < releaseAt ? 0 : Math.min(d.stock, Math.round(((now - releaseAt) / HOUR_MS) * (d.stock / 60)));
+  const remaining = Math.max(0, d.stock - sold);
+  const mine = s.drops[d.id] || {};
+  let status = "upcoming";
+  if (d.stock === 0 || (now >= releaseAt && remaining === 0)) status = "soldout";
+  else if (now >= releaseAt) status = "live";
+  else if (now >= earlyAt) status = "early";
+  return {
+    id: d.id,
+    title: d.title,
+    subtitle: d.subtitle,
+    description: d.description,
+    image: d.image,
+    priceGbp: d.priceGbp,
+    sizes: d.sizes,
+    tag: d.tag,
+    releaseAt,
+    earlyAccessAt: earlyAt,
+    status,
+    canBuy: !mine.reservation && (status === "live" || (status === "early" && early)),
+    hasEarlyAccess: early,
+    stock: d.stock,
+    remaining: d.stock === 0 ? 0 : remaining,
+    reminder: !!mine.reminder,
+    reservation: mine.reservation || null,
+  };
+};
+
+const fireDropReminders = (s) => {
+  let any = false;
+  for (const d of DROPS) {
+    const mine = s.drops[d.id];
+    if (!mine?.reminder || mine.notified) continue;
+    const v = dropView(s, d);
+    if (v.status === "live" || (v.status === "early" && v.hasEarlyAccess)) {
+      mine.notified = true;
+      notify(s, { type: "drops", title: `${d.title} is live`, body: v.status === "early" ? "Your early access window is open." : "Go get it before it's gone.", link: `/drops/${d.id}`, image: d.image });
+      any = true;
+    }
+  }
+  return any;
+};
+
+export const listDrops = async () => {
+  await load();
+  if (fireDropReminders(state)) changed();
+  return read((s) => {
+    const order = { live: 0, early: 1, upcoming: 2, soldout: 3 };
+    return DROPS.map((d) => dropView(s, d)).sort((a, b) => order[a.status] - order[b.status] || a.releaseAt - b.releaseAt);
+  });
+};
+
+export const getDrop = async (id) =>
+  read((s) => {
+    const d = DROPS.find((x) => x.id === id);
+    if (!d) throw new EngineError("NOT_FOUND", "Drop not found.");
+    return dropView(s, d);
+  });
+
+export const toggleDropReminder = async (id) =>
+  write((s) => {
+    const d = DROPS.find((x) => x.id === id);
+    if (!d) throw new EngineError("NOT_FOUND", "Drop not found.");
+    const mine = s.drops[id] || {};
+    s.drops[id] = { ...mine, reminder: !mine.reminder, notified: false };
+    return dropView(s, d);
+  });
+
+// Checkout isn't live yet: this holds the item for the member.
+export const reserveDrop = async (id, size) =>
+  write((s) => {
+    requireMe(s);
+    const d = DROPS.find((x) => x.id === id);
+    if (!d) throw new EngineError("NOT_FOUND", "Drop not found.");
+    const v = dropView(s, d);
+    if (v.status === "early" && !v.hasEarlyAccess) throw tierError("pro", "Early access is for Pro and Black members.");
+    if (!v.canBuy) throw new EngineError("UNAVAILABLE", v.status === "soldout" ? "Sold out." : "Not on sale yet.");
+    if (d.sizes.length > 1 && !d.sizes.includes(size)) throw new EngineError("SIZE", "Pick a size.");
+    s.drops[id] = { ...(s.drops[id] || {}), reservation: { size: size || d.sizes[0], at: Date.now(), ref: `OH-${randomCode(5)}` } };
+    notify(s, { type: "drops", title: `${d.title} reserved`, body: "We'll message you when checkout opens.", link: `/drops/${d.id}`, image: d.image });
+    return dropView(s, d);
+  });
+
+// ── Rewards ───────────────────────────────────────────────────────────────────
+
+const redemptionsThisWeek = (s) => s.redemptions.filter((r) => r.at >= Date.now() - 7 * DAY_MS).length;
+
+export const listRewards = async () =>
+  read((s) => {
+    const me = requireMe(s);
+    const out = balance(s, "out");
+    const limit = TIER_RULES[me.tier].redemptionsPerWeek;
+    const used = redemptionsThisWeek(s);
+    return {
+      balance: out,
+      weeklyLimit: limit,
+      usedThisWeek: used,
+      rewards: REWARDS.map((r) => {
+        const tierOk = tierAtLeast(me.tier, r.tierRequired);
+        const lockedReason = !tierOk ? `${r.tierRequired === "black" ? "Black" : "Pro"} only` : used >= limit ? "Weekly limit reached" : out < r.costOut ? `${r.costOut - out} OUT to go` : null;
+        return { ...r, canRedeem: !lockedReason, lockedReason };
+      }),
+    };
+  });
+
+export const redeemReward = async (id) =>
+  write((s) => {
+    const me = requireMe(s);
+    const r = REWARDS.find((x) => x.id === id);
+    if (!r) throw new EngineError("NOT_FOUND", "Reward not found.");
+    if (!tierAtLeast(me.tier, r.tierRequired)) throw tierError(r.tierRequired, `This reward is for ${r.tierRequired === "black" ? "Black" : "Pro and Black"} members.`);
+    const limit = TIER_RULES[me.tier].redemptionsPerWeek;
+    if (redemptionsThisWeek(s) >= limit) throw tierError(me.tier === "free" ? "pro" : "black", `You've used your ${limit} reward${limit === 1 ? "" : "s"} this week.`);
+    if (balance(s, "out") < r.costOut) throw new EngineError("BALANCE", "Not enough OUT yet.");
+    const code = `OUT-${randomCode(6)}`;
+    s.ledger.push({ id: randomId("tx"), type: "out", amount: -r.costOut, label: r.title, reason: "redeem", refId: r.id, at: Date.now() });
+    const redemption = { id: randomId("rd"), rewardId: r.id, title: r.title, partner: r.partner, code, at: Date.now(), expiresAt: Date.now() + 30 * DAY_MS };
+    s.redemptions.unshift(redemption);
+    notify(s, { type: "rewards", title: "Reward unlocked", body: `${r.title} (${r.partner}). Your code is ${code}.`, link: "/rewards" });
+    return redemption;
+  });
+
+export const listRedemptions = async () => read((s) => s.redemptions);
+
+// ── News ──────────────────────────────────────────────────────────────────────
+
+const newsView = (s, n) => ({ ...n, publishedAt: s.seededAt - n.hoursAgo * HOUR_MS });
+export const listNews = async () => read((s) => NEWS.map((n) => newsView(s, n)).sort((a, b) => b.publishedAt - a.publishedAt));
+export const getNews = async (id) =>
+  read((s) => {
+    const n = NEWS.find((x) => x.id === id);
+    if (!n) throw new EngineError("NOT_FOUND", "Story not found.");
+    return newsView(s, n);
+  });
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export const listNotifications = async () => {
+  await settleIfNeeded();
+  await load();
+  if (fireDropReminders(state)) changed();
+  return read((s) => s.notifications);
+};
+
+export const unreadNotificationCount = async () => read((s) => s.notifications.filter((n) => !n.read).length);
+
+export const markNotificationRead = async (id) =>
+  write((s) => {
+    const n = s.notifications.find((x) => x.id === id);
+    if (n) n.read = true;
+  });
+
+export const markAllNotificationsRead = async () =>
+  write((s) => {
+    s.notifications.forEach((n) => {
+      n.read = true;
+    });
+  });
+
+export const clearNotifications = async () =>
+  write((s) => {
+    s.notifications = [];
+  });
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export const getSettings = async () => read((s) => s.settings);
+
+export const updateSettings = async (patch) =>
+  write((s) => {
+    s.settings = {
+      ...s.settings,
+      ...patch,
+      notifications: { ...s.settings.notifications, ...(patch.notifications || {}) },
+      privacy: { ...s.settings.privacy, ...(patch.privacy || {}) },
+    };
+    return s.settings;
+  });
+
+// Test hook: lets tests start from a clean in-memory state.
+export const __resetForTests = () => {
+  state = freshState();
+  loading = Promise.resolve(state);
+};
