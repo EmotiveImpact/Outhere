@@ -1,7 +1,6 @@
 import React from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Newspaper } from "lucide-react-native";
 import { useNews } from "@/data/hooks";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 import { C, EmptyState, FadeIn, S, TAB_BAR_SPACE } from "@/components/ui";
@@ -28,7 +27,7 @@ export default function OutsideNewsScreen() {
       {isPending ? (
         <NewsSkeleton />
       ) : !top ? (
-        <EmptyState icon={Newspaper} title="No stories yet" body="Season news, drops and community recaps land here." action="Refresh" onAction={refetch} />
+        <EmptyState title="No stories yet" body="Season news, drops and community recaps land here." action="Refresh" onAction={refetch} />
       ) : (
         <>
           <FadeIn>

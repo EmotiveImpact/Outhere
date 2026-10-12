@@ -3,12 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 import { Bell, BellRing, Check, Crown } from "lucide-react-native";
 import { C, Cover, F, Pill, PressableScale, ProgressBar, R, Row, S, Skeleton } from "@/components/ui";
 import { formatNumber } from "@/utils/format";
-import { CountdownBoxes, LivePill, priceLabel } from "./shared";
+import { LivePill, countdownText, priceLabel } from "./shared";
 
 const HOUR = 3_600_000;
 
 // Each drop gets its own colourway for the cover art.
-const DROP_ACCENTS = { d_nightshift: "#9B5CFF", d_tee: "#00ff7f", d_bottle: "#3DA9FC", d_windbreaker: "#FF6B35" };
+const DROP_ACCENTS = { d_nightshift: "#9B5CFF", d_tee: "#e5e4e2", d_bottle: "#3DA9FC", d_windbreaker: "#FF6B35" };
 export const dropAccent = (drop) => DROP_ACCENTS[drop.id];
 
 export const earlyHours = (drop) => Math.round((drop.releaseAt - drop.earlyAccessAt) / HOUR);
@@ -21,17 +21,17 @@ export function dropState(drop) {
   const hrs = earlyHours(drop);
   switch (drop.status) {
     case "soldout":
-      return { pill: { label: "SOLD OUT", tone: "danger" }, headline: "Sold out", target: null };
+      return { pill: { label: "Sold out", tone: "neutral" }, headline: "Sold out", target: null };
     case "live":
-      return { pill: { label: "LIVE", tone: "accent" }, headline: `${formatNumber(drop.remaining)} of ${formatNumber(drop.stock)} left`, target: null };
+      return { pill: { label: "LIVE", tone: "neutral" }, headline: `${formatNumber(drop.remaining)} of ${formatNumber(drop.stock)} left`, target: null };
     case "early":
       return drop.hasEarlyAccess
-        ? { pill: { label: "EARLY ACCESS", tone: "pro" }, headline: "Your early access is open", sub: "Public release in", target: drop.releaseAt }
-        : { pill: { label: "MEMBERS ONLY", tone: "pro" }, headline: "Pro and Black are shopping now", sub: "Opens to everyone in", target: drop.releaseAt };
+        ? { pill: { label: "Early access", tone: "pro" }, headline: "Your early access is open", sub: "Public release in", target: drop.releaseAt }
+        : { pill: { label: "Members only", tone: "pro" }, headline: "Pro and Black are shopping now", sub: "Opens to everyone in", target: drop.releaseAt };
     default:
       return drop.hasEarlyAccess
-        ? { pill: { label: "UPCOMING", tone: "neutral" }, headline: `You get in ${hrs}h before everyone else`, sub: "Your early access opens in", target: drop.earlyAccessAt }
-        : { pill: { label: "UPCOMING", tone: "neutral" }, headline: `Pro and Black get in ${hrs}h early`, sub: "Drops in", target: drop.releaseAt };
+        ? { pill: { label: "Upcoming", tone: "neutral" }, headline: `You get in ${hrs}h before everyone else`, sub: "Your early access opens in", target: drop.earlyAccessAt }
+        : { pill: { label: "Upcoming", tone: "neutral" }, headline: `Pro and Black get in ${hrs}h early`, sub: "Drops in", target: drop.releaseAt };
   }
 }
 
@@ -48,15 +48,20 @@ export function useDropBoundaries(drops, now, refetch) {
   }, [drops, now, refetch]);
 }
 
-/** Status pills for a drop: state, early access badge, reservation. */
+/** Status pills for a drop, at most two: state or early access, then reservation. */
 export function DropPills({ drop, style }) {
   const state = dropState(drop);
   const earlyBadge = drop.hasEarlyAccess && (drop.status === "upcoming" || drop.status === "early");
   return (
-    <Row gap={6} style={[{ flexWrap: "wrap" }, style]}>
-      {drop.status === "live" ? <LivePill label="LIVE NOW" /> : drop.status === "early" && earlyBadge ? null : <Pill {...state.pill} icon={drop.status === "early" ? Crown : undefined} />}
-      {earlyBadge ? <Pill label={drop.status === "early" ? "EARLY ACCESS OPEN" : "EARLY ACCESS"} tone="pro" icon={Crown} /> : null}
-      {drop.reservation ? <Pill label={`RESERVED ${String(drop.reservation.size).toUpperCase()}`} tone="accent" icon={Check} /> : null}
+    <Row gap={6} style={style}>
+      {drop.status === "live" ? (
+        <LivePill />
+      ) : earlyBadge ? (
+        <Pill label={drop.status === "early" ? "Early access open" : "Early access"} tone="pro" icon={Crown} />
+      ) : (
+        <Pill {...state.pill} icon={drop.status === "early" ? Crown : undefined} />
+      )}
+      {drop.reservation ? <Pill label={`Reserved, ${drop.reservation.size}`} icon={Check} /> : null}
     </Row>
   );
 }
@@ -65,8 +70,8 @@ export function ReminderButton({ on, onPress, disabled }) {
   const Icon = on ? BellRing : Bell;
   return (
     <PressableScale disabled={disabled} scaleTo={0.92} onPress={onPress} accessibilityLabel={on ? "Turn reminder off" : "Remind me"} style={[styles.bell, on && styles.bellOn, disabled && { opacity: 0.6 }]}>
-      <Icon size={16} color={on ? C.accentText : C.text} />
-      <Text style={[styles.bellText, on && { color: C.accentText }]}>{on ? "Reminder on" : "Remind me"}</Text>
+      <Icon size={16} color={C.text} />
+      <Text style={styles.bellText}>{on ? "Reminder on" : "Remind me"}</Text>
     </PressableScale>
   );
 }
@@ -77,13 +82,15 @@ export default function DropCard({ drop, now, onPress, onToggleReminder, reminde
   const left = drop.stock ? drop.remaining / drop.stock : 0;
   const sold = drop.status === "soldout";
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98} style={[styles.card, drop.status === "live" && styles.live]}>
+    <PressableScale onPress={onPress} scaleTo={0.98} style={styles.card}>
       <Cover source={drop.image} seed={drop.id} accent={dropAccent(drop)} scrim style={styles.cover}>
         {sold ? <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,10,10,0.5)" }]} /> : null}
         <DropPills drop={drop} style={styles.pills} />
-        <Row style={styles.bottom}>
-          <View style={{ flex: 1, marginRight: S.md }}>
-            {drop.tag.toLowerCase() !== "live now" ? <Text style={styles.tag}>{drop.tag}</Text> : null}
+      </Cover>
+
+      <View style={styles.body}>
+        <Row style={{ alignItems: "flex-start" }} gap={S.md}>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.title, sold && { color: C.textDim }]} numberOfLines={2}>
               {drop.title}
             </Text>
@@ -93,31 +100,24 @@ export default function DropCard({ drop, now, onPress, onToggleReminder, reminde
           </View>
           <Text style={[styles.price, sold && { color: C.textDim, textDecorationLine: "line-through" }]}>{priceLabel(drop.priceGbp)}</Text>
         </Row>
-      </Cover>
 
-      <View style={{ padding: S.lg }}>
         {state.target ? (
-          <>
-            <Text style={styles.label}>{state.sub}</Text>
-            <CountdownBoxes target={state.target} now={now} style={{ marginTop: S.sm }} />
-            <Row style={{ justifyContent: "space-between", marginTop: S.md }} gap={S.md}>
-              <Text style={[styles.small, { flex: 1 }]} numberOfLines={2}>
-                {state.headline}
-              </Text>
-              {showReminder ? <ReminderButton on={drop.reminder} disabled={reminderBusy} onPress={onToggleReminder} /> : null}
-            </Row>
-          </>
+          <Row style={styles.foot} gap={S.md}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.small}>{state.sub}</Text>
+              <Text style={styles.count}>{countdownText(state.target, now)}</Text>
+            </View>
+            {showReminder ? <ReminderButton on={drop.reminder} disabled={reminderBusy} onPress={onToggleReminder} /> : null}
+          </Row>
         ) : drop.status === "live" ? (
-          <View style={{ gap: 10 }}>
+          <View style={[styles.foot, { gap: 10 }]}>
             <Row style={{ justifyContent: "space-between" }}>
-              <Text style={[styles.small, { color: left < 0.2 ? C.fire : C.text }]}>{state.headline}</Text>
-              <Text style={[styles.small, drop.reservation ? { color: C.accent } : null]}>{drop.reservation ? "You're sorted" : "Tap to reserve"}</Text>
+              <Text style={styles.small}>{state.headline}</Text>
+              {drop.reservation ? <Text style={styles.small}>Reserved</Text> : null}
             </Row>
-            <ProgressBar value={left} height={6} colour={left < 0.2 ? C.fire : C.accent} />
+            <ProgressBar value={left} height={4} />
           </View>
-        ) : (
-          <Text style={styles.small}>All gone. Set a reminder on the next one and you'll be first in.</Text>
-        )}
+        ) : null}
       </View>
     </PressableScale>
   );
@@ -125,27 +125,26 @@ export default function DropCard({ drop, now, onPress, onToggleReminder, reminde
 
 export const DropCardSkeleton = () => (
   <View style={[styles.card, { marginBottom: S.lg }]}>
-    <Skeleton height={280} radius={0} />
+    <Skeleton height={220} radius={0} />
     <View style={{ padding: S.lg, gap: S.sm }}>
-      <Skeleton width="30%" height={12} />
-      <Skeleton width="70%" height={44} radius={12} />
+      <Skeleton width="60%" height={20} />
+      <Skeleton width="40%" height={12} />
     </View>
   </View>
 );
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: "hidden", marginBottom: S.lg },
-  live: { borderColor: "rgba(0,255,127,0.4)" },
-  cover: { height: 280 },
-  pills: { position: "absolute", top: S.md, left: S.md, right: S.md },
-  bottom: { position: "absolute", left: S.lg, right: S.lg, bottom: S.lg, alignItems: "flex-end" },
-  tag: { color: C.textDim, fontSize: 11, fontWeight: "800", letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 },
-  title: { color: C.text, fontFamily: F.display, fontSize: 28, lineHeight: 30, letterSpacing: -0.6, textTransform: "uppercase" },
-  subtitle: { color: "#c8c8cc", fontSize: 14, marginTop: 4 },
-  price: { color: C.text, fontFamily: F.display, fontSize: 34, letterSpacing: -1 },
-  label: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 1.1, textTransform: "uppercase" },
-  small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  bell: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.borderStrong },
-  bellOn: { backgroundColor: C.accent, borderColor: C.accent },
-  bellText: { color: C.text, fontSize: 13, fontWeight: "700" },
+  card: { backgroundColor: C.surface, borderRadius: R.lg, overflow: "hidden", marginBottom: S.lg },
+  cover: { height: 220 },
+  pills: { position: "absolute", top: S.lg, left: S.lg },
+  body: { padding: S.lg },
+  title: { color: C.text, fontFamily: F.display, fontSize: 22, lineHeight: 26, letterSpacing: -0.4 },
+  subtitle: { color: C.textDim, fontSize: 13, marginTop: 4 },
+  price: { color: C.text, fontFamily: F.display, fontSize: 22, letterSpacing: -0.4 },
+  foot: { marginTop: S.lg, paddingTop: S.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+  small: { color: C.textDim, fontSize: 13 },
+  count: { color: C.text, fontFamily: F.display, fontSize: 20, letterSpacing: -0.3, marginTop: 2, fontVariant: ["tabular-nums"] },
+  bell: { flexDirection: "row", alignItems: "center", gap: 6, height: 40, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.surfaceHigh },
+  bellOn: {},
+  bellText: { color: C.text, fontSize: 13, fontWeight: "600" },
 });

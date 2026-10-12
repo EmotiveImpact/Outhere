@@ -3,8 +3,6 @@
 
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Crown, Flame, Footprints, Route, Zap } from "lucide-react-native";
 import {
   Avatar,
   C,
@@ -16,6 +14,7 @@ import {
   TierBadge,
 } from "@/components/ui";
 import {
+  ME,
   MEDAL,
   METRICS,
   metricShort,
@@ -24,7 +23,7 @@ import {
   playerName,
 } from "./shared";
 
-const avatarColour = (player) => (player?.isMe ? C.accent : player?.color);
+const avatarColour = (player) => (player?.isMe ? ME : player?.color);
 
 export function LeaderRow({ entry, metric, onPress, style }) {
   const { player, rank, value, isMe } = entry;
@@ -34,18 +33,17 @@ export function LeaderRow({ entry, metric, onPress, style }) {
       scaleTo={0.985}
       style={[styles.row, isMe && styles.rowMe, style]}
     >
-      <Text style={[styles.rank, isMe && { color: C.accent }]}>{rank}</Text>
+      <Text style={[styles.rank, isMe && { color: C.text }]}>{rank}</Text>
       <Avatar
         uri={player.avatar}
         name={player.name || player.username || ""}
         colour={avatarColour(player)}
         size={40}
-        ring={isMe ? C.accent : undefined}
       />
       <View style={{ flex: 1 }}>
         <Row gap={6}>
           <Text
-            style={[styles.name, isMe && { color: C.accent }]}
+            style={styles.name}
             numberOfLines={1}
           >
             {isMe ? "You" : player.name}
@@ -87,22 +85,15 @@ export function PinnedMeRow({ entry, metric, ahead, onPress }) {
       scaleTo={0.98}
       style={styles.pinned}
     >
-      <LinearGradient
-        colors={["rgba(0,255,127,0.20)", "rgba(0,255,127,0.06)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFill}
-      />
       <View style={styles.pinnedRank}>
-        <Text style={styles.pinnedRankLabel}>RANK</Text>
         <Text style={styles.pinnedRankValue}>{entry.rank}</Text>
+        <Text style={styles.pinnedRankLabel}>rank</Text>
       </View>
       <Avatar
         uri={entry.player.avatar}
         name={entry.player.name || entry.player.username || ""}
-        colour={C.accent}
+        colour={ME}
         size={40}
-        ring={C.accent}
       />
       <View style={{ flex: 1 }}>
         <Text style={[styles.name, { color: C.text }]} numberOfLines={1}>
@@ -113,7 +104,7 @@ export function PinnedMeRow({ entry, metric, ahead, onPress }) {
         </Text>
       </View>
       <View style={{ alignItems: "flex-end" }}>
-        <Text style={[styles.value, { color: C.accent }]} numberOfLines={1}>
+        <Text style={styles.value} numberOfLines={1}>
           {metricShort(metric, entry.value)}
         </Text>
         <Text style={styles.unit}>{metricUnit(metric)}</Text>
@@ -122,13 +113,11 @@ export function PinnedMeRow({ entry, metric, ahead, onPress }) {
   );
 }
 
-const PEDESTAL = { 1: 56, 2: 38, 3: 26 };
-
 export function Podium({ entries, metric, onPress }) {
   // Visual order: 2nd, 1st, 3rd.
   const order = [entries[1], entries[0], entries[2]].filter(Boolean);
   return (
-    <Row gap={S.sm} style={{ alignItems: "flex-end", marginBottom: S.lg }}>
+    <Row gap={S.sm} style={{ alignItems: "flex-end", marginBottom: S.xl }}>
       {order.map((entry) => {
         const first = entry.rank === 1;
         const medal = MEDAL[entry.rank];
@@ -140,39 +129,24 @@ export function Podium({ entries, metric, onPress }) {
               scaleTo={0.96}
               style={{ alignItems: "center" }}
             >
-              {first ? (
-                <Crown
-                  size={22}
-                  color={medal}
-                  fill={medal}
-                  style={{ marginBottom: 6 }}
-                />
-              ) : null}
               <View
                 style={[
-                  styles.glow,
-                  { shadowColor: medal, borderRadius: size },
+                  styles.ring,
+                  { borderColor: medal, borderRadius: size },
                 ]}
               >
-                <View
-                  style={[
-                    styles.ring,
-                    { borderColor: medal, borderRadius: size },
-                  ]}
-                >
-                  <Avatar
-                    uri={entry.player.avatar}
-                    name={entry.player.name || entry.player.username || ""}
-                    colour={avatarColour(entry.player)}
-                    size={size}
-                  />
-                </View>
+                <Avatar
+                  uri={entry.player.avatar}
+                  name={entry.player.name || entry.player.username || ""}
+                  colour={avatarColour(entry.player)}
+                  size={size}
+                />
               </View>
               <View style={[styles.medal, { backgroundColor: medal }]}>
                 <Text style={styles.medalText}>{entry.rank}</Text>
               </View>
               <Text
-                style={[styles.podiumName, entry.isMe && { color: C.accent }]}
+                style={styles.podiumName}
                 numberOfLines={1}
               >
                 {playerName(entry.player)}
@@ -184,13 +158,6 @@ export function Podium({ entries, metric, onPress }) {
               >
                 {metricValue(metric, entry.value)}
               </Text>
-              <LinearGradient
-                colors={[`${medal}38`, `${medal}05`]}
-                style={[
-                  styles.pedestal,
-                  { height: PEDESTAL[entry.rank], borderColor: `${medal}55` },
-                ]}
-              />
             </PressableScale>
           </View>
         );
@@ -199,14 +166,7 @@ export function Podium({ entries, metric, onPress }) {
   );
 }
 
-const METRIC_ICONS = {
-  steps: Footprints,
-  distance: Route,
-  xp: Zap,
-  streak: Flame,
-};
-
-/** Big tactile chips for picking what the board ranks by. */
+/** Chips for picking what the board ranks by. */
 export function MetricChips({ value, onChange, style }) {
   return (
     <ScrollView
@@ -217,7 +177,6 @@ export function MetricChips({ value, onChange, style }) {
     >
       {METRICS.map((m) => {
         const active = m.value === value;
-        const Icon = METRIC_ICONS[m.value] || Footprints;
         return (
           <PressableScale
             key={m.value}
@@ -225,7 +184,6 @@ export function MetricChips({ value, onChange, style }) {
             scaleTo={0.93}
             style={[styles.chip, active && styles.chipActive]}
           >
-            <Icon size={15} color={active ? C.bg : C.textDim} />
             <Text style={[styles.chipText, active && styles.chipTextActive]}>
               {m.label}
             </Text>
@@ -247,7 +205,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  rowMe: { backgroundColor: "#0f1a14", borderColor: "rgba(0,255,127,0.35)" },
+  rowMe: { backgroundColor: C.surface },
   rank: {
     width: 24,
     textAlign: "center",
@@ -256,20 +214,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   name: { color: C.text, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-  sub: { color: C.textMute, fontSize: 12, marginTop: 2 },
+  sub: { color: C.textMute, fontSize: 13, marginTop: 2 },
   value: {
     color: C.text,
     fontFamily: F.display,
     fontSize: 18,
     letterSpacing: -0.3,
   },
-  unit: {
-    color: C.textMute,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
+  unit: { color: C.textMute, fontSize: 12 },
   pinned: {
     flexDirection: "row",
     alignItems: "center",
@@ -277,23 +229,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: S.md,
     borderRadius: R.lg,
-    borderWidth: 1,
-    borderColor: "rgba(0,255,127,0.45)",
-    backgroundColor: "#0d1711",
+    backgroundColor: C.surfaceHigh,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOpacity: 0.6,
-    shadowRadius: 18,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
   pinnedRank: { width: 40, alignItems: "center" },
-  pinnedRankLabel: {
-    color: C.accent,
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
+  pinnedRankLabel: { color: C.textMute, fontSize: 11 },
   pinnedRankValue: {
     color: C.text,
     fontFamily: F.display,
@@ -301,12 +246,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     lineHeight: 24,
   },
-  glow: {
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  ring: { padding: 3, borderWidth: 2.5, backgroundColor: C.bg },
+  ring: { padding: 3, borderWidth: 2 },
   medal: {
     marginTop: -12,
     minWidth: 24,
@@ -318,7 +258,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: C.bg,
   },
-  medalText: { color: "#111", fontSize: 11, fontWeight: "900" },
+  medalText: { color: "#111", fontSize: 11, fontWeight: "800" },
   podiumName: {
     color: C.text,
     fontFamily: F.displayMedium,
@@ -328,31 +268,20 @@ const styles = StyleSheet.create({
   },
   podiumValue: {
     color: C.textDim,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
     marginTop: 2,
     maxWidth: "100%",
-  },
-  pedestal: {
-    alignSelf: "stretch",
-    marginTop: S.md,
-    borderTopLeftRadius: R.md,
-    borderTopRightRadius: R.md,
-    borderWidth: 1,
-    borderBottomWidth: 0,
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    height: 44,
+    height: 36,
     paddingHorizontal: S.lg,
     borderRadius: R.full,
-    borderWidth: 1,
-    borderColor: C.border,
     backgroundColor: C.surface,
   },
-  chipActive: { borderColor: C.text, backgroundColor: C.text },
+  chipActive: { backgroundColor: C.text },
   chipText: { color: C.textDim, fontSize: 14, fontWeight: "700" },
   chipTextActive: { color: C.bg },
 });

@@ -8,8 +8,6 @@ import {
   Footprints,
   Route,
   Search,
-  SearchX,
-  Swords,
   X,
 } from "lucide-react-native";
 import {
@@ -27,10 +25,10 @@ import {
   Button,
   C,
   Card,
+  Divider,
   F,
   FadeIn,
   Header,
-  Label,
   PressableScale,
   R,
   Row,
@@ -108,11 +106,7 @@ export default function NewBattleScreen() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Screen
         header={
-          <Header
-            back
-            title="New battle"
-            subtitle="Pick a rival and set the clock"
-          />
+          <Header back title="New battle" />
         }
         contentStyle={{ paddingBottom: 150 + insets.bottom }}
       >
@@ -209,9 +203,7 @@ export default function NewBattleScreen() {
                       alignItems: "flex-start",
                     }}
                   >
-                    <Text
-                      style={[styles.chipValue, active && { color: C.accent }]}
-                    >
+                    <Text style={styles.chipValue}>
                       {durationLabel(h)}
                     </Text>
                     <Tick on={active} />
@@ -241,19 +233,10 @@ export default function NewBattleScreen() {
                       alignItems: "flex-start",
                     }}
                   >
-                    <View
-                      style={[
-                        styles.metricIcon,
-                        active && { backgroundColor: C.accentDim },
-                      ]}
-                    >
-                      <Icon size={18} color={active ? C.accent : C.textDim} />
-                    </View>
+                    <Icon size={20} color={active ? C.text : C.textDim} />
                     <Tick on={active} />
                   </Row>
-                  <Text
-                    style={[styles.metricLabel, active && { color: C.accent }]}
-                  >
+                  <Text style={styles.metricLabel}>
                     {m.label}
                   </Text>
                   <Text style={styles.chipHint}>{m.hint}</Text>
@@ -263,12 +246,12 @@ export default function NewBattleScreen() {
           })}
         </View>
 
-        <Card style={{ marginTop: S.xxl }} padding={S.lg}>
+        <Card style={{ marginTop: S.xxl, borderWidth: 0 }} padding={S.lg}>
           <Row style={{ justifyContent: "space-between" }}>
-            <Label>Your limits</Label>
+            <Text style={styles.limitsTitle}>Your limits</Text>
             {lim ? <TierBadge tier={lim.tier} /> : null}
           </Row>
-          <Body size={14} style={{ marginTop: S.sm }}>
+          <Body dim size={14} style={{ marginTop: S.sm }}>
             {lim ? limitsText(lim) : "Checking..."}
           </Body>
           {blocked ? (
@@ -281,7 +264,7 @@ export default function NewBattleScreen() {
           {lim?.tier !== "black" && blocked ? (
             <Button
               title="See membership"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onPress={() => router.push("/membership")}
               style={{ marginTop: S.md, alignSelf: "flex-start" }}
@@ -307,7 +290,6 @@ export default function NewBattleScreen() {
                 ? `Battle ${opponent.data.name}`
                 : "Pick an opponent"
             }
-            icon={Swords}
             size="lg"
             full
             disabled={!opponent.data}
@@ -342,21 +324,15 @@ function Step({ n, title, first = false }) {
 function Tick({ on }) {
   return (
     <View style={[styles.tick, on && styles.tickOn]}>
-      {on ? <Check size={12} color={C.accentText} strokeWidth={3} /> : null}
+      {on ? <Check size={12} color={C.bg} strokeWidth={3} /> : null}
     </View>
   );
 }
 
 function SelectedRival({ player, onClear }) {
-  const colour = player.color || C.accent;
+  const colour = player.color || C.textDim;
   return (
-    <View style={[styles.selected, { borderColor: `${colour}66` }]}>
-      <LinearGradient
-        colors={[`${colour}30`, `${colour}05`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={styles.selected}>
       <Row gap={S.md}>
         <Avatar
           uri={player.avatar}
@@ -367,8 +343,7 @@ function SelectedRival({ player, onClear }) {
           outside={player.isOutside}
         />
         <View style={{ flex: 1 }}>
-          <Label style={{ color: colour }}>Your rival</Label>
-          <Row gap={6} style={{ marginTop: 2 }}>
+          <Row gap={6}>
             <Text style={styles.selectedName} numberOfLines={1}>
               {player.name}
             </Text>
@@ -408,16 +383,16 @@ function PeopleList({
           ))}
         </View>
       ) : people.length ? (
-        <View style={{ gap: S.sm }}>
+        <View>
           {people.map((p, i) => (
             <FadeIn key={p.id} index={i}>
+              {i > 0 ? <Divider style={{ marginLeft: 56 }} /> : null}
               <PersonRow person={p} onPress={() => onPick(p)} />
             </FadeIn>
           ))}
         </View>
       ) : emptyQuery ? (
         <View style={styles.empty}>
-          <SearchX size={22} color={C.textMute} />
           <Text style={styles.emptyTitle}>No one called "{emptyQuery}"</Text>
           <Body dim size={13} style={{ textAlign: "center" }}>
             Try a first name or a city like London.
@@ -460,7 +435,7 @@ function PersonRow({ person: p, onPress }) {
 
 const styles = StyleSheet.create({
   stepNum: {
-    color: C.accent,
+    color: C.textMute,
     fontFamily: F.display,
     fontSize: 13,
     letterSpacing: 0.5,
@@ -484,35 +459,21 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, color: C.text, fontSize: 15, height: "100%" },
   listTitle: {
-    color: C.textMute,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-    marginBottom: S.sm,
+    color: C.textDim,
+    fontSize: 13,
+    marginBottom: S.xs,
   },
   person: {
     flexDirection: "row",
     alignItems: "center",
     gap: S.md,
     minHeight: 64,
-    paddingHorizontal: S.md,
-    paddingVertical: 10,
-    borderRadius: R.md + 2,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
+    paddingVertical: S.md,
   },
-  personName: { color: C.text, fontSize: 15, fontWeight: "700", flexShrink: 1 },
-  personSub: { color: C.textDim, fontSize: 12, marginTop: 2 },
+  personName: { color: C.text, fontSize: 15, fontWeight: "600", flexShrink: 1 },
+  personSub: { color: C.textDim, fontSize: 13, marginTop: 2 },
   personSteps: { color: C.text, fontFamily: F.display, fontSize: 15 },
-  personStepsLabel: {
-    color: C.textMute,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
+  personStepsLabel: { color: C.textMute, fontSize: 12 },
   radio: {
     width: 22,
     height: 22,
@@ -524,9 +485,7 @@ const styles = StyleSheet.create({
   selected: {
     padding: S.lg,
     borderRadius: R.lg,
-    borderWidth: 1,
     backgroundColor: C.surface,
-    overflow: "hidden",
   },
   selectedName: {
     color: C.text,
@@ -540,9 +499,7 @@ const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: R.full,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: C.borderStrong,
+    backgroundColor: C.surfaceHigh,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -555,9 +512,9 @@ const styles = StyleSheet.create({
     borderRadius: R.lg,
     backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: "transparent",
   },
-  chipActive: { borderColor: C.accent, backgroundColor: "#0e1912" },
+  chipActive: { borderColor: C.text },
   chipValue: {
     color: C.text,
     fontFamily: F.display,
@@ -566,14 +523,6 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   chipHint: { color: C.textMute, fontSize: 12, marginTop: 4 },
-  metricIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: C.surfaceHigh,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   metricLabel: {
     color: C.text,
     fontFamily: F.display,
@@ -589,16 +538,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tickOn: { backgroundColor: C.accent, borderColor: C.accent },
+  tickOn: { backgroundColor: C.text, borderColor: C.text },
   empty: {
     alignItems: "center",
     gap: 6,
     paddingVertical: S.xl,
-    borderRadius: R.lg,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderStyle: "dashed",
   },
+  limitsTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
   emptyTitle: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
   footer: {
     position: "absolute",

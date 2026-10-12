@@ -4,24 +4,23 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowRight, ChevronRight, DoorOpen, KeyRound, Share2, Users } from "lucide-react-native";
-import { AnimatedNumber, Body, Button, C, Card, EmptyState, F, FadeIn, Header, IconButton, Label, LiveDot, PressableScale, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
+import { ArrowRight, ChevronRight, DoorOpen, Share2, Users } from "lucide-react-native";
+import { AnimatedNumber, Body, Button, C, Card, EmptyState, F, FadeIn, Header, IconButton, LiveDot, PressableScale, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
 import { engine, useCrew, useEngineMutation } from "@/data/hooks";
 import { compactNumber } from "@/utils/format";
 import CrewHero, { useCountUp } from "@/components/crew/CrewHero";
 import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
 import { shareInvite } from "@/components/crew/CrewSettings";
-import { PlayerAvatar, ROLE_LABEL, crewAccent, playerName, useCrewFocus } from "@/components/crew/shared";
+import { PlayerAvatar, ROLE_LABEL, playerName, useCrewFocus } from "@/components/crew/shared";
 
-function Stat({ label, value, format, hint, live }) {
+function Stat({ value, format, hint, live }) {
   const shown = useCountUp(value);
   return (
-    <View style={styles.stat}>
-      <Label>{label}</Label>
+    <View style={{ flex: 1, gap: 2 }}>
       <AnimatedNumber value={shown} format={format} style={styles.statValue} />
-      <Row gap={5}>
+      <Row gap={6}>
         {live ? <LiveDot size={6} /> : null}
-        <Body mute size={12} numberOfLines={1} style={live ? { color: C.accent } : null}>
+        <Body dim size={13} numberOfLines={1}>
           {hint}
         </Body>
       </Row>
@@ -32,13 +31,16 @@ function Stat({ label, value, format, hint, live }) {
 function DetailSkeleton() {
   return (
     <View style={{ gap: S.md }}>
-      <Skeleton height={300} radius={24} />
-      <Skeleton height={56} radius={99} />
-      <Row gap={S.sm}>
-        <Skeleton height={92} radius={16} style={{ flex: 1 }} />
-        <Skeleton height={92} radius={16} style={{ flex: 1 }} />
-        <Skeleton height={92} radius={16} style={{ flex: 1 }} />
+      <Row gap={S.md}>
+        <Skeleton width={56} height={56} radius={17} />
+        <View style={{ flex: 1, gap: 8 }}>
+          <Skeleton width="60%" height={20} />
+          <Skeleton width="40%" height={12} />
+        </View>
       </Row>
+      <Skeleton width="50%" height={56} style={{ marginTop: S.xl }} />
+      <Skeleton height={6} />
+      <Skeleton height={56} radius={99} style={{ marginTop: S.xl }} />
     </View>
   );
 }
@@ -103,15 +105,16 @@ export default function CrewDetail() {
   if (isError || !crew) {
     return (
       <Screen header={<Header back title="Crew" />}>
-        <EmptyState icon={Users} title="Crew not found" body="It may have been deleted by its owner." action="Browse crews" onAction={() => router.dismissTo("/(tabs)/club")} />
+        <EmptyState title="Crew not found" body="It may have been deleted by its owner." action="Browse crews" onAction={() => router.dismissTo("/(tabs)/club")} />
       </Screen>
     );
   }
 
-  const accent = crewAccent(crew);
   const members = crew.members || [];
   const totalWeekSteps = members.reduce((sum, m) => sum + (m.weekSteps || 0), 0);
   const outsideNow = members.filter((m) => m.isOutside).length;
+  const ROLE_ORDER = { owner: 0, admin: 1, member: 2 };
+  const ranked = [...members].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]);
 
   return (
     <Screen
@@ -123,7 +126,7 @@ export default function CrewDetail() {
         <CrewHero crew={crew} />
       </FadeIn>
 
-      <FadeIn index={1} style={{ marginTop: S.lg }}>
+      <FadeIn index={1} style={{ marginTop: S.xxl }}>
         {crew.isMember ? (
           <Row gap={S.sm}>
             <View style={{ flex: 1 }}>
@@ -134,13 +137,10 @@ export default function CrewDetail() {
         ) : crew.privacy === "public" ? (
           <Button title={`Join ${crew.name}`} icon={Users} onPress={() => join.mutate(id)} loading={join.isPending} full size="lg" />
         ) : (
-          <Card style={{ borderColor: `${accent}55` }}>
-            <Row gap={S.sm}>
-              <KeyRound size={16} color={accent} />
-              <Text style={styles.cardTitle}>Invite only</Text>
-            </Row>
-            <Body dim size={13} style={{ marginTop: 4 }}>
-              Ask a member for the crew code and drop it in.
+          <View>
+            <Text style={styles.cardTitle}>Invite only</Text>
+            <Body dim size={13} style={{ marginTop: 2 }}>
+              Ask a member for the crew code.
             </Body>
             <Row gap={S.sm} style={{ marginTop: S.md }}>
               <TextInput
@@ -152,52 +152,36 @@ export default function CrewDetail() {
                 autoCorrect={false}
                 maxLength={12}
                 style={styles.input}
+                accessibilityLabel="Crew invite code"
               />
               <Button title="Join" onPress={() => joinByCode.mutate(code)} disabled={!code.trim()} loading={joinByCode.isPending} size="lg" />
             </Row>
-          </Card>
+          </View>
         )}
       </FadeIn>
 
       <FadeIn index={2}>
-        <Row gap={S.sm} style={{ marginTop: S.lg }}>
-          <Stat label="Steps" value={totalWeekSteps} format={compactNumber} hint="this week" />
-          <Stat label="Members" value={crew.memberCount} hint={outsideNow ? `${outsideNow} outside` : "none out now"} live={outsideNow > 0} />
-          <Stat label="Goal" value={crew.weeklyGoalKm} hint="km a week" />
+        <Row gap={S.lg} style={{ marginTop: S.xxl }}>
+          <Stat value={totalWeekSteps} format={compactNumber} hint="steps this week" />
+          <Stat value={outsideNow} hint="outside now" live={outsideNow > 0} />
         </Row>
       </FadeIn>
 
-      {crew.owner ? (
-        <Card style={{ marginTop: S.md }} onPress={() => openPlayer(crew.owner)}>
-          <Row gap={S.md}>
-            <PlayerAvatar player={crew.owner} size={44} ring={C.gold} />
-            <View style={{ flex: 1 }}>
-              <Label>Run by</Label>
-              <Text style={styles.name}>{playerName(crew.owner)}</Text>
-            </View>
-            <ChevronRight size={18} color={C.textMute} />
-          </Row>
-        </Card>
-      ) : null}
-
-      <SectionHeader title="Members" />
+      <SectionHeader title="Members" style={{ marginTop: S.xxl + 4 }} />
       <Card padding={0}>
-        {members.slice(0, 8).map((m, i) => (
+        {ranked.slice(0, 8).map((m, i) => (
           <PressableScale key={m.player.id} onPress={() => openPlayer(m.player)} scaleTo={0.985} style={[styles.row, i > 0 && styles.divider]}>
             <PlayerAvatar player={m.player} size={40} outside={m.isOutside} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>
                 {playerName(m.player)}
               </Text>
-              <Body mute size={12}>
+              <Body dim size={13} numberOfLines={1}>
+                {m.role !== "member" ? `${ROLE_LABEL[m.role]} · ` : ""}
                 {compactNumber(m.weekSteps)} steps this week
               </Body>
             </View>
-            {m.role !== "member" ? (
-              <View style={[styles.role, { backgroundColor: `${accent}1a`, borderColor: `${accent}55` }]}>
-                <Text style={[styles.roleText, { color: accent }]}>{ROLE_LABEL[m.role].toUpperCase()}</Text>
-              </View>
-            ) : null}
+            <ChevronRight size={18} color={C.textMute} />
           </PressableScale>
         ))}
         {members.length > 8 ? (
@@ -207,7 +191,7 @@ export default function CrewDetail() {
         ) : null}
       </Card>
 
-      <SectionHeader title="Leaderboard" />
+      <SectionHeader title="Leaderboard" style={{ marginTop: S.xxl + 4 }} />
       <CrewLeaderboard crew={crew} limit={10} embedded />
     </Screen>
   );
@@ -215,12 +199,9 @@ export default function CrewDetail() {
 
 const styles = StyleSheet.create({
   cardTitle: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
-  input: { flex: 1, minWidth: 0, height: 56, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surfaceHigh, color: C.text, paddingHorizontal: S.lg, fontSize: 17, fontFamily: F.display, letterSpacing: 4 },
-  stat: { flex: 1, backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: S.md, gap: 4 },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 26, letterSpacing: -0.5 },
+  input: { flex: 1, minWidth: 0, height: 56, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.lg, fontSize: 17, fontFamily: F.display, letterSpacing: 4 },
+  statValue: { color: C.text, fontFamily: F.display, fontSize: 28, letterSpacing: -0.5 },
   row: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  name: { color: C.text, fontSize: 15, fontWeight: "600", marginTop: 2 },
-  role: { height: 24, paddingHorizontal: 8, borderRadius: 99, borderWidth: 1, justifyContent: "center" },
-  roleText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
+  name: { color: C.text, fontSize: 15, fontWeight: "600" },
 });

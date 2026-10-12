@@ -83,10 +83,10 @@ export default function HomeScreen() {
   const activeDays = history ? history.filter((d, i) => d.active || (i === history.length - 1 && steps >= 5000)).length : 0;
 
   const tiles = [
-    { key: "battles", icon: Swords, label: "Battles", hint: "Call someone out", tint: C.fire, onPress: () => router.push("/(tabs)/outside/arena") },
-    { key: "events", icon: CalendarDays, label: "Events", hint: "Runs and meet-ups", tint: C.pro, onPress: () => router.push("/(tabs)/outside/events") },
-    { key: "drops", icon: ShoppingBag, label: "Drops", hint: "Limited releases", tint: "#b48cff", onPress: () => router.push("/(tabs)/outside/drops") },
-    { key: "rewards", icon: Gift, label: "Rewards", hint: `${formatNumber(profile.out)} OUT to spend`, tint: C.gold, onPress: () => router.push("/rewards") },
+    { key: "battles", icon: Swords, label: "Battles", hint: "Call someone out", onPress: () => router.push("/(tabs)/outside/arena") },
+    { key: "events", icon: CalendarDays, label: "Events", hint: "Runs and meet-ups", onPress: () => router.push("/(tabs)/outside/events") },
+    { key: "drops", icon: ShoppingBag, label: "Drops", hint: "Limited releases", onPress: () => router.push("/(tabs)/outside/drops") },
+    { key: "rewards", icon: Gift, label: "Rewards", hint: `${formatNumber(profile.out)} OUT to spend`, onPress: () => router.push("/rewards") },
   ];
 
   return (
@@ -95,16 +95,16 @@ export default function HomeScreen() {
         {/* Greeting */}
         <Row style={{ justifyContent: "space-between", paddingTop: S.md }} gap={S.md}>
           <PressableScale onPress={() => router.push("/(tabs)/profile")} scaleTo={0.94}>
-            <Avatar uri={profile.avatar} name={profile.name || profile.username} colour={profile.color} size={44} ring={profile.isOutside ? C.accent : undefined} outside={profile.isOutside} />
+            <Avatar uri={profile.avatar} name={profile.name || profile.username} colour={profile.color} size={44} outside={profile.isOutside} />
           </PressableScale>
           <View style={{ flex: 1 }}>
             <Body dim size={13}>{greeting()}</Body>
-            <Title size={26} numberOfLines={1}>{profile.name || profile.username}</Title>
+            <Title size={22} numberOfLines={1}>{profile.name || profile.username}</Title>
           </View>
           <IconButton icon={Bell} label="Notifications" badge={unreadQ.data || 0} onPress={() => router.push("/notifications")} style={{ width: 44, height: 44, borderRadius: 22 }} />
         </Row>
 
-        <FadeIn index={0} style={{ marginTop: S.xl }}>
+        <FadeIn index={0} style={{ marginTop: S.xxl }}>
           <StepHero
             steps={steps}
             goal={goal}
@@ -119,10 +119,9 @@ export default function HomeScreen() {
           />
         </FadeIn>
 
-        <FadeIn index={1} style={{ marginTop: S.md }}>
+        <FadeIn index={1} style={{ marginTop: S.xxl }}>
           <StatChips
             streak={profile.streak}
-            checkedIn={profile.checkedInToday}
             level={profile.level}
             out={profile.out}
             onStreak={() => router.push("/(tabs)/profile")}
@@ -190,14 +189,14 @@ export default function HomeScreen() {
 
 function Heading({ title, meta, action, onAction }) {
   return (
-    <Row style={{ justifyContent: "space-between", marginTop: S.xxl, marginBottom: S.md }}>
+    <Row style={{ justifyContent: "space-between", marginTop: 32, marginBottom: S.md }}>
       <Title size={20}>{title}</Title>
       {action ? (
         <PressableScale onPress={onAction} hitSlop={10} scaleTo={0.94}>
-          <Text style={{ color: C.accent, fontSize: 14, fontWeight: "700" }}>{action}</Text>
+          <Text style={{ color: C.textDim, fontSize: 14, fontWeight: "600" }}>{action}</Text>
         </PressableScale>
       ) : meta ? (
-        <Text style={{ color: C.textDim, fontSize: 13, fontWeight: "600" }}>{meta}</Text>
+        <Text style={{ color: C.textDim, fontSize: 13 }}>{meta}</Text>
       ) : null}
     </Row>
   );
@@ -213,18 +212,16 @@ function HomeSkeleton() {
           <Skeleton width={160} height={22} />
         </View>
       </Row>
-      <Skeleton height={470} radius={24} style={{ marginTop: S.xl }} />
-      <Row style={{ marginTop: S.md }} gap={S.sm}>
-        <Skeleton height={92} radius={20} style={{ flex: 1 }} width={0} />
-        <Skeleton height={92} radius={20} style={{ flex: 1 }} width={0} />
-        <Skeleton height={92} radius={20} style={{ flex: 1 }} width={0} />
-      </Row>
+      <Skeleton width={232} height={232} radius={116} style={{ marginTop: 52, alignSelf: "center" }} />
+      <Skeleton width={160} height={22} style={{ marginTop: S.xxl, alignSelf: "center" }} />
+      <Skeleton height={56} radius={28} style={{ marginTop: 84 }} />
+      <Skeleton height={92} radius={20} style={{ marginTop: S.xxl }} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: R.lg, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, padding: S.lg },
+  card: { borderRadius: R.lg, backgroundColor: C.surface, padding: S.lg },
   chartFoot: { marginTop: S.lg, paddingTop: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, justifyContent: "space-between" },
   footText: { color: C.textMute, fontSize: 13 },
   footStrong: { color: C.text, fontWeight: "700" },

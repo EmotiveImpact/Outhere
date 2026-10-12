@@ -62,7 +62,7 @@ export default function EditProfileSheet({ visible, profile, onClose }) {
         </Pressable>
         <Title size={18}>Edit profile</Title>
         <Pressable onPress={submit} disabled={!canSave || save.isPending} hitSlop={12} style={{ minHeight: 44, justifyContent: "center" }}>
-          <Text style={{ color: canSave ? C.accent : C.textMute, fontSize: 16, fontWeight: "700" }}>{save.isPending ? "Saving" : "Save"}</Text>
+          <Text style={{ color: canSave ? C.text : C.textMute, fontSize: 16, fontWeight: "700" }}>{save.isPending ? "Saving" : "Save"}</Text>
         </Pressable>
       </Row>
 
@@ -135,9 +135,9 @@ export default function EditProfileSheet({ visible, profile, onClose }) {
                   key={b}
                   onPress={() => set({ area: active ? "" : b })}
                   scaleTo={0.94}
-                  style={{ paddingHorizontal: 14, height: 38, borderRadius: R.full, justifyContent: "center", borderWidth: 1, borderColor: active ? C.accent : C.border, backgroundColor: active ? C.accentDim : C.surfaceHigh }}
+                  style={{ paddingHorizontal: 14, height: 38, borderRadius: R.full, justifyContent: "center", backgroundColor: active ? C.text : C.surfaceHigh }}
                 >
-                  <Text style={{ color: active ? C.accent : C.textDim, fontWeight: "600", fontSize: 13 }}>{b}</Text>
+                  <Text style={{ color: active ? C.bg : C.textDim, fontWeight: "600", fontSize: 13 }}>{b}</Text>
                 </PressableScale>
               );
             })}

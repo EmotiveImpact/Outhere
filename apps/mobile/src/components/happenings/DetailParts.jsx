@@ -6,19 +6,17 @@ import { ChevronRight } from "lucide-react-native";
 import { Avatar, C, F, PressableScale, R, Row, S } from "@/components/ui";
 import { seededRandom } from "@/data/random";
 
-/** Icon tile, title and a dim line underneath. Tappable when given onPress. */
-export function InfoRow({ icon: Icon, title, sub, tint = C.text, trailing, onPress }) {
+/** Icon, title and a dim line underneath. Tappable when given onPress. */
+export function InfoRow({ icon: Icon, title, sub, trailing, onPress }) {
   const body = (
-    <Row gap={S.md} style={styles.infoRow}>
-      <View style={styles.infoIcon}>
-        <Icon size={19} color={tint} />
-      </View>
+    <Row gap={S.lg} style={styles.infoRow}>
+      <Icon size={20} color={C.textDim} />
       <View style={{ flex: 1 }}>
         <Text style={styles.infoTitle} numberOfLines={1}>
           {title}
         </Text>
         {sub ? (
-          <Text style={[styles.infoSub, tint !== C.text && { color: tint }]} numberOfLines={1}>
+          <Text style={styles.infoSub} numberOfLines={1}>
             {sub}
           </Text>
         ) : null}
@@ -69,15 +67,14 @@ export function useAttendees(event, players, me) {
 }
 
 const styles = StyleSheet.create({
-  infoRow: { minHeight: 64, paddingVertical: S.sm },
-  infoIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  infoRow: { minHeight: 60, paddingVertical: S.sm },
   infoTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
   infoSub: { color: C.textDim, fontSize: 13, marginTop: 2 },
-  trailing: { color: C.accent, fontSize: 13, fontWeight: "700" },
+  trailing: { color: C.textDim, fontSize: 13, fontWeight: "600" },
   more: { backgroundColor: C.surfaceHigh, borderWidth: 2, borderColor: C.surface, alignItems: "center", justifyContent: "center" },
   moreText: { color: C.text, fontSize: 11, fontFamily: F.display },
 });
 
 export const detailStyles = StyleSheet.create({
-  card: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: S.lg },
+  card: { backgroundColor: C.surface, borderRadius: R.lg, padding: S.lg },
 });

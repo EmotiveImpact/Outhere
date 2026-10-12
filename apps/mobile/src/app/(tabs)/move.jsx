@@ -9,7 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { AnimatePresence } from "moti";
 import { History, LocateFixed } from "lucide-react-native";
-import { Body, C, IconButton, Label, LiveDot, R, Row, S, TAB_BAR_SPACE, Title } from "@/components/ui";
+import { Body, C, IconButton, LiveDot, R, Row, S, TAB_BAR_SPACE, Title } from "@/components/ui";
 import { useProfile } from "@/data/hooks";
 import { hapticHeavy } from "@/services/haptics";
 import { MOVE_SESSION_PHASE as PHASE, useMoveStore } from "@/store/useMoveStore";
@@ -145,8 +145,8 @@ export default function MoveScreen() {
     return (
       <View style={styles.fill}>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: S.md }}>
-          <LiveDot size={12} />
-          <Label>Finding you</Label>
+          <LiveDot size={10} />
+          <Body dim size={13}>Finding you</Body>
         </View>
       </View>
     );
@@ -191,7 +191,7 @@ export default function MoveScreen() {
         {recording ? (
           <Row style={styles.topBar} pointerEvents="box-none">
             <View style={{ flex: 1 }} />
-            <IconButton icon={LocateFixed} label="Recentre" onPress={recenter} style={follow ? styles.onButton : null} />
+            <IconButton icon={LocateFixed} label="Recentre" onPress={recenter} />
           </Row>
         ) : isPlanning ? (
           <Row style={styles.topBar} pointerEvents="box-none">
@@ -206,13 +206,12 @@ export default function MoveScreen() {
           <Row style={styles.topBar} pointerEvents="box-none">
             <View style={styles.headerCard}>
               <Title size={28}>Move</Title>
-              <Row gap={6} style={{ marginTop: 2 }}>
-                {location ? <LiveDot size={6} /> : null}
-                <Body dim size={13}>{weekKm > 0 ? `${weekKm.toFixed(1)} km this week` : location ? "Ready when you are" : "Finding your location"}</Body>
-              </Row>
+              <Body dim size={13} style={{ marginTop: 2 }}>
+                {weekKm > 0 ? `${weekKm.toFixed(1)} km this week` : location ? "Ready when you are" : "Finding your location"}
+              </Body>
             </View>
             <View style={{ flex: 1 }} />
-            <IconButton icon={LocateFixed} label="Recentre" onPress={recenter} style={follow ? styles.onButton : null} />
+            <IconButton icon={LocateFixed} label="Recentre" onPress={recenter} />
           </Row>
         )}
       </View>
@@ -245,7 +244,6 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: C.bg },
   top: { position: "absolute", top: 0, left: 0, right: 0 },
   topBar: { paddingHorizontal: S.gutter, paddingVertical: S.sm, alignItems: "flex-start" },
-  headerCard: { backgroundColor: "rgba(10,10,10,0.88)", borderRadius: R.lg, borderWidth: 1, borderColor: C.border, paddingHorizontal: S.lg, paddingVertical: S.md },
-  onButton: { borderColor: C.accent },
+  headerCard: { backgroundColor: "rgba(10,10,10,0.88)", borderRadius: R.lg, paddingHorizontal: S.lg, paddingVertical: S.md },
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0 },
 });

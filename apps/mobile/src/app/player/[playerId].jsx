@@ -1,11 +1,9 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { Flame, MapPin, Swords, UserCheck, UserPlus, Users } from "lucide-react-native";
+import { MapPin, Swords, UserCheck, UserPlus } from "lucide-react-native";
 import { engine, useEngineMutation, usePlayer } from "@/data/hooks";
-import { AnimatedNumber, Avatar, Cover, Body, Button, C, Card, EmptyState, F, FadeIn, Header, Label, ListRow, LiveDot, R, Row, S, Screen, SectionHeader, Skeleton, TierBadge, toast } from "@/components/ui";
+import { AnimatedNumber, Avatar, Cover, Body, Button, C, Card, Divider, EmptyState, F, FadeIn, Header, ListRow, LiveDot, Row, S, Screen, SectionHeader, Skeleton, TierBadge, toast } from "@/components/ui";
 import { compactNumber, formatNumber } from "@/utils/format";
 
 export default function PlayerScreen() {
@@ -17,7 +15,6 @@ export default function PlayerScreen() {
 
 function PlayerProfile({ id }) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { data: player, isPending, error, refetch, isRefetching } = usePlayer(id);
   const follow = useEngineMutation(engine.follow, { success: () => `Following ${player?.name || "them"}` });
   const unfollow = useEngineMutation(engine.unfollow, { onSuccess: () => toast(`Unfollowed ${player?.name || "them"}`) });
@@ -38,12 +35,12 @@ function PlayerProfile({ id }) {
   if (error || !player) {
     return (
       <Screen header={<Header back />}>
-        <EmptyState icon={Users} title="Player not found" body="They may have left OutHere." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
+        <EmptyState title="Player not found" body="They may have left OutHere." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
       </Screen>
     );
   }
 
-  const colour = player.color || C.accent;
+  const colour = player.color || C.textDim;
   const record = player.recordVsMe || { wins: 0, losses: 0 };
   const played = record.wins + record.losses;
   const busy = follow.isPending || unfollow.isPending;
@@ -52,36 +49,34 @@ function PlayerProfile({ id }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      {/* Personal wash: the player's colour, faint, fading into the canvas. */}
-      <LinearGradient
-        pointerEvents="none"
-        colors={[`${colour}30`, `${colour}0f`, "rgba(10,10,10,0)"]}
-        locations={[0, 0.5, 1]}
-        style={[styles.wash, { height: 420 + insets.top }]}
-      />
-      <Screen style={{ backgroundColor: "transparent" }} padded={false} header={<Header back title={`@${player.username}`} />} onRefresh={refetch} refreshing={isRefetching}>
+      <Screen padded={false} header={<Header back title={`@${player.username}`} />} onRefresh={refetch} refreshing={isRefetching}>
         <FadeIn>
           <View style={styles.hero}>
-            <View style={[styles.ring, { borderColor: colour, shadowColor: colour }]}>
-              <Avatar uri={player.avatar} name={player.name} colour={colour} size={108} />
+            <View style={[styles.ring, { borderColor: colour }]}>
+              <Avatar uri={player.avatar} name={player.name} colour={colour} size={96} />
             </View>
-            {player.isOutside ? (
-              <Row gap={6} style={styles.outside}>
-                <LiveDot size={6} colour={C.accentText} />
-                <Text style={styles.outsideText}>OUTSIDE NOW</Text>
-              </Row>
-            ) : null}
 
-            <Row gap={S.sm} style={{ marginTop: player.isOutside ? S.md : S.lg }}>
+            <Row gap={S.sm} style={{ marginTop: S.lg }}>
               <Text style={styles.name} numberOfLines={1}>
                 {player.name}
               </Text>
               <TierBadge tier={player.tier} />
             </Row>
-            {place ? (
+            {place || player.isOutside ? (
               <Row gap={5} style={{ marginTop: 4 }}>
-                <MapPin size={13} color={C.textDim} />
-                <Text style={styles.place}>{place}</Text>
+                {place ? (
+                  <>
+                    <MapPin size={13} color={C.textDim} />
+                    <Text style={styles.place}>{place}</Text>
+                  </>
+                ) : null}
+                {player.isOutside ? (
+                  <>
+                    {place ? <Text style={styles.place}> · </Text> : null}
+                    <LiveDot size={6} />
+                    <Text style={styles.place}>Outside now</Text>
+                  </>
+                ) : null}
               </Row>
             ) : null}
             {player.bio ? <Text style={styles.bio}>{player.bio}</Text> : null}
@@ -104,54 +99,46 @@ function PlayerProfile({ id }) {
         <View style={{ paddingHorizontal: S.gutter }}>
           <FadeIn index={1}>
             <View style={styles.stats}>
-              <Stat label="Today" value={player.todaySteps} hint="steps" accent={player.isOutside} />
-              <View style={styles.rule} />
-              <Stat label="Week" value={player.weekSteps} hint="steps" compact />
-              <View style={styles.rule} />
-              <Stat label="Streak" value={player.streak} hint={player.streak === 1 ? "day" : "days"} />
-              <View style={styles.rule} />
-              <Stat label="XP" value={player.xp} hint="all time" compact />
+              <Stat value={player.todaySteps} hint="steps today" />
+              <Stat value={player.weekSteps} hint="this week" compact />
+              <Stat value={player.streak} hint="day streak" />
+              <Stat value={player.xp} hint="XP" compact />
             </View>
           </FadeIn>
 
           <SectionHeader title="You vs them" />
           <FadeIn index={2}>
-            <Card padding={S.xl}>
+            <Card padding={S.xl} style={{ borderWidth: 0 }}>
               {played ? (
                 <Row style={{ justifyContent: "space-around" }}>
-                  <Score label="You" value={record.wins} highlight={record.wins >= record.losses} colour={C.accent} />
+                  <Score label="You" value={record.wins} highlight={record.wins >= record.losses} />
                   <Text style={styles.dash}>:</Text>
-                  <Score label={player.name} value={record.losses} highlight={record.losses > record.wins} colour={colour} />
+                  <Score label={player.name} value={record.losses} highlight={record.losses > record.wins} />
                 </Row>
               ) : (
-                <Row gap={S.md}>
-                  <View style={styles.iconWrap}>
-                    <Flame size={20} color={C.fire} />
-                  </View>
-                  <Body dim size={14} style={{ flex: 1 }}>
-                    No battles between you yet. {player.name} is on {formatNumber(player.todaySteps)} steps today.
-                  </Body>
-                </Row>
+                <Body dim>
+                  No battles between you yet. {player.name} is on {formatNumber(player.todaySteps)} steps today.
+                </Body>
               )}
-              <Button title={played ? "Run it back" : "Challenge to a battle"} icon={Swords} onPress={battle} full style={{ marginTop: S.lg }} />
+              <Button title={played ? "Run it back" : "Challenge to a battle"} variant="secondary" onPress={battle} full style={{ marginTop: S.lg }} />
             </Card>
           </FadeIn>
 
           {player.crews?.length ? (
             <>
               <SectionHeader title="Crews" />
-              <Card padding={S.md} style={{ paddingVertical: 0 }}>
+              <View>
                 {player.crews.map((crew, i) => (
-                  <ListRow
-                    key={crew.id}
-                    style={i > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.border } : null}
-                    leading={<Cover source={crew.logo} seed={crew.id} accent={crew.accent} style={[styles.crewLogo, { borderColor: crew.accent || C.border }]} />}
-                    title={crew.name}
-                    subtitle="Crew"
-                    onPress={() => router.push(`/crew/${crew.id}`)}
-                  />
+                  <React.Fragment key={crew.id}>
+                    {i > 0 ? <Divider style={{ marginLeft: 54 }} /> : null}
+                    <ListRow
+                      leading={<Cover source={crew.logo} seed={crew.id} accent={crew.accent} style={styles.crewLogo} />}
+                      title={crew.name}
+                      onPress={() => router.push(`/crew/${crew.id}`)}
+                    />
+                  </React.Fragment>
                 ))}
-              </Card>
+              </View>
             </>
           ) : null}
         </View>
@@ -160,42 +147,36 @@ function PlayerProfile({ id }) {
   );
 }
 
-function Stat({ label, value, hint, accent = false, compact = false }) {
+function Stat({ value, hint, compact = false }) {
   return (
-    <View style={{ flex: 1, alignItems: "center" }}>
-      <AnimatedNumber value={value || 0} format={compact ? compactNumber : undefined} adjustsFontSizeToFit style={[styles.statValue, accent && { color: C.accent }]} />
-      <Label style={{ marginTop: 2, fontSize: 10 }}>{label}</Label>
-      <Text style={styles.statHint}>{hint}</Text>
+    <View style={{ flex: 1, alignItems: "flex-start" }}>
+      <AnimatedNumber value={value || 0} format={compact ? compactNumber : undefined} adjustsFontSizeToFit style={styles.statValue} />
+      <Text style={styles.statHint} numberOfLines={1}>{hint}</Text>
     </View>
   );
 }
 
-function Score({ label, value, highlight, colour }) {
+function Score({ label, value, highlight }) {
   return (
     <View style={{ alignItems: "center", flex: 1 }}>
-      <Text style={[styles.score, highlight && { color: colour === C.accent ? C.accent : C.text }]}>{value}</Text>
-      <Label style={{ marginTop: 2 }} numberOfLines={1}>
+      <Text style={[styles.score, highlight && { color: C.text }]}>{value}</Text>
+      <Text style={styles.statHint} numberOfLines={1}>
         {label}
-      </Label>
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wash: { position: "absolute", top: 0, left: 0, right: 0 },
   hero: { alignItems: "center", paddingHorizontal: S.gutter, paddingTop: S.md, paddingBottom: S.xl },
-  ring: { padding: 4, borderRadius: 70, borderWidth: 2.5, backgroundColor: C.bg, shadowOpacity: 0.45, shadowRadius: 20, shadowOffset: { width: 0, height: 0 } },
-  outside: { marginTop: -14, height: 24, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: C.accent, borderWidth: 2, borderColor: C.bg },
-  outsideText: { color: C.accentText, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  name: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.8, flexShrink: 1 },
-  place: { color: C.textDim, fontSize: 14 },
+  ring: { padding: 3, borderRadius: 60, borderWidth: 2 },
+  name: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.6, flexShrink: 1 },
+  place: { color: C.textDim, fontSize: 13 },
   bio: { textAlign: "center", marginTop: S.md, color: C.textDim, fontSize: 15, lineHeight: 21, maxWidth: 320 },
-  stats: { flexDirection: "row", paddingVertical: S.lg, paddingHorizontal: S.sm, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
-  rule: { width: StyleSheet.hairlineWidth, backgroundColor: C.border },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 22, letterSpacing: -0.5 },
-  statHint: { color: C.textMute, fontSize: 11 },
+  stats: { flexDirection: "row", gap: S.md, paddingTop: S.sm },
+  statValue: { color: C.text, fontFamily: F.display, fontSize: 24, letterSpacing: -0.5 },
+  statHint: { color: C.textDim, fontSize: 13, marginTop: 2 },
   score: { color: C.textDim, fontFamily: F.display, fontSize: 48, letterSpacing: -1 },
   dash: { color: C.textMute, fontFamily: F.display, fontSize: 32 },
-  crewLogo: { width: 42, height: 42, borderRadius: 21, borderWidth: 1.5 },
-  iconWrap: { width: 40, height: 40, borderRadius: R.full, backgroundColor: "rgba(255,107,53,0.15)", alignItems: "center", justifyContent: "center" },
+  crewLogo: { width: 42, height: 42, borderRadius: 21 },
 });

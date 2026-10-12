@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
 import { Bookmark, Check, Trash2, Undo2 } from "lucide-react-native";
-import { Body, Button, C, F, Label, R, Row, S, toast } from "@/components/ui";
+import { Body, Button, C, F, R, Row, S, toast } from "@/components/ui";
 import { useMoveStore } from "@/store/useMoveStore";
 
 export default function PlanPanel({ onDone, bottom }) {
@@ -37,11 +37,11 @@ export default function PlanPanel({ onDone, bottom }) {
     <View style={[styles.panel, { marginBottom: bottom }]}>
       <Row style={{ justifyContent: "space-between" }}>
         <View>
-          <Label>Planned distance</Label>
           <Row gap={S.sm}>
-            <Text style={styles.km}>{(plannedDistanceM / 1000).toFixed(2)} km</Text>
-            {isRouting ? <ActivityIndicator size="small" color={C.accent} /> : null}
+            <Text style={styles.km}>{(plannedDistanceM / 1000).toFixed(2)}</Text>
+            {isRouting ? <ActivityIndicator size="small" color={C.textDim} /> : null}
           </Row>
+          <Text style={styles.meta}>km planned</Text>
         </View>
         <Row gap={S.sm}>
           <Button title="Undo" icon={Undo2} variant="secondary" size="sm" disabled={!waypoints.length} onPress={undoWaypoint} />
@@ -49,9 +49,11 @@ export default function PlanPanel({ onDone, bottom }) {
         </Row>
       </Row>
 
-      <Body dim size={13}>
-        {savedName ? `Saved as "${savedName}". Find it under Saved routes.` : waypoints.length ? "Keep tapping to add points. The route follows paths and streets." : "Tap the map to drop your first point."}
-      </Body>
+      {savedName ? (
+        <Body dim size={13}>
+          {`Saved as "${savedName}"`}
+        </Body>
+      ) : null}
 
       {naming ? (
         <Row gap={S.sm}>
@@ -84,7 +86,8 @@ export default function PlanPanel({ onDone, bottom }) {
 }
 
 const styles = StyleSheet.create({
-  panel: { marginHorizontal: S.md, backgroundColor: "rgba(10,10,10,0.94)", borderRadius: R.xl, borderWidth: 1, borderColor: C.border, padding: S.lg, gap: S.md },
-  km: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.8 },
+  panel: { marginHorizontal: S.md, backgroundColor: "rgba(10,10,10,0.94)", borderRadius: R.xl, padding: S.lg, gap: S.lg },
+  km: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 44, letterSpacing: -1, fontVariant: ["tabular-nums"] },
+  meta: { color: C.textDim, fontSize: 13 },
   input: { flex: 1, height: 36, borderRadius: R.full, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 14 },
 });

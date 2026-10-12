@@ -3,17 +3,16 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { Pedometer } from "expo-sensors";
-import { AtSign, Check, ChevronLeft, Coins, Footprints, MapPin, ShieldCheck, Users, X, Zap } from "lucide-react-native";
+import { AtSign, Check, ChevronLeft, Footprints, Users, X } from "lucide-react-native";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { CITIES } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/services/haptics";
-import { AnimatedBar, Body, Button, C, F, Label, PressableScale, R, Row, S, toast } from "@/components/ui";
+import { AnimatedBar, Body, Button, C, F, PressableScale, R, Row, S, toast } from "@/components/ui";
 
 const STEPS = ["username", "city", "crew", "motion"];
 
@@ -92,7 +91,6 @@ export default function OnboardingScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <LinearGradient colors={["rgba(0,255,127,0.08)", "rgba(0,255,127,0)"]} style={[StyleSheet.absoluteFill, { height: 320 }]} pointerEvents="none" />
       <View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.gutter }}>
         <Row style={{ justifyContent: "space-between", height: 44 }}>
           <PressableScale onPress={back} hitSlop={12} scaleTo={0.9} accessibilityLabel="Back" style={styles.back}>
@@ -146,7 +144,7 @@ const KICKERS = ["Who are you", "Your patch", "Your people", "The engine"];
 
 const StepTitle = ({ n, title, body }) => (
   <View style={{ marginBottom: S.xxl }}>
-    <Label style={{ color: C.accent, marginBottom: S.sm }}>{KICKERS[n - 1]}</Label>
+    <Text style={styles.kicker}>{KICKERS[n - 1]}</Text>
     <Text style={styles.stepTitle}>{title}</Text>
     <Body dim size={16} style={{ marginTop: S.md, lineHeight: 23 }}>
       {body}
@@ -155,12 +153,12 @@ const StepTitle = ({ n, title, body }) => (
 );
 
 function UsernameStep({ n, value, onChange, check, onSubmit }) {
-  const tone = check.state === "ok" ? C.accent : check.state === "bad" ? C.danger : C.border;
+  const tone = check.state === "bad" ? C.danger : check.state === "ok" ? C.borderStrong : C.border;
   return (
     <>
       <StepTitle n={n} title="Pick your name." body="This is how people find you, battle you and see you on the board." />
-      <Row gap={S.sm} style={[styles.field, { borderColor: tone }, check.state === "ok" && styles.fieldOk]}>
-        <View style={{ width: 20 }}><AtSign size={20} color={check.state === "ok" ? C.accent : C.textMute} /></View>
+      <Row gap={S.sm} style={[styles.field, { borderColor: tone }]}>
+        <View style={{ width: 20 }}><AtSign size={20} color={C.textMute} /></View>
         <TextInput
           value={value}
           onChangeText={(t) => onChange(t.replace(/\s/g, "").toLowerCase())}
@@ -182,7 +180,7 @@ function UsernameStep({ n, value, onChange, check, onSubmit }) {
           <X size={20} color={C.danger} />
         ) : null}
       </Row>
-      <Body size={13} style={{ marginTop: S.sm, color: check.state === "bad" ? C.danger : check.state === "ok" ? C.accent : C.textMute }}>
+      <Body size={13} style={{ marginTop: S.sm, color: check.state === "bad" ? C.danger : check.state === "ok" ? C.textDim : C.textMute }}>
         {check.state === "checking"
           ? "Checking it's free..."
           : check.state === "ok"
@@ -209,8 +207,8 @@ function CityStep({ n, value, onChange }) {
                 transition={{ type: "spring", damping: 12, stiffness: 260 }}
                 style={[styles.city, active && styles.cityActive]}
               >
-                {active ? <Check size={16} color={C.accentText} strokeWidth={3} /> : <MapPin size={15} color={C.textMute} />}
-                <Text style={[styles.cityText, active && { color: C.accentText, fontWeight: "800" }]}>{c.name}</Text>
+                {active ? <Check size={16} color={C.bg} strokeWidth={3} /> : null}
+                <Text style={[styles.cityText, active && { color: C.bg, fontWeight: "700" }]}>{c.name}</Text>
               </MotiView>
             </PressableScale>
           );
@@ -223,9 +221,9 @@ function CityStep({ n, value, onChange }) {
 function CrewStep({ n, value, onChange }) {
   return (
     <>
-      <StepTitle n={n} title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew. No code? Skip it." />
-      <Row gap={S.sm} style={[styles.field, { borderColor: value ? C.accent : C.border }]}>
-        <View style={{ width: 20 }}><Users size={20} color={value ? C.accent : C.textMute} /></View>
+      <StepTitle n={n} title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew." />
+      <Row gap={S.sm} style={[styles.field, { borderColor: value ? C.borderStrong : C.border }]}>
+        <View style={{ width: 20 }}><Users size={20} color={C.textMute} /></View>
         <TextInput
           value={value}
           onChangeText={(t) => onChange(t.replace(/\s/g, "").toUpperCase())}
@@ -255,26 +253,25 @@ function MotionStep({ n, status, onAsk }) {
       <StepTitle n={n} title="Your steps do the work." body="OutHere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
       <View style={{ gap: S.lg, marginBottom: S.xxl }}>
         {[
-          { icon: Footprints, text: "5 XP for every 1,000 steps, plus bonuses for active days and hitting your goal." },
-          { icon: ShieldCheck, text: "Only step counts are read. Your data stays on this phone." },
-        ].map(({ icon: Icon, text }) => (
-          <Row key={text} gap={S.md} style={{ alignItems: "flex-start" }}>
-            <View style={styles.bullet}>
-              <Icon size={18} color={C.accent} />
-            </View>
-            <Body dim style={{ flex: 1, marginTop: 6 }}>
+          { title: "5 XP for every 1,000 steps", text: "Plus bonuses for active days and hitting your goal." },
+          { title: "Private by default", text: "Only step counts are read. Your data stays on this phone." },
+        ].map(({ title, text }, i) => (
+          <View key={title}>
+            {i > 0 ? <View style={styles.sep} /> : null}
+            <Text style={styles.pointTitle}>{title}</Text>
+            <Body dim style={{ marginTop: 2 }}>
               {text}
             </Body>
-          </Row>
+          </View>
         ))}
       </View>
       {granted ? (
-        <Row gap={S.sm} style={{ padding: S.lg, borderRadius: R.md, backgroundColor: C.accentDim }}>
+        <Row gap={S.sm}>
           <Check size={18} color={C.accent} />
-          <Text style={{ color: C.accent, fontWeight: "700" }}>Step counting is on</Text>
+          <Text style={{ color: C.text, fontSize: 15, fontWeight: "600" }}>Step counting is on</Text>
         </Row>
       ) : (
-        <Button title="Turn on step counting" variant="outline" full icon={Footprints} loading={status === "asking"} onPress={onAsk} />
+        <Button title="Turn on step counting" variant="secondary" full icon={Footprints} loading={status === "asking"} onPress={onAsk} style={{ borderWidth: 0 }} />
       )}
       {note ? (
         <Body mute size={13} style={{ marginTop: S.md }}>
@@ -298,36 +295,29 @@ function Success({ profile, onDone }) {
   }, []);
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top, paddingBottom: insets.bottom + S.lg, paddingHorizontal: S.gutter }}>
-      <LinearGradient colors={["rgba(0,255,127,0.18)", "rgba(0,255,127,0.03)", "rgba(0,255,127,0)"]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <MotiView from={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 11, stiffness: 160 }}>
-          <View style={styles.burstOuter}>
-            <View style={styles.burstInner}>
-              <Check size={52} color={C.accentText} strokeWidth={3} />
-            </View>
+          <View style={styles.burst}>
+            <Check size={44} color={C.accent} strokeWidth={2.5} />
           </View>
         </MotiView>
         <MotiView from={{ opacity: 0, translateY: 14 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 420, delay: 260 }} style={{ alignItems: "center" }}>
-          <Label style={{ color: C.accent, marginTop: S.xxl }}>You're in</Label>
+          <Text style={[styles.kicker, { marginTop: 32, marginBottom: 0 }]}>You're in</Text>
           <Text style={styles.successTitle} numberOfLines={1} adjustsFontSizeToFit>@{profile.username}</Text>
           <Body dim size={16} style={{ textAlign: "center", marginTop: S.sm }}>
-            Welcome to the game. Here's something to start you off.
+            Here's something to start you off.
           </Body>
         </MotiView>
         <Row gap={S.sm} style={{ marginTop: S.xl }}>
-          {[
-            { icon: Zap, label: "+100 XP", tint: C.accent },
-            { icon: Coins, label: "+20 OUT", tint: C.gold },
-          ].map(({ icon: Icon, label, tint }, i) => (
+          {["+100 XP", "+20 OUT"].map((label, i) => (
             <MotiView
               key={label}
               from={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", damping: 10, stiffness: 200, delay: 520 + i * 140 }}
-              style={[styles.reward, { borderColor: `${tint}55`, backgroundColor: `${tint}14` }]}
+              style={styles.reward}
             >
-              <Icon size={16} color={tint} />
-              <Text style={[styles.rewardText, { color: tint }]}>{label}</Text>
+              <Text style={styles.rewardText}>{label}</Text>
             </MotiView>
           ))}
         </Row>
@@ -339,20 +329,20 @@ function Success({ profile, onDone }) {
 }
 
 const styles = StyleSheet.create({
-  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
   counter: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 14, letterSpacing: 1 },
-  devSkip: { paddingHorizontal: 12, height: 32, borderRadius: R.full, borderWidth: 1, borderColor: C.border, justifyContent: "center" },
+  devSkip: { paddingHorizontal: 12, height: 32, borderRadius: R.full, backgroundColor: C.surface, justifyContent: "center" },
+  kicker: { color: C.textDim, fontSize: 13, fontWeight: "600", marginBottom: S.sm },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginBottom: S.lg },
+  pointTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
   stepTitle: { color: C.text, fontFamily: F.display, fontSize: 42, lineHeight: 44, letterSpacing: -1.2 },
   field: { height: 64, borderRadius: R.lg, borderWidth: 1, backgroundColor: C.surface, paddingHorizontal: S.lg },
-  fieldOk: { backgroundColor: "rgba(0,255,127,0.05)" },
   okBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
-  city: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: S.lg, height: 48, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
-  cityActive: { backgroundColor: C.accent, borderColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  city: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: S.lg, height: 48, borderRadius: R.full, backgroundColor: C.surface },
+  cityActive: { backgroundColor: C.text },
   cityText: { color: C.text, fontSize: 15, fontWeight: "600" },
-  bullet: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  burstOuter: { width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(0,255,127,0.12)", borderWidth: 1, borderColor: "rgba(0,255,127,0.3)", alignItems: "center", justifyContent: "center" },
-  burstInner: { width: 104, height: 104, borderRadius: 52, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 30, shadowOffset: { width: 0, height: 0 } },
+  burst: { width: 96, height: 96, borderRadius: 48, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
   successTitle: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -1.2, marginTop: S.xs, maxWidth: 340 },
-  reward: { flexDirection: "row", alignItems: "center", gap: 6, height: 40, paddingHorizontal: 16, borderRadius: R.full, borderWidth: 1 },
-  rewardText: { fontFamily: F.display, fontSize: 16 },
+  reward: { flexDirection: "row", alignItems: "center", height: 40, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.surface },
+  rewardText: { color: C.text, fontFamily: F.display, fontSize: 16 },
 });

@@ -1,17 +1,16 @@
-// Small building blocks shared by the Move panels: the glowing start orb,
-// round session controls, hold-to-finish, the GPS badge and stat cells.
+// Small building blocks shared by the Move panels: the round Start button,
+// session controls, hold-to-finish, the GPS badge and stat cells.
 
 import React, { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
-import { Satellite } from "lucide-react-native";
-import { C, F, Label, PressableScale, R } from "@/components/ui";
+import { C, F, PressableScale, R } from "@/components/ui";
 import { hapticHeavy, hapticImpact, hapticSuccess } from "@/services/haptics";
 
 const SPRING = { damping: 16, stiffness: 300, mass: 0.6 };
 
-/** Expanding ring that loops outwards from a circle. */
-function PulseRing({ size, colour, delay = 0, duration = 1800 }) {
+/** One soft ring that drifts outwards from the Start button. */
+function PulseRing({ size, colour, delay = 0, duration = 2400 }) {
   const p = useSharedValue(0);
   useEffect(() => {
     const id = setTimeout(() => {
@@ -22,16 +21,15 @@ function PulseRing({ size, colour, delay = 0, duration = 1800 }) {
       cancelAnimation(p);
     };
   }, [p, delay, duration]);
-  const style = useAnimatedStyle(() => ({ opacity: 0.55 * (1 - p.value), transform: [{ scale: 1 + p.value * 0.45 }] }));
-  return <Animated.View pointerEvents="none" style={[{ position: "absolute", width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: colour }, style]} />;
+  const style = useAnimatedStyle(() => ({ opacity: 0.22 * (1 - p.value), transform: [{ scale: 1 + p.value * 0.3 }] }));
+  return <Animated.View pointerEvents="none" style={[{ position: "absolute", width: size, height: size, borderRadius: size / 2, borderWidth: 1, borderColor: colour }, style]} />;
 }
 
-/** The big circular Start button, glowing and pulsing. */
-export function StartOrb({ size = 116, label = "Start", sub, onPress, accessibilityLabel }) {
+/** The big round Start button with a single quiet pulse. */
+export function StartOrb({ size = 108, label = "Start", sub, onPress, accessibilityLabel }) {
   return (
-    <View style={{ width: size * 1.5, height: size * 1.5, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: size * 1.36, height: size * 1.36, alignItems: "center", justifyContent: "center" }}>
       <PulseRing size={size} colour={C.accent} />
-      <PulseRing size={size} colour={C.accent} delay={900} />
       <PressableScale
         onPress={() => {
           hapticHeavy();
@@ -63,7 +61,7 @@ export function RoundControl({ icon: Icon, label, onPress, size = 64, tone = "ne
         haptic={false}
         scaleTo={0.9}
         accessibilityLabel={label}
-        style={[styles.round, { width: size, height: size, borderRadius: size / 2, backgroundColor: t.bg, borderColor: t.border }, tone === "accent" && styles.glow]}
+        style={[styles.round, { width: size, height: size, borderRadius: size / 2, backgroundColor: t.bg }]}
       >
         <Icon size={Math.round(size * 0.36)} color={t.fg} fill={tone === "accent" ? t.fg : "transparent"} />
       </PressableScale>
@@ -73,9 +71,9 @@ export function RoundControl({ icon: Icon, label, onPress, size = 64, tone = "ne
 }
 
 const TONES = {
-  accent: { bg: C.accent, fg: C.accentText, border: C.accent },
-  neutral: { bg: C.surfaceHigh, fg: C.text, border: C.borderStrong },
-  danger: { bg: C.danger, fg: "#fff", border: C.danger },
+  accent: { bg: C.accent, fg: C.accentText },
+  neutral: { bg: C.surfaceHigh, fg: C.text },
+  danger: { bg: C.danger, fg: "#fff" },
 };
 
 /**
@@ -113,7 +111,7 @@ export function HoldButton({ icon: Icon, label, hint = "Hold", onComplete, size 
   return (
     <View style={{ alignItems: "center", gap: 8 }}>
       <Pressable onPressIn={start} onPressOut={end} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={`${hint} to ${label.toLowerCase()}`}>
-        <Animated.View style={[styles.round, { width: size, height: size, borderRadius: size / 2, backgroundColor: C.surfaceHigh, borderColor: `${colour}88`, overflow: "hidden" }, pressStyle]}>
+        <Animated.View style={[styles.round, { width: size, height: size, borderRadius: size / 2, backgroundColor: C.surfaceHigh, overflow: "hidden" }, pressStyle]}>
           <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: colour }, fillStyle]} />
           <Icon size={Math.round(size * 0.34)} color="#fff" fill="#fff" />
         </Animated.View>
@@ -128,54 +126,44 @@ export function GpsBadge({ accuracy, style }) {
   const has = Number.isFinite(accuracy) && accuracy > 0;
   const good = has && accuracy < 15;
   const ok = has && accuracy < 30;
-  const colour = good ? C.accent : ok ? C.warn : C.textMute;
+  const colour = good ? C.text : ok ? C.warn : C.textMute;
   const bars = good ? 3 : ok ? 2 : has ? 1 : 0;
   return (
     <View style={[styles.gps, style]}>
-      <Satellite size={13} color={colour} />
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 2 }}>
         {[0, 1, 2].map((i) => (
           <View key={i} style={{ width: 3, height: 5 + i * 3, borderRadius: 1, backgroundColor: i < bars ? colour : C.borderStrong }} />
         ))}
       </View>
-      <Text style={[styles.gpsText, { color: has ? C.text : C.textDim }]}>{has ? (good ? "Strong GPS" : ok ? "Fair GPS" : "Weak GPS") : "Finding GPS"}</Text>
+      <Text style={styles.gpsText}>{has ? (good ? "GPS" : ok ? "Fair GPS" : "Weak GPS") : "Finding GPS"}</Text>
     </View>
   );
 }
 
-/** Label over a big number with a unit. */
+/** A number with its unit, and a quiet sentence-case label underneath. */
 export function StatCell({ label, value, unit, align = "center", size = 26, style }) {
   return (
-    <View style={[{ flex: 1, alignItems: align === "center" ? "center" : "flex-start", gap: 4 }, style]}>
-      <Label>{label}</Label>
+    <View style={[{ flex: 1, alignItems: align === "center" ? "center" : "flex-start", gap: 2 }, style]}>
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
         <Text style={[styles.statValue, { fontSize: size }]} numberOfLines={1}>
           {value}
         </Text>
         {unit ? <Text style={styles.statUnit}>{unit}</Text> : null}
       </View>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  orb: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.accent,
-    shadowColor: C.accent,
-    shadowOpacity: 0.7,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
-  orbText: { color: C.accentText, fontFamily: F.display, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase" },
-  orbSub: { color: C.accentText, opacity: 0.7, fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginTop: 1 },
-  round: { alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  glow: { shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
+  orb: { alignItems: "center", justifyContent: "center", backgroundColor: C.accent },
+  orbText: { color: C.accentText, fontFamily: F.display, fontSize: 24, letterSpacing: -0.2 },
+  orbSub: { color: C.accentText, opacity: 0.65, fontSize: 13, fontWeight: "600", marginTop: -1 },
+  round: { alignItems: "center", justifyContent: "center" },
   caption: { color: C.textDim, fontSize: 12, fontWeight: "600" },
-  gps: { flexDirection: "row", alignItems: "center", gap: 6, height: 30, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
-  gpsText: { fontSize: 12, fontWeight: "600" },
+  gps: { flexDirection: "row", alignItems: "center", gap: 6, height: 28, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: C.surface },
+  gpsText: { color: C.textDim, fontSize: 12, fontWeight: "600" },
   statValue: { color: C.text, fontFamily: F.display, letterSpacing: -0.5, fontVariant: ["tabular-nums"] },
-  statUnit: { color: C.textMute, fontSize: 12, fontWeight: "600" },
+  statUnit: { color: C.textDim, fontSize: 13, fontWeight: "600" },
+  statLabel: { color: C.textDim, fontSize: 13 },
 });

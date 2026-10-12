@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 import { Avatar, C, F } from "@/components/ui";
 
 // Preset illustrated avatars. Stored on the profile as a plain image URL so
@@ -58,8 +58,9 @@ export function useTween(value, duration = 900) {
 }
 
 /**
- * The player's avatar inside a level ring: a thin track with a progress arc
- * that sweeps to `progress` (0 to 1), plus a level chip on the bottom edge.
+ * The player's avatar inside a level ring: a thin track with a progress arc in
+ * the player's colour that sweeps to `progress` (0 to 1). Pass `level` for a
+ * small neutral level chip on the bottom edge.
  */
 export function LevelRing({ uri, name, colour = C.accent, size = 104, progress = 0, level, stroke = 4 }) {
   const p = useTween(Math.max(0, Math.min(1, progress)));
@@ -69,18 +70,12 @@ export function LevelRing({ uri, name, colour = C.accent, size = 104, progress =
   return (
     <View style={{ width: size, height: size + (level != null ? 8 : 0) }}>
       <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
-        <Defs>
-          <SvgGradient id="lvl" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={colour} stopOpacity="1" />
-            <Stop offset="1" stopColor={C.accent} stopOpacity="1" />
-          </SvgGradient>
-        </Defs>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke="#26262b" strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke="url(#lvl)"
+          stroke={colour}
           strokeWidth={stroke}
           fill="none"
           strokeLinecap="round"
@@ -93,8 +88,8 @@ export function LevelRing({ uri, name, colour = C.accent, size = 104, progress =
       </View>
       {level != null ? (
         <View style={{ position: "absolute", bottom: 0, alignSelf: "center", left: 0, right: 0, alignItems: "center" }}>
-          <View style={{ paddingHorizontal: 10, height: 24, borderRadius: 12, backgroundColor: C.accent, borderWidth: 3, borderColor: C.bg, alignItems: "center", justifyContent: "center", minWidth: 52 }}>
-            <Text style={{ color: C.accentText, fontFamily: F.display, fontSize: 12, letterSpacing: 0.4 }}>LVL {level}</Text>
+          <View style={{ paddingHorizontal: 10, height: 24, borderRadius: 12, backgroundColor: C.surfaceHigh, borderWidth: 3, borderColor: C.bg, alignItems: "center", justifyContent: "center", minWidth: 52 }}>
+            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 12 }}>Lvl {level}</Text>
           </View>
         </View>
       ) : null}
@@ -131,7 +126,7 @@ export function Coin({ size = 16 }) {
   );
 }
 
-/** Cost in OUT as a pill with a coin. `dim` when the player can't afford it. */
+/** Cost in OUT as a neutral pill with a coin. `dim` when the player can't afford it. */
 export function CoinPill({ amount, dim = false, size = "md", style }) {
   const big = size === "lg";
   return (
@@ -146,15 +141,15 @@ export function CoinPill({ amount, dim = false, size = "md", style }) {
           paddingRight: big ? 12 : 10,
           height: big ? 32 : 26,
           borderRadius: 99,
-          backgroundColor: dim ? "rgba(255,255,255,0.06)" : "rgba(0,255,127,0.12)",
-          borderWidth: 1,
-          borderColor: dim ? C.border : "rgba(0,255,127,0.3)",
+          backgroundColor: C.surfaceHigh,
         },
         style,
       ]}
     >
-      <Coin size={big ? 22 : 18} />
-      <Text style={{ color: dim ? C.textDim : C.accent, fontFamily: F.display, fontSize: big ? 16 : 14 }}>{amount}</Text>
+      <View style={{ opacity: dim ? 0.45 : 1 }}>
+        <Coin size={big ? 22 : 18} />
+      </View>
+      <Text style={{ color: dim ? C.textDim : C.text, fontFamily: F.display, fontSize: big ? 16 : 14 }}>{amount}</Text>
     </View>
   );
 }

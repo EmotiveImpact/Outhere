@@ -1,13 +1,13 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { ArrowUpRight } from "lucide-react-native";
-import { C, Cover, F, Pill, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
+import { C, Cover, F, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
 import { timeAgo } from "@/utils/format";
 
 const TONES = { Season: "accent", Drops: "fire", Product: "pro", Community: "warn" };
 export const categoryTone = (category) => TONES[category] || "neutral";
 
-const COLOURS = { accent: C.accent, fire: C.fire, pro: C.pro, warn: C.warn, neutral: C.textDim };
+const COLOURS = { accent: C.black, fire: C.fire, pro: C.pro, warn: C.warn, neutral: C.textDim };
 export const categoryColour = (category) => COLOURS[categoryTone(category)];
 
 /** Rough reading time from the story body. */
@@ -36,14 +36,8 @@ export function FeaturedStory({ story, onPress }) {
   return (
     <PressableScale onPress={onPress} scaleTo={0.98} style={styles.featured}>
       <Cover source={story.image} seed={story.id} accent={categoryColour(story.category)} scrim style={StyleSheet.absoluteFill} />
-      <View style={styles.featuredTop}>
-        <Text style={styles.kicker}>TOP STORY</Text>
-      </View>
       <View style={styles.featuredBody}>
-        <Row gap={8}>
-          <Pill label={story.category.toUpperCase()} tone={categoryTone(story.category)} />
-          <Text style={styles.meta}>{`${timeAgo(story.publishedAt)}, ${readMinutes(story)} min read`}</Text>
-        </Row>
+        <Text style={styles.metaLight}>{`${story.category}  ·  ${timeAgo(story.publishedAt)}  ·  ${readMinutes(story)} min read`}</Text>
         <Text style={styles.featuredTitle} numberOfLines={3}>
           {story.title}
         </Text>
@@ -59,10 +53,7 @@ export function StoryRow({ story, onPress, last = false }) {
   return (
     <PressableScale onPress={onPress} scaleTo={0.98} style={[styles.row, last && { borderBottomWidth: 0 }]}>
       <View style={{ flex: 1, gap: 6 }}>
-        <Row gap={8}>
-          <Text style={[styles.category, { color: categoryColour(story.category) }]}>{story.category.toUpperCase()}</Text>
-          <Text style={styles.meta}>{timeAgo(story.publishedAt)}</Text>
-        </Row>
+        <Text style={styles.meta}>{`${story.category}  ·  ${timeAgo(story.publishedAt)}`}</Text>
         <Text style={styles.rowTitle} numberOfLines={2}>
           {story.title}
         </Text>
@@ -82,19 +73,14 @@ export function RelatedCard({ related, onPress }) {
       {related.drop ? (
         <Cover source={related.drop.image} seed={related.drop.id} style={styles.relatedThumb} />
       ) : (
-        <View style={[styles.relatedThumb, styles.relatedIcon]}>
-          <ArrowUpRight size={26} color={C.accent} />
-        </View>
+        null
       )}
       <View style={{ flex: 1 }}>
-        <Text style={styles.relatedKicker}>{related.drop ? "IN THE STORY" : "JUMP IN"}</Text>
         <Text style={styles.relatedTitle} numberOfLines={2}>
           {related.label}
         </Text>
       </View>
-      <View style={styles.arrow}>
-        <ArrowUpRight size={18} color={C.accentText} />
-      </View>
+      <ArrowUpRight size={20} color={C.textDim} />
     </PressableScale>
   );
 }
@@ -117,22 +103,17 @@ export const NewsSkeleton = () => (
 );
 
 const styles = StyleSheet.create({
-  featured: { height: 420, borderRadius: R.xl, overflow: "hidden", backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
-  featuredTop: { position: "absolute", top: S.lg, left: S.xl },
-  kicker: { color: C.text, fontSize: 11, fontWeight: "800", letterSpacing: 2, opacity: 0.85 },
+  featured: { height: 420, borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
   featuredBody: { position: "absolute", left: 0, right: 0, bottom: 0, padding: S.xl, gap: S.sm },
   featuredTitle: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.6, lineHeight: 35 },
   summary: { color: "#c8c8cc", fontSize: 15, lineHeight: 21 },
-  meta: { color: C.textMute, fontSize: 12, fontWeight: "600" },
+  meta: { color: C.textMute, fontSize: 13 },
+  metaLight: { color: "#c8c8cc", fontSize: 13 },
   row: { flexDirection: "row", alignItems: "center", gap: S.lg, paddingVertical: S.lg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border },
-  category: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
   rowTitle: { color: C.text, fontFamily: F.display, fontSize: 18, lineHeight: 22, letterSpacing: -0.2 },
   rowSummary: { color: C.textDim, fontSize: 13, lineHeight: 18 },
   thumb: { width: 92, height: 92, borderRadius: R.md },
-  related: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.md, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: "rgba(0,255,127,0.35)" },
-  relatedThumb: { width: 64, height: 64, borderRadius: R.md },
-  relatedIcon: { backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  relatedKicker: { color: C.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
-  relatedTitle: { color: C.text, fontFamily: F.display, fontSize: 17, marginTop: 2 },
-  arrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  related: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface },
+  relatedThumb: { width: 56, height: 56, borderRadius: R.md },
+  relatedTitle: { color: C.text, fontFamily: F.display, fontSize: 17 },
 });

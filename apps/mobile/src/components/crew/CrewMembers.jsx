@@ -6,7 +6,7 @@ import { Body, C, Card, F, FadeIn, LiveDot, PressableScale, Row, S, SkeletonList
 import { engine, useEngineMutation } from "@/data/hooks";
 import { compactNumber, timeAgo } from "@/utils/format";
 import ActionSheet from "./ActionSheet";
-import { PlayerAvatar, ROLE_LABEL, crewAccent, playerName } from "./shared";
+import { PlayerAvatar, ROLE_LABEL, playerName } from "./shared";
 
 const ROLE_ORDER = { owner: 0, admin: 1, member: 2 };
 
@@ -20,7 +20,6 @@ export default function CrewMembers({ crew }) {
   if (!crew.members) return <SkeletonList count={5} height={64} />;
   const members = [...crew.members].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || b.weekSteps - a.weekSteps);
   const canManage = crew.myRole === "owner" || crew.myRole === "admin";
-  const accent = crewAccent(crew);
   const outside = members.filter((m) => m.isOutside).length;
 
   const confirm = (title, body, action, onPress, destructive = false) =>
@@ -87,9 +86,9 @@ export default function CrewMembers({ crew }) {
                     <Text style={styles.name} numberOfLines={1}>
                       {playerName(m.player)}
                     </Text>
-                    {m.role === "owner" ? <Crown size={14} color={C.gold} /> : m.role === "admin" ? <Shield size={14} color={accent} /> : null}
+                    {m.role === "owner" ? <Crown size={14} color={C.textDim} /> : m.role === "admin" ? <Shield size={14} color={C.textDim} /> : null}
                   </Row>
-                  <Body mute size={12} numberOfLines={1}>
+                  <Body dim size={13} numberOfLines={1}>
                     {ROLE_LABEL[m.role]} · {compactNumber(m.weekSteps)} steps this week
                   </Body>
                 </View>
@@ -123,9 +122,9 @@ export default function CrewMembers({ crew }) {
 
 const styles = StyleSheet.create({
   count: { color: C.textDim, fontSize: 13, fontFamily: F.displayMedium },
-  outside: { color: C.accent, fontSize: 12, fontWeight: "700" },
+  outside: { color: C.textDim, fontSize: 13 },
   row: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   name: { color: C.text, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-  more: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  more: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });

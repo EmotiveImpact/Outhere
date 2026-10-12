@@ -3,7 +3,7 @@ import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleShe
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { ArrowUp, MessageSquare } from "lucide-react-native";
+import { ArrowUp } from "lucide-react-native";
 import { C, EmptyState, PressableScale, S, Skeleton } from "@/components/ui";
 import { engine, useCrewMessages, useEngineMutation } from "@/data/hooks";
 import { dateLabel, timeLabel } from "@/utils/format";
@@ -31,7 +31,6 @@ function Bubble({ msg, prev, next, fresh }) {
   const groupedAbove = !newDay && prev && prev.authorId === msg.authorId && msg.at - prev.at < GROUP_MS;
   const groupedBelow = next && next.authorId === msg.authorId && sameDay(next.at, msg.at) && next.at - msg.at < GROUP_MS;
   const mine = msg.isMine;
-  const tint = msg.author?.color || C.textDim;
 
   const corners = mine
     ? { borderTopRightRadius: groupedAbove ? 6 : 20, borderBottomRightRadius: groupedBelow ? 6 : 20 }
@@ -55,9 +54,9 @@ function Bubble({ msg, prev, next, fresh }) {
           )
         ) : null}
         <View style={{ maxWidth: "76%", alignItems: mine ? "flex-end" : "flex-start" }}>
-          {!mine && !groupedAbove ? <Text style={[styles.author, { color: tint }]}>{playerName(msg.author)}</Text> : null}
+          {!mine && !groupedAbove ? <Text style={styles.author}>{playerName(msg.author)}</Text> : null}
           <View style={[styles.bubble, mine ? styles.mine : styles.theirs, corners]}>
-            <Text style={[styles.text, mine && { color: C.accentText }]}>{msg.text}</Text>
+            <Text style={[styles.text, mine && { color: C.bg }]}>{msg.text}</Text>
           </View>
           {!groupedBelow ? <Text style={styles.time}>{timeLabel(msg.at)}</Text> : null}
         </View>
@@ -121,7 +120,7 @@ export default function CrewChat({ crew }) {
           <ChatSkeleton />
         ) : items.length === 0 ? (
           <Pressable style={{ flex: 1, justifyContent: "center" }} onPress={Keyboard.dismiss}>
-            <EmptyState icon={MessageSquare} title="Quiet in here" body={`Kick it off. Say hello to ${crew.name}.`} />
+            <EmptyState title="Quiet in here" body={`Kick it off. Say hello to ${crew.name}.`} />
           </Pressable>
         ) : (
           <FlatList
@@ -168,12 +167,12 @@ export default function CrewChat({ crew }) {
 
 const styles = StyleSheet.create({
   dayWrap: { alignItems: "center", marginTop: S.lg },
-  day: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", backgroundColor: C.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, overflow: "hidden" },
+  day: { color: C.textMute, fontSize: 12, fontWeight: "600" },
   line: { flexDirection: "row", alignItems: "flex-end", gap: S.sm },
-  author: { fontSize: 12, fontWeight: "700", marginBottom: 4, marginLeft: 6 },
+  author: { color: C.textDim, fontSize: 12, fontWeight: "600", marginBottom: 4, marginLeft: 6 },
   bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
-  mine: { backgroundColor: C.accent },
-  theirs: { backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.border },
+  mine: { backgroundColor: C.text },
+  theirs: { backgroundColor: C.surfaceHigh },
   text: { color: C.text, fontSize: 15, lineHeight: 20 },
   time: { color: C.textMute, fontSize: 10, marginTop: 4, marginHorizontal: 6 },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: S.sm, paddingHorizontal: S.gutter, paddingTop: S.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, backgroundColor: C.bg },

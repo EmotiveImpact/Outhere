@@ -3,7 +3,7 @@ import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, RefreshCont
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
-import { EyeOff, Trophy, Users } from "lucide-react-native";
+import { EyeOff } from "lucide-react-native";
 import { useBattleLimits, useBattles, useLeaderboard } from "@/data/hooks";
 import * as UI from "@/components/ui";
 import BattlesHubJs from "@/components/arena/BattlesHub";
@@ -110,12 +110,11 @@ export default function ArenaScreen() {
 
         <View style={styles.rankHead}>
           <View style={{ flex: 1 }}>
-            <Title size={24}>Rankings</Title>
+            <Title size={20}>Rankings</Title>
             <Body dim size={13} style={{ marginTop: 2 }}>
               {scopeText} · {timeless ? (metric === "xp" ? "All time" : "Current streaks") : PERIOD_TEXT[period]}
             </Body>
           </View>
-          <Trophy size={22} color={C.gold} />
         </View>
 
         <Segment options={SCOPES} value={scope} onChange={setScope} />
@@ -138,7 +137,7 @@ export default function ArenaScreen() {
           <PressableScale onPress={() => router.push("/settings")} style={styles.notice}>
             <EyeOff size={16} color={C.textDim} />
             <Body dim size={13} style={{ flex: 1 }}>
-              You're hidden from rankings. Tap to change it in Settings.
+              You're hidden from rankings. Change it in Settings.
             </Body>
           </PressableScale>
         ) : null}
@@ -154,14 +153,13 @@ export default function ArenaScreen() {
             <BoardSkeleton />
           ) : scope === "friends" && entries.filter((e) => !e.isMe).length === 0 ? (
             <EmptyState
-              icon={Users}
               title="No one to race yet"
               body="Follow players from their profile and they'll show up here."
               action="See my city"
               onAction={() => setScope("city")}
             />
           ) : entries.length === 0 ? (
-            <EmptyState icon={Users} title="Nobody here yet" body="Rankings fill up as people move. Check back soon." />
+            <EmptyState title="Nobody here yet" body="Rankings fill up as people move. Check back soon." />
           ) : (
             <MotiView key={`${scope}-${period}-${metric}`} from={{ opacity: 0, translateY: 6 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 220 }}>
               {podium.length ? (
@@ -229,12 +227,12 @@ function BoardSkeleton() {
 }
 
 const styles = StyleSheet.create({
-  rankHead: { flexDirection: "row", alignItems: "center", marginTop: S.xxl + S.md, marginBottom: S.lg },
+  rankHead: { flexDirection: "row", alignItems: "center", marginTop: S.xxl + 4, marginBottom: S.lg },
   periods: { flexDirection: "row", gap: S.lg, marginTop: S.lg, paddingHorizontal: 2 },
   period: { minHeight: 32, justifyContent: "center", borderBottomWidth: 2, borderColor: "transparent" },
-  periodActive: { borderColor: C.accent },
+  periodActive: { borderColor: C.text },
   periodText: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 15 },
   periodTextActive: { color: C.text },
-  notice: { flexDirection: "row", alignItems: "center", gap: S.sm, marginTop: S.lg, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  notice: { flexDirection: "row", alignItems: "center", gap: S.sm, marginTop: S.lg, padding: S.md, borderRadius: R.md, backgroundColor: C.surface },
   pinned: { position: "absolute", left: S.gutter - 6, right: S.gutter - 6 },
 });

@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Lock, Sparkles } from "lucide-react-native";
-import { Body, Button, C, Card, F, Header, Label, PressableScale, Row, S, Segment } from "@/components/ui";
+import { Body, Button, C, F, Header, PressableScale, S, Segment } from "@/components/ui";
 import { CITIES } from "@/constants/theme";
 import { CREW_ACCENTS } from "@/data/seed";
 import { engine, useCrewLimits, useEngineMutation, useProfile, useUpgradePrompt } from "@/data/hooks";
@@ -67,48 +66,43 @@ export default function CreateCrew() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {l ? (
-            <Card highlight={!blocked} style={{ marginBottom: S.lg }} padding={S.md}>
-              <Row gap={S.sm}>
-                {blocked ? <Lock size={16} color={C.warn} /> : <Sparkles size={16} color={C.accent} />}
-                <Body size={14} style={{ flex: 1 }}>
-                  {blocked
-                    ? l.maxOwned === 0
-                      ? "Owning a crew is a Pro feature. You can still fill this in and upgrade when you hit create."
-                      : `You own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}. Black lets you own up to 3.`
-                    : `You can own ${l.maxOwned - l.owned} more crew${l.maxOwned - l.owned === 1 ? "" : "s"} on ${tierLabel(l.tier)}.`}
-                </Body>
-              </Row>
-            </Card>
+            <Body dim size={13} style={{ marginTop: S.xs, marginBottom: S.xl }}>
+              {blocked
+                ? l.maxOwned === 0
+                  ? "Owning a crew is a Pro feature. Fill this in and upgrade when you hit create."
+                  : `You own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}. Black lets you own up to 3.`
+                : `You can own ${l.maxOwned - l.owned} more crew${l.maxOwned - l.owned === 1 ? "" : "s"} on ${tierLabel(l.tier)}.`}
+            </Body>
           ) : null}
 
-          <Label style={{ marginBottom: S.sm }}>Preview</Label>
+          <Text style={[styles.field, { marginBottom: S.sm }]}>Preview</Text>
           <CrewCard crew={preview} />
 
           <Text style={styles.section}>The basics</Text>
-          <Label>Name</Label>
+          <Text style={styles.field}>Name</Text>
           <TextInput value={name} onChangeText={setName} placeholder="e.g. Peckham Night Walkers" placeholderTextColor={C.textMute} maxLength={32} style={styles.input} />
-          <Body mute size={12} style={{ marginTop: 6 }}>At least 3 characters. Must be unique.</Body>
+          <Body mute size={13} style={{ marginTop: 6 }}>At least 3 characters. Must be unique.</Body>
 
-          <Label style={{ marginTop: S.lg }}>Tagline</Label>
+          <Text style={[styles.field, { marginTop: S.lg }]}>Tagline</Text>
           <TextInput value={tagline} onChangeText={setTagline} placeholder="What your crew is about" placeholderTextColor={C.textMute} maxLength={80} style={styles.input} />
 
-          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>City</Label>
+          <Text style={[styles.field, { marginTop: S.lg, marginBottom: S.sm }]}>City</Text>
           <View style={styles.wrap}>
             {CITIES.map((c) => {
               const active = c.name === chosenCity;
               return (
-                <PressableScale key={c.name} onPress={() => setCity(c.name)} scaleTo={0.93} style={[styles.chip, active && { backgroundColor: `${accent}22`, borderColor: accent }]}>
-                  <Text style={[styles.chipText, active && { color: C.text }]}>{c.name}</Text>
+                <PressableScale key={c.name} onPress={() => setCity(c.name)} scaleTo={0.93} style={[styles.chip, active && styles.chipActive]}>
+                  <Text style={[styles.chipText, active && { color: C.bg }]}>{c.name}</Text>
                 </PressableScale>
               );
             })}
           </View>
 
           <Text style={styles.section}>Make it yours</Text>
-          <Label style={{ marginBottom: S.sm }}>Accent colour</Label>
+          <Text style={[styles.field, { marginBottom: S.sm }]}>Accent colour</Text>
           <AccentPicker colours={CREW_ACCENTS} value={accent} onChange={setAccent} />
 
-          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Who can join</Label>
+          <Text style={[styles.field, { marginTop: S.lg, marginBottom: S.sm }]}>Who can join</Text>
           <Segment
             options={[
               { value: "public", label: "Anyone" },
@@ -117,7 +111,7 @@ export default function CreateCrew() {
             value={privacy}
             onChange={setPrivacy}
           />
-          <Body mute size={12} style={{ marginTop: 6 }}>
+          <Body mute size={13} style={{ marginTop: 6 }}>
             {privacy === "public" ? "Shows up in Discover and anyone can join." : "Still listed in Discover, but people need your code to join."}
           </Body>
 
@@ -137,9 +131,11 @@ export default function CreateCrew() {
 }
 
 const styles = StyleSheet.create({
-  section: { color: C.text, fontFamily: F.display, fontSize: 19, marginTop: S.xxl, marginBottom: S.md },
+  section: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: S.xxl + 4, marginBottom: S.md },
+  field: { color: C.textDim, fontSize: 13, fontWeight: "600" },
   input: { height: 50, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 15, marginTop: S.sm },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, justifyContent: "center" },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 99, backgroundColor: C.surface, justifyContent: "center" },
+  chipActive: { backgroundColor: C.text },
   chipText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
 });

@@ -1,12 +1,10 @@
-// Shown when a session finishes: route art, the big numbers, what it earns,
-// then save, share to a crew, or discard.
+// Shown when a session finishes: the big distance, a few stats, the route
+// and what it earns, then save, share to a crew, or discard.
 
 import React, { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { Check, Coins, Sparkles, Trash2 } from "lucide-react-native";
-import { AnimatedNumber, Body, Button, C, F, FadeIn, Label, Pill, R, Row, S, Title, toast, ModalToastHost } from "@/components/ui";
+import { AnimatedNumber, Body, Button, C, Divider, F, FadeIn, Pill, R, Row, S, Title, toast, ModalToastHost } from "@/components/ui";
 import { engine, useEngineMutation, useProfile } from "@/data/hooks";
 import { MOVE_SESSION_PHASE, useMoveStore } from "@/store/useMoveStore";
 import { activityFor, rewardsFor, runTitle } from "./geo";
@@ -82,75 +80,66 @@ export default function SummarySheet() {
     <Modal visible={visible} animationType="slide" onRequestClose={saved ? reset : discard} presentationStyle="fullScreen">
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
-          contentContainerStyle={{ paddingTop: insets.top + S.lg, paddingBottom: insets.bottom + S.xxl, paddingHorizontal: S.gutter, gap: S.lg }}
+          contentContainerStyle={{ paddingTop: insets.top + S.xl, paddingBottom: insets.bottom + S.xxl, paddingHorizontal: S.gutter }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <FadeIn>
-            <Row gap={6}>
-              {saved ? <Check size={14} color={C.accent} strokeWidth={3} /> : null}
-              <Label style={{ color: C.accent }}>{saved ? `${activity.label} saved` : `${activity.label} complete`}</Label>
-            </Row>
-            <Title size={34} style={{ marginTop: S.xs, letterSpacing: -0.6 }}>
+            <Body dim size={13}>{saved ? `${activity.label} saved` : `${activity.label} complete`}</Body>
+            <Title size={22} style={{ marginTop: 2 }}>
               {saved ? "Locked in" : headline(finished.distanceKm)}
             </Title>
           </FadeIn>
 
-          <FadeIn index={1}>
-            <RouteHero route={finished.route} seed={finished.startedAt} height={260}>
-              <Label style={{ color: C.textDim }}>Distance</Label>
-              <Row gap={8} style={{ alignItems: "baseline" }}>
-                <CountUp to={finished.distanceKm} format={(v) => v.toFixed(2)} style={styles.heroKm} />
-                <Text style={styles.heroUnit}>km</Text>
-              </Row>
-            </RouteHero>
+          <FadeIn index={1} style={styles.hero}>
+            <CountUp to={finished.distanceKm} format={(v) => v.toFixed(2)} style={styles.heroKm} />
+            <Body dim>Kilometres</Body>
           </FadeIn>
 
           <FadeIn index={2}>
             <RunStatGrid run={finished} />
           </FadeIn>
 
+          <FadeIn index={3}>
+            <RouteHero route={finished.route} height={200} style={{ marginTop: S.xxl }} />
+          </FadeIn>
+
           {tooShort ? (
-            <FadeIn index={3} style={styles.notice}>
+            <FadeIn index={4} style={styles.section}>
               <Title size={17}>Not enough to save</Title>
               <Body dim size={14} style={{ marginTop: 4 }}>
                 We barely picked up any movement. Check location is on and push a bit further next time.
               </Body>
             </FadeIn>
           ) : (
-            <FadeIn index={3}>
-              <View style={[styles.earn, saved && styles.earnDone]}>
-                <LinearGradient colors={["rgba(0,255,127,0.14)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                <Label style={{ color: saved ? C.accent : C.textMute }}>{saved ? "Added to your wallet" : "You'll earn"}</Label>
-                <Row gap={S.xxl} style={{ marginTop: S.sm }}>
-                  <Row gap={8}>
-                    <View style={[styles.earnIcon, { backgroundColor: C.accentDim }]}>
-                      <Sparkles size={16} color={C.accent} />
-                    </View>
-                    <CountUp to={earned.xp} delay={450} format={(v) => `+${Math.round(v)}`} style={styles.earnValue} />
-                    <Text style={styles.earnUnit}>XP</Text>
-                  </Row>
-                  <Row gap={8}>
-                    <View style={[styles.earnIcon, { backgroundColor: "rgba(255,215,0,0.14)" }]}>
-                      <Coins size={16} color={C.gold} />
-                    </View>
-                    <CountUp to={earned.out} delay={600} format={(v) => `+${Math.round(v)}`} style={styles.earnValue} />
-                    <Text style={styles.earnUnit}>OUT</Text>
-                  </Row>
+            <FadeIn index={4} style={styles.section}>
+              <Divider />
+              <Row style={styles.earnRow}>
+                <Body dim size={13} style={{ flex: 1 }}>
+                  {saved ? "Added to your wallet" : "You'll earn"}
+                </Body>
+                <Row gap={4} style={{ alignItems: "baseline" }}>
+                  <CountUp to={earned.xp} delay={450} format={(v) => `+${Math.round(v)}`} style={styles.earnValue} />
+                  <Text style={styles.earnUnit}>XP</Text>
                 </Row>
-                {earned.multiplier > 1 || earned.out === 0 ? (
-                  <Row gap={S.sm} style={{ marginTop: S.md, flexWrap: "wrap" }}>
-                    {earned.multiplier > 1 ? <Pill tone={profile?.tier} label={`${earned.multiplier}x XP ${profile?.tier === "black" ? "Black" : "Pro"}`} /> : null}
-                    {earned.out === 0 ? <Body mute size={12}>OUT lands for every full km.</Body> : null}
-                  </Row>
-                ) : null}
-              </View>
+                <Row gap={4} style={{ alignItems: "baseline", marginLeft: S.xl }}>
+                  <CountUp to={earned.out} delay={600} format={(v) => `+${Math.round(v)}`} style={styles.earnValue} />
+                  <Text style={styles.earnUnit}>OUT</Text>
+                </Row>
+              </Row>
+              {earned.multiplier > 1 || earned.out === 0 ? (
+                <Row gap={S.sm} style={{ marginBottom: S.md, flexWrap: "wrap" }}>
+                  {earned.multiplier > 1 ? <Pill tone={profile?.tier} label={`${earned.multiplier}x XP ${profile?.tier === "black" ? "Black" : "Pro"}`} /> : null}
+                  {earned.out === 0 ? <Body mute size={13}>OUT lands for every full km.</Body> : null}
+                </Row>
+              ) : null}
+              <Divider />
             </FadeIn>
           )}
 
           {!saved && !tooShort ? (
-            <FadeIn index={4} style={{ gap: S.sm }}>
-              <Label>Name it</Label>
+            <FadeIn index={5} style={[styles.section, { gap: S.sm }]}>
+              <Body dim size={13}>Name</Body>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
@@ -163,24 +152,18 @@ export default function SummarySheet() {
           ) : null}
 
           {saved ? (
-            <FadeIn>
+            <FadeIn style={styles.section}>
               <ShareToCrew runId={saved.id} onBeforeNavigate={reset} />
             </FadeIn>
           ) : null}
 
-          <View style={{ gap: S.sm, marginTop: S.xs }}>
+          <View style={[styles.section, { gap: S.sm }]}>
             {saved ? (
-              <Button title="Done" icon={Check} size="lg" onPress={reset} full />
+              <Button title="Done" size="lg" onPress={reset} full />
             ) : (
               <>
                 {!tooShort ? <Button title={`Save ${activity.noun}`} size="lg" loading={save.isPending} onPress={onSave} full /> : null}
-                <Button
-                  title={tooShort ? "Close" : "Discard"}
-                  icon={tooShort ? undefined : Trash2}
-                  variant={tooShort ? "secondary" : "ghost"}
-                  onPress={tooShort ? reset : discard}
-                  full
-                />
+                <Button title={tooShort ? "Close" : "Discard"} variant={tooShort ? "secondary" : "ghost"} onPress={tooShort ? reset : discard} full />
               </>
             )}
           </View>
@@ -192,13 +175,11 @@ export default function SummarySheet() {
 }
 
 const styles = StyleSheet.create({
-  heroKm: { color: C.text, fontFamily: F.display, fontSize: 64, lineHeight: 68, letterSpacing: -1.5, fontVariant: ["tabular-nums"] },
-  heroUnit: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 20 },
-  notice: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: S.lg },
-  earn: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: "rgba(0,255,127,0.25)", padding: S.lg, overflow: "hidden" },
-  earnDone: { borderColor: "rgba(0,255,127,0.5)" },
-  earnIcon: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  earnValue: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.5, fontVariant: ["tabular-nums"] },
-  earnUnit: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 15 },
-  input: { height: 52, borderRadius: R.md, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.lg, fontSize: 16 },
+  hero: { marginTop: S.xxl, marginBottom: S.xl },
+  heroKm: { color: C.text, fontFamily: F.display, fontSize: 104, lineHeight: 108, letterSpacing: -3.5, fontVariant: ["tabular-nums"] },
+  section: { marginTop: S.xxl },
+  earnRow: { paddingVertical: S.lg, alignItems: "baseline" },
+  earnValue: { color: C.text, fontFamily: F.display, fontSize: 24, letterSpacing: -0.4, fontVariant: ["tabular-nums"] },
+  earnUnit: { color: C.textDim, fontSize: 13, fontWeight: "600" },
+  input: { height: 52, borderRadius: R.md, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.lg, fontSize: 16 },
 });

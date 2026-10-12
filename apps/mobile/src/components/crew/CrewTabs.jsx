@@ -8,9 +8,9 @@ const SPRING = { damping: 20, stiffness: 260, mass: 0.7 };
 
 /**
  * Sub tab switcher with a sliding pill. options: [{ value, label, icon }].
- * `colour` tints the pill (the crew accent), `activeText` colours its label.
+ * `colour` fills the pill (white by default), `activeText` colours its label.
  */
-export default function CrewTabs({ options, value, onChange, colour = C.accent, activeText = C.accentText, style }) {
+export default function CrewTabs({ options, value, onChange, colour = C.text, activeText = C.bg, style }) {
   const [width, setWidth] = useState(0);
   const index = Math.max(0, options.findIndex((o) => o.value === value));
   const x = useSharedValue(0);
@@ -52,7 +52,7 @@ export default function CrewTabs({ options, value, onChange, colour = C.accent, 
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", backgroundColor: C.surface, borderRadius: 99, padding: 4, borderWidth: 1, borderColor: C.border },
+  wrap: { flexDirection: "row", backgroundColor: C.surface, borderRadius: 99, padding: 4 },
   pill: { position: "absolute", top: 4, left: 4, bottom: 4, borderRadius: 99 },
   item: { flex: 1, height: 38, flexDirection: "row", gap: 5, alignItems: "center", justifyContent: "center" },
   text: { color: C.textDim, fontSize: 13, fontFamily: F.displayMedium, letterSpacing: 0.2 },

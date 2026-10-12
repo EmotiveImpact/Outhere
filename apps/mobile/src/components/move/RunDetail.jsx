@@ -1,10 +1,8 @@
-// One saved run: route hero, stats, share and delete.
+// One saved run: the distance, a few stats, the route, share and delete.
 
 import React from "react";
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Footprints, Trash2 } from "lucide-react-native";
-import { Body, Button, C, EmptyState, F, FadeIn, Label, R, Row, S, Skeleton, Title } from "@/components/ui";
+import { Body, Button, C, EmptyState, F, FadeIn, R, S, Skeleton, Title } from "@/components/ui";
 import { engine, useEngineMutation, useRun } from "@/data/hooks";
 import { dateLabel, timeLabel } from "@/utils/format";
 import { activityFor, isCoord, rewardsFor } from "./geo";
@@ -12,18 +10,6 @@ import RouteHero from "./RouteHero";
 import RunMap from "./RunMap";
 import RunStatGrid from "./RunStatGrid";
 import ShareToCrew from "./ShareToCrew";
-
-function Distance({ km }) {
-  return (
-    <>
-      <Label style={{ color: C.textDim }}>Distance</Label>
-      <Row gap={6} style={{ alignItems: "baseline" }}>
-        <Text style={styles.km}>{Number(km || 0).toFixed(2)}</Text>
-        <Text style={styles.unit}>km</Text>
-      </Row>
-    </>
-  );
-}
 
 export default function RunDetail({ runId, onDeleted, onLeave, bottomInset = 0 }) {
   const { data: run, isPending } = useRun(runId);
@@ -40,7 +26,7 @@ export default function RunDetail({ runId, onDeleted, onLeave, bottomInset = 0 }
     );
   }
   if (!run) {
-    return <EmptyState icon={Footprints} title="Session gone" body="This one has been deleted from your history." action="Back to history" onAction={onDeleted} />;
+    return <EmptyState title="Session gone" body="This one has been deleted from your history." action="Back to history" onAction={onDeleted} />;
   }
 
   const route = (run.route || []).filter(isCoord);
@@ -55,57 +41,48 @@ export default function RunDetail({ runId, onDeleted, onLeave, bottomInset = 0 }
     ]);
 
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: bottomInset + S.xxl, gap: S.lg }} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: bottomInset + S.xxl }} showsVerticalScrollIndicator={false}>
       <FadeIn>
-        <Row gap={6}>
-          <activity.icon size={13} color={C.accent} />
-          <Label style={{ color: C.accent }}>{activity.label}</Label>
-          {xp > 0 ? <Label style={{ marginLeft: S.sm }}>{`+${xp} XP`}</Label> : null}
-        </Row>
-        <Title size={30} style={{ marginTop: S.xs, letterSpacing: -0.5 }} numberOfLines={2}>
+        <Body dim size={13}>
+          {activity.label}, {dateLabel(run.startedAt)} at {timeLabel(run.startedAt)}
+          {xp > 0 ? `, +${xp} XP` : ""}
+        </Body>
+        <Title size={22} style={{ marginTop: 2 }} numberOfLines={2}>
           {run.title}
         </Title>
-        <Body dim size={14} style={{ marginTop: 2 }}>
-          {dateLabel(run.startedAt)} at {timeLabel(run.startedAt)}
-        </Body>
       </FadeIn>
 
-      <FadeIn index={1}>
-        {nativeMap ? (
-          <View style={styles.mapBox}>
-            <RunMap fitTo={route} segments={[route]} interactive={false} showsUser={false} style={StyleSheet.absoluteFill} />
-            <LinearGradient pointerEvents="none" colors={["transparent", "rgba(10,10,10,0.92)"]} style={styles.mapScrim} />
-            <View pointerEvents="none" style={styles.mapLabel}>
-              <Distance km={run.distanceKm} />
-            </View>
-          </View>
-        ) : (
-          <RouteHero route={route} seed={run.id} height={240}>
-            <Distance km={run.distanceKm} />
-          </RouteHero>
-        )}
-        {route.length < 2 ? (
-          <Body mute size={13} style={{ marginTop: S.sm }}>
-            No GPS line was recorded for this one.
-          </Body>
-        ) : null}
+      <FadeIn index={1} style={styles.hero}>
+        <Text style={styles.km}>{Number(run.distanceKm || 0).toFixed(2)}</Text>
+        <Body dim>Kilometres</Body>
       </FadeIn>
 
       <FadeIn index={2}>
         <RunStatGrid run={run} />
       </FadeIn>
-      <FadeIn index={3}>
+
+      <FadeIn index={3} style={{ marginTop: S.xxl }}>
+        {nativeMap ? (
+          <View style={styles.mapBox}>
+            <RunMap fitTo={route} segments={[route]} interactive={false} showsUser={false} style={StyleSheet.absoluteFill} />
+          </View>
+        ) : route.length > 1 ? (
+          <RouteHero route={route} height={220} />
+        ) : (
+          <Body mute size={13}>No GPS line was recorded for this one.</Body>
+        )}
+      </FadeIn>
+
+      <FadeIn index={4} style={{ marginTop: S.xxl }}>
         <ShareToCrew runId={run.id} onBeforeNavigate={onLeave} />
       </FadeIn>
-      <Button title="Delete session" icon={Trash2} variant="danger" loading={remove.isPending} onPress={confirmDelete} full />
+      <Button title="Delete session" variant="danger" loading={remove.isPending} onPress={confirmDelete} full style={{ marginTop: S.xxl }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  km: { color: C.text, fontFamily: F.display, fontSize: 52, lineHeight: 56, letterSpacing: -1.2, fontVariant: ["tabular-nums"] },
-  unit: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 18 },
-  mapBox: { height: 260, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: "hidden", backgroundColor: C.surface },
-  mapScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: 130 },
-  mapLabel: { position: "absolute", left: 20, bottom: 18 },
+  hero: { marginTop: S.xxl, marginBottom: S.xl },
+  km: { color: C.text, fontFamily: F.display, fontSize: 96, lineHeight: 100, letterSpacing: -3, fontVariant: ["tabular-nums"] },
+  mapBox: { height: 240, borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
 });

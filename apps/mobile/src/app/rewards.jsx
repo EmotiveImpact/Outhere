@@ -4,9 +4,8 @@
 import React, { useMemo, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { Gift, Ticket } from "lucide-react-native";
 import { engine, useEngineMutation, useProfile, useRedemptions, useRewards } from "@/data/hooks";
-import { C, Card, EmptyState, FadeIn, Header, R, Row, S, Screen, SectionHeader, Skeleton, toast } from "@/components/ui";
+import { Body, C, Card, EmptyState, FadeIn, Header, R, Row, S, Screen, SectionHeader, Skeleton, Title, toast } from "@/components/ui";
 import { BalanceHero, CategoryChips, CodeRow, RedeemSheet, RewardCard } from "@/components/profile/RewardParts";
 
 export default function RewardsScreen() {
@@ -69,7 +68,7 @@ export default function RewardsScreen() {
             </Row>
           </View>
         ) : !data ? (
-          <EmptyState icon={Gift} title="Rewards unavailable" body="Set up your profile to start earning OUT." />
+          <EmptyState title="Rewards unavailable" body="Set up your profile to start earning OUT." />
         ) : (
           <>
             <FadeIn>
@@ -103,8 +102,11 @@ export default function RewardsScreen() {
                 ))}
               </Card>
             ) : (
-              <Card>
-                <EmptyState icon={Ticket} title="No codes yet" body="Redeem a reward and your code lands here, ready to show at the till." style={{ paddingVertical: S.xl }} />
+              <Card padding={S.xl}>
+                <Title size={17}>No codes yet</Title>
+                <Body dim size={13} style={{ marginTop: 4 }}>
+                  Redeem a reward and your code lands here, ready to show at the till.
+                </Body>
               </Card>
             )}
           </>

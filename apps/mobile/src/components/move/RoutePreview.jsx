@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 import { Route } from "lucide-react-native";
 import { C, R } from "@/components/ui";
 import { isCoord } from "./geo";
@@ -35,14 +35,8 @@ export default function RoutePreview({ route = [], height = 120, radius = R.md, 
     <View style={[styles.box, { height, borderRadius: radius }, style]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {geometry ? (
         <Svg width={width} height={height}>
-          <Defs>
-            <LinearGradient id="route" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={C.accent} />
-              <Stop offset="1" stopColor="#b6ffd9" />
-            </LinearGradient>
-          </Defs>
-          <Path d={geometry.d} stroke="url(#route)" strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <Circle cx={geometry.start[0]} cy={geometry.start[1]} r={4.5} fill={C.accent} stroke={C.bg} strokeWidth={2} />
+          <Path d={geometry.d} stroke={C.accent} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Circle cx={geometry.start[0]} cy={geometry.start[1]} r={4.5} fill={C.textDim} stroke={C.bg} strokeWidth={2} />
           <Circle cx={geometry.end[0]} cy={geometry.end[1]} r={4.5} fill="#fff" stroke={C.bg} strokeWidth={2} />
         </Svg>
       ) : (
@@ -55,6 +49,6 @@ export default function RoutePreview({ route = [], height = 120, radius = R.md, 
 }
 
 const styles = StyleSheet.create({
-  box: { backgroundColor: "#0f1110", borderWidth: 1, borderColor: C.border, overflow: "hidden" },
+  box: { backgroundColor: C.surface, overflow: "hidden" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

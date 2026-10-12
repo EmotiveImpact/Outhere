@@ -3,9 +3,8 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Swords } from "lucide-react-native";
 import { engine, useBattleLimits, useBattles, useEngineMutation } from "@/data/hooks";
-import { Avatar, C, Card, F, FadeIn, ListRow, R, Row, S, SectionHeader, Skeleton } from "@/components/ui";
+import { Avatar, C, Card, F, FadeIn, ListRow, S, SectionHeader, Skeleton } from "@/components/ui";
 import { timeAgo } from "@/utils/format";
 import BattleCard, { statusPill } from "./BattleCard";
 import ArenaHero from "./ArenaHero";
@@ -38,7 +37,7 @@ export default function BattlesHub() {
   return (
     <View>
       <FadeIn>
-        <ArenaHero record={record} limits={limits} />
+        <ArenaHero record={record} limits={limits} quiet={invites.some((b) => b.incoming)} />
       </FadeIn>
 
       {isPending ? (
@@ -57,6 +56,7 @@ export default function BattlesHub() {
                 <BattleCard
                   battle={b}
                   now={now}
+                  primary={b.id === invites.find((x) => x.incoming)?.id}
                   busy={busyId === b.id}
                   onAccept={() => respond.mutate([b.id, true])}
                   onDecline={() => respond.mutate([b.id, false])}
@@ -83,7 +83,7 @@ export default function BattlesHub() {
       {recent.length ? (
         <>
           <SectionHeader title="Recent results" />
-          <Card padding={S.md} style={{ paddingVertical: 0 }}>
+          <Card padding={S.lg} style={{ paddingVertical: 0, borderWidth: 0 }}>
             {recent.map((b, i) => (
               <ListRow
                 key={b.id}
@@ -105,15 +105,10 @@ export default function BattlesHub() {
 
       {!isPending && !list.length ? (
         <FadeIn delay={120}>
-          <Row gap={S.md} style={styles.hint}>
-            <View style={styles.hintIcon}>
-              <Swords size={18} color={C.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.hintTitle}>No battles yet</Text>
-              <Text style={styles.hintBody}>Friends make the best rivals. Start with someone you follow.</Text>
-            </View>
-          </Row>
+          <View style={styles.hint}>
+            <Text style={styles.hintTitle}>No battles yet</Text>
+            <Text style={styles.hintBody}>Friends make the best rivals. Start with someone you follow.</Text>
+          </View>
         </FadeIn>
       ) : null}
     </View>
@@ -121,8 +116,7 @@ export default function BattlesHub() {
 }
 
 const styles = StyleSheet.create({
-  hint: { marginTop: S.lg, padding: S.lg, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, borderStyle: "dashed" },
-  hintIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  hintTitle: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
-  hintBody: { color: C.textDim, fontSize: 13, marginTop: 2, lineHeight: 18 },
+  hint: { marginTop: S.xxl, paddingHorizontal: 2 },
+  hintTitle: { color: C.text, fontFamily: F.display, fontSize: 20 },
+  hintBody: { color: C.textDim, fontSize: 15, marginTop: 4, lineHeight: 21 },
 });

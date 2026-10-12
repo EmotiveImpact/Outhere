@@ -1,21 +1,21 @@
 // Full screen 3, 2, 1 before a session starts. Each number punches in big
-// and fades out, with a ring that bursts behind it.
+// and fades out, with a faint ring easing out behind it.
 
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AnimatePresence, MotiText, MotiView } from "moti";
-import { C, F, Label, R, S } from "@/components/ui";
+import { C, F, R, S } from "@/components/ui";
 
 export default function Countdown({ count, label, onCancel }) {
   return (
     <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ type: "timing", duration: 200 }} style={styles.wrap}>
-      <Label style={{ color: C.accent, letterSpacing: 2 }}>{label}</Label>
+      <Text style={styles.label}>{label}</Text>
       <View style={styles.stage}>
         <AnimatePresence>
           {count ? (
             <MotiView
               key={`ring-${count}`}
-              from={{ scale: 0.6, opacity: 0.8 }}
+              from={{ scale: 0.7, opacity: 0.35 }}
               animate={{ scale: 1.5, opacity: 0 }}
               transition={{ type: "timing", duration: 900 }}
               style={styles.ring}
@@ -49,11 +49,12 @@ export default function Countdown({ count, label, onCancel }) {
 const SIZE = 240;
 
 const styles = StyleSheet.create({
-  wrap: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(6,8,7,0.985)", alignItems: "center", justifyContent: "center" },
+  wrap: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(10,10,10,0.98)", alignItems: "center", justifyContent: "center" },
+  label: { color: C.textDim, fontSize: 15 },
   stage: { width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", marginVertical: S.lg },
-  ring: { position: "absolute", width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: 3, borderColor: C.accent },
-  count: { position: "absolute", color: C.accent, fontFamily: F.display, fontSize: 180, lineHeight: 196, letterSpacing: -4, textShadowColor: "rgba(0,255,127,0.5)", textShadowRadius: 30 },
+  ring: { position: "absolute", width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: 1, borderColor: C.borderStrong },
+  count: { position: "absolute", color: C.text, fontFamily: F.display, fontSize: 180, lineHeight: 196, letterSpacing: -4 },
   hint: { color: C.textDim, fontSize: 15 },
-  cancel: { marginTop: S.xxl, minWidth: 140, height: 48, alignItems: "center", justifyContent: "center", borderRadius: R.full, borderWidth: 1, borderColor: C.borderStrong },
+  cancel: { marginTop: S.xxl, minWidth: 140, height: 48, alignItems: "center", justifyContent: "center", borderRadius: R.full, backgroundColor: C.surface },
   cancelText: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
 });

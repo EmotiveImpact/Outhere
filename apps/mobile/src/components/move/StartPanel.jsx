@@ -1,10 +1,10 @@
-// Idle bottom panel: pick an activity, then hit the big glowing Start.
+// Idle bottom panel: pick an activity, then hit the big round Start.
 // History and route planning sit either side of it.
 
 import React from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { History, Route, X } from "lucide-react-native";
-import { C, F, Label, PressableScale, R, Row, S, toast } from "@/components/ui";
+import { C, F, PressableScale, R, Row, S, toast } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 import { useMoveStore } from "@/store/useMoveStore";
 import { ACTIVITY_LIST, activityFor } from "./geo";
@@ -40,8 +40,8 @@ export default function StartPanel({ onStart, onPlan, onHistory, bottom }) {
                 }}
                 style={[styles.tile, active && styles.tileActive]}
               >
-                <Icon size={24} color={active ? C.accentText : C.textDim} strokeWidth={2.2} />
-                <Text style={[styles.tileText, active && { color: C.accentText }]}>{a.label}</Text>
+                <Icon size={22} color={active ? C.bg : C.textDim} strokeWidth={2.2} />
+                <Text style={[styles.tileText, active && { color: C.bg }]}>{a.label}</Text>
               </PressableScale>
             </View>
           );
@@ -50,13 +50,10 @@ export default function StartPanel({ onStart, onPlan, onHistory, bottom }) {
 
       {hasPlan ? (
         <Row style={styles.plan}>
-          <View style={styles.planIcon}>
-            <Route size={16} color={C.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Label>Route loaded</Label>
-            <Text style={styles.planKm}>{(plannedDistanceM / 1000).toFixed(2)} km</Text>
-          </View>
+          <Route size={16} color={C.textDim} />
+          <Text style={styles.planText}>
+            <Text style={styles.planKm}>{(plannedDistanceM / 1000).toFixed(2)} km</Text> route loaded
+          </Text>
           <PressableScale onPress={clearPlan} hitSlop={10} accessibilityLabel="Clear route" style={styles.planClear}>
             <X size={16} color={C.textDim} />
           </PressableScale>
@@ -73,13 +70,13 @@ export default function StartPanel({ onStart, onPlan, onHistory, bottom }) {
 }
 
 const styles = StyleSheet.create({
-  panel: { marginHorizontal: S.md, backgroundColor: "rgba(10,10,10,0.95)", borderRadius: R.xl, borderWidth: 1, borderColor: C.border, paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.xs, gap: S.sm },
-  tile: { height: 72, borderRadius: 18, alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.border },
-  tileActive: { backgroundColor: C.accent, borderColor: C.accent },
-  tileText: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 15, letterSpacing: 0.2 },
-  plan: { backgroundColor: C.surface, borderRadius: R.md, borderWidth: 1, borderColor: "rgba(0,255,127,0.3)", paddingVertical: S.sm, paddingHorizontal: S.md, gap: S.md },
-  planIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  planKm: { color: C.text, fontFamily: F.display, fontSize: 17, marginTop: 1 },
-  planClear: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: C.surfaceHigh },
+  panel: { marginHorizontal: S.md, backgroundColor: "rgba(10,10,10,0.94)", borderRadius: R.xl, paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.xs, gap: S.md },
+  tile: { height: 64, borderRadius: R.md, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: C.surface },
+  tileActive: { backgroundColor: C.text },
+  tileText: { color: C.textDim, fontSize: 14, fontWeight: "600" },
+  plan: { paddingHorizontal: S.xs, gap: S.sm },
+  planText: { flex: 1, color: C.textDim, fontSize: 13 },
+  planKm: { color: C.text, fontWeight: "600" },
+  planClear: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: C.surface },
   controls: { justifyContent: "space-between", alignItems: "center", paddingHorizontal: S.xs },
 });

@@ -1,10 +1,9 @@
 import React, { useEffect } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { Check, Clock3, Flag, RotateCcw, Swords, X } from "lucide-react-native";
+import { Flag, RotateCcw, Swords } from "lucide-react-native";
 import { engine, useBattle, useEngineMutation } from "@/data/hooks";
-import { Body, Button, C, Card, EmptyState, F, FadeIn, Header, Label, LiveDot, R, Row, S, Screen, Skeleton } from "@/components/ui";
+import { Body, Button, C, Card, Divider, EmptyState, F, FadeIn, Header, LiveDot, R, Row, S, Screen, Skeleton, Title } from "@/components/ui";
 import { statusPill } from "@/components/arena/BattleCard";
 import { Countdown, FaceOffRow, ResultCard } from "@/components/arena/FaceOff";
 import Confetti from "@/components/arena/Confetti";
@@ -51,7 +50,7 @@ export default function BattleScreen() {
   if (error || !battle) {
     return (
       <Screen header={<Header back title="Battle" />}>
-        <EmptyState icon={Swords} title="Battle not found" body="It may have been called off or declined." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
+        <EmptyState title="Battle not found" body="It may have been called off or declined." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
       </Screen>
     );
   }
@@ -93,13 +92,7 @@ export default function BattleScreen() {
         refreshing={isRefetching}
       >
         <FadeIn>
-          <View style={[styles.hero, (won || (live && iLead)) && styles.heroLead]}>
-            <LinearGradient
-              colors={["rgba(0,255,127,0.16)", "rgba(20,20,22,0)", `${rival}24`]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+          <View style={styles.hero}>
             <Row style={{ justifyContent: "space-between" }}>
               {live ? (
                 <Row gap={8}>
@@ -110,12 +103,9 @@ export default function BattleScreen() {
                 statusPill(battle)
               )}
               {battle.endAt ? (
-                <Row gap={6}>
-                  <Clock3 size={13} color={C.textDim} />
-                  <Text style={styles.meta}>
-                    {live ? "Ends" : "Ended"} {timeLabel(battle.endAt)}
-                  </Text>
-                </Row>
+                <Text style={styles.meta}>
+                  {live ? "Ends" : "Ended"} {timeLabel(battle.endAt)}
+                </Text>
               ) : (
                 <Text style={styles.meta}>Sent {timeLabel(battle.createdAt)}</Text>
               )}
@@ -124,22 +114,21 @@ export default function BattleScreen() {
             {live ? (
               <View style={{ marginTop: S.xl }}>
                 <Countdown ms={remaining} />
-                <Label style={{ textAlign: "center", marginTop: S.sm }}>left on the clock</Label>
+                <Text style={[styles.meta, { textAlign: "center", marginTop: S.sm }]}>left on the clock</Text>
               </View>
             ) : null}
 
-            <View style={{ marginTop: S.xl }}>
+            <View style={{ marginTop: S.xxl }}>
               <FaceOffRow battle={battle} rival={rival} onOpponent={() => router.push(`/player/${opp?.id}`)} />
             </View>
-            {standing ? <Text style={[styles.standing, live && iLead && { color: C.accent }]}>{standing}</Text> : null}
+            {standing ? <Text style={[styles.standing, live && iLead && { color: C.text }]}>{standing}</Text> : null}
           </View>
         </FadeIn>
 
         {battle.status === "complete" ? <ResultCard battle={battle} prize={prize} rival={rival} /> : null}
 
         {battle.status === "cancelled" ? (
-          <Card style={{ marginTop: S.lg, alignItems: "center", paddingVertical: S.xl }}>
-            <Flag size={24} color={C.textMute} />
+          <Card style={{ marginTop: S.lg, alignItems: "center", paddingVertical: S.xl, borderWidth: 0 }}>
             <Text style={styles.cancelTitle}>Called off</Text>
             <Body dim size={14} style={{ marginTop: 4 }}>No winner, no XP. Run it back any time.</Body>
           </Card>
@@ -149,24 +138,24 @@ export default function BattleScreen() {
           {battle.incoming ? (
             <Row>
               <View style={{ flex: 1 }}>
-                <Button title="Decline" variant="secondary" icon={X} onPress={() => respond.mutate([battle.id, false])} disabled={respond.isPending} full />
+                <Button title="Decline" variant="secondary" onPress={() => respond.mutate([battle.id, false])} disabled={respond.isPending} full />
               </View>
               <View style={{ flex: 1 }}>
-                <Button title="Accept" icon={Check} onPress={() => respond.mutate([battle.id, true])} loading={respond.isPending} full />
+                <Button title="Accept" onPress={() => respond.mutate([battle.id, true])} loading={respond.isPending} full />
               </View>
             </Row>
           ) : null}
           {battle.status === "complete" || battle.status === "cancelled" ? <Button title={`Rematch ${opp?.name}`} icon={RotateCcw} size="lg" onPress={rematch} full /> : null}
         </View>
 
-        <Label style={{ marginTop: S.xxl, marginBottom: S.md }}>The details</Label>
-        <Card style={{ gap: S.md }}>
+        <Title size={20} style={{ marginTop: S.xxl + 4, marginBottom: S.sm }}>Details</Title>
+        <View>
           <Info label="Format" value={`${durationLabel(battle.durationHours)} · most ${metric === "distance" ? "distance" : "steps"} wins`} />
           {battle.startAt ? <Info label="Started" value={`${dateLabel(battle.startAt)}, ${timeLabel(battle.startAt)}`} /> : <Info label="Sent" value={`${dateLabel(battle.createdAt)}, ${timeLabel(battle.createdAt)}`} />}
           {battle.endAt ? <Info label={live ? "Ends" : "Ended"} value={`${dateLabel(battle.endAt)}, ${timeLabel(battle.endAt)}`} /> : null}
           <Info label="Winner gets" value={`${BATTLE_PRIZES.win.xp} XP + ${BATTLE_PRIZES.win.out} OUT`} />
-          <Info label="Everyone else" value={`${BATTLE_PRIZES.other.xp} XP for showing up`} />
-        </Card>
+          <Info label="Everyone else" value={`${BATTLE_PRIZES.other.xp} XP for showing up`} last />
+        </View>
 
         {canCancel ? (
           <Button title="Call it off" variant="danger" size="sm" icon={Flag} onPress={confirmCancel} loading={cancel.isPending} style={{ marginTop: S.lg, alignSelf: "center" }} />
@@ -177,20 +166,22 @@ export default function BattleScreen() {
   );
 }
 
-function Info({ label, value }) {
+function Info({ label, value, last = false }) {
   return (
-    <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }} gap={S.lg}>
-      <Body mute size={14}>{label}</Body>
-      <Body size={14} style={{ flex: 1, textAlign: "right" }}>{value}</Body>
-    </Row>
+    <>
+      <Row style={{ justifyContent: "space-between", alignItems: "flex-start", paddingVertical: S.md }} gap={S.lg}>
+        <Body dim size={15}>{label}</Body>
+        <Body size={15} style={{ flex: 1, textAlign: "right" }}>{value}</Body>
+      </Row>
+      {last ? null : <Divider />}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { padding: S.xl, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, overflow: "hidden" },
-  heroLead: { borderColor: "rgba(0,255,127,0.4)" },
-  liveText: { color: C.accent, fontSize: 12, fontWeight: "800", letterSpacing: 1.4 },
-  meta: { color: C.textDim, fontSize: 12, fontWeight: "600" },
-  standing: { color: C.textDim, fontSize: 14, fontWeight: "600", textAlign: "center", marginTop: S.md },
+  hero: { padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
+  liveText: { color: C.text, fontSize: 12, fontWeight: "700", letterSpacing: 1 },
+  meta: { color: C.textDim, fontSize: 13 },
+  standing: { color: C.textDim, fontSize: 15, fontWeight: "600", textAlign: "center", marginTop: S.lg },
   cancelTitle: { color: C.text, fontFamily: F.display, fontSize: 22, marginTop: S.sm },
 });

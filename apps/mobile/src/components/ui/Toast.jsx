@@ -35,7 +35,7 @@ toast.success = (title, body) => show("success", title, body);
 toast.error = (title, body) => show("error", title, body);
 
 const TONES = {
-  success: { icon: Check, fg: "#04140b", bg: "#00ff7f" },
+  success: { icon: Check, fg: "#ffffff", bg: "#1c1c1f", iconColour: "#00ff7f" },
   info: { icon: Info, fg: "#ffffff", bg: "#1c1c1f" },
   error: { icon: TriangleAlert, fg: "#ffffff", bg: "#3a1513" },
 };
@@ -84,7 +84,7 @@ export function ToastHost({ inModal = false }) {
               elevation: 8,
             }}
           >
-            <Icon size={18} color={tone.fg} />
+            <Icon size={18} color={tone.iconColour || tone.fg} />
             <View style={{ flexShrink: 1 }}>
               <Text style={{ color: tone.fg, fontWeight: "700", fontSize: 14 }} numberOfLines={1}>
                 {t.title}

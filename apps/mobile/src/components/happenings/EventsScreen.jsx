@@ -1,31 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { CalendarCheck, CalendarX2 } from "lucide-react-native";
+import { CalendarCheck } from "lucide-react-native";
 import { useEvents, useProfile } from "@/data/hooks";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
-import { C, EmptyState, F, FadeIn, R, Row, S, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { C, EmptyState, FadeIn, R, Row, S, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import EventCard, { EventCardSkeleton } from "@/components/happenings/EventCard";
 import { Chips, SectionLabel } from "@/components/happenings/shared";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const ALL = "all";
 
-function GoingBanner({ count, city }) {
+function GoingBanner({ count }) {
   return (
-    <View style={styles.banner}>
-      <LinearGradient colors={["rgba(0,255,127,0.14)", "rgba(0,255,127,0)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <Row gap={S.md}>
-        <View style={styles.bannerIcon}>
-          <CalendarCheck size={20} color={C.accentText} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.bannerTitle}>{`${count} event${count === 1 ? "" : "s"} lined up${city === ALL ? "" : ` in ${city}`}`}</Text>
-          <Text style={styles.bannerBody}>Check in on the day for XP and OUT.</Text>
-        </View>
-      </Row>
-    </View>
+    <Row gap={S.md} style={styles.banner}>
+      <CalendarCheck size={18} color={C.textDim} />
+      <Text style={styles.bannerTitle} numberOfLines={1}>
+        {`You're going to ${count} event${count === 1 ? "" : "s"}`}
+      </Text>
+    </Row>
   );
 }
 
@@ -34,7 +27,7 @@ function EventsSkeleton() {
     <View>
       <Row gap={S.sm} style={{ paddingHorizontal: S.gutter }}>
         {[64, 96, 112].map((w) => (
-          <Skeleton key={w} width={w} height={44} radius={22} />
+          <Skeleton key={w} width={w} height={40} radius={20} />
         ))}
       </Row>
       <View style={{ paddingHorizontal: S.gutter, marginTop: S.xxl }}>
@@ -104,12 +97,11 @@ export default function OutsideEventsScreen() {
           <View style={{ paddingHorizontal: S.gutter }}>
             {going ? (
               <FadeIn style={{ marginTop: S.lg }}>
-                <GoingBanner count={going} city={active} />
+                <GoingBanner count={going} />
               </FadeIn>
             ) : null}
             {sections.length === 0 ? (
               <EmptyState
-                icon={CalendarX2}
                 title="Nothing on here yet"
                 body={active === ALL ? "New link-ups land every week. Pull down to refresh." : `No events in ${active} right now. Try another city.`}
                 action={active === ALL ? undefined : "Show all cities"}
@@ -135,8 +127,6 @@ export default function OutsideEventsScreen() {
 }
 
 const styles = StyleSheet.create({
-  banner: { borderRadius: R.lg, borderWidth: 1, borderColor: "rgba(0,255,127,0.35)", backgroundColor: C.surface, padding: S.lg, overflow: "hidden" },
-  bannerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
-  bannerTitle: { color: C.text, fontFamily: F.display, fontSize: 17 },
-  bannerBody: { color: C.textDim, fontSize: 13, marginTop: 2 },
+  banner: { borderRadius: R.md, backgroundColor: C.surface, paddingHorizontal: S.lg, height: 52 },
+  bannerTitle: { color: C.text, fontSize: 15, fontWeight: "600", flex: 1 },
 });

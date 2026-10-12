@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Share, StyleSheet, Text, TextInput } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Copy, DoorOpen, Share2, Trash2, X } from "lucide-react-native";
-import { Body, Button, C, Cover, F, IconButton, Label, Row, S, Segment, Sheet, Title, toast } from "@/components/ui";
+import { Body, Button, C, F, IconButton, Row, S, Segment, Sheet, Title, toast } from "@/components/ui";
 import { CREW_ACCENTS } from "@/data/seed";
 import { engine, useEngineMutation } from "@/data/hooks";
-import { AccentPicker, crewAccent } from "./shared";
+import { AccentPicker } from "./shared";
 
 const GOALS = [50, 100, 150, 250, 400];
 
@@ -85,8 +85,6 @@ export default function CrewSettings({ crew, visible, onClose, onLeft }) {
       { text: "Delete crew", style: "destructive", onPress: () => remove.mutate(crew.id) },
     ]);
 
-  const accent = crewAccent(crew);
-
   return (
     <Sheet visible={visible} onClose={onClose} scroll maxHeight="92%">
       <Row style={styles.top}>
@@ -94,25 +92,22 @@ export default function CrewSettings({ crew, visible, onClose, onLeft }) {
         <IconButton icon={X} onPress={onClose} label="Close" />
       </Row>
 
-      <Cover seed={`crew:${crew.id}`} accent={accent} style={[styles.codeCard, { borderColor: `${accent}55` }]}>
-        <View style={styles.codeScrim} />
-        <Label style={{ color: C.textDim }}>Invite code</Label>
-        <Text style={[styles.code, { color: accent }]} selectable>
-          {crew.inviteCode}
-        </Text>
-        <Body dim size={13}>Anyone with this code can join, even when the crew is invite only.</Body>
-        <Row gap={S.sm} style={{ marginTop: S.md }}>
-          <Button title="Share" icon={Share2} size="sm" onPress={() => shareInvite(crew)} />
-          <Button title="Copy" icon={Copy} size="sm" variant="secondary" onPress={copyCode} />
-        </Row>
-      </Cover>
+      <Body dim size={13}>Invite code</Body>
+      <Text style={styles.code} selectable>
+        {crew.inviteCode}
+      </Text>
+      <Body dim size={13}>Anyone with this code can join, even when the crew is invite only.</Body>
+      <Row gap={S.sm} style={{ marginTop: S.lg }}>
+        <Button title="Share" icon={Share2} size="sm" variant={canEdit ? "secondary" : "primary"} onPress={() => shareInvite(crew)} />
+        <Button title="Copy" icon={Copy} size="sm" variant="secondary" onPress={copyCode} />
+      </Row>
 
       {canEdit && form ? (
         <>
           <Text style={styles.section}>Details</Text>
-          <Label>Name</Label>
+          <Text style={styles.field}>Name</Text>
           <TextInput value={form.name} onChangeText={set("name")} maxLength={32} style={styles.input} placeholderTextColor={C.textMute} />
-          <Label style={{ marginTop: S.lg }}>Tagline</Label>
+          <Text style={[styles.field, { marginTop: S.lg }]}>Tagline</Text>
           <TextInput
             value={form.tagline}
             onChangeText={set("tagline")}
@@ -121,9 +116,9 @@ export default function CrewSettings({ crew, visible, onClose, onLeft }) {
             placeholderTextColor={C.textMute}
             style={styles.input}
           />
-          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Accent colour</Label>
+          <Text style={[styles.field, { marginTop: S.lg, marginBottom: S.sm }]}>Accent colour</Text>
           <AccentPicker colours={CREW_ACCENTS} value={form.accent} onChange={set("accent")} />
-          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Who can join</Label>
+          <Text style={[styles.field, { marginTop: S.lg, marginBottom: S.sm }]}>Who can join</Text>
           <Segment
             options={[
               { value: "public", label: "Anyone" },
@@ -132,7 +127,7 @@ export default function CrewSettings({ crew, visible, onClose, onLeft }) {
             value={form.privacy}
             onChange={set("privacy")}
           />
-          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Weekly goal</Label>
+          <Text style={[styles.field, { marginTop: S.lg, marginBottom: S.sm }]}>Weekly goal</Text>
           <Segment options={GOALS.map((g) => ({ value: g, label: `${g}` }))} value={form.weeklyGoalKm} onChange={set("weeklyGoalKm")} />
           <Body mute size={12} style={{ marginTop: 6 }}>Kilometres the whole crew aims for each week.</Body>
           <Button title="Save changes" onPress={save} disabled={!dirty} loading={update.isPending} full style={{ marginTop: S.xl }} />
@@ -150,9 +145,8 @@ export default function CrewSettings({ crew, visible, onClose, onLeft }) {
 
 const styles = StyleSheet.create({
   top: { paddingTop: S.xs, paddingBottom: S.lg },
-  codeCard: { borderRadius: 20, borderWidth: 1, padding: S.lg },
-  codeScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(14,14,16,0.6)" },
-  code: { fontFamily: F.display, fontSize: 38, letterSpacing: 5, marginVertical: S.sm },
-  section: { color: C.text, fontFamily: F.display, fontSize: 19, marginTop: S.xxl, marginBottom: S.md },
+  code: { color: C.text, fontFamily: F.display, fontSize: 48, letterSpacing: 4, marginVertical: S.xs },
+  section: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: S.xxl + 4, marginBottom: S.md },
+  field: { color: C.textDim, fontSize: 13, fontWeight: "600" },
   input: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 15, marginTop: S.sm },
 });

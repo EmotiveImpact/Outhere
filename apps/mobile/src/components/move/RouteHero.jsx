@@ -1,26 +1,25 @@
-// Hero artwork for a run: generated night-route art with the real GPS line
-// drawn over it, a bottom scrim, and whatever sits on top (title, distance).
+// A finished run's GPS line drawn large on a plain surface. Optional
+// children sit at the bottom (used for a short caption).
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { C, Cover, R } from "@/components/ui";
+import { C, R } from "@/components/ui";
 import { isCoord } from "./geo";
 import RoutePreview from "./RoutePreview";
 
-export default function RouteHero({ route = [], seed = "run", height = 240, children, style }) {
+export default function RouteHero({ route = [], height = 240, children, style }) {
   const pts = (route || []).filter(isCoord);
+  if (pts.length < 2) return null;
   return (
-    <Cover seed={`route-${seed}`} accent={pts.length > 1 ? "#1d6b46" : C.accent} scrim style={[styles.box, { height }, style]}>
-      {pts.length > 1 ? (
-        <RoutePreview route={pts} height={height * 0.72} radius={0} strokeWidth={5} style={styles.line} />
-      ) : null}
-      <View style={styles.content}>{children}</View>
-    </Cover>
+    <View style={[styles.box, { height }, style]}>
+      <RoutePreview route={pts} height={height} radius={0} strokeWidth={4} style={styles.line} />
+      {children ? <View style={styles.content}>{children}</View> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { borderRadius: R.lg, borderWidth: 1, borderColor: C.border },
-  line: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: "transparent", borderWidth: 0 },
+  box: { borderRadius: R.lg, backgroundColor: C.surface, overflow: "hidden" },
+  line: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: "transparent" },
   content: { flex: 1, justifyContent: "flex-end", padding: 20 },
 });

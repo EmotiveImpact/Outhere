@@ -17,7 +17,7 @@ import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
 import CrewMembers from "@/components/crew/CrewMembers";
 import CrewSettings, { shareInvite } from "@/components/crew/CrewSettings";
 import CrewTabs from "@/components/crew/CrewTabs";
-import { CrewLogo, crewAccent, useCrewFocus } from "@/components/crew/shared";
+import { CrewLogo, useCrewFocus } from "@/components/crew/shared";
 
 const TABS = [
   { value: "feed", label: "Feed", icon: Newspaper },
@@ -44,13 +44,12 @@ function Switcher({ crews, activeId, onSelect }) {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.sm, paddingHorizontal: S.gutter, paddingBottom: S.md }}>
       {crews.map((c) => {
         const active = c.id === activeId;
-        const accent = crewAccent(c);
         return (
           <PressableScale
             key={c.id}
             onPress={() => onSelect(c.id)}
             scaleTo={0.94}
-            style={[styles.chip, active && { borderColor: accent, backgroundColor: `${accent}1f` }]}
+            style={[styles.chip, active && styles.chipActive]}
           >
             <CrewLogo crew={c} size={28} radius={9} ring={false} />
             <Text style={[styles.chipText, active && { color: C.text }]} numberOfLines={1}>
@@ -173,7 +172,7 @@ export default function CrewTab() {
     return (
       <Screen tab scroll={false} padded={false} header={header}>
         {crewQuery.isError ? (
-          <EmptyState icon={Users} title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} />
+          <EmptyState title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} />
         ) : (
           <CrewSkeleton />
         )}
@@ -182,7 +181,7 @@ export default function CrewTab() {
     );
   }
 
-  const tabs = <CrewTabs options={TABS} value={tab} onChange={setTab} colour={crewAccent(crew)} style={{ marginHorizontal: S.gutter, marginBottom: S.md }} />;
+  const tabs = <CrewTabs options={TABS} value={tab} onChange={setTab} style={{ marginHorizontal: S.gutter, marginBottom: S.md }} />;
 
   if (tab === "chat") {
     return (
@@ -202,7 +201,7 @@ export default function CrewTab() {
         stickyHeaderIndices={[1]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
       >
-        <FadeIn key={crew.id} style={{ paddingHorizontal: S.gutter, paddingBottom: S.lg }}>
+        <FadeIn key={crew.id} style={{ paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.xxl }}>
           <CrewHero crew={crew} />
         </FadeIn>
         <View style={{ backgroundColor: C.bg, paddingTop: S.xs }}>{tabs}</View>
@@ -219,6 +218,7 @@ export default function CrewTab() {
 
 const styles = StyleSheet.create({
   top: { paddingHorizontal: S.gutter, paddingTop: S.md, paddingBottom: S.md, gap: S.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 44, paddingLeft: 7, paddingRight: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxWidth: 220 },
+  chip: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 44, paddingLeft: 7, paddingRight: 14, borderRadius: 99, backgroundColor: C.surface, maxWidth: 220 },
+  chipActive: { backgroundColor: C.surfaceHigh },
   chipText: { color: C.textDim, fontSize: 13, fontFamily: F.displayMedium, flexShrink: 1 },
 });

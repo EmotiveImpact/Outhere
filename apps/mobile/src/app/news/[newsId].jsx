@@ -1,11 +1,10 @@
 import React from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Newspaper } from "lucide-react-native";
 import { useDrops, useNews, useNewsItem } from "@/data/hooks";
-import { C, EmptyState, F, FadeIn, Header, Pill, Row, S, Screen } from "@/components/ui";
+import { C, EmptyState, F, FadeIn, Header, Row, S, Screen } from "@/components/ui";
 import { HeroScreen, HeroSkeleton } from "@/components/happenings/shared";
-import { RelatedCard, StoryRow, categoryColour, categoryTone, readMinutes, relatedFor } from "@/components/happenings/NewsCards";
+import { RelatedCard, StoryRow, categoryColour, readMinutes, relatedFor } from "@/components/happenings/NewsCards";
 import { dateLabel, timeAgo } from "@/utils/format";
 
 export default function NewsArticleScreen() {
@@ -20,7 +19,7 @@ export default function NewsArticleScreen() {
   if (error || !story) {
     return (
       <Screen header={<Header back title="News" />}>
-        <EmptyState icon={Newspaper} title="Story not found" body="It may have been taken down." action="Back to news" onAction={() => router.replace("/outside/news")} />
+        <EmptyState title="Story not found" body="It may have been taken down." action="Back to news" onAction={() => router.replace("/outside/news")} />
       </Screen>
     );
   }
@@ -34,10 +33,7 @@ export default function NewsArticleScreen() {
 
   const overlay = (
     <>
-      <Row gap={8}>
-        <Pill label={story.category.toUpperCase()} tone={categoryTone(story.category)} />
-        <Text style={styles.meta}>{`${readMinutes(story)} min read`}</Text>
-      </Row>
+      <Text style={styles.metaLight}>{`${story.category}  ·  ${readMinutes(story)} min read`}</Text>
       <Text style={styles.title}>{story.title}</Text>
     </>
   );
@@ -88,12 +84,13 @@ export default function NewsArticleScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.8, marginTop: S.md },
-  meta: { color: C.textMute, fontSize: 12, fontWeight: "600" },
+  title: { color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.8, marginTop: S.sm },
+  meta: { color: C.textMute, fontSize: 13 },
+  metaLight: { color: "#c8c8cc", fontSize: 13 },
   standfirst: { color: C.text, fontFamily: F.displayMedium, fontSize: 20, lineHeight: 28, letterSpacing: -0.2 },
   byline: { marginTop: S.xl, paddingBottom: S.xl, marginBottom: S.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderStrong },
-  mark: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
-  markText: { color: C.accentText, fontFamily: F.display, fontSize: 18 },
+  mark: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  markText: { color: C.text, fontFamily: F.display, fontSize: 18 },
   bylineName: { color: C.text, fontSize: 14, fontWeight: "700" },
   para: { color: "#d4d4d8", fontSize: 17, lineHeight: 28, marginBottom: S.xl },
   lead: { color: C.text },

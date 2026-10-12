@@ -1,14 +1,13 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { CalendarClock, Check, Coins, Gift, Target, Users, Zap } from "lucide-react-native";
+import { Check } from "lucide-react-native";
 import { engine, useChallenges, useEngineMutation } from "@/data/hooks";
-import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Header, Label, Pill, ProgressBar, R, Row, S, Screen, SectionHeader, Skeleton, toast } from "@/components/ui";
+import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Header, Pill, ProgressBar, R, Row, S, Screen, SectionHeader, Skeleton, toast } from "@/components/ui";
 import { countdown, dateLabel, formatKm, formatNumber } from "@/utils/format";
 import { useNow } from "@/components/arena/shared";
 
-const PERIOD_LABEL = { day: "TODAY", week: "THIS WEEK", weekend: "WEEKEND" };
+const PERIOD_LABEL = { day: "Today", week: "This week", weekend: "Weekend" };
 
 const amount = (c, v) => (c.metric === "distance" ? formatKm(v) : `${formatNumber(v)} steps`);
 
@@ -45,7 +44,7 @@ export default function ChallengesScreen() {
   let index = 0;
 
   return (
-    <Screen tab header={<Header back title="Challenges" subtitle="Hit the target, bank the reward" />} onRefresh={refetch} refreshing={isRefetching}>
+    <Screen tab header={<Header back title="Challenges" />} onRefresh={refetch} refreshing={isRefetching}>
       {isPending ? (
         <View style={{ gap: S.md }}>
           <Skeleton height={168} radius={20} />
@@ -54,29 +53,22 @@ export default function ChallengesScreen() {
           <Skeleton height={230} radius={20} />
         </View>
       ) : !list.length ? (
-        <EmptyState icon={Target} title="No challenges right now" body="New ones land every day and every week." action="Go to the Arena" onAction={() => router.push("/outside/arena")} />
+        <EmptyState title="No challenges right now" body="New ones land every day and every week." action="Go to the Arena" onAction={() => router.push("/outside/arena")} />
       ) : (
         <>
           <FadeIn>
             <View style={styles.hero}>
-              <LinearGradient colors={["rgba(0,255,127,0.22)", "rgba(0,255,127,0.03)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <Label style={{ color: C.accent }}>Up for grabs</Label>
-              <Row gap={8} style={{ alignItems: "flex-end", marginTop: 4 }}>
+              <Row gap={8} style={{ alignItems: "flex-end" }}>
                 <AnimatedNumber value={upForGrabs} style={styles.heroValue} />
                 <Text style={styles.heroUnit}>XP</Text>
-                {outForGrabs ? (
-                  <Row gap={4} style={{ marginLeft: S.sm, marginBottom: 8 }}>
-                    <Coins size={15} color={C.gold} />
-                    <Text style={styles.heroOut}>+{formatNumber(outForGrabs)} OUT</Text>
-                  </Row>
-                ) : null}
               </Row>
+              <Text style={styles.heroMeta}>
+                up for grabs{outForGrabs ? `, plus ${formatNumber(outForGrabs)} OUT` : ""}
+              </Text>
               <Row gap={0} style={styles.heroStats}>
-                <HeroStat label="Joined" value={`${joined} of ${list.length}`} />
-                <View style={styles.rule} />
-                <HeroStat label="To claim" value={String(ready.length)} accent={ready.length > 0} />
-                <View style={styles.rule} />
-                <HeroStat label="Live now" value={String(list.filter((c) => c.status !== "upcoming" && c.status !== "claimed").length)} />
+                <HeroStat label="joined" value={`${joined} of ${list.length}`} />
+                <HeroStat label="to claim" value={String(ready.length)} />
+                <HeroStat label="live now" value={String(list.filter((c) => c.status !== "upcoming" && c.status !== "claimed").length)} />
               </Row>
             </View>
           </FadeIn>
@@ -88,11 +80,12 @@ export default function ChallengesScreen() {
               <View key={section.key}>
                 <SectionHeader title={section.title} />
                 <View style={{ gap: S.md }}>
-                  {items.map((c) => (
+                  {items.map((c, i) => (
                     <FadeIn key={c.id} index={index++}>
                       <ChallengeCard
                         challenge={c}
                         now={now}
+                        primary={section.key === "complete" && i === 0}
                         joining={join.isPending && join.variables === c.id}
                         claiming={claim.isPending && claim.variables === c.id}
                         onJoin={() => join.mutate(c.id)}
@@ -110,16 +103,16 @@ export default function ChallengesScreen() {
   );
 }
 
-function HeroStat({ label, value, accent = false }) {
+function HeroStat({ label, value }) {
   return (
     <View style={{ flex: 1 }}>
-      <Text style={[styles.heroStatValue, accent && { color: C.accent }]}>{value}</Text>
+      <Text style={styles.heroStatValue}>{value}</Text>
       <Text style={styles.heroStatLabel}>{label}</Text>
     </View>
   );
 }
 
-function ChallengeCard({ challenge: c, now, joining, claiming, onJoin, onClaim }) {
+function ChallengeCard({ challenge: c, now, primary, joining, claiming, onJoin, onClaim }) {
   const done = c.status === "complete";
   const claimed = c.status === "claimed";
   const upcoming = c.status === "upcoming";
@@ -127,14 +120,10 @@ function ChallengeCard({ challenge: c, now, joining, claiming, onJoin, onClaim }
   const pct = Math.round(c.percent * 100);
 
   return (
-    <View style={[styles.card, done && styles.cardDone, claimed && { opacity: 0.7 }]}>
-      {done ? <LinearGradient colors={["rgba(0,255,127,0.16)", "rgba(0,255,127,0)"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
+    <View style={[styles.card, claimed && { opacity: 0.7 }]}>
       <Row style={{ justifyContent: "space-between" }}>
-        <Pill label={PERIOD_LABEL[c.period] || String(c.period).toUpperCase()} tone={done ? "accent" : "neutral"} />
-        <Row gap={6}>
-          <CalendarClock size={13} color={C.textMute} />
-          <Text style={styles.meta}>{timeText}</Text>
-        </Row>
+        <Pill label={PERIOD_LABEL[c.period] || String(c.period)} />
+        <Text style={styles.meta}>{timeText}</Text>
       </Row>
 
       <Text style={styles.title}>{c.title}</Text>
@@ -147,44 +136,31 @@ function ChallengeCard({ challenge: c, now, joining, claiming, onJoin, onClaim }
               {amount(c, c.progress)}
               <Text style={styles.target}> of {amount(c, c.target)}</Text>
             </Text>
-            <Text style={[styles.percent, (done || claimed) && { color: C.accent }]}>{pct}%</Text>
+            <Text style={[styles.percent, (done || claimed) && { color: C.text }]}>{pct}%</Text>
           </Row>
-          <ProgressBar value={c.percent} height={10} colour={c.joined || claimed ? C.accent : "#4a4a52"} />
+          <ProgressBar value={c.percent} height={6} colour={c.joined || claimed ? C.accent : "#4a4a52"} />
           {!c.joined && c.progress > 0 ? <Text style={styles.note}>Your steps already count. Join to lock it in.</Text> : null}
         </View>
       ) : null}
 
       <Row style={{ justifyContent: "space-between", marginTop: S.lg }}>
-        <Row gap={S.sm}>
-          <View style={[styles.reward, { backgroundColor: C.accentDim }]}>
-            <Zap size={13} color={C.accent} fill={C.accent} />
-            <Text style={styles.rewardText}>+{formatNumber(c.rewardXp)} XP</Text>
-          </View>
-          {c.rewardOut ? (
-            <View style={[styles.reward, { backgroundColor: "rgba(255,215,0,0.1)" }]}>
-              <Coins size={13} color={C.gold} />
-              <Text style={[styles.rewardText, { color: C.gold }]}>+{c.rewardOut} OUT</Text>
-            </View>
-          ) : null}
-        </Row>
-        <Row gap={4}>
-          <Users size={13} color={C.textMute} />
-          <Text style={styles.meta}>{formatNumber(c.participants)} in</Text>
-        </Row>
+        <Text style={styles.rewardText}>
+          +{formatNumber(c.rewardXp)} XP{c.rewardOut ? ` · +${c.rewardOut} OUT` : ""}
+        </Text>
+        <Text style={styles.meta}>{formatNumber(c.participants)} in</Text>
       </Row>
 
       {done ? (
-        <Button title="Claim reward" icon={Gift} size="lg" onPress={onClaim} loading={claiming} full style={{ marginTop: S.lg }} />
+        <Button title="Claim reward" variant={primary ? "primary" : "secondary"} size="lg" onPress={onClaim} loading={claiming} full style={{ marginTop: S.lg }} />
       ) : c.status === "open" || upcoming ? (
         <Button title={upcoming ? "Join early" : "Join challenge"} variant="secondary" onPress={onJoin} loading={joining} full style={{ marginTop: S.lg }} />
       ) : claimed ? (
         <Row gap={6} style={styles.claimed}>
-          <Check size={15} color={C.accent} strokeWidth={3} />
+          <Check size={15} color={C.textDim} strokeWidth={2.5} />
           <Text style={styles.claimedText}>Reward banked</Text>
         </Row>
       ) : (
         <Row gap={6} style={styles.joined}>
-          <View style={styles.joinedDot} />
           <Text style={styles.joinedText}>Joined · {amount(c, Math.max(0, c.target - c.progress))} to go</Text>
         </Row>
       )}
@@ -193,28 +169,24 @@ function ChallengeCard({ challenge: c, now, joining, claiming, onJoin, onClaim }
 }
 
 const styles = StyleSheet.create({
-  hero: { padding: S.xl, borderRadius: R.lg, borderWidth: 1, borderColor: "rgba(0,255,127,0.28)", backgroundColor: "#0c120f", overflow: "hidden" },
+  hero: { padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
   heroValue: { color: C.text, fontFamily: F.display, fontSize: 56, letterSpacing: -1.5, lineHeight: 60 },
-  heroUnit: { color: C.accent, fontFamily: F.display, fontSize: 22, marginBottom: 8 },
-  heroOut: { color: C.gold, fontFamily: F.displayMedium, fontSize: 15 },
-  heroStats: { marginTop: S.lg, paddingTop: S.lg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
-  rule: { width: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.12)", marginHorizontal: S.md },
+  heroUnit: { color: C.textDim, fontFamily: F.display, fontSize: 22, marginBottom: 8 },
+  heroMeta: { color: C.textDim, fontSize: 15, marginTop: 2 },
+  heroStats: { marginTop: S.xl },
   heroStatValue: { color: C.text, fontFamily: F.display, fontSize: 20 },
-  heroStatLabel: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 },
-  card: { padding: S.lg, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, overflow: "hidden" },
-  cardDone: { borderColor: "rgba(0,255,127,0.45)" },
-  meta: { color: C.textMute, fontSize: 12, fontWeight: "600" },
-  title: { color: C.text, fontFamily: F.display, fontSize: 21, letterSpacing: -0.3, marginTop: S.md },
-  desc: { color: C.textDim, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  heroStatLabel: { color: C.textDim, fontSize: 13, marginTop: 2 },
+  card: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface },
+  meta: { color: C.textDim, fontSize: 13 },
+  title: { color: C.text, fontFamily: F.display, fontSize: 20, letterSpacing: -0.3, marginTop: S.md },
+  desc: { color: C.textDim, fontSize: 15, lineHeight: 21, marginTop: 4 },
   progress: { color: C.text, fontFamily: F.display, fontSize: 17, flexShrink: 1 },
   target: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 13 },
   percent: { color: C.textDim, fontFamily: F.display, fontSize: 15 },
-  note: { color: C.textMute, fontSize: 12, marginTop: S.sm },
-  reward: { flexDirection: "row", alignItems: "center", gap: 5, height: 28, paddingHorizontal: 10, borderRadius: R.full },
-  rewardText: { color: C.accent, fontFamily: F.displayMedium, fontSize: 13 },
-  claimed: { marginTop: S.lg, alignSelf: "flex-start", paddingHorizontal: 12, height: 32, borderRadius: R.full, backgroundColor: C.accentDim },
-  claimedText: { color: C.accent, fontWeight: "700", fontSize: 13 },
-  joined: { marginTop: S.lg, alignSelf: "flex-start", paddingHorizontal: 12, height: 32, borderRadius: R.full, backgroundColor: C.surfaceHigh },
-  joinedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
-  joinedText: { color: C.textDim, fontWeight: "700", fontSize: 13 },
+  note: { color: C.textMute, fontSize: 13, marginTop: S.sm },
+  rewardText: { color: C.text, fontFamily: F.displayMedium, fontSize: 15 },
+  claimed: { marginTop: S.lg },
+  claimedText: { color: C.textDim, fontWeight: "600", fontSize: 13 },
+  joined: { marginTop: S.lg },
+  joinedText: { color: C.textDim, fontWeight: "600", fontSize: 13 },
 });

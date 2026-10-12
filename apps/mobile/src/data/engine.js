@@ -431,7 +431,7 @@ export const createProfile = async ({ username, city = "London", crewCode }) =>
       area: "",
       bio: "",
       avatar: null,
-      color: "#00ff7f",
+      color: "#3DA9FC",
       tier: "free",
       blackEligible: false,
       dailyGoal: 10000,

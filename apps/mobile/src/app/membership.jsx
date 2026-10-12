@@ -39,6 +39,9 @@ export default function MembershipScreen() {
     setTier.mutate(tier);
   };
 
+  // The one upgrade worth pushing: the cheapest plan above yours that's open.
+  const nextUp = m ? TIERS.find((t) => rank(t) > rank(m.tier) && !(t === "black" && !m.blackEligible)) : null;
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Screen header={<Header back title="Membership" />} onRefresh={refetch} refreshing={isRefetching}>
@@ -47,11 +50,11 @@ export default function MembershipScreen() {
             Level up how you move
           </Title>
           <Body dim style={{ marginTop: S.xs }}>
-            More XP, more battles, more rewards. Pick the plan that fits.
+            More XP, more battles, more rewards.
           </Body>
-          <Row gap={S.sm} style={{ marginTop: S.md, paddingHorizontal: S.md, paddingVertical: 10, borderRadius: R.md, backgroundColor: "rgba(255,193,7,0.08)", borderWidth: 1, borderColor: "rgba(255,193,7,0.22)" }}>
-            <Info size={15} color={C.warn} />
-            <Body size={13} style={{ flex: 1, color: C.warn }}>
+          <Row gap={S.sm} style={{ marginTop: S.md }}>
+            <Info size={14} color={C.textMute} />
+            <Body mute size={13} style={{ flex: 1 }}>
               Payments aren't live yet, so switching is free in this build.
             </Body>
           </Row>
@@ -81,6 +84,7 @@ export default function MembershipScreen() {
                     current={m.tier === tier}
                     locked={tier === "black" && !m.blackEligible}
                     upgrade={rank(tier) > rank(m.tier)}
+                    primary={tier === nextUp}
                     streakNeeded={m.streakNeeded}
                     busy={setTier.isPending && setTier.variables === tier}
                     onChoose={choose}

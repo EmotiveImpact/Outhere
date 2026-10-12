@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Bell, BellRing, Crown, Lock, PackageCheck, PackageOpen } from "lucide-react-native";
+import { Bell, BellRing, Crown, Lock, PackageCheck } from "lucide-react-native";
 import { engine, useDrop, useEngineMutation } from "@/data/hooks";
-import { Body, Button, C, EmptyState, F, FadeIn, Header, Label, ProgressBar, Row, S, Screen, Title } from "@/components/ui";
+import { Body, Button, C, EmptyState, F, FadeIn, Header, ProgressBar, Row, S, Screen, Title } from "@/components/ui";
 import { DropPills, dropAccent, dropState, earlyHours, useDropBoundaries } from "@/components/happenings/DropCard";
 import { CountdownBoxes, HeroScreen, HeroSkeleton, priceLabel, useNow } from "@/components/happenings/shared";
 import { ReservedSheet, SizePicker } from "@/components/happenings/DropParts";
@@ -40,7 +40,7 @@ export default function DropDetailScreen() {
   if (error || !drop) {
     return (
       <Screen header={<Header back title="Drop" />}>
-        <EmptyState icon={PackageOpen} title="Drop not found" body="It may have been pulled." action="See all drops" onAction={() => router.replace("/outside/drops")} />
+        <EmptyState title="Drop not found" body="It may have been pulled." action="See all drops" onAction={() => router.replace("/outside/drops")} />
       </Screen>
     );
   }
@@ -58,7 +58,7 @@ export default function DropDetailScreen() {
       return (
         <Row gap={S.md}>
           <View style={styles.tick}>
-            <PackageCheck size={18} color={C.accentText} />
+            <PackageCheck size={18} color={C.text} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.barTitle}>{`Reserved, size ${drop.reservation.size}`}</Text>
@@ -72,7 +72,7 @@ export default function DropDetailScreen() {
     const priceBlock = (
       <View>
         <Text style={styles.barPrice}>{priceLabel(drop.priceGbp)}</Text>
-        <Text style={styles.barSub}>{needsSize ? (size ? `Size ${size}` : "Pick a size") : drop.sizes[0]}</Text>
+        {!needsSize || size ? <Text style={styles.barSub}>{needsSize ? `Size ${size}` : drop.sizes[0]}</Text> : null}
       </View>
     );
     if (lockedEarly) {
@@ -116,14 +116,13 @@ export default function DropDetailScreen() {
   const overlay = (
     <>
       <DropPills drop={drop} />
-      {drop.tag.toLowerCase() !== "live now" ? <Text style={styles.tag}>{drop.tag}</Text> : null}
-      <Row style={{ alignItems: "flex-end" }} gap={S.md}>
+      <Row style={{ alignItems: "flex-end", marginTop: S.md }} gap={S.md}>
         <Title size={36} style={styles.heroTitle}>
           {drop.title}
         </Title>
         <Text style={styles.heroPrice}>{priceLabel(drop.priceGbp)}</Text>
       </Row>
-      <Body size={15} style={{ color: "#c8c8cc", marginTop: 4 }}>
+      <Body size={15} style={{ color: "#c8c8cc", marginTop: 6 }}>
         {drop.subtitle}
       </Body>
     </>
@@ -143,7 +142,7 @@ export default function DropDetailScreen() {
         {state.target ? (
           <FadeIn>
             <View style={detailStyles.card}>
-              <Label>{state.sub}</Label>
+              <Text style={styles.cardTitle}>{state.sub}</Text>
               <CountdownBoxes target={state.target} now={now} size="lg" style={{ marginVertical: S.md }} />
               <Body dim size={13}>
                 {state.headline}
@@ -156,35 +155,27 @@ export default function DropDetailScreen() {
           <FadeIn>
             <View style={detailStyles.card}>
               <Row style={{ justifyContent: "space-between" }}>
-                <Label>Stock</Label>
-                <Text style={[styles.small, left < 0.2 && { color: C.fire }]}>{left < 0.2 ? "Going fast" : "Live now"}</Text>
+                <Text style={styles.cardTitle}>Stock</Text>
+                {left < 0.2 ? <Text style={styles.small}>Going fast</Text> : null}
               </Row>
-              <Row gap={6} style={{ alignItems: "flex-end", marginVertical: S.sm }}>
+              <Row gap={6} style={{ alignItems: "flex-end", marginTop: S.md, marginBottom: S.md }}>
                 <Text style={styles.big}>{formatNumber(drop.remaining)}</Text>
-                <Text style={[styles.small, { marginBottom: 8 }]}>{`of ${formatNumber(drop.stock)} left`}</Text>
+                <Text style={[styles.small, { marginBottom: 10 }]}>{`of ${formatNumber(drop.stock)} left`}</Text>
               </Row>
-              <ProgressBar value={left} colour={left < 0.2 ? C.fire : C.accent} />
+              <ProgressBar value={left} height={6} />
             </View>
           </FadeIn>
         ) : null}
 
         {!drop.reservation && drop.status !== "soldout" && needsSize ? (
           <FadeIn index={1}>
-            <Row style={{ justifyContent: "space-between", marginTop: S.xxl, marginBottom: S.md }}>
-              <Text style={styles.sectionTitle}>Size</Text>
-              <Text style={styles.small}>{size ? `Size ${size} picked` : "Pick one"}</Text>
-            </Row>
+            <Text style={[styles.sectionTitle, { marginTop: 32, marginBottom: S.md }]}>Size</Text>
             <SizePicker sizes={drop.sizes} value={size} onChange={setSize} />
-            {!onSale ? (
-              <Body mute size={13} style={{ marginTop: S.sm }}>
-                {"Pick now and you're ready the second it opens."}
-              </Body>
-            ) : null}
           </FadeIn>
         ) : null}
 
         <FadeIn index={2}>
-          <Text style={[styles.sectionTitle, { marginTop: S.xxl, marginBottom: S.md }]}>The kit</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 32, marginBottom: S.md }]}>The kit</Text>
           <Body dim size={16} style={{ lineHeight: 25 }}>
             {drop.description}
           </Body>
@@ -192,16 +183,16 @@ export default function DropDetailScreen() {
 
         {drop.status !== "soldout" ? (
           <FadeIn index={3}>
-            <View style={[detailStyles.card, { marginTop: S.xxl }, drop.hasEarlyAccess && { borderColor: "rgba(124,196,255,0.35)" }]}>
+            <View style={[detailStyles.card, { marginTop: 32 }]}>
               <Row gap={S.md} style={{ alignItems: "flex-start" }}>
-                <Crown size={20} color={C.pro} />
+                <Crown size={18} color={C.pro} style={{ marginTop: 1 }} />
                 <View style={{ flex: 1 }}>
                   <Title size={17}>{drop.hasEarlyAccess ? "You have early access" : "How early access works"}</Title>
                   <Body dim size={13} style={{ marginTop: 4 }}>
                     {`Pro and Black reserve ${hrs} hours before the public, from ${dateLabel(drop.earlyAccessAt)} at ${timeLabel(drop.earlyAccessAt)}. Everyone else gets in from ${dateLabel(drop.releaseAt)} at ${timeLabel(drop.releaseAt)}.`}
                   </Body>
                   {!drop.hasEarlyAccess ? (
-                    <Button variant="outline" size="sm" title="See membership" onPress={() => router.push("/membership")} style={{ alignSelf: "flex-start", marginTop: S.md }} />
+                    <Button variant="secondary" size="sm" title="See membership" onPress={() => router.push("/membership")} style={{ alignSelf: "flex-start", marginTop: S.md }} />
                   ) : null}
                 </View>
               </Row>
@@ -214,7 +205,7 @@ export default function DropDetailScreen() {
             <Body dim size={14} style={{ flex: 1 }}>
               {drop.reminder ? "We'll ping you at public release" : "Get a ping at public release"}
             </Body>
-            <Button size="sm" variant={drop.reminder ? "primary" : "secondary"} icon={ReminderIcon} title={drop.reminder ? "On" : "Remind me"} loading={reminder.isPending} onPress={() => reminder.mutate(drop.id)} />
+            <Button size="sm" variant="secondary" icon={ReminderIcon} title={drop.reminder ? "On" : "Remind me"} loading={reminder.isPending} onPress={() => reminder.mutate(drop.id)} />
           </Row>
         ) : null}
       </HeroScreen>
@@ -225,13 +216,13 @@ export default function DropDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  tag: { color: C.textDim, fontSize: 11, fontWeight: "800", letterSpacing: 1.4, textTransform: "uppercase", marginTop: S.md },
-  heroTitle: { flex: 1, lineHeight: 38, letterSpacing: -0.8, textTransform: "uppercase", marginTop: 2 },
+  heroTitle: { flex: 1, lineHeight: 38, letterSpacing: -0.8 },
+  cardTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
   heroPrice: { color: C.text, fontFamily: F.display, fontSize: 36, letterSpacing: -1 },
   small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  big: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -1 },
+  big: { color: C.text, fontFamily: F.display, fontSize: 56, lineHeight: 60, letterSpacing: -1 },
   sectionTitle: { color: C.text, fontFamily: F.display, fontSize: 20 },
-  tick: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  tick: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
   barTitle: { color: C.text, fontFamily: F.display, fontSize: 17 },
   barSub: { color: C.textDim, fontSize: 12, marginTop: 1 },
   barPrice: { color: C.text, fontFamily: F.display, fontSize: 26, letterSpacing: -0.5 },

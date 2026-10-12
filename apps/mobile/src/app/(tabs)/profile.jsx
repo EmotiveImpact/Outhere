@@ -56,7 +56,7 @@ export default function ProfileScreen() {
       <SectionHeader title="Stats" />
       <StatsBlock profile={p} units={units} />
 
-      <SectionHeader title="Wallet" action="Rewards" onAction={() => router.push("/rewards")} />
+      <SectionHeader title="Wallet" />
       <FadeIn>
         <WalletCard wallet={walletQ.data} loading={walletQ.isPending} onRewards={() => router.push("/rewards")} />
       </FadeIn>

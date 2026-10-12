@@ -18,8 +18,8 @@ export default function ActionSheet({ visible, title, subtitle, header, options 
           {subtitle}
         </Body>
       ) : null}
-      <View style={{ marginTop: S.md, gap: 6 }}>
-        {options.map((o) => {
+      <View style={{ marginTop: S.lg }}>
+        {options.map((o, i) => {
           const Icon = o.icon;
           const colour = o.destructive ? C.danger : C.text;
           return (
@@ -31,7 +31,7 @@ export default function ActionSheet({ visible, title, subtitle, header, options 
                 // Let the sheet close before any follow-up alert or screen opens.
                 setTimeout(() => o.onPress?.(), 250);
               }}
-              style={styles.option}
+              style={[styles.option, i > 0 && styles.divider]}
             >
               {Icon ? (
                 <View style={[styles.icon, o.destructive && { backgroundColor: C.dangerDim }]}>
@@ -53,8 +53,9 @@ export default function ActionSheet({ visible, title, subtitle, header, options 
 
 const styles = StyleSheet.create({
   title: { color: C.text, fontFamily: F.display, fontSize: 22, marginTop: S.xs },
-  option: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 60, borderRadius: 18, paddingHorizontal: S.md, backgroundColor: C.surfaceHigh },
-  icon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#26262b", alignItems: "center", justifyContent: "center" },
+  option: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 60, paddingVertical: S.sm },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+  icon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
   optionText: { fontSize: 16, fontWeight: "600" },
-  hint: { color: C.textMute, fontSize: 12, marginTop: 2 },
+  hint: { color: C.textDim, fontSize: 13, marginTop: 2 },
 });

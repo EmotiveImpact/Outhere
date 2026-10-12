@@ -2,11 +2,8 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Trophy } from "lucide-react-native";
 import { Avatar, Button, C, F, PressableScale, R, S, Skeleton } from "@/components/ui";
 import { formatNumber } from "@/utils/format";
-
-const MEDALS = ["#FFD700", "#d7dde3", "#d39b6a"];
 
 export default function MiniBoard({ board, loading, onPlayer, onSettings, onMove }) {
   if (loading || !board) {
@@ -26,31 +23,28 @@ export default function MiniBoard({ board, loading, onPlayer, onSettings, onMove
   if (!top.length || !top[0].value) {
     return (
       <View style={[styles.card, { alignItems: "center", padding: S.xl }]}>
-        <Trophy size={24} color={C.gold} />
         <Text style={styles.emptyTitle}>The board's wide open</Text>
-        <Text style={styles.footer}>Nobody's logged steps here yet today. Take first place.</Text>
-        <Button title="Start a walk" size="sm" onPress={onMove} style={{ marginTop: S.md }} />
+        <Text style={styles.footer}>Nobody's logged steps here yet today.</Text>
+        <Button title="Start a walk" variant="secondary" size="sm" onPress={onMove} style={{ marginTop: S.md, borderWidth: 0 }} />
       </View>
     );
   }
   const me = board.me;
   const rows = me && me.rank > 3 ? [...top, me] : top;
   return (
-    <View style={[styles.card, { padding: S.sm }]}>
+    <View style={[styles.card, { paddingHorizontal: S.lg, paddingVertical: S.xs }]}>
       {rows.map((row, i) => {
-        const medal = MEDALS[row.rank - 1];
         return (
           <React.Fragment key={row.player.id}>
             {i === 3 ? <View style={styles.gap}><View style={styles.gapDot} /><View style={styles.gapDot} /><View style={styles.gapDot} /></View> : null}
-            <PressableScale onPress={() => onPlayer(row.player.id)} scaleTo={0.98} style={[styles.row, row.isMe && styles.rowMe]}>
-              <View style={[styles.rank, medal && { backgroundColor: `${medal}1f` }]}>
-                <Text style={[styles.rankText, medal && { color: medal }, row.isMe && !medal && { color: C.accent }]}>{row.rank}</Text>
-              </View>
-              <Avatar uri={row.player.avatar} name={row.player.name} colour={row.player.color} size={36} ring={row.isMe ? C.accent : undefined} />
-              <Text style={[styles.name, row.isMe && { fontWeight: "800" }]} numberOfLines={1}>
+            {i > 0 && i !== 3 ? <View style={styles.sep} /> : null}
+            <PressableScale onPress={() => onPlayer(row.player.id)} scaleTo={0.98} style={styles.row}>
+              <Text style={[styles.rankText, row.isMe && { color: C.text }]}>{row.rank}</Text>
+              <Avatar uri={row.player.avatar} name={row.player.name} colour={row.player.color} size={36} />
+              <Text style={[styles.name, row.isMe && { fontWeight: "700" }]} numberOfLines={1}>
                 {row.isMe ? "You" : row.player.name}
               </Text>
-              <Text style={[styles.value, row.isMe && { color: C.accent }]}>{formatNumber(row.value)}</Text>
+              <Text style={styles.value}>{formatNumber(row.value)}</Text>
             </PressableScale>
           </React.Fragment>
         );
@@ -69,15 +63,14 @@ export default function MiniBoard({ board, loading, onPlayer, onSettings, onMove
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: R.lg, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
-  row: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 52, paddingHorizontal: S.sm, borderRadius: 14 },
-  rowMe: { backgroundColor: C.accentDim },
-  rank: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  rankText: { color: C.textDim, fontFamily: F.display, fontSize: 15 },
-  name: { flex: 1, color: C.text, fontSize: 15, fontWeight: "600" },
-  value: { color: C.text, fontFamily: F.displayMedium, fontSize: 15, marginRight: S.sm },
+  card: { borderRadius: R.lg, backgroundColor: C.surface },
+  row: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 60 },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border },
+  rankText: { width: 18, color: C.textMute, fontFamily: F.displayMedium, fontSize: 15 },
+  name: { flex: 1, color: C.text, fontSize: 15, fontWeight: "500" },
+  value: { color: C.text, fontFamily: F.displayMedium, fontSize: 15 },
   gap: { flexDirection: "row", justifyContent: "center", gap: 4, paddingVertical: 4 },
   gapDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: C.textMute },
-  footer: { color: C.textMute, fontSize: 12, textAlign: "center", paddingVertical: S.sm, paddingHorizontal: S.md },
+  footer: { color: C.textMute, fontSize: 13, textAlign: "center", paddingVertical: S.md, paddingHorizontal: S.md },
   emptyTitle: { color: C.text, fontFamily: F.display, fontSize: 17, marginTop: S.sm },
 });

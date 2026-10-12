@@ -73,7 +73,7 @@ export default function Celebration({ trigger, title, subtitle }) {
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 50 },
   centre: { alignItems: "center", justifyContent: "center", marginTop: -80 },
-  badge: { alignItems: "center", paddingHorizontal: 24, paddingVertical: 16, borderRadius: 24, backgroundColor: "rgba(10,10,10,0.88)", borderWidth: 1, borderColor: "rgba(0,255,127,0.4)" },
-  title: { color: C.accent, fontFamily: F.display, fontSize: 40, letterSpacing: -1 },
-  subtitle: { color: C.text, fontSize: 14, fontWeight: "700", marginTop: 2 },
+  badge: { alignItems: "center", paddingHorizontal: 24, paddingVertical: 16, borderRadius: 24, backgroundColor: "rgba(18,18,20,0.94)" },
+  title: { color: C.text, fontFamily: F.display, fontSize: 40, letterSpacing: -1 },
+  subtitle: { color: C.textDim, fontSize: 14, fontWeight: "600", marginTop: 2 },
 });

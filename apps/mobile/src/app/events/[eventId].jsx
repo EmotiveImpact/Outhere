@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { CalendarCheck, CalendarClock, Check, Coins, Lock, MapPin, Sparkles, UserRound, Zap } from "lucide-react-native";
+import { CalendarClock, Check, Lock, MapPin, UserRound } from "lucide-react-native";
 import { engine, useEngineMutation, useEvent, useProfile, useSearchPlayers } from "@/data/hooks";
-import { AnimatedNumber, Body, Button, C, EmptyState, F, FadeIn, Header, Label, ProgressBar, R, Row, S, Screen, Title, toast } from "@/components/ui";
+import { AnimatedNumber, Body, Button, C, EmptyState, F, FadeIn, Header, ProgressBar, Row, S, Screen, Title, toast } from "@/components/ui";
 import { EventPills } from "@/components/happenings/EventCard";
 import { HeroScreen, HeroSkeleton, dayLabel, openDirections } from "@/components/happenings/shared";
 import { AvatarStack, InfoRow, detailStyles, useAttendees } from "@/components/happenings/DetailParts";
@@ -24,7 +24,7 @@ function ActionBar({ event, rsvp, checkIn }) {
     return (
       <Row gap={S.md} style={styles.barRow}>
         <View style={styles.tick}>
-          <Check size={18} color={C.accentText} strokeWidth={3} />
+          <Check size={18} color={C.text} strokeWidth={2.5} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.barTitle}>Checked in</Text>
@@ -37,7 +37,7 @@ function ActionBar({ event, rsvp, checkIn }) {
     return (
       <Row gap={S.md} style={styles.barRow}>
         <View style={styles.tick}>
-          <Check size={18} color={C.accentText} strokeWidth={3} />
+          <Check size={18} color={C.text} strokeWidth={2.5} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.barTitle}>{"You're going"}</Text>
@@ -85,7 +85,7 @@ export default function EventDetailScreen() {
   if (error || !event) {
     return (
       <Screen header={<Header back title="Event" />}>
-        <EmptyState icon={CalendarCheck} title="Event not found" body="It may have been moved or cancelled." action="See all events" onAction={() => router.replace("/outside/events")} />
+        <EmptyState title="Event not found" body="It may have been moved or cancelled." action="See all events" onAction={() => router.replace("/outside/events")} />
       </Screen>
     );
   }
@@ -119,7 +119,6 @@ export default function EventDetailScreen() {
         <FadeIn>
           <InfoRow
             icon={CalendarClock}
-            tint={live ? C.accent : C.text}
             title={`${dayLabel(event.startAt)}, ${timeLabel(event.startAt)} to ${timeLabel(event.endAt)}`}
             sub={live ? `Live now until ${timeLabel(event.endAt)}` : `Starts in ${countdown(event.startAt)}`}
           />
@@ -129,11 +128,11 @@ export default function EventDetailScreen() {
 
         {locked ? (
           <FadeIn index={1}>
-            <View style={[detailStyles.card, styles.lockCard]}>
+            <View style={[detailStyles.card, { marginTop: S.lg }]}>
               <Row gap={S.md}>
                 <Lock size={20} color={event.tierRequired === "black" ? C.black : C.pro} />
                 <Body dim size={14} style={{ flex: 1 }}>
-                  {`${event.tierRequired === "black" ? "Black members only." : "For Pro and Black members."} Upgrade to RSVP and earn the check-in reward.`}
+                  {`${event.tierRequired === "black" ? "Black members only." : "For Pro and Black members."} Upgrade to RSVP.`}
                 </Body>
               </Row>
             </View>
@@ -141,18 +140,18 @@ export default function EventDetailScreen() {
         ) : null}
 
         <FadeIn index={2}>
-          <View style={[detailStyles.card, { marginTop: S.xxl }]}>
+          <View style={[detailStyles.card, { marginTop: 32 }]}>
             <Row style={{ justifyContent: "space-between" }}>
-              <Label>{"Who's going"}</Label>
-              <Text style={[styles.small, !event.isFull && event.spotsLeft < 10 && { color: C.fire }]}>
+              <Text style={styles.cardTitle}>{"Who's going"}</Text>
+              <Text style={styles.small}>
                 {event.isFull ? "Full" : `${event.spotsLeft} spot${event.spotsLeft === 1 ? "" : "s"} left`}
               </Text>
             </Row>
-            <Row gap={6} style={{ alignItems: "flex-end", marginTop: S.sm, marginBottom: S.md }}>
+            <Row gap={6} style={{ alignItems: "flex-end", marginTop: S.md, marginBottom: S.md }}>
               <AnimatedNumber value={event.rsvpCount} style={styles.big} />
-              <Text style={[styles.small, { marginBottom: 8 }]}>{`of ${formatNumber(event.capacity)}`}</Text>
+              <Text style={[styles.small, { marginBottom: 10 }]}>{`of ${formatNumber(event.capacity)}`}</Text>
             </Row>
-            <ProgressBar value={fill} colour={event.isFull || event.spotsLeft < 10 ? C.fire : C.accent} />
+            <ProgressBar value={fill} height={6} />
             <Row gap={S.md} style={{ marginTop: S.lg }}>
               {shown ? <AvatarStack people={attendees} extra={Math.min(99, event.rsvpCount - shown)} /> : null}
               <Text style={[styles.small, { flex: 1 }]} numberOfLines={2}>
@@ -171,25 +170,20 @@ export default function EventDetailScreen() {
 
         <FadeIn index={4}>
           <Text style={styles.sectionTitle}>Show up and earn</Text>
-          <Row gap={S.md}>
-            <View style={styles.rewardTile}>
-              <Zap size={18} color={C.accent} fill={C.accent} />
+          <Row gap={S.xxl}>
+            <View>
               <Text style={styles.rewardValue}>+{formatNumber(event.rewardXp)}</Text>
-              <Label>XP</Label>
+              <Text style={styles.small}>XP</Text>
             </View>
-            <View style={styles.rewardTile}>
-              <Coins size={18} color={C.gold} />
-              <Text style={[styles.rewardValue, { color: C.gold }]}>+{formatNumber(event.rewardOut)}</Text>
-              <Label>OUT</Label>
+            <View>
+              <Text style={styles.rewardValue}>+{formatNumber(event.rewardOut)}</Text>
+              <Text style={styles.small}>OUT</Text>
             </View>
           </Row>
           {event.checkedIn ? (
-            <Row gap={S.sm} style={{ marginTop: S.md }}>
-              <Sparkles size={16} color={C.accent} />
-              <Body size={13} style={{ color: C.accent }}>
-                Banked. Nice one for showing up.
-              </Body>
-            </Row>
+            <Body dim size={13} style={{ marginTop: S.md }}>
+              Banked. Nice one for showing up.
+            </Body>
           ) : null}
         </FadeIn>
       </HeroScreen>
@@ -200,13 +194,12 @@ export default function EventDetailScreen() {
 
 const styles = StyleSheet.create({
   small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  big: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -1 },
-  lockCard: { marginTop: S.lg, borderColor: "rgba(124,196,255,0.3)" },
-  sectionTitle: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: S.xxl, marginBottom: S.md },
-  rewardTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: S.lg, gap: 6 },
-  rewardValue: { color: C.accent, fontFamily: F.display, fontSize: 32, letterSpacing: -1 },
+  big: { color: C.text, fontFamily: F.display, fontSize: 56, lineHeight: 60, letterSpacing: -1 },
+  cardTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
+  sectionTitle: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: 32, marginBottom: S.md },
+  rewardValue: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.8 },
   barRow: { minHeight: 56 },
   barTitle: { color: C.text, fontFamily: F.display, fontSize: 18 },
   barSub: { color: C.textDim, fontSize: 12, marginTop: 1 },
-  tick: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  tick: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
 });

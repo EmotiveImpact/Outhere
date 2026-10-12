@@ -66,7 +66,7 @@ export function Chips({ options, value, onChange, style }) {
             <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.label}</Text>
             {o.count != null ? (
               <View style={[styles.chipCount, active && styles.chipCountActive]}>
-                <Text style={[styles.chipCountText, active && { color: C.accent }]}>{o.count}</Text>
+                <Text style={[styles.chipCountText, active && { color: C.bg }]}>{o.count}</Text>
               </View>
             ) : null}
           </PressableScale>
@@ -97,7 +97,7 @@ export const SectionLabel = ({ title, count, live = false, style }) => (
   </Row>
 );
 
-/** Small "LIVE" pill with a pulsing dot. */
+/** Small "LIVE" pill with a pulsing dot. Neutral, only the dot is green. */
 export const LivePill = ({ label = "LIVE", style }) => (
   <View style={[styles.livePill, style]}>
     <LiveDot size={6} colour={C.accent} />
@@ -176,74 +176,51 @@ export function HeroSkeleton() {
   );
 }
 
-/** Splits a time left into boxed units: D H M when over a day, else H M S. */
+/** Time left as plain columns: D H M when over a day, else H M S. */
 export function CountdownBoxes({ target, now, size = "md", style }) {
   const diff = Math.max(0, Number(target) - now);
   const d = Math.floor(diff / 86_400_000);
   const h = Math.floor((diff % 86_400_000) / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
   const s = Math.floor((diff % 60_000) / 1000);
-  const units = d > 0 ? [[d, "DAYS"], [h, "HRS"], [m, "MIN"]] : [[h, "HRS"], [m, "MIN"], [s, "SEC"]];
+  const units = d > 0 ? [[d, "days"], [h, "hrs"], [m, "min"]] : [[h, "hrs"], [m, "min"], [s, "sec"]];
   const big = size === "lg";
   return (
-    <Row gap={big ? 10 : 8} style={style}>
-      {units.map(([v, l], i) => (
-        <React.Fragment key={l}>
-          {i ? <Text style={[styles.colon, big && { fontSize: 28 }]}>:</Text> : null}
-          <View style={[styles.unit, big && styles.unitBig]}>
-            <Text style={[styles.unitValue, big && { fontSize: 34 }]}>{String(v).padStart(2, "0")}</Text>
-            <Text style={styles.unitLabel}>{l}</Text>
-          </View>
-        </React.Fragment>
+    <Row gap={big ? 28 : 20} style={[{ alignItems: "flex-start" }, style]}>
+      {units.map(([v, l]) => (
+        <View key={l}>
+          <Text style={[styles.unitValue, big && { fontSize: 52, letterSpacing: -1.5 }]}>{String(v).padStart(2, "0")}</Text>
+          <Text style={styles.unitLabel}>{l}</Text>
+        </View>
       ))}
     </Row>
   );
 }
 
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
-/** Calendar tile: day number big, month small. */
-export function DateBlock({ ms, style }) {
-  const d = new Date(Number(ms));
-  return (
-    <View style={[styles.date, style]}>
-      <Text style={styles.dateDay}>{d.getDate()}</Text>
-      <Text style={styles.dateMonth}>{MONTHS[d.getMonth()]}</Text>
-    </View>
-  );
+/** One-line countdown, e.g. "2d 04h 12m" or "03h 12m 09s". */
+export function countdownText(target, now) {
+  const diff = Math.max(0, Number(target) - now);
+  const d = Math.floor(diff / 86_400_000);
+  const h = String(Math.floor((diff % 86_400_000) / 3_600_000)).padStart(2, "0");
+  const m = String(Math.floor((diff % 3_600_000) / 60_000)).padStart(2, "0");
+  const sec = String(Math.floor((diff % 60_000) / 1000)).padStart(2, "0");
+  return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${sec}s`;
 }
 
 const styles = StyleSheet.create({
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    height: 44,
-    paddingLeft: 18,
-    paddingRight: 8,
-    borderRadius: R.full,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  chipActive: { backgroundColor: C.accent, borderColor: C.accent },
-  chipText: { color: C.text, fontSize: 14, fontWeight: "700" },
-  chipTextActive: { color: C.accentText },
-  chipCount: { minWidth: 26, height: 26, paddingHorizontal: 6, borderRadius: 13, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  chipCountActive: { backgroundColor: C.accentText },
-  chipCountText: { color: C.textDim, fontSize: 12, fontWeight: "800" },
-  livePill: { flexDirection: "row", alignItems: "center", gap: 6, height: 24, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: "rgba(0,255,127,0.16)", borderWidth: 1, borderColor: "rgba(0,255,127,0.35)" },
-  livePillText: { color: C.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 },
-  glass: { overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 8, height: 40, paddingLeft: 16, paddingRight: 12, borderRadius: R.full, backgroundColor: C.surface },
+  chipActive: { backgroundColor: C.text },
+  chipText: { color: C.textDim, fontSize: 14, fontWeight: "600" },
+  chipTextActive: { color: C.bg },
+  chipCount: { minWidth: 18, alignItems: "center", justifyContent: "center" },
+  chipCountActive: {},
+  chipCountText: { color: C.textMute, fontSize: 13, fontWeight: "600" },
+  livePill: { flexDirection: "row", alignItems: "center", gap: 6, height: 24, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: "rgba(10,10,10,0.72)" },
+  livePillText: { color: C.text, fontSize: 11, fontWeight: "700", letterSpacing: 0.8 },
+  glass: { overflow: "hidden", alignItems: "center", justifyContent: "center" },
   topBar: { position: "absolute", left: S.lg, right: S.lg, justifyContent: "space-between" },
   overlay: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingBottom: S.lg },
-  bar: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingTop: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderStrong, overflow: "hidden" },
-  unit: { minWidth: 54, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 12, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.borderStrong, alignItems: "center" },
-  unitBig: { minWidth: 72, paddingVertical: 12, borderRadius: 16 },
-  unitValue: { color: C.text, fontFamily: F.display, fontSize: 26, letterSpacing: -0.5, fontVariant: ["tabular-nums"] },
-  unitLabel: { color: C.textMute, fontSize: 9, fontWeight: "800", letterSpacing: 1.2, marginTop: 1 },
-  colon: { color: C.textMute, fontFamily: F.display, fontSize: 22, marginTop: -14 },
-  date: { width: 52, paddingVertical: 6, borderRadius: 14, backgroundColor: "rgba(10,10,10,0.72)", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", alignItems: "center" },
-  dateDay: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 26, letterSpacing: -0.5 },
-  dateMonth: { color: C.accent, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 },
+  bar: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingTop: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, overflow: "hidden" },
+  unitValue: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.8, fontVariant: ["tabular-nums"] },
+  unitLabel: { color: C.textDim, fontSize: 13, marginTop: 2 },
 });

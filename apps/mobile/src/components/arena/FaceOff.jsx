@@ -2,10 +2,9 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Coins, Handshake, Trophy, Zap } from "lucide-react-native";
+import { Coins, Zap } from "lucide-react-native";
 import { AnimatedNumber, Avatar, C, F, FadeIn, PressableScale, R, Row, S } from "@/components/ui";
-import { formatScore, metricUnit, metricValue, playerName } from "./shared";
+import { formatScore, ME, metricUnit, metricValue, playerName } from "./shared";
 import { TugBar, VsBadge } from "./BattleCard";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -36,10 +35,8 @@ export function Countdown({ ms }) {
 export function Fighter({ player, value, metric, lead, colour, onPress }) {
   const body = (
     <View style={{ alignItems: "center" }}>
-      <View style={[styles.avatarGlow, lead && { shadowColor: colour, shadowOpacity: 0.7 }]}>
-        <View style={[styles.avatarRing, { borderColor: lead ? colour : C.borderStrong }]}>
-          <Avatar uri={player?.avatar} name={player?.name || ""} colour={colour} size={84} />
-        </View>
+      <View style={[styles.avatarRing, { borderColor: lead ? colour : "transparent" }]}>
+        <Avatar uri={player?.avatar} name={player?.name || ""} colour={colour} size={80} />
       </View>
       <Text style={styles.name} numberOfLines={1}>
         {playerName(player)}
@@ -49,7 +46,7 @@ export function Fighter({ player, value, metric, lead, colour, onPress }) {
         duration={900}
         format={(v) => formatScore(metric, v)}
         adjustsFontSizeToFit
-        style={[styles.score, lead && { color: colour === C.accent ? C.accent : C.text }]}
+        style={[styles.score, lead && { color: C.text }]}
       />
       <Text style={styles.unit}>{metricUnit(metric)}</Text>
     </View>
@@ -69,8 +66,8 @@ export function FaceOffRow({ battle, rival, onOpponent }) {
   return (
     <>
       <Row style={{ alignItems: "flex-start" }}>
-        <Fighter player={me.player} value={me.value} metric={metric} lead={iLead} colour={C.accent} />
-        <VsBadge size={46} style={{ marginTop: 22 }} />
+        <Fighter player={me.player} value={me.value} metric={metric} lead={iLead} colour={ME} />
+        <VsBadge size={40} style={{ marginTop: 22 }} />
         <Fighter player={opponent.player} value={opponent.value} metric={metric} lead={theyLead} colour={rival} onPress={onOpponent} />
       </Row>
       {battle.status !== "pending" ? <TugBar mine={me.value} theirs={opponent.value} rival={rival} height={12} style={{ marginTop: S.xl }} /> : null}
@@ -84,8 +81,6 @@ export function ResultCard({ battle, prize, rival }) {
   const opp = playerName(opponent.player);
   const won = result === "won";
   const lost = result === "lost";
-  const Icon = won ? Trophy : lost ? Handshake : Handshake;
-  const tint = won ? C.accent : lost ? rival : C.textDim;
   const title = won ? "You won" : lost ? `${opp} took it` : "Honours even";
   const line = won
     ? `${metricValue(metric, me.value)} to ${metricValue(metric, opponent.value)}. Proper.`
@@ -95,22 +90,13 @@ export function ResultCard({ battle, prize, rival }) {
 
   return (
     <FadeIn>
-      <View style={[styles.result, won && styles.resultWon]}>
-        <LinearGradient
-          colors={won ? ["rgba(0,255,127,0.28)", "rgba(0,255,127,0.04)"] : ["rgba(255,255,255,0.05)", "rgba(255,255,255,0)"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.resultIcon, { backgroundColor: `${tint}22`, borderColor: `${tint}55` }]}>
-          <Icon size={30} color={won ? C.gold : tint} fill={won ? C.gold : "transparent"} />
-        </View>
-        <Text style={[styles.resultTitle, won && { color: C.accent }]}>{title}</Text>
+      <View style={styles.result}>
+        <Text style={styles.resultTitle}>{title}</Text>
         <Text style={styles.resultLine}>{line}</Text>
         {prize ? (
-          <Row gap={S.sm} style={{ marginTop: S.lg }}>
-            <Reward icon={Zap} colour={C.accent} label={`+${prize.xp} XP`} />
-            {prize.out ? <Reward icon={Coins} colour={C.gold} label={`+${prize.out} OUT`} /> : null}
+          <Row gap={S.lg} style={{ marginTop: S.lg }}>
+            <Reward icon={Zap} label={`+${prize.xp} XP`} />
+            {prize.out ? <Reward icon={Coins} label={`+${prize.out} OUT`} /> : null}
           </Row>
         ) : null}
       </View>
@@ -118,30 +104,26 @@ export function ResultCard({ battle, prize, rival }) {
   );
 }
 
-function Reward({ icon: Icon, colour, label }) {
+function Reward({ icon: Icon, label }) {
   return (
-    <View style={[styles.reward, { borderColor: `${colour}66`, backgroundColor: `${colour}14` }]}>
-      <Icon size={15} color={colour} fill={Icon === Zap ? colour : "transparent"} />
-      <Text style={[styles.rewardText, { color: colour }]}>{label}</Text>
-    </View>
+    <Row gap={6}>
+      <Icon size={15} color={C.textDim} />
+      <Text style={styles.rewardText}>{label}</Text>
+    </Row>
   );
 }
 
 const styles = StyleSheet.create({
-  tile: { minWidth: 74, paddingVertical: 10, paddingHorizontal: 8, borderRadius: R.md, backgroundColor: "rgba(0,0,0,0.45)", borderWidth: 1, borderColor: C.border, alignItems: "center" },
-  tileValue: { color: C.text, fontFamily: F.display, fontSize: 40, letterSpacing: 1, lineHeight: 44, fontVariant: ["tabular-nums"] },
-  tileLabel: { color: C.textMute, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 2 },
-  colon: { color: C.textMute, fontFamily: F.display, fontSize: 28, marginTop: -16 },
-  avatarGlow: { borderRadius: 60, shadowColor: "#000", shadowOpacity: 0, shadowRadius: 18, shadowOffset: { width: 0, height: 0 } },
-  avatarRing: { padding: 3, borderRadius: 60, borderWidth: 2.5, backgroundColor: C.bg },
-  name: { color: C.textDim, fontSize: 14, fontWeight: "700", marginTop: S.md, maxWidth: "90%" },
-  score: { color: C.textDim, fontFamily: F.display, fontSize: 40, letterSpacing: -1.2, marginTop: 2, maxWidth: "100%" },
-  unit: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
-  result: { marginTop: S.lg, alignItems: "center", paddingVertical: S.xxl, paddingHorizontal: S.xl, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, overflow: "hidden" },
-  resultWon: { borderColor: "rgba(0,255,127,0.5)", shadowColor: C.accent, shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
-  resultIcon: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  resultTitle: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.8, marginTop: S.md, textAlign: "center" },
+  tile: { minWidth: 64, alignItems: "center" },
+  tileValue: { color: C.text, fontFamily: F.display, fontSize: 52, letterSpacing: -1, lineHeight: 58, fontVariant: ["tabular-nums"] },
+  tileLabel: { color: C.textDim, fontSize: 13, marginTop: 2 },
+  colon: { color: C.textMute, fontFamily: F.display, fontSize: 36, marginTop: -20 },
+  avatarRing: { padding: 3, borderRadius: 60, borderWidth: 2 },
+  name: { color: C.textDim, fontSize: 15, fontWeight: "600", marginTop: S.md, maxWidth: "90%" },
+  score: { color: C.textDim, fontFamily: F.display, fontSize: 36, letterSpacing: -1, marginTop: 2, maxWidth: "100%" },
+  unit: { color: C.textMute, fontSize: 13 },
+  result: { marginTop: S.lg, alignItems: "center", paddingVertical: S.xxl, paddingHorizontal: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
+  resultTitle: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.8, textAlign: "center" },
   resultLine: { color: C.textDim, fontSize: 15, lineHeight: 21, marginTop: 6, textAlign: "center" },
-  reward: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: R.full, borderWidth: 1 },
-  rewardText: { fontFamily: F.display, fontSize: 15 },
+  rewardText: { color: C.text, fontFamily: F.display, fontSize: 16 },
 });

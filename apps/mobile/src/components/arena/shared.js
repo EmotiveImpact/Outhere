@@ -51,6 +51,9 @@ export const MEDAL = { 1: "#FFD700", 2: "#C9CED6", 3: "#D08A4E" };
 // Score for a battle side, e.g. "12,480" or "8.42".
 export const formatScore = (metric, v) => (metric === "distance" ? Number(v || 0).toFixed(Number(v) >= 100 ? 0 : 1) : formatNumber(v));
 
+// My own colour in battles and rankings: plain white, so green stays for actions.
+export const ME = "#ffffff";
+
 // Fallback colour for a rival with no colour of their own.
 export const RIVAL = "#9B5CFF";
 export const rivalColour = (player) => (player?.color && player.color.toLowerCase() !== "#00ff7f" ? player.color : RIVAL);

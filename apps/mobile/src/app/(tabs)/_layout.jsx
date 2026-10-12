@@ -11,22 +11,18 @@ import { Avatar, C } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 import { useMoveStore } from "@/store/useMoveStore";
 
-// Icon with a soft accent pill that springs in behind it when the tab is active.
+// Icon that settles with a small spring when its tab becomes active. The
+// active state is the icon colour and a brighter label, nothing more.
 const AnimatedIcon = ({ focused, children }) => (
   <View style={tabStyles.iconWrap}>
-    <MotiView
-      animate={{ opacity: focused ? 1 : 0, scaleX: focused ? 1 : 0.5 }}
-      transition={{ type: "spring", stiffness: 380, damping: 26 }}
-      style={tabStyles.pill}
-    />
-    <MotiView animate={{ scale: focused ? 1.06 : 1, translateY: focused ? -1 : 0 }} transition={{ type: "spring", stiffness: 350, damping: 18 }}>
+    <MotiView animate={{ scale: focused ? 1.04 : 1 }} transition={{ type: "spring", stiffness: 350, damping: 20 }}>
       {children}
     </MotiView>
   </View>
 );
 
 const TabLabel = ({ focused, children }) => (
-  <Text style={[tabStyles.label, { color: focused ? C.text : C.textMute, fontWeight: focused ? "800" : "600" }]} numberOfLines={1}>
+  <Text style={[tabStyles.label, { color: focused ? C.text : C.textMute, fontWeight: focused ? "600" : "500" }]} numberOfLines={1}>
     {children}
   </Text>
 );
@@ -91,7 +87,7 @@ export default function TabLayout() {
           paddingBottom: bottomPad,
           backgroundColor: "transparent",
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: "rgba(255,255,255,0.08)",
+          borderTopColor: "rgba(255,255,255,0.06)",
           elevation: 0,
         },
         tabBarBackground: TabBackground,
@@ -152,7 +148,7 @@ export default function TabLayout() {
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedIcon focused={focused}>
-              <Avatar uri={profile?.avatar} name={profile?.name || profile?.username || ""} size={24} ring={focused ? C.accent : C.borderStrong} colour={profile?.color} />
+              <Avatar uri={profile?.avatar} name={profile?.name || profile?.username || ""} size={24} ring={focused ? C.accent : "transparent"} colour={profile?.color} />
             </AnimatedIcon>
           ),
         }}
@@ -164,6 +160,5 @@ export default function TabLayout() {
 
 const tabStyles = StyleSheet.create({
   iconWrap: { width: 56, height: 30, alignItems: "center", justifyContent: "center" },
-  pill: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 15, backgroundColor: "rgba(0,255,127,0.14)", borderWidth: 1, borderColor: "rgba(0,255,127,0.18)" },
   label: { fontSize: 11, letterSpacing: 0.2, marginTop: 3 },
 });

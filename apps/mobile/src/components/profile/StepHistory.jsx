@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Text, View } from "react-native";
-import { Footprints } from "lucide-react-native";
 import { useStepHistory } from "@/data/hooks";
 import { compactNumber } from "@/utils/format";
 import { AnimatedNumber, Body, C, Card, F, Label, Row, S, Segment, Skeleton } from "@/components/ui";
@@ -29,7 +28,7 @@ export default function StepHistory({ goal = 10000 }) {
         <View>
           <Label>Last {days} days</Label>
           <AnimatedNumber value={total} style={{ color: C.text, fontFamily: F.display, fontSize: 28, letterSpacing: -0.6, marginTop: 2 }} />
-          <Body mute size={12}>
+          <Body dim size={13}>
             steps · {activeDays} active day{activeDays === 1 ? "" : "s"} · avg {compactNumber(list.length ? total / list.length : 0)}
           </Body>
         </View>
@@ -51,14 +50,13 @@ export default function StepHistory({ goal = 10000 }) {
             {list.map((d) => {
               const h = Math.max(4, (d.steps / max) * CHART_H);
               const hit = d.steps >= goal;
-              return <View key={d.date} style={{ flex: 1, height: h, borderRadius: days === 7 ? 6 : 2, backgroundColor: hit ? C.accent : d.active ? "rgba(0,255,127,0.45)" : C.surfaceHigh }} />;
+              return <View key={d.date} style={{ flex: 1, height: h, borderRadius: days === 7 ? 6 : 2, backgroundColor: hit ? C.accent : d.active ? C.borderStrong : C.surfaceHigh }} />;
             })}
             {total === 0 ? (
               <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 24, alignItems: "center", justifyContent: "center" }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: S.sm, backgroundColor: C.surfaceHigh, borderRadius: 99, paddingHorizontal: 14, height: 36, borderWidth: 1, borderColor: C.border }}>
-                  <Footprints size={15} color={C.accent} />
-                  <Text style={{ color: C.text, fontSize: 13, fontWeight: "600" }}>Day one starts now. Get moving.</Text>
-                </View>
+                <Body dim size={13}>
+                  Day one starts now.
+                </Body>
               </View>
             ) : null}
           </View>

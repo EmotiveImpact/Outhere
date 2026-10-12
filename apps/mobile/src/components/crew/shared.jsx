@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
-import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { Check, Globe, Lock } from "lucide-react-native";
 import { create } from "zustand";
 import { Avatar, C, Cover, F, LiveDot, Pill, PressableScale } from "@/components/ui";
@@ -49,34 +49,23 @@ const initialsOf = (name = "") =>
     .map((w) => w[0]?.toUpperCase())
     .join("") || "?";
 
-// Hexagonal medal, shaded in the tier colour. Reads as a badge, not a tag.
+// Hexagonal medal, flat in the tier colour. Reads as a badge, not a tag.
 const HEX = "M12 1.5 L21.5 7 L21.5 17 L12 22.5 L2.5 17 L2.5 7 Z";
-const HEX_INNER = "M12 5 L18.4 8.7 L18.4 15.3 L12 19 L5.6 15.3 L5.6 8.7 Z";
 
 export function BadgeMedal({ tier, size = 28 }) {
   const colour = BADGE_COLOURS[tier] || C.textDim;
-  const id = `medal-${tier || "none"}`;
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} viewBox="0 0 24 24" style={{ position: "absolute" }}>
-        <Defs>
-          <SvgGradient id={id} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#ffffff" stopOpacity="0.85" />
-            <Stop offset="0.35" stopColor={colour} stopOpacity="1" />
-            <Stop offset="1" stopColor={colour} stopOpacity="0.55" />
-          </SvgGradient>
-        </Defs>
-        <Path d={HEX} fill={`url(#${id})`} />
-        <Path d={HEX_INNER} fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth={1.2} />
+        <Path d={HEX} fill={colour} />
       </Svg>
       <Text style={{ color: "rgba(0,0,0,0.72)", fontFamily: F.display, fontSize: size * 0.36, marginTop: 1 }}>{(tier || "?")[0]}</Text>
     </View>
   );
 }
 
-/** Medal plus tier name, for crew headers and cards. */
+/** Medal plus tier name, for crew headers. Neutral pill; the medal carries the colour. */
 export const BadgePill = ({ tier, style, size = "sm" }) => {
-  const colour = BADGE_COLOURS[tier] || C.textDim;
   const big = size === "lg";
   return (
     <View
@@ -86,19 +75,17 @@ export const BadgePill = ({ tier, style, size = "sm" }) => {
           alignItems: "center",
           gap: 6,
           paddingLeft: 3,
-          paddingRight: big ? 12 : 9,
+          paddingRight: big ? 12 : 10,
           height: big ? 32 : 26,
           borderRadius: 99,
-          backgroundColor: `${colour}1a`,
-          borderWidth: 1,
-          borderColor: `${colour}55`,
+          backgroundColor: C.surfaceHigh,
           alignSelf: "flex-start",
         },
         style,
       ]}
     >
       <BadgeMedal tier={tier} size={big ? 26 : 20} />
-      <Text style={{ color: colour, fontSize: big ? 12 : 11, fontWeight: "800", letterSpacing: 0.8 }}>{(tier || "").toUpperCase()}</Text>
+      <Text style={{ color: C.text, fontSize: big ? 13 : 12, fontWeight: "600" }}>{tier}</Text>
     </View>
   );
 };

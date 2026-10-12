@@ -28,9 +28,9 @@ export { toast, ToastHost, ModalToastHost } from "./Toast";
 
 export const C = {
   bg: "#0a0a0a",
-  surface: "#141416",
-  surfaceHigh: "#1c1c1f",
-  border: "#232326",
+  surface: "#121214",
+  surfaceHigh: "#1a1a1d",
+  border: "#1f1f22",
   borderStrong: "#34343a",
   text: "#ffffff",
   textDim: "#a1a1a6",
@@ -136,9 +136,9 @@ export function Header({ title, subtitle, back = false, onBack, right, large = f
   );
 }
 
-export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, style }) => (
-  <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, style]}>
-    <Icon size={size} color={C.text} />
+export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, active = false, style }) => (
+  <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, active && { backgroundColor: C.text }, style]}>
+    <Icon size={size} color={active ? C.bg : C.text} />
     {badge ? (
       <View style={styles.badgeDot}>
         <Text style={styles.badgeDotText}>{badge > 9 ? "9+" : badge}</Text>
@@ -169,10 +169,10 @@ export function Card({ children, onPress, highlight = false, padding = S.lg, sty
 
 export const SectionHeader = ({ title, action, onAction, style }) => (
   <Row style={[{ justifyContent: "space-between", marginTop: S.xxl, marginBottom: S.md }, style]}>
-    <Title size={19}>{title}</Title>
+    <Title size={20}>{title}</Title>
     {action ? (
       <Pressable onPress={onAction} hitSlop={8}>
-        <Text style={{ color: C.accent, fontSize: 14, fontWeight: "600" }}>{action}</Text>
+        <Text style={{ color: C.textDim, fontSize: 14, fontWeight: "600" }}>{action}</Text>
       </Pressable>
     ) : null}
   </Row>
@@ -184,7 +184,7 @@ export const Divider = ({ style }) => <View style={[{ height: StyleSheet.hairlin
 
 const BUTTON_VARIANTS = {
   primary: { bg: C.accent, fg: C.accentText, border: C.accent },
-  secondary: { bg: C.surfaceHigh, fg: C.text, border: C.borderStrong },
+  secondary: { bg: C.surfaceHigh, fg: C.text, border: "transparent" },
   ghost: { bg: "transparent", fg: C.text, border: "transparent" },
   outline: { bg: "transparent", fg: C.accent, border: C.accent },
   danger: { bg: C.dangerDim, fg: C.danger, border: "rgba(255,69,58,0.4)" },
@@ -202,7 +202,6 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon:
       style={[
         styles.button,
         { height, backgroundColor: v.bg, borderColor: v.border, paddingHorizontal: size === "sm" ? 14 : 20 },
-        variant === "primary" && !off && styles.buttonGlow,
         full && { alignSelf: "stretch" },
         off && { opacity: 0.45 },
         style,
@@ -392,8 +391,8 @@ export function EmptyState({ icon: Icon, title, body, action, onAction, style })
   return (
     <View style={[{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 24 }, style]}>
       {Icon ? (
-        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center", marginBottom: S.lg }}>
-          <Icon size={28} color={C.accent} />
+        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center", marginBottom: S.lg }}>
+          <Icon size={28} color={C.textDim} />
         </View>
       ) : null}
       <Title size={20} style={{ textAlign: "center" }}>{title}</Title>
@@ -407,20 +406,19 @@ const styles = StyleSheet.create({
   label: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 1.1, textTransform: "uppercase" },
   header: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.md },
   headerRight: { flexDirection: "row", alignItems: "center", gap: S.sm },
-  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
   badgeDot: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   badgeDotText: { color: C.accentText, fontSize: 10, fontWeight: "800" },
-  card: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border },
-  cardHighlight: { borderColor: "rgba(0,255,127,0.35)", backgroundColor: "#0f1a14" },
+  card: { backgroundColor: C.surface, borderRadius: R.lg },
+  cardHighlight: { borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", backgroundColor: "#161618" },
   button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: S.sm, borderRadius: R.full, borderWidth: 1 },
-  buttonGlow: { shadowColor: C.accent, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  segment: { flexDirection: "row", backgroundColor: C.surface, borderRadius: R.full, padding: 4, borderWidth: 1, borderColor: C.border },
+  segment: { flexDirection: "row", backgroundColor: C.surface, borderRadius: R.full, padding: 4 },
   segmentItem: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-  segmentItemActive: { backgroundColor: C.accent },
+  segmentItemActive: { backgroundColor: C.text },
   segmentText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  segmentTextActive: { color: C.accentText },
+  segmentTextActive: { color: C.bg },
   pill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, height: 22, borderRadius: R.full, alignSelf: "flex-start" },
   pillText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
-  statTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, borderWidth: 1, borderColor: C.border, padding: S.md, gap: 4 },
+  statTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, padding: S.md, gap: 4 },
   statValue: { color: C.text, fontFamily: F.display, fontSize: 24 },
 });

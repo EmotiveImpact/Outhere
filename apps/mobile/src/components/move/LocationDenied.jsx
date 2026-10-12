@@ -1,10 +1,10 @@
-// Shown when location access is off. Moving needs GPS, so we show what you
-// get, then the exact steps to switch it back on.
+// Shown when location access is off. Moving needs GPS, so we say why, then
+// give the exact steps to switch it back on.
 
 import React from "react";
 import { Linking, Platform, StyleSheet, Text, View } from "react-native";
 import { MapPinOff, Settings } from "lucide-react-native";
-import { Body, Button, C, Cover, F, FadeIn, R, S, Title } from "@/components/ui";
+import { Body, Button, C, F, FadeIn, R, S, Title } from "@/components/ui";
 
 const stepsFor = (web, canAskAgain) =>
   web
@@ -19,17 +19,9 @@ export default function LocationDenied({ onRetry, onHistory, canAskAgain }) {
   return (
     <View style={styles.wrap}>
       <FadeIn>
-        <Cover seed="move-location" accent={C.accent} style={styles.art}>
-          <View style={styles.badgeWrap}>
-            <View style={styles.badgeHalo} />
-            <View style={styles.badge}>
-              <MapPinOff size={30} color={C.accentText} strokeWidth={2.4} />
-            </View>
-          </View>
-        </Cover>
-      </FadeIn>
-
-      <FadeIn index={1}>
+        <View style={styles.icon}>
+          <MapPinOff size={24} color={C.textDim} />
+        </View>
         <Title size={28} style={{ marginTop: S.xl }}>
           Switch on location
         </Title>
@@ -38,18 +30,16 @@ export default function LocationDenied({ onRetry, onHistory, canAskAgain }) {
         </Body>
       </FadeIn>
 
-      <FadeIn index={2} style={styles.steps}>
+      <FadeIn index={1} style={styles.steps}>
         {steps.map((step, i) => (
           <View key={step} style={styles.step}>
-            <View style={styles.num}>
-              <Text style={styles.numText}>{i + 1}</Text>
-            </View>
+            <Text style={styles.num}>{i + 1}</Text>
             <Text style={styles.stepText}>{step}</Text>
           </View>
         ))}
       </FadeIn>
 
-      <FadeIn index={3} style={{ gap: S.sm, marginTop: S.xl }}>
+      <FadeIn index={2} style={{ gap: S.sm, marginTop: 32 }}>
         {web ? (
           <Button title="Try again" size="lg" onPress={onRetry} full />
         ) : canAskAgain ? (
@@ -68,13 +58,9 @@ export default function LocationDenied({ onRetry, onHistory, canAskAgain }) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, justifyContent: "center", paddingHorizontal: S.gutter },
-  art: { height: 168, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
-  badgeWrap: { width: 96, height: 96, alignItems: "center", justifyContent: "center" },
-  badgeHalo: { position: "absolute", width: 96, height: 96, borderRadius: 48, backgroundColor: "rgba(0,255,127,0.18)", borderWidth: 1, borderColor: "rgba(0,255,127,0.4)" },
-  badge: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 0 } },
-  steps: { marginTop: S.xl, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: S.lg, gap: S.md },
-  step: { flexDirection: "row", alignItems: "center", gap: S.md },
-  num: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" },
-  numText: { color: C.text, fontFamily: F.display, fontSize: 14 },
+  icon: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
+  steps: { marginTop: S.xxl, backgroundColor: C.surface, borderRadius: R.lg, padding: S.lg, gap: S.lg },
+  step: { flexDirection: "row", alignItems: "center", gap: S.lg },
+  num: { width: 16, color: C.textMute, fontFamily: F.display, fontSize: 17 },
   stepText: { color: C.text, fontSize: 15, flex: 1 },
 });

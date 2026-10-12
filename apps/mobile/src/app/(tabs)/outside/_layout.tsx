@@ -89,19 +89,15 @@ export default function OutsideLayout() {
           </View>
 
           <View style={styles.balances}>
-            <PressableScale onPress={() => router.push("/(tabs)/profile" as any)} accessibilityLabel="Your XP" scaleTo={0.92} style={[styles.balance, styles.balanceXp]}>
-              <View style={[styles.balanceIcon, { backgroundColor: "rgba(0,255,127,0.16)" }]}>
-                <Zap color={C.accent} size={11} fill={C.accent} />
-              </View>
+            <PressableScale onPress={() => router.push("/(tabs)/profile" as any)} accessibilityLabel="Your XP" scaleTo={0.92} style={styles.balance}>
+              <Zap color={C.textDim} size={13} />
               <AnimatedNumber value={profile?.xp ?? 0} format={compactNumber} style={styles.balanceText} />
               <Text style={styles.balanceUnit}>XP</Text>
             </PressableScale>
-            <PressableScale onPress={() => router.push("/rewards" as any)} accessibilityLabel="Your OUT balance" scaleTo={0.92} style={[styles.balance, styles.balanceOut]}>
-              <View style={[styles.balanceIcon, { backgroundColor: "rgba(255,215,0,0.16)" }]}>
-                <Coins color={C.gold} size={11} />
-              </View>
+            <PressableScale onPress={() => router.push("/rewards" as any)} accessibilityLabel="Your OUT balance" scaleTo={0.92} style={styles.balance}>
+              <Coins color={C.textDim} size={13} />
               <AnimatedNumber value={profile?.out ?? 0} format={compactNumber} style={styles.balanceText} />
-              <Text style={[styles.balanceUnit, { color: "rgba(255,215,0,0.7)" }]}>OUT</Text>
+              <Text style={styles.balanceUnit}>OUT</Text>
             </PressableScale>
           </View>
         </View>
@@ -138,29 +134,22 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   header: { paddingHorizontal: S.gutter, backgroundColor: C.bg },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: S.lg },
-  eyebrow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 2 },
-  eyebrowText: { color: C.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
+  eyebrow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 4 },
+  eyebrowText: { color: C.textDim, fontSize: 13 },
   title: { color: C.text, fontFamily: F.display, fontSize: 34, letterSpacing: -1, lineHeight: 40 },
   balances: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
-  balance: { flexDirection: "row", alignItems: "center", gap: 5, height: 32, paddingLeft: 4, paddingRight: 10, borderRadius: R.full, borderWidth: 1 },
-  balanceXp: { backgroundColor: "rgba(0,255,127,0.07)", borderColor: "rgba(0,255,127,0.22)" },
-  balanceOut: { backgroundColor: "rgba(255,215,0,0.06)", borderColor: "rgba(255,215,0,0.2)" },
-  balanceIcon: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  balance: { flexDirection: "row", alignItems: "center", gap: 5, height: 32, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: C.surface },
   balanceText: { color: C.text, fontFamily: F.display, fontSize: 14, letterSpacing: -0.2 },
-  balanceUnit: { color: "rgba(0,255,127,0.75)", fontSize: 9, fontWeight: "800", letterSpacing: 0.8 },
-  tabs: { flexDirection: "row", gap: S.xl + 2, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.borderStrong },
+  balanceUnit: { color: C.textMute, fontSize: 11, fontWeight: "600" },
+  tabs: { flexDirection: "row", gap: S.xl + 2, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   tab: { paddingBottom: S.md, paddingTop: 4, paddingHorizontal: 2, minHeight: 36, justifyContent: "flex-end" },
   tabText: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 16, letterSpacing: 0.1 },
   tabTextActive: { color: C.text },
   underline: {
     position: "absolute",
     bottom: -1,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: C.accent,
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: C.text,
   },
 });
