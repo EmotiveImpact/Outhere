@@ -86,7 +86,7 @@ export function ToastHost({ inModal = false }) {
           >
             <Icon size={18} color={tone.iconColour || tone.fg} />
             <View style={{ flexShrink: 1 }}>
-              <Text style={{ color: tone.fg, fontWeight: "700", fontSize: 14 }} numberOfLines={1}>
+              <Text style={{ color: tone.fg, fontWeight: "600", fontSize: 14 }} numberOfLines={1}>
                 {t.title}
               </Text>
               {t.body ? (

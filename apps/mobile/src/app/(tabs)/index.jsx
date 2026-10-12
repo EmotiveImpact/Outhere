@@ -224,5 +224,5 @@ const styles = StyleSheet.create({
   card: { borderRadius: R.lg, backgroundColor: C.surface, padding: S.lg },
   chartFoot: { marginTop: S.lg, paddingTop: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, justifyContent: "space-between" },
   footText: { color: C.textMute, fontSize: 13 },
-  footStrong: { color: C.text, fontWeight: "700" },
+  footStrong: { color: C.text, fontWeight: "600" },
 });

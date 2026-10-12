@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   units: { padding: 3, borderRadius: R.full, backgroundColor: C.surfaceHigh },
   unit: { minWidth: 44, height: 32, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   unitActive: { backgroundColor: C.text },
-  unitText: { color: C.textDim, fontSize: 13, fontWeight: "700" },
+  unitText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
   devTag: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 14 },
   version: { color: C.textMute, fontSize: 13, textAlign: "center", marginTop: 32 },
 });

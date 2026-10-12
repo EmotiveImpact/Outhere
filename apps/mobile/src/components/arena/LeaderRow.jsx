@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: C.bg,
   },
-  medalText: { color: "#111", fontSize: 11, fontWeight: "800" },
+  medalText: { color: "#111", fontSize: 11, fontWeight: "600" },
   podiumName: {
     color: C.text,
     fontFamily: F.displayMedium,
@@ -282,6 +282,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface,
   },
   chipActive: { backgroundColor: C.text },
-  chipText: { color: C.textDim, fontSize: 14, fontWeight: "700" },
+  chipText: { color: C.textDim, fontSize: 14, fontWeight: "600" },
   chipTextActive: { color: C.bg },
 });

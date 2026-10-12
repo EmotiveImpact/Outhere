@@ -70,7 +70,7 @@ export function ReservedSheet({ visible, onClose, drop }) {
 const styles = StyleSheet.create({
   size: { minWidth: 60, height: 52, paddingHorizontal: 16, borderRadius: R.md, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
   sizeActive: { backgroundColor: C.text, borderColor: C.text },
-  sizeText: { color: C.text, fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
+  sizeText: { color: C.text, fontSize: 15, fontWeight: "600", letterSpacing: 0.3 },
   title: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.5 },
   body: { color: C.textDim, fontSize: 15, lineHeight: 21, marginTop: S.sm },
   product: { marginTop: S.xl, paddingVertical: S.lg, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.border },

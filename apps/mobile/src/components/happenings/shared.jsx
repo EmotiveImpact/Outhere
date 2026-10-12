@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   chipCountActive: {},
   chipCountText: { color: C.textMute, fontSize: 13, fontWeight: "600" },
   livePill: { flexDirection: "row", alignItems: "center", gap: 6, height: 24, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: "rgba(10,10,10,0.72)" },
-  livePillText: { color: C.text, fontSize: 11, fontWeight: "700", letterSpacing: 0.8 },
+  livePillText: { color: C.text, fontSize: 11, fontWeight: "600", letterSpacing: 0.8 },
   glass: { overflow: "hidden", alignItems: "center", justifyContent: "center" },
   topBar: { position: "absolute", left: S.lg, right: S.lg, justifyContent: "space-between" },
   overlay: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingBottom: S.lg },

@@ -48,7 +48,7 @@ export const C = {
 };
 
 export const F = {
-  display: "ClashGrotesk-Bold",
+  display: "ClashGrotesk-Medium",
   displayMedium: "ClashGrotesk-Medium",
 };
 
@@ -403,12 +403,12 @@ export function EmptyState({ icon: Icon, title, body, action, onAction, style })
 }
 
 const styles = StyleSheet.create({
-  label: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 1.1, textTransform: "uppercase" },
+  label: { color: C.textMute, fontSize: 11, fontWeight: "600", letterSpacing: 1.1, textTransform: "uppercase" },
   header: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.md },
   headerRight: { flexDirection: "row", alignItems: "center", gap: S.sm },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
   badgeDot: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
-  badgeDotText: { color: C.accentText, fontSize: 10, fontWeight: "800" },
+  badgeDotText: { color: C.accentText, fontSize: 10, fontWeight: "600" },
   card: { backgroundColor: C.surface, borderRadius: R.lg },
   cardHighlight: { borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", backgroundColor: "#161618" },
   button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: S.sm, borderRadius: R.full, borderWidth: 1 },
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   segmentText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
   segmentTextActive: { color: C.bg },
   pill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, height: 22, borderRadius: R.full, alignSelf: "flex-start" },
-  pillText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
+  pillText: { fontSize: 11, fontWeight: "600", letterSpacing: 0.4 },
   statTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, padding: S.md, gap: 4 },
   statValue: { color: C.text, fontFamily: F.display, fontSize: 24 },
 });

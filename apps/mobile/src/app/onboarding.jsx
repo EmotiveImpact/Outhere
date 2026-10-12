@@ -101,7 +101,7 @@ export default function OnboardingScreen() {
           </Text>
           {__DEV__ ? (
             <PressableScale hitSlop={12} onPress={() => create.mutate({ username: randomUsername(), city: "London" })} scaleTo={0.94} style={styles.devSkip}>
-              <Text style={{ color: C.textMute, fontSize: 12, fontWeight: "700" }}>Skip (dev)</Text>
+              <Text style={{ color: C.textMute, fontSize: 12, fontWeight: "600" }}>Skip (dev)</Text>
             </PressableScale>
           ) : (
             <View style={{ width: 40 }} />
@@ -208,7 +208,7 @@ function CityStep({ n, value, onChange }) {
                 style={[styles.city, active && styles.cityActive]}
               >
                 {active ? <Check size={16} color={C.bg} strokeWidth={3} /> : null}
-                <Text style={[styles.cityText, active && { color: C.bg, fontWeight: "700" }]}>{c.name}</Text>
+                <Text style={[styles.cityText, active && { color: C.bg, fontWeight: "600" }]}>{c.name}</Text>
               </MotiView>
             </PressableScale>
           );

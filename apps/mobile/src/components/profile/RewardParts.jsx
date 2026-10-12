@@ -79,7 +79,7 @@ export function CategoryChips({ categories, value, onChange }) {
               backgroundColor: active ? C.text : C.surface,
             }}
           >
-            <Text style={{ color: active ? C.bg : C.textDim, fontSize: 13, fontWeight: "700" }}>{c}</Text>
+            <Text style={{ color: active ? C.bg : C.textDim, fontSize: 13, fontWeight: "600" }}>{c}</Text>
           </PressableScale>
         );
       })}

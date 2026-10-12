@@ -151,7 +151,7 @@ function Side({ player, value, metric, lead, colour, right = false }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: C.surface, borderRadius: R.lg, padding: S.lg, overflow: "hidden" },
   meta: { color: C.textDim, fontSize: 13 },
-  liveText: { color: C.text, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
+  liveText: { color: C.text, fontSize: 11, fontWeight: "600", letterSpacing: 1 },
   vsBadge: { alignItems: "center", justifyContent: "center", backgroundColor: C.surfaceHigh },
   vsText: { color: C.textDim, fontFamily: F.display, letterSpacing: 0.5 },
   faceName: { color: C.text, fontFamily: F.displayMedium, fontSize: 16, marginTop: S.sm, maxWidth: "92%" },

@@ -41,7 +41,7 @@ export default function MiniBoard({ board, loading, onPlayer, onSettings, onMove
             <PressableScale onPress={() => onPlayer(row.player.id)} scaleTo={0.98} style={styles.row}>
               <Text style={[styles.rankText, row.isMe && { color: C.text }]}>{row.rank}</Text>
               <Avatar uri={row.player.avatar} name={row.player.name} colour={row.player.color} size={36} />
-              <Text style={[styles.name, row.isMe && { fontWeight: "700" }]} numberOfLines={1}>
+              <Text style={[styles.name, row.isMe && { fontWeight: "600" }]} numberOfLines={1}>
                 {row.isMe ? "You" : row.player.name}
               </Text>
               <Text style={styles.value}>{formatNumber(row.value)}</Text>

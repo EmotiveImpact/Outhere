@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  changeText: { color: C.text, fontSize: 13, fontWeight: "700" },
+  changeText: { color: C.text, fontSize: 13, fontWeight: "600" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
   cell: { flexBasis: "47%", flexGrow: 1 },
   chip: {

@@ -194,7 +194,7 @@ export function AvatarStack({ players = [], total, size = 28, max = 4, ringColou
             justifyContent: "center",
           }}
         >
-          <Text style={{ color: C.textDim, fontSize: size * 0.36, fontWeight: "700" }}>+{extra}</Text>
+          <Text style={{ color: C.textDim, fontSize: size * 0.36, fontWeight: "600" }}>+{extra}</Text>
         </View>
       ) : null}
     </View>

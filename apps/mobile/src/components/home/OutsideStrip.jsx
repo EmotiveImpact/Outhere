@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   count: { color: C.text, fontFamily: F.display, fontSize: 28, letterSpacing: -0.5 },
   meta: { color: C.textDim, fontSize: 13, marginTop: 2 },
   more: { marginLeft: -10, width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceHigh, borderWidth: 2, borderColor: C.surface, alignItems: "center", justifyContent: "center" },
-  moreText: { color: C.textDim, fontSize: 10, fontWeight: "800" },
+  moreText: { color: C.textDim, fontSize: 10, fontWeight: "600" },
   state: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.textMute },
   toggleTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
   toggleBody: { color: C.textMute, fontSize: 13, marginTop: 1 },

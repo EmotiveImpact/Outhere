@@ -180,7 +180,7 @@ function Info({ label, value, last = false }) {
 
 const styles = StyleSheet.create({
   hero: { padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
-  liveText: { color: C.text, fontSize: 12, fontWeight: "700", letterSpacing: 1 },
+  liveText: { color: C.text, fontSize: 12, fontWeight: "600", letterSpacing: 1 },
   meta: { color: C.textDim, fontSize: 13 },
   standing: { color: C.textDim, fontSize: 15, fontWeight: "600", textAlign: "center", marginTop: S.lg },
   cancelTitle: { color: C.text, fontFamily: F.display, fontSize: 22, marginTop: S.sm },

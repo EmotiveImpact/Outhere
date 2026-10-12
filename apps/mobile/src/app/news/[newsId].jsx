@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   byline: { marginTop: S.xl, paddingBottom: S.xl, marginBottom: S.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderStrong },
   mark: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
   markText: { color: C.text, fontFamily: F.display, fontSize: 18 },
-  bylineName: { color: C.text, fontSize: 14, fontWeight: "700" },
+  bylineName: { color: C.text, fontSize: 14, fontWeight: "600" },
   para: { color: "#d4d4d8", fontSize: 17, lineHeight: 28, marginBottom: S.xl },
   lead: { color: C.text },
   moreTitle: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: S.xxl, marginBottom: S.xs },

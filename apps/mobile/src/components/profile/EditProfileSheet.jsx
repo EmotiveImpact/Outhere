@@ -62,7 +62,7 @@ export default function EditProfileSheet({ visible, profile, onClose }) {
         </Pressable>
         <Title size={18}>Edit profile</Title>
         <Pressable onPress={submit} disabled={!canSave || save.isPending} hitSlop={12} style={{ minHeight: 44, justifyContent: "center" }}>
-          <Text style={{ color: canSave ? C.text : C.textMute, fontSize: 16, fontWeight: "700" }}>{save.isPending ? "Saving" : "Save"}</Text>
+          <Text style={{ color: canSave ? C.text : C.textMute, fontSize: 16, fontWeight: "600" }}>{save.isPending ? "Saving" : "Save"}</Text>
         </Pressable>
       </Row>
 
