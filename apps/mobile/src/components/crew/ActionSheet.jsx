@@ -1,56 +1,60 @@
 import React from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Body, C, F, S } from "@/components/ui";
-import { hapticSelection } from "@/services/haptics";
+import { StyleSheet, Text, View } from "react-native";
+import { ChevronRight } from "lucide-react-native";
+import { Body, C, F, PressableScale, S, Sheet } from "@/components/ui";
 
 /**
- * Bottom action sheet that works the same on iOS and Android (Android alerts
- * only show three buttons). options: [{ label, icon, destructive, onPress }]
+ * List of actions in the kit bottom sheet. Works the same on iOS and Android
+ * (Android alerts only show three buttons).
+ * options: [{ label, hint, icon, destructive, onPress }]
  */
-export default function ActionSheet({ visible, title, subtitle, options = [], onClose }) {
-  const insets = useSafeAreaInsets();
+export default function ActionSheet({ visible, title, subtitle, header, options = [], onClose }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + S.md }]}>
-        <View style={styles.grabber} />
-        {title ? <Text style={styles.title}>{title}</Text> : null}
-        {subtitle ? <Body dim size={13} style={{ marginTop: 2, marginBottom: S.sm }}>{subtitle}</Body> : null}
+    <Sheet visible={visible} onClose={onClose}>
+      {header}
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {subtitle ? (
+        <Body dim size={13} style={{ marginTop: 2 }}>
+          {subtitle}
+        </Body>
+      ) : null}
+      <View style={{ marginTop: S.md, gap: 6 }}>
         {options.map((o) => {
           const Icon = o.icon;
           const colour = o.destructive ? C.danger : C.text;
           return (
-            <Pressable
+            <PressableScale
               key={o.label}
+              scaleTo={0.98}
               onPress={() => {
-                hapticSelection();
                 onClose();
-                // Let the sheet close before any follow-up alert opens.
+                // Let the sheet close before any follow-up alert or screen opens.
                 setTimeout(() => o.onPress?.(), 250);
               }}
-              style={({ pressed }) => [styles.option, pressed && { backgroundColor: C.surfaceHigh }]}
+              style={styles.option}
             >
-              {Icon ? <Icon size={19} color={colour} /> : null}
-              <Text style={[styles.optionText, { color: colour }]}>{o.label}</Text>
-            </Pressable>
+              {Icon ? (
+                <View style={[styles.icon, o.destructive && { backgroundColor: C.dangerDim }]}>
+                  <Icon size={18} color={colour} />
+                </View>
+              ) : null}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.optionText, { color: colour }]}>{o.label}</Text>
+                {o.hint ? <Text style={styles.hint}>{o.hint}</Text> : null}
+              </View>
+              {!o.destructive ? <ChevronRight size={16} color={C.textMute} /> : null}
+            </PressableScale>
           );
         })}
-        <Pressable onPress={onClose} style={({ pressed }) => [styles.cancel, pressed && { opacity: 0.7 }]}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
       </View>
-    </Modal>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.6)" },
-  sheet: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: C.border, paddingHorizontal: S.gutter, paddingTop: S.sm },
-  grabber: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: C.borderStrong, marginBottom: S.md },
-  title: { color: C.text, fontFamily: F.display, fontSize: 20 },
-  option: { flexDirection: "row", alignItems: "center", gap: S.md, height: 52, borderRadius: 14, paddingHorizontal: S.sm },
+  title: { color: C.text, fontFamily: F.display, fontSize: 22, marginTop: S.xs },
+  option: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 60, borderRadius: 18, paddingHorizontal: S.md, backgroundColor: C.surfaceHigh },
+  icon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#26262b", alignItems: "center", justifyContent: "center" },
   optionText: { fontSize: 16, fontWeight: "600" },
-  cancel: { marginTop: S.sm, height: 50, borderRadius: 99, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  cancelText: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
+  hint: { color: C.textMute, fontSize: 12, marginTop: 2 },
 });

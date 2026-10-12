@@ -2,7 +2,7 @@
 // a generated "night route" artwork in the item's accent colour, so a card
 // still looks designed while the photo loads, offline, or if it fails.
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -63,6 +63,9 @@ function RouteArt({ seed, accent }) {
 export function Cover({ source, seed = "outhere", accent, scrim = false, style, children, contentFit = "cover" }) {
   const colour = accent || accentFor(seed);
   const src = imageSource(source);
+  const [failed, setFailed] = useState(false);
+  // Bundled images are ready at once; remote ones stay hidden until loaded.
+  const [loaded, setLoaded] = useState(typeof source === "number");
   return (
     <View style={[{ overflow: "hidden", backgroundColor: "#0d0f0e" }, style]}>
       <LinearGradient
@@ -72,7 +75,7 @@ export function Cover({ source, seed = "outhere", accent, scrim = false, style, 
         style={StyleSheet.absoluteFill}
       />
       <RouteArt seed={seed} accent={colour} />
-      {src ? <Image source={src} style={StyleSheet.absoluteFill} contentFit={contentFit} transition={250} /> : null}
+      {src && !failed ? <Image source={src} style={[StyleSheet.absoluteFill, { opacity: loaded ? 1 : 0 }]} contentFit={contentFit} transition={250} onLoad={() => setLoaded(true)} onError={() => setFailed(true)} /> : null}
       {scrim ? (
         <LinearGradient colors={["transparent", "rgba(10,10,10,0.55)", "rgba(10,10,10,0.95)"]} locations={[0.3, 0.7, 1]} style={StyleSheet.absoluteFill} />
       ) : null}

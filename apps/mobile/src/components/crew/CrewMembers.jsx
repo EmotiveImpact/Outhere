@@ -1,26 +1,27 @@
 import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Crown, MoreHorizontal, Shield, ShieldMinus, ShieldPlus, UserRound, UserX } from "lucide-react-native";
-import { Avatar, Body, C, Card, Loading, S } from "@/components/ui";
+import { Body, C, Card, F, FadeIn, LiveDot, PressableScale, Row, S, SkeletonList } from "@/components/ui";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { compactNumber, timeAgo } from "@/utils/format";
 import ActionSheet from "./ActionSheet";
-import { ROLE_LABEL } from "./shared";
+import { PlayerAvatar, ROLE_LABEL, crewAccent, playerName } from "./shared";
 
 const ROLE_ORDER = { owner: 0, admin: 1, member: 2 };
 
 /** Member list. Owners and admins get a menu per member to manage roles. */
 export default function CrewMembers({ crew }) {
   const router = useRouter();
-  const remove = useEngineMutation(engine.removeCrewMember);
-  const setRole = useEngineMutation(engine.setCrewRole);
+  const remove = useEngineMutation(engine.removeCrewMember, { success: "Removed from the crew" });
+  const setRole = useEngineMutation(engine.setCrewRole, { success: "Role updated" });
   const [selected, setSelected] = useState(null);
 
-  if (!crew.members) return <Loading />;
+  if (!crew.members) return <SkeletonList count={5} height={64} />;
   const members = [...crew.members].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || b.weekSteps - a.weekSteps);
   const canManage = crew.myRole === "owner" || crew.myRole === "admin";
-  const accent = crew.accent || C.accent;
+  const accent = crewAccent(crew);
+  const outside = members.filter((m) => m.isOutside).length;
 
   const confirm = (title, body, action, onPress, destructive = false) =>
     Alert.alert(title, body, [
@@ -35,12 +36,14 @@ export default function CrewMembers({ crew }) {
     if (crew.myRole === "owner" && m.role === "member")
       options.push({
         label: "Make admin",
+        hint: "Can edit the crew and remove members",
         icon: ShieldPlus,
         onPress: () => confirm(`Make ${name} an admin?`, "Admins can edit crew details and remove members.", "Make admin", () => setRole.mutate([crew.id, m.player.id, "admin"])),
       });
     if (crew.myRole === "owner" && m.role === "admin")
       options.push({
         label: "Remove admin role",
+        hint: "They stay in the crew as a member",
         icon: ShieldMinus,
         onPress: () => confirm(`Demote ${name}?`, "They stay in the crew as a member.", "Demote", () => setRole.mutate([crew.id, m.player.id, "member"])),
       });
@@ -55,50 +58,74 @@ export default function CrewMembers({ crew }) {
   }
 
   return (
-    <Card padding={0} style={{ marginBottom: S.md }}>
-      {members.map((m, i) => {
-        const isMe = m.player.isMe;
-        const manageable = canManage && !isMe && m.role !== "owner" && !(crew.myRole === "admin" && m.role === "admin");
-        return (
-          <Pressable
-            key={m.player.id}
-            onPress={() => router.push(isMe ? "/(tabs)/profile" : `/player/${m.player.id}`)}
-            style={({ pressed }) => [styles.row, i > 0 && styles.divider, pressed && { opacity: 0.6 }]}
-          >
-            <Avatar uri={m.player.avatar} name={m.player.name || m.player.username} size={42} outside={m.isOutside} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {isMe ? "You" : m.player.name || m.player.username}
-                </Text>
-                {m.role === "owner" ? <Crown size={14} color={C.gold} /> : m.role === "admin" ? <Shield size={14} color={accent} /> : null}
-              </View>
-              <Body mute size={12}>
-                {ROLE_LABEL[m.role]} · {compactNumber(m.weekSteps)} steps this week{m.isOutside ? " · outside now" : ""}
-              </Body>
-            </View>
-            {manageable ? (
-              <Pressable onPress={() => setSelected(m)} hitSlop={10} style={styles.more} accessibilityLabel={`Manage ${m.player.username}`}>
-                <MoreHorizontal size={18} color={C.textDim} />
-              </Pressable>
-            ) : null}
-          </Pressable>
-        );
-      })}
+    <View style={{ marginBottom: S.md }}>
+      <Row style={{ justifyContent: "space-between", marginBottom: S.md, paddingHorizontal: 4 }}>
+        <Text style={styles.count}>
+          {members.length} {members.length === 1 ? "member" : "members"}
+        </Text>
+        {outside ? (
+          <Row gap={6}>
+            <LiveDot size={7} />
+            <Text style={styles.outside}>{outside} outside now</Text>
+          </Row>
+        ) : null}
+      </Row>
+      <Card padding={0}>
+        {members.map((m, i) => {
+          const isMe = m.player.isMe;
+          const manageable = canManage && !isMe && m.role !== "owner" && !(crew.myRole === "admin" && m.role === "admin");
+          return (
+            <FadeIn key={m.player.id} index={i}>
+              <PressableScale
+                onPress={() => router.push(isMe ? "/(tabs)/profile" : `/player/${m.player.id}`)}
+                scaleTo={0.985}
+                style={[styles.row, i > 0 && styles.divider]}
+              >
+                <PlayerAvatar player={m.player} size={44} outside={m.isOutside} />
+                <View style={{ flex: 1 }}>
+                  <Row gap={6}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {playerName(m.player)}
+                    </Text>
+                    {m.role === "owner" ? <Crown size={14} color={C.gold} /> : m.role === "admin" ? <Shield size={14} color={accent} /> : null}
+                  </Row>
+                  <Body mute size={12} numberOfLines={1}>
+                    {ROLE_LABEL[m.role]} · {compactNumber(m.weekSteps)} steps this week
+                  </Body>
+                </View>
+                {manageable ? (
+                  <PressableScale onPress={() => setSelected(m)} hitSlop={8} scaleTo={0.88} style={styles.more} accessibilityLabel={`Manage ${m.player.username}`}>
+                    <MoreHorizontal size={18} color={C.textDim} />
+                  </PressableScale>
+                ) : null}
+              </PressableScale>
+            </FadeIn>
+          );
+        })}
+      </Card>
       <ActionSheet
         visible={!!selected}
         title={selected ? selected.player.name || selected.player.username : ""}
         subtitle={selected ? `${ROLE_LABEL[selected.role]} · joined ${timeAgo(selected.joinedAt)}` : ""}
+        header={
+          selected ? (
+            <View style={{ marginBottom: S.sm }}>
+              <PlayerAvatar player={selected.player} size={52} />
+            </View>
+          ) : null
+        }
         options={options}
         onClose={() => setSelected(null)}
       />
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  count: { color: C.textDim, fontSize: 13, fontFamily: F.displayMedium },
+  outside: { color: C.accent, fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   name: { color: C.text, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-  more: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  more: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
 });

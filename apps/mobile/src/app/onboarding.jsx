@@ -2,16 +2,18 @@
 // counting, then engine.createProfile and into the app.
 
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import ConfettiCannon from "react-native-confetti-cannon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { Pedometer } from "expo-sensors";
-import { AtSign, Check, ChevronLeft, Footprints, MapPin, ShieldCheck, Users, X } from "lucide-react-native";
+import { AtSign, Check, ChevronLeft, Coins, Footprints, MapPin, ShieldCheck, Users, X, Zap } from "lucide-react-native";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { CITIES } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/services/haptics";
-import { Body, Button, C, F, Label, ProgressBar, R, Row, S, Title } from "@/components/ui";
+import { AnimatedBar, Body, Button, C, F, Label, PressableScale, R, Row, S, toast } from "@/components/ui";
 
 const STEPS = ["username", "city", "crew", "motion"];
 
@@ -26,6 +28,7 @@ export default function OnboardingScreen() {
   const [city, setCity] = useState("London");
   const [crewCode, setCrewCode] = useState("");
   const [motion, setMotion] = useState("unknown"); // unknown | asking | granted | denied | unavailable
+  const [welcome, setWelcome] = useState(null); // the new profile, once created
   const reqId = useRef(0);
 
   // Live username check, debounced.
@@ -54,9 +57,9 @@ export default function OnboardingScreen() {
       hapticSuccess();
       const wanted = vars?.crewCode;
       if (wanted && !profile?.crewsCount) {
-        Alert.alert("Crew code not found", `We couldn't find a crew with ${wanted}. You can join one from the Club tab.`);
+        toast("Crew code not found", `Nothing matched ${wanted}. Join a crew from the Crew tab.`);
       }
-      router.replace("/(tabs)");
+      setWelcome(profile || { username: vars?.username });
     },
   });
 
@@ -85,37 +88,40 @@ export default function OnboardingScreen() {
   };
   const back = () => (step === 0 ? (router.canGoBack() ? router.back() : router.replace("/welcome")) : setStep(step - 1));
 
+  if (welcome) return <Success profile={welcome} onDone={() => router.replace("/(tabs)")} />;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <LinearGradient colors={["rgba(0,255,127,0.08)", "rgba(0,255,127,0)"]} style={[StyleSheet.absoluteFill, { height: 320 }]} pointerEvents="none" />
       <View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.gutter }}>
         <Row style={{ justifyContent: "space-between", height: 44 }}>
-          <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" }}>
+          <PressableScale onPress={back} hitSlop={12} scaleTo={0.9} accessibilityLabel="Back" style={styles.back}>
             <ChevronLeft size={22} color={C.text} />
-          </Pressable>
-          <Label>
-            Step {step + 1} of {STEPS.length}
-          </Label>
+          </PressableScale>
+          <Text style={styles.counter}>
+            <Text style={{ color: C.text }}>{String(step + 1).padStart(2, "0")}</Text> / {String(STEPS.length).padStart(2, "0")}
+          </Text>
           {__DEV__ ? (
-            <Pressable
-              hitSlop={12}
-              onPress={() => create.mutate({ username: randomUsername(), city: "London" })}
-              style={{ paddingHorizontal: 12, height: 32, borderRadius: R.full, borderWidth: 1, borderColor: C.border, justifyContent: "center" }}
-            >
+            <PressableScale hitSlop={12} onPress={() => create.mutate({ username: randomUsername(), city: "London" })} scaleTo={0.94} style={styles.devSkip}>
               <Text style={{ color: C.textMute, fontSize: 12, fontWeight: "700" }}>Skip (dev)</Text>
-            </Pressable>
+            </PressableScale>
           ) : (
             <View style={{ width: 40 }} />
           )}
         </Row>
-        <ProgressBar value={(step + 1) / STEPS.length} height={4} style={{ marginTop: S.md }} />
+        <Row gap={6} style={{ marginTop: S.md }}>
+          {STEPS.map((s, i) => (
+            <AnimatedBar key={s} value={i <= step ? 1 : 0} height={4} track={C.surfaceHigh} style={{ flex: 1 }} />
+          ))}
+        </Row>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.xxl, paddingBottom: S.xl }} keyboardShouldPersistTaps="handled">
-        <MotiView key={key} from={{ opacity: 0, translateX: 16 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "timing", duration: 280 }}>
-          {key === "username" && <UsernameStep value={username} onChange={setUsername} check={check} onSubmit={next} />}
-          {key === "city" && <CityStep value={city} onChange={setCity} />}
-          {key === "crew" && <CrewStep value={crewCode} onChange={setCrewCode} />}
-          {key === "motion" && <MotionStep status={motion} onAsk={askMotion} />}
+      <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.xxl + S.sm, paddingBottom: S.xl }} keyboardShouldPersistTaps="handled">
+        <MotiView key={key} from={{ opacity: 0, translateX: 28 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "spring", damping: 20, stiffness: 220 }}>
+          {key === "username" && <UsernameStep n={step + 1} value={username} onChange={setUsername} check={check} onSubmit={next} />}
+          {key === "city" && <CityStep n={step + 1} value={city} onChange={setCity} />}
+          {key === "crew" && <CrewStep n={step + 1} value={crewCode} onChange={setCrewCode} />}
+          {key === "motion" && <MotionStep n={step + 1} status={motion} onAsk={askMotion} />}
         </MotiView>
       </ScrollView>
 
@@ -136,22 +142,25 @@ export default function OnboardingScreen() {
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
-const StepTitle = ({ title, body }) => (
+const KICKERS = ["Who are you", "Your patch", "Your people", "The engine"];
+
+const StepTitle = ({ n, title, body }) => (
   <View style={{ marginBottom: S.xxl }}>
-    <Title size={34}>{title}</Title>
-    <Body dim size={16} style={{ marginTop: S.sm }}>
+    <Label style={{ color: C.accent, marginBottom: S.sm }}>{KICKERS[n - 1]}</Label>
+    <Text style={styles.stepTitle}>{title}</Text>
+    <Body dim size={16} style={{ marginTop: S.md, lineHeight: 23 }}>
       {body}
     </Body>
   </View>
 );
 
-function UsernameStep({ value, onChange, check, onSubmit }) {
+function UsernameStep({ n, value, onChange, check, onSubmit }) {
   const tone = check.state === "ok" ? C.accent : check.state === "bad" ? C.danger : C.border;
   return (
     <>
-      <StepTitle title="Pick your name" body="This is how people find you, battle you and see you on the board." />
-      <Row gap={S.sm} style={{ height: 58, borderRadius: R.md, borderWidth: 1, borderColor: tone, backgroundColor: C.surface, paddingHorizontal: S.lg }}>
-        <AtSign size={18} color={C.textMute} />
+      <StepTitle n={n} title="Pick your name." body="This is how people find you, battle you and see you on the board." />
+      <Row gap={S.sm} style={[styles.field, { borderColor: tone }, check.state === "ok" && styles.fieldOk]}>
+        <View style={{ width: 20 }}><AtSign size={20} color={check.state === "ok" ? C.accent : C.textMute} /></View>
         <TextInput
           value={value}
           onChangeText={(t) => onChange(t.replace(/\s/g, "").toLowerCase())}
@@ -163,13 +172,19 @@ function UsernameStep({ value, onChange, check, onSubmit }) {
           maxLength={20}
           returnKeyType="next"
           onSubmitEditing={onSubmit}
-          style={{ flex: 1, color: C.text, fontSize: 18, fontFamily: F.displayMedium }}
+          style={{ flex: 1, color: C.text, fontSize: 22, fontFamily: F.displayMedium, outlineStyle: "none" }}
         />
-        {check.state === "ok" ? <Check size={20} color={C.accent} /> : check.state === "bad" ? <X size={20} color={C.danger} /> : null}
+        {check.state === "ok" ? (
+          <MotiView from={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", damping: 10 }} style={styles.okBadge}>
+            <Check size={14} color={C.accentText} strokeWidth={3} />
+          </MotiView>
+        ) : check.state === "bad" ? (
+          <X size={20} color={C.danger} />
+        ) : null}
       </Row>
       <Body size={13} style={{ marginTop: S.sm, color: check.state === "bad" ? C.danger : check.state === "ok" ? C.accent : C.textMute }}>
         {check.state === "checking"
-          ? "Checking..."
+          ? "Checking it's free..."
           : check.state === "ok"
             ? "Nice, that one's yours."
             : check.state === "bad"
@@ -180,32 +195,24 @@ function UsernameStep({ value, onChange, check, onSubmit }) {
   );
 }
 
-function CityStep({ value, onChange }) {
+function CityStep({ n, value, onChange }) {
   return (
     <>
-      <StepTitle title="Where are you based?" body="Your city sets your local leaderboard, events and who's out near you." />
+      <StepTitle n={n} title="Where do you move?" body="Your city sets your local leaderboard, events and who's out near you." />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: S.sm }}>
         {CITIES.map((c) => {
           const active = c.name === value;
           return (
-            <Pressable
-              key={c.name}
-              onPress={() => onChange(c.name)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                paddingHorizontal: S.lg,
-                height: 46,
-                borderRadius: R.full,
-                borderWidth: 1,
-                borderColor: active ? C.accent : C.border,
-                backgroundColor: active ? C.accentDim : C.surface,
-              }}
-            >
-              <MapPin size={15} color={active ? C.accent : C.textMute} />
-              <Text style={{ color: active ? C.accent : C.text, fontSize: 15, fontWeight: "600" }}>{c.name}</Text>
-            </Pressable>
+            <PressableScale key={c.name} onPress={() => onChange(c.name)} scaleTo={0.9}>
+              <MotiView
+                animate={{ scale: active ? 1.04 : 1 }}
+                transition={{ type: "spring", damping: 12, stiffness: 260 }}
+                style={[styles.city, active && styles.cityActive]}
+              >
+                {active ? <Check size={16} color={C.accentText} strokeWidth={3} /> : <MapPin size={15} color={C.textMute} />}
+                <Text style={[styles.cityText, active && { color: C.accentText, fontWeight: "800" }]}>{c.name}</Text>
+              </MotiView>
+            </PressableScale>
           );
         })}
       </View>
@@ -213,12 +220,12 @@ function CityStep({ value, onChange }) {
   );
 }
 
-function CrewStep({ value, onChange }) {
+function CrewStep({ n, value, onChange }) {
   return (
     <>
-      <StepTitle title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew. No code? Skip it." />
-      <Row gap={S.sm} style={{ height: 58, borderRadius: R.md, borderWidth: 1, borderColor: value ? C.accent : C.border, backgroundColor: C.surface, paddingHorizontal: S.lg }}>
-        <Users size={18} color={C.textMute} />
+      <StepTitle n={n} title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew. No code? Skip it." />
+      <Row gap={S.sm} style={[styles.field, { borderColor: value ? C.accent : C.border }]}>
+        <View style={{ width: 20 }}><Users size={20} color={value ? C.accent : C.textMute} /></View>
         <TextInput
           value={value}
           onChangeText={(t) => onChange(t.replace(/\s/g, "").toUpperCase())}
@@ -227,17 +234,17 @@ function CrewStep({ value, onChange }) {
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={10}
-          style={{ flex: 1, color: C.text, fontSize: 18, fontFamily: F.displayMedium, letterSpacing: 2 }}
+          style={{ flex: 1, color: C.text, fontSize: 22, fontFamily: F.displayMedium, letterSpacing: 3, outlineStyle: "none" }}
         />
       </Row>
       <Body mute size={13} style={{ marginTop: S.sm }}>
-        You can join or start a crew any time from the Club tab.
+        You can join or start a crew any time from the Crew tab.
       </Body>
     </>
   );
 }
 
-function MotionStep({ status, onAsk }) {
+function MotionStep({ n, status, onAsk }) {
   const granted = status === "granted";
   const note = {
     denied: "No worries. You can turn on Motion & Fitness for OutHere in your phone's settings later.",
@@ -245,15 +252,15 @@ function MotionStep({ status, onAsk }) {
   }[status];
   return (
     <>
-      <StepTitle title="Your steps do the work" body="OutHere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
+      <StepTitle n={n} title="Your steps do the work." body="OutHere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
       <View style={{ gap: S.lg, marginBottom: S.xxl }}>
         {[
           { icon: Footprints, text: "5 XP for every 1,000 steps, plus bonuses for active days and hitting your goal." },
           { icon: ShieldCheck, text: "Only step counts are read. Your data stays on this phone." },
         ].map(({ icon: Icon, text }) => (
           <Row key={text} gap={S.md} style={{ alignItems: "flex-start" }}>
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" }}>
-              <Icon size={17} color={C.accent} />
+            <View style={styles.bullet}>
+              <Icon size={18} color={C.accent} />
             </View>
             <Body dim style={{ flex: 1, marginTop: 6 }}>
               {text}
@@ -277,3 +284,75 @@ function MotionStep({ status, onAsk }) {
     </>
   );
 }
+
+// ── Success ───────────────────────────────────────────────────────────────────
+
+function Success({ profile, onDone }) {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    const t = setTimeout(() => done.current(), 3400);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top, paddingBottom: insets.bottom + S.lg, paddingHorizontal: S.gutter }}>
+      <LinearGradient colors={["rgba(0,255,127,0.18)", "rgba(0,255,127,0.03)", "rgba(0,255,127,0)"]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <MotiView from={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 11, stiffness: 160 }}>
+          <View style={styles.burstOuter}>
+            <View style={styles.burstInner}>
+              <Check size={52} color={C.accentText} strokeWidth={3} />
+            </View>
+          </View>
+        </MotiView>
+        <MotiView from={{ opacity: 0, translateY: 14 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 420, delay: 260 }} style={{ alignItems: "center" }}>
+          <Label style={{ color: C.accent, marginTop: S.xxl }}>You're in</Label>
+          <Text style={styles.successTitle} numberOfLines={1} adjustsFontSizeToFit>@{profile.username}</Text>
+          <Body dim size={16} style={{ textAlign: "center", marginTop: S.sm }}>
+            Welcome to the game. Here's something to start you off.
+          </Body>
+        </MotiView>
+        <Row gap={S.sm} style={{ marginTop: S.xl }}>
+          {[
+            { icon: Zap, label: "+100 XP", tint: C.accent },
+            { icon: Coins, label: "+20 OUT", tint: C.gold },
+          ].map(({ icon: Icon, label, tint }, i) => (
+            <MotiView
+              key={label}
+              from={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", damping: 10, stiffness: 200, delay: 520 + i * 140 }}
+              style={[styles.reward, { borderColor: `${tint}55`, backgroundColor: `${tint}14` }]}
+            >
+              <Icon size={16} color={tint} />
+              <Text style={[styles.rewardText, { color: tint }]}>{label}</Text>
+            </MotiView>
+          ))}
+        </Row>
+      </View>
+      <Button title="Into the app" size="lg" full onPress={onDone} />
+      <ConfettiCannon count={120} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={380} fallSpeed={2800} colors={[C.accent, "#ffffff", "#7dffbe", C.gold]} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  counter: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 14, letterSpacing: 1 },
+  devSkip: { paddingHorizontal: 12, height: 32, borderRadius: R.full, borderWidth: 1, borderColor: C.border, justifyContent: "center" },
+  stepTitle: { color: C.text, fontFamily: F.display, fontSize: 42, lineHeight: 44, letterSpacing: -1.2 },
+  field: { height: 64, borderRadius: R.lg, borderWidth: 1, backgroundColor: C.surface, paddingHorizontal: S.lg },
+  fieldOk: { backgroundColor: "rgba(0,255,127,0.05)" },
+  okBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  city: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: S.lg, height: 48, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
+  cityActive: { backgroundColor: C.accent, borderColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  cityText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  bullet: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
+  burstOuter: { width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(0,255,127,0.12)", borderWidth: 1, borderColor: "rgba(0,255,127,0.3)", alignItems: "center", justifyContent: "center" },
+  burstInner: { width: 104, height: 104, borderRadius: 52, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 30, shadowOffset: { width: 0, height: 0 } },
+  successTitle: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -1.2, marginTop: S.xs, maxWidth: 340 },
+  reward: { flexDirection: "row", alignItems: "center", gap: 6, height: 40, paddingHorizontal: 16, borderRadius: R.full, borderWidth: 1 },
+  rewardText: { fontFamily: F.display, fontSize: 16 },
+});

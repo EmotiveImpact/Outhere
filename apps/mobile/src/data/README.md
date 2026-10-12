@@ -16,7 +16,8 @@ app; the server stack will be chosen later and slotted in behind this layer.
 - Write with `useEngineMutation(engine.someFn)`. Pass several arguments as an
   array: `mutate([crewId, text])`. Writes refresh every query automatically.
 - A `TIER_REQUIRED` error opens the upgrade sheet on its own; other errors show
-  an alert. Pass `{ silent: true }` to handle errors yourself.
+  a toast. Pass `{ silent: true }` to handle errors yourself, and
+  `{ success: "Joined" }` to confirm success with a toast.
 - Build UI from `components/ui` (Screen, Header, Card, Button, Segment, Pill,
   Avatar, StatTile, ProgressBar, ListRow, EmptyState, Loading) and format with
   `utils/format.js`.

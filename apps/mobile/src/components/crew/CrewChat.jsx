@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { MessageSquare, Send } from "lucide-react-native";
-import { Avatar, C, EmptyState, Loading, S } from "@/components/ui";
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { ArrowUp, MessageSquare } from "lucide-react-native";
+import { C, EmptyState, PressableScale, S, Skeleton } from "@/components/ui";
 import { engine, useCrewMessages, useEngineMutation } from "@/data/hooks";
 import { dateLabel, timeLabel } from "@/utils/format";
+import { PlayerAvatar, playerName } from "./shared";
 
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const GROUP_MS = 5 * 60 * 1000;
 
 function useKeyboardVisible() {
   const [visible, setVisible] = useState(false);
@@ -22,32 +25,56 @@ function useKeyboardVisible() {
   return visible;
 }
 
-function Bubble({ msg, prev, accent }) {
+function Bubble({ msg, prev, next, fresh }) {
   const router = useRouter();
   const newDay = !prev || !sameDay(prev.at, msg.at);
-  const grouped = !newDay && prev && prev.authorId === msg.authorId && msg.at - prev.at < 5 * 60 * 1000;
-  const name = msg.author?.name || msg.author?.username || "Former member";
+  const groupedAbove = !newDay && prev && prev.authorId === msg.authorId && msg.at - prev.at < GROUP_MS;
+  const groupedBelow = next && next.authorId === msg.authorId && sameDay(next.at, msg.at) && next.at - msg.at < GROUP_MS;
+  const mine = msg.isMine;
+  const tint = msg.author?.color || C.textDim;
+
+  const corners = mine
+    ? { borderTopRightRadius: groupedAbove ? 6 : 20, borderBottomRightRadius: groupedBelow ? 6 : 20 }
+    : { borderTopLeftRadius: groupedAbove ? 6 : 20, borderBottomLeftRadius: groupedBelow ? 6 : 20 };
+
   return (
-    <View>
-      {newDay ? <Text style={styles.day}>{dateLabel(msg.at)}</Text> : null}
-      <View style={[styles.line, msg.isMine && { justifyContent: "flex-end" }, grouped ? { marginTop: 3 } : { marginTop: S.md }]}>
-        {!msg.isMine ? (
-          grouped ? (
-            <View style={{ width: 30 }} />
+    <Animated.View entering={fresh ? FadeInDown.springify().damping(18) : undefined}>
+      {newDay ? (
+        <View style={styles.dayWrap}>
+          <Text style={styles.day}>{dateLabel(msg.at)}</Text>
+        </View>
+      ) : null}
+      <View style={[styles.line, mine && { justifyContent: "flex-end" }, { marginTop: groupedAbove ? 3 : S.md }]}>
+        {!mine ? (
+          groupedBelow ? (
+            <View style={{ width: 32 }} />
           ) : (
-            <Pressable onPress={() => msg.author && router.push(`/player/${msg.author.id}`)}>
-              <Avatar uri={msg.author?.avatar} name={name} size={30} />
-            </Pressable>
+            <PressableScale onPress={() => msg.author && router.push(`/player/${msg.author.id}`)} scaleTo={0.9} accessibilityLabel={`Open ${playerName(msg.author)}`}>
+              <PlayerAvatar player={msg.author} size={32} />
+            </PressableScale>
           )
         ) : null}
-        <View style={{ maxWidth: "78%" }}>
-          {!msg.isMine && !grouped ? <Text style={[styles.author, { color: msg.author?.color || C.textDim }]}>{name}</Text> : null}
-          <View style={[styles.bubble, msg.isMine ? { backgroundColor: accent, borderBottomRightRadius: 6 } : styles.theirs]}>
-            <Text style={[styles.text, msg.isMine && { color: C.accentText }]}>{msg.text}</Text>
+        <View style={{ maxWidth: "76%", alignItems: mine ? "flex-end" : "flex-start" }}>
+          {!mine && !groupedAbove ? <Text style={[styles.author, { color: tint }]}>{playerName(msg.author)}</Text> : null}
+          <View style={[styles.bubble, mine ? styles.mine : styles.theirs, corners]}>
+            <Text style={[styles.text, mine && { color: C.accentText }]}>{msg.text}</Text>
           </View>
-          {!grouped || msg.isMine ? <Text style={[styles.time, msg.isMine && { textAlign: "right" }]}>{timeLabel(msg.at)}</Text> : null}
+          {!groupedBelow ? <Text style={styles.time}>{timeLabel(msg.at)}</Text> : null}
         </View>
       </View>
+    </Animated.View>
+  );
+}
+
+function ChatSkeleton() {
+  return (
+    <View style={{ flex: 1, justifyContent: "flex-end", padding: S.gutter, gap: S.md }}>
+      {[180, 140, 220].map((w, i) => (
+        <View key={i} style={{ flexDirection: "row", gap: S.sm, alignItems: "flex-end", alignSelf: i === 1 ? "flex-end" : "flex-start" }}>
+          {i !== 1 ? <Skeleton width={32} height={32} radius={16} /> : null}
+          <Skeleton width={w} height={40} radius={20} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -59,16 +86,24 @@ export default function CrewChat({ crew }) {
   const tabBarHeight = useBottomTabBarHeight();
   const keyboard = useKeyboardVisible();
   const send = useEngineMutation(engine.sendCrewMessage, { onSuccess: () => setText("") });
-  const accent = crew.accent || C.accent;
+  const mountedAt = useRef(Date.now()).current;
+  const [focused, setFocused] = useState(false);
   // KeyboardAvoidingView needs to know how far down the screen it starts.
   const wrapRef = useRef(null);
   const [offset, setOffset] = useState(0);
   const measure = () => wrapRef.current?.measureInWindow((_x, y) => setOffset(y || 0));
 
-  // Newest first for the inverted list, each paired with the message before it.
+  const ready = !!text.trim() && !send.isPending;
+  const sendScale = useSharedValue(ready ? 1 : 0.85);
+  useEffect(() => {
+    sendScale.value = withSpring(ready ? 1 : 0.85, { damping: 14, stiffness: 300 });
+  }, [ready, sendScale]);
+  const sendStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
+
+  // Newest first for the inverted list, each paired with its neighbours.
   const items = useMemo(() => {
     const list = messages.data || [];
-    return list.map((m, i) => ({ msg: m, prev: list[i - 1] })).reverse();
+    return list.map((m, i) => ({ msg: m, prev: list[i - 1], next: list[i + 1] })).reverse();
   }, [messages.data]);
 
   const submit = () => {
@@ -81,58 +116,68 @@ export default function CrewChat({ crew }) {
 
   return (
     <View ref={wrapRef} onLayout={measure} style={{ flex: 1 }}>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={offset}>
-      {messages.isPending ? (
-        <Loading />
-      ) : items.length === 0 ? (
-        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
-          <EmptyState icon={MessageSquare} title="Quiet in here" body={`Be the first to say something to ${crew.name}.`} />
-        </Pressable>
-      ) : (
-        <FlatList
-          data={items}
-          inverted
-          keyExtractor={(it) => it.msg.id}
-          renderItem={({ item }) => <Bubble msg={item.msg} prev={item.prev} accent={accent} />}
-          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingVertical: S.md }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-      <View style={[styles.composer, { paddingBottom: bottomPad }]}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={`Message ${crew.name}`}
-          placeholderTextColor={C.textMute}
-          multiline
-          maxLength={1000}
-          style={styles.input}
-        />
-        <Pressable
-          onPress={submit}
-          disabled={!text.trim() || send.isPending}
-          accessibilityLabel="Send message"
-          style={({ pressed }) => [styles.send, { backgroundColor: text.trim() ? accent : C.surfaceHigh }, pressed && { opacity: 0.7 }]}
-        >
-          <Send size={18} color={text.trim() ? C.accentText : C.textMute} />
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={offset}>
+        {messages.isPending ? (
+          <ChatSkeleton />
+        ) : items.length === 0 ? (
+          <Pressable style={{ flex: 1, justifyContent: "center" }} onPress={Keyboard.dismiss}>
+            <EmptyState icon={MessageSquare} title="Quiet in here" body={`Kick it off. Say hello to ${crew.name}.`} />
+          </Pressable>
+        ) : (
+          <FlatList
+            data={items}
+            inverted
+            keyExtractor={(it) => it.msg.id}
+            renderItem={({ item }) => <Bubble msg={item.msg} prev={item.prev} next={item.next} fresh={item.msg.at > mountedAt} />}
+            contentContainerStyle={{ paddingHorizontal: S.gutter, paddingVertical: S.md }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+        <View style={[styles.composer, { paddingBottom: bottomPad }]}>
+          <View style={[styles.inputWrap, focused && { borderColor: C.borderStrong }]}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder={`Message ${crew.name}`}
+              placeholderTextColor={C.textMute}
+              multiline
+              maxLength={1000}
+              style={styles.input}
+            />
+          </View>
+          <Animated.View style={sendStyle}>
+            <PressableScale
+              onPress={submit}
+              disabled={!ready}
+              scaleTo={0.88}
+              accessibilityLabel="Send message"
+              style={[styles.send, { backgroundColor: ready ? C.accent : C.surfaceHigh }]}
+            >
+              <ArrowUp size={20} color={ready ? C.accentText : C.textMute} strokeWidth={2.8} />
+            </PressableScale>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  day: { alignSelf: "center", color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", marginTop: S.lg },
+  dayWrap: { alignItems: "center", marginTop: S.lg },
+  day: { color: C.textMute, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", backgroundColor: C.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, overflow: "hidden" },
   line: { flexDirection: "row", alignItems: "flex-end", gap: S.sm },
-  author: { fontSize: 12, fontWeight: "700", marginBottom: 3, marginLeft: 4 },
-  bubble: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18 },
-  theirs: { backgroundColor: C.surfaceHigh, borderBottomLeftRadius: 6 },
+  author: { fontSize: 12, fontWeight: "700", marginBottom: 4, marginLeft: 6 },
+  bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
+  mine: { backgroundColor: C.accent },
+  theirs: { backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.border },
   text: { color: C.text, fontSize: 15, lineHeight: 20 },
-  time: { color: C.textMute, fontSize: 10, marginTop: 3, marginHorizontal: 4 },
+  time: { color: C.textMute, fontSize: 10, marginTop: 4, marginHorizontal: 6 },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: S.sm, paddingHorizontal: S.gutter, paddingTop: S.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, backgroundColor: C.bg },
-  input: { flex: 1, minHeight: 44, maxHeight: 120, borderRadius: 22, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, color: C.text, fontSize: 15, paddingHorizontal: S.lg, paddingTop: 12, paddingBottom: 12 },
-  send: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  inputWrap: { flex: 1, minHeight: 46, borderRadius: 23, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, justifyContent: "center" },
+  input: { maxHeight: 120, color: C.text, fontSize: 15, paddingHorizontal: S.lg, paddingTop: 12, paddingBottom: 12 },
+  send: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
 });

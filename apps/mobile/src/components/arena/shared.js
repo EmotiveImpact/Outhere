@@ -44,3 +44,13 @@ export const BATTLE_PRIZES = { win: { xp: 150, out: 15 }, other: { xp: 25, out: 
 export const battlePrize = (result) => (result === "won" ? BATTLE_PRIZES.win : result ? BATTLE_PRIZES.other : null);
 
 export const playerName = (p) => (p?.isMe ? "You" : p?.name || p?.username || "Player");
+
+// Podium colours for the top three.
+export const MEDAL = { 1: "#FFD700", 2: "#C9CED6", 3: "#D08A4E" };
+
+// Score for a battle side, e.g. "12,480" or "8.42".
+export const formatScore = (metric, v) => (metric === "distance" ? Number(v || 0).toFixed(Number(v) >= 100 ? 0 : 1) : formatNumber(v));
+
+// Fallback colour for a rival with no colour of their own.
+export const RIVAL = "#9B5CFF";
+export const rivalColour = (player) => (player?.color && player.color.toLowerCase() !== "#00ff7f" ? player.color : RIVAL);

@@ -2,7 +2,7 @@
 // without slowing anyone down.
 
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
@@ -16,6 +16,17 @@ import { hapticSelection } from "@/services/haptics";
 
 const SPRING = { damping: 18, stiffness: 320, mass: 0.6 };
 
+const OUTER_KEYS = new Set(["flex", "flexGrow", "flexShrink", "flexBasis", "alignSelf", "margin", "marginTop", "marginBottom", "marginLeft", "marginRight", "marginHorizontal", "marginVertical", "position", "top", "left", "right", "bottom", "zIndex"]);
+
+const splitStyle = (style) => {
+  const flat = StyleSheet.flatten(style) || {};
+  const outer = {};
+  const inner = {};
+  for (const [k, v] of Object.entries(flat)) (OUTER_KEYS.has(k) ? outer : inner)[k] = v;
+  if (outer.flex != null || outer.flexGrow != null || outer.alignSelf === "stretch") inner.flexGrow = 1;
+  return { outer, inner };
+};
+
 /**
  * Pressable that dips slightly when touched and springs back. Use for any
  * tappable surface. `haptic` fires a selection tick on press.
@@ -23,8 +34,11 @@ const SPRING = { damping: 18, stiffness: 320, mass: 0.6 };
 export function PressableScale({ children, onPress, onLongPress, disabled, scaleTo = 0.97, haptic = true, style, hitSlop, accessibilityLabel, accessibilityRole = "button" }) {
   const scale = useSharedValue(1);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  // Layout props belong on the outer pressable so flex: 1 and margins work in rows.
+  const { outer, inner } = splitStyle(style);
   return (
     <Pressable
+      style={outer}
       disabled={disabled}
       hitSlop={hitSlop}
       accessibilityRole={accessibilityRole}
@@ -41,7 +55,7 @@ export function PressableScale({ children, onPress, onLongPress, disabled, scale
       }}
       onLongPress={onLongPress}
     >
-      <Animated.View style={[style, animated]}>{children}</Animated.View>
+      <Animated.View style={[inner, animated]}>{children}</Animated.View>
     </Pressable>
   );
 }

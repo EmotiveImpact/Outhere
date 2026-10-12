@@ -1,12 +1,11 @@
 // Crew tab. No crew yet: discover, join with a code or create one. In a crew:
-// switcher, crew header and Feed / Chat / Leaderboard / Members.
+// switcher, crew hero and Feed / Chat / Ranks / Members.
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Compass, Plus, Settings2, Share2, X } from "lucide-react-native";
-import { C, EmptyState, F, IconButton, Loading, Row, S, Screen, Segment, TAB_BAR_SPACE, Title } from "@/components/ui";
+import { Compass, MessageCircle, Newspaper, Plus, Settings2, Share2, Trophy, Users, X } from "lucide-react-native";
+import { C, EmptyState, F, FadeIn, IconButton, PressableScale, Row, S, Screen, Sheet, Skeleton, TAB_BAR_SPACE, Title } from "@/components/ui";
 import { useCrew, useCrewLimits, useMyCrews, useUpgradePrompt } from "@/data/hooks";
 import { tierLabel } from "@/utils/format";
 import ActionSheet from "@/components/crew/ActionSheet";
@@ -17,29 +16,25 @@ import CrewHero from "@/components/crew/CrewHero";
 import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
 import CrewMembers from "@/components/crew/CrewMembers";
 import CrewSettings, { shareInvite } from "@/components/crew/CrewSettings";
-import { CrewLogo, useCrewFocus } from "@/components/crew/shared";
+import CrewTabs from "@/components/crew/CrewTabs";
+import { CrewLogo, crewAccent, useCrewFocus } from "@/components/crew/shared";
 
 const TABS = [
-  { value: "feed", label: "Feed" },
-  { value: "chat", label: "Chat" },
-  { value: "board", label: "Ranks" },
-  { value: "members", label: "Members" },
+  { value: "feed", label: "Feed", icon: Newspaper },
+  { value: "chat", label: "Chat", icon: MessageCircle },
+  { value: "board", label: "Ranks", icon: Trophy },
+  { value: "members", label: "Members", icon: Users },
 ];
 
 function DiscoverSheet({ visible, onClose }) {
-  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <Row style={[styles.sheetTop, { paddingTop: Platform.OS === "android" ? insets.top + S.md : S.lg }]}>
-          <Title size={22} style={{ flex: 1 }}>Find a crew</Title>
-          <IconButton icon={X} onPress={onClose} label="Close" />
-        </Row>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-          <CrewDiscover onDone={onClose} />
-        </ScrollView>
-      </View>
-    </Modal>
+    <Sheet visible={visible} onClose={onClose} scroll maxHeight="92%">
+      <Row style={{ paddingBottom: S.md }}>
+        <Title size={24} style={{ flex: 1 }}>Find a crew</Title>
+        <IconButton icon={X} onPress={onClose} label="Close" />
+      </Row>
+      <CrewDiscover onDone={onClose} />
+    </Sheet>
   );
 }
 
@@ -49,20 +44,32 @@ function Switcher({ crews, activeId, onSelect }) {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.sm, paddingHorizontal: S.gutter, paddingBottom: S.md }}>
       {crews.map((c) => {
         const active = c.id === activeId;
+        const accent = crewAccent(c);
         return (
-          <Pressable
+          <PressableScale
             key={c.id}
             onPress={() => onSelect(c.id)}
-            style={[styles.chip, active && { borderColor: c.accent || C.accent, backgroundColor: `${c.accent || C.accent}1f` }]}
+            scaleTo={0.94}
+            style={[styles.chip, active && { borderColor: accent, backgroundColor: `${accent}1f` }]}
           >
-            <CrewLogo crew={c} size={24} radius={8} />
+            <CrewLogo crew={c} size={28} radius={9} ring={false} />
             <Text style={[styles.chipText, active && { color: C.text }]} numberOfLines={1}>
               {c.name}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </ScrollView>
+  );
+}
+
+function CrewSkeleton() {
+  return (
+    <View style={{ paddingHorizontal: S.gutter, gap: S.md }}>
+      <Skeleton height={300} radius={24} />
+      <Skeleton height={48} radius={99} />
+      <Skeleton height={200} radius={20} />
+    </View>
   );
 }
 
@@ -95,19 +102,27 @@ export default function CrewTab() {
     crewQuery.refetch();
   };
 
+  const titleRow = (right) => (
+    <Row style={styles.top}>
+      <Title size={32} style={{ flex: 1, letterSpacing: -0.8 }}>Crew</Title>
+      {right}
+    </Row>
+  );
+
   if (myCrews.isPending) {
     return (
-      <Screen tab scroll={false}>
-        <Loading style={{ flex: 1, justifyContent: "center" }} />
+      <Screen tab scroll={false} padded={false} header={titleRow(null)}>
+        <CrewSkeleton />
       </Screen>
     );
   }
 
   if (!crews.length) {
     return (
-      <Screen tab onRefresh={refresh} refreshing={refreshing}>
-        <Title size={30} style={{ marginTop: S.md }}>Crew</Title>
-        <CrewDiscover intro />
+      <Screen tab onRefresh={refresh} refreshing={refreshing} padded={false} header={titleRow(null)}>
+        <View style={{ paddingHorizontal: S.gutter }}>
+          <CrewDiscover intro />
+        </View>
       </Screen>
     );
   }
@@ -121,19 +136,21 @@ export default function CrewTab() {
     router.push("/crew/create");
   };
 
+  const l = limits.data;
   const menuOptions = [
-    { label: "Find a crew", icon: Compass, onPress: () => setDiscover(true) },
-    { label: "Create a crew", icon: Plus, onPress: startCreate },
+    { label: "Find a crew", hint: "Browse crews near you or join with a code", icon: Compass, onPress: () => setDiscover(true) },
+    { label: "Start a crew", hint: l && l.maxOwned === 0 ? "Pro and Black members can run a crew" : "Name it, pick a colour, bring your people", icon: Plus, onPress: startCreate },
   ];
 
   const header = (
     <View>
-      <Row style={styles.top}>
-        <Title size={30} style={{ flex: 1 }}>Crew</Title>
-        {crew ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null}
-        {crew ? <IconButton icon={Settings2} onPress={() => setSettings(true)} label="Crew settings" /> : null}
-        <IconButton icon={Plus} onPress={() => setMenu(true)} label="More crews" />
-      </Row>
+      {titleRow(
+        <>
+          {crew ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null}
+          {crew ? <IconButton icon={Settings2} onPress={() => setSettings(true)} label="Crew settings" /> : null}
+          <IconButton icon={Plus} onPress={() => setMenu(true)} label="More crews" />
+        </>
+      )}
       <Switcher crews={crews} activeId={activeId} onSelect={focus} />
     </View>
   );
@@ -143,7 +160,7 @@ export default function CrewTab() {
       <ActionSheet
         visible={menu}
         title="More crews"
-        subtitle={limits.data ? `In ${limits.data.joined} of ${limits.data.maxJoined} crews · own ${limits.data.owned} of ${limits.data.maxOwned}` : undefined}
+        subtitle={l ? `In ${l.joined} of ${l.maxJoined} crews · own ${l.owned} of ${l.maxOwned} on ${tierLabel(l.tier)}` : undefined}
         options={menuOptions}
         onClose={() => setMenu(false)}
       />
@@ -156,16 +173,16 @@ export default function CrewTab() {
     return (
       <Screen tab scroll={false} padded={false} header={header}>
         {crewQuery.isError ? (
-          <EmptyState title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} />
+          <EmptyState icon={Users} title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} />
         ) : (
-          <Loading />
+          <CrewSkeleton />
         )}
         {sheets}
       </Screen>
     );
   }
 
-  const tabs = <Segment options={TABS} value={tab} onChange={setTab} style={{ marginHorizontal: S.gutter, marginBottom: S.md }} />;
+  const tabs = <CrewTabs options={TABS} value={tab} onChange={setTab} colour={crewAccent(crew)} style={{ marginHorizontal: S.gutter, marginBottom: S.md }} />;
 
   if (tab === "chat") {
     return (
@@ -185,11 +202,11 @@ export default function CrewTab() {
         stickyHeaderIndices={[1]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
       >
-        <View style={{ paddingHorizontal: S.gutter, paddingBottom: S.lg }}>
+        <FadeIn key={crew.id} style={{ paddingHorizontal: S.gutter, paddingBottom: S.lg }}>
           <CrewHero crew={crew} />
-        </View>
+        </FadeIn>
         <View style={{ backgroundColor: C.bg, paddingTop: S.xs }}>{tabs}</View>
-        <View style={{ paddingHorizontal: S.gutter }}>
+        <View key={`${crew.id}:${tab}`} style={{ paddingHorizontal: S.gutter }}>
           {tab === "feed" ? <CrewFeed crew={crew} /> : null}
           {tab === "board" ? <CrewLeaderboard crew={crew} /> : null}
           {tab === "members" ? <CrewMembers crew={crew} /> : null}
@@ -202,7 +219,6 @@ export default function CrewTab() {
 
 const styles = StyleSheet.create({
   top: { paddingHorizontal: S.gutter, paddingTop: S.md, paddingBottom: S.md, gap: S.sm },
-  sheetTop: { paddingHorizontal: S.gutter, paddingBottom: S.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border, marginBottom: S.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 38, paddingLeft: 7, paddingRight: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxWidth: 220 },
-  chipText: { color: C.textDim, fontSize: 13, fontWeight: "600", fontFamily: F.displayMedium, flexShrink: 1 },
+  chip: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 44, paddingLeft: 7, paddingRight: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxWidth: 220 },
+  chipText: { color: C.textDim, fontSize: 13, fontFamily: F.displayMedium, flexShrink: 1 },
 });

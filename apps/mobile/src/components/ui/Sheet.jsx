@@ -5,6 +5,7 @@ import React from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ModalToastHost } from "./Toast";
 
 export function Sheet({ visible, onClose, children, scroll = false, maxHeight = "88%", padded = true }) {
   const insets = useSafeAreaInsets();
@@ -44,6 +45,7 @@ export function Sheet({ visible, onClose, children, scroll = false, maxHeight = 
           </Animated.View>
         </KeyboardAvoidingView>
       ) : null}
+      {visible ? <ModalToastHost /> : null}
     </Modal>
   );
 }

@@ -1,11 +1,12 @@
 // Small pieces shared by the Crew tab, crew detail and create screens.
 
-import React from "react";
-import { Pressable, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Globe, Lock } from "lucide-react-native";
+import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from "react-native-svg";
+import { Check, Globe, Lock } from "lucide-react-native";
 import { create } from "zustand";
-import { C, F, Pill } from "@/components/ui";
+import { Avatar, C, Cover, F, LiveDot, Pill, PressableScale } from "@/components/ui";
 
 // Which crew the Crew tab shows. Other screens set it before sending the
 // player to the tab (after creating or joining a crew, or "Open in Crew tab").
@@ -34,17 +35,70 @@ export const nextBadge = (weekKm) => BADGE_STEPS.find(([, km]) => weekKm < km) |
 
 export const ROLE_LABEL = { owner: "Owner", admin: "Admin", member: "Member" };
 
-export const BadgePill = ({ tier, style }) => {
+export const crewAccent = (crew) => crew?.accent || C.accent;
+
+export const playerName = (p) => (p?.isMe ? "You" : p?.name || p?.username || "Former member");
+
+export const memberCountLabel = (n) => `${n} ${n === 1 ? "member" : "members"}`;
+
+const initialsOf = (name = "") =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("") || "?";
+
+// Hexagonal medal, shaded in the tier colour. Reads as a badge, not a tag.
+const HEX = "M12 1.5 L21.5 7 L21.5 17 L12 22.5 L2.5 17 L2.5 7 Z";
+const HEX_INNER = "M12 5 L18.4 8.7 L18.4 15.3 L12 19 L5.6 15.3 L5.6 8.7 Z";
+
+export function BadgeMedal({ tier, size = 28 }) {
   const colour = BADGE_COLOURS[tier] || C.textDim;
+  const id = `medal-${tier || "none"}`;
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" style={{ position: "absolute" }}>
+        <Defs>
+          <SvgGradient id={id} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#ffffff" stopOpacity="0.85" />
+            <Stop offset="0.35" stopColor={colour} stopOpacity="1" />
+            <Stop offset="1" stopColor={colour} stopOpacity="0.55" />
+          </SvgGradient>
+        </Defs>
+        <Path d={HEX} fill={`url(#${id})`} />
+        <Path d={HEX_INNER} fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth={1.2} />
+      </Svg>
+      <Text style={{ color: "rgba(0,0,0,0.72)", fontFamily: F.display, fontSize: size * 0.36, marginTop: 1 }}>{(tier || "?")[0]}</Text>
+    </View>
+  );
+}
+
+/** Medal plus tier name, for crew headers and cards. */
+export const BadgePill = ({ tier, style, size = "sm" }) => {
+  const colour = BADGE_COLOURS[tier] || C.textDim;
+  const big = size === "lg";
   return (
     <View
       style={[
-        { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, height: 22, borderRadius: 99, backgroundColor: `${colour}22`, alignSelf: "flex-start" },
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingLeft: 3,
+          paddingRight: big ? 12 : 9,
+          height: big ? 32 : 26,
+          borderRadius: 99,
+          backgroundColor: `${colour}1a`,
+          borderWidth: 1,
+          borderColor: `${colour}55`,
+          alignSelf: "flex-start",
+        },
         style,
       ]}
     >
-      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colour }} />
-      <Text style={{ color: colour, fontSize: 11, fontWeight: "700", letterSpacing: 0.4 }}>{(tier || "").toUpperCase()}</Text>
+      <BadgeMedal tier={tier} size={big ? 26 : 20} />
+      <Text style={{ color: colour, fontSize: big ? 12 : 11, fontWeight: "800", letterSpacing: 0.8 }}>{(tier || "").toUpperCase()}</Text>
     </View>
   );
 };
@@ -52,35 +106,110 @@ export const BadgePill = ({ tier, style }) => {
 export const PrivacyPill = ({ privacy, style }) =>
   privacy === "invite" ? <Pill label="Invite only" icon={Lock} style={style} /> : <Pill label="Public" icon={Globe} style={style} />;
 
-/** Crew logo, or the crew's initials on its accent colour. */
-export function CrewLogo({ crew, size = 52, radius }) {
+/**
+ * Crew logo: the crew's route art in its accent with a monogram, and the
+ * uploaded logo on top when it loads. Every crew looks distinct offline.
+ */
+export function CrewLogo({ crew, size = 52, radius, ring = true }) {
   const r = radius ?? size * 0.3;
-  const accent = crew?.accent || C.accent;
-  const initials = (crew?.name || "?")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
+  const accent = crewAccent(crew);
+  const [failed, setFailed] = useState(false);
+  const logo = crew?.logo && !failed ? crew.logo : null;
   return (
-    <View
+    <Cover
+      seed={`crew:${crew?.id || crew?.name || "new"}`}
+      accent={accent}
       style={{
         width: size,
         height: size,
         borderRadius: r,
-        overflow: "hidden",
-        backgroundColor: `${accent}26`,
-        borderWidth: 1.5,
+        borderWidth: ring ? 1.5 : 0,
         borderColor: accent,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      {crew?.logo ? (
-        <Image source={{ uri: crew.logo }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-      ) : (
-        <Text style={{ color: accent, fontFamily: F.display, fontSize: size * 0.36 }}>{initials}</Text>
-      )}
+      <Text
+        style={{
+          color: C.text,
+          fontFamily: F.display,
+          fontSize: size * 0.36,
+          letterSpacing: -0.5,
+          textShadowColor: "rgba(0,0,0,0.6)",
+          textShadowRadius: 6,
+        }}
+      >
+        {initialsOf(crew?.name)}
+      </Text>
+      {logo ? (
+        <Image
+          source={typeof logo === "string" ? { uri: logo } : logo}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+          contentFit="cover"
+          transition={200}
+          onError={() => setFailed(true)}
+        />
+      ) : null}
+    </Cover>
+  );
+}
+
+/**
+ * Player avatar for crew screens: coloured initials in the player's colour,
+ * the photo on top only once it has loaded, and an optional live dot.
+ */
+export function PlayerAvatar({ player, size = 40, ring, outside = false, style }) {
+  const [failed, setFailed] = useState(false);
+  const uri = player?.avatar && !failed ? player.avatar : null;
+  const inset = ring ? 2 : 0;
+  return (
+    <View style={[{ width: size, height: size }, style]}>
+      <Avatar name={player?.name || player?.username || ""} colour={player?.color} size={size} ring={ring} />
+      {uri ? (
+        <Image
+          source={typeof uri === "string" ? { uri } : uri}
+          onError={() => setFailed(true)}
+          contentFit="cover"
+          transition={200}
+          style={{ position: "absolute", top: inset, left: inset, width: size - inset * 2, height: size - inset * 2, borderRadius: size }}
+        />
+      ) : null}
+      {outside ? (
+        <View style={{ position: "absolute", right: -1, bottom: -1, padding: 2, borderRadius: 99, backgroundColor: C.bg }}>
+          <LiveDot size={Math.max(8, size * 0.22)} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Overlapping avatars with a "+n" chip when there are more. */
+export function AvatarStack({ players = [], total, size = 28, max = 4, ringColour = C.surface }) {
+  const shown = players.slice(0, max);
+  const extra = Math.max(0, (total ?? players.length) - shown.length);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      {shown.map((p, i) => (
+        <PlayerAvatar key={p.id || i} player={p} size={size} ring={ringColour} style={{ marginLeft: i ? -size * 0.32 : 0, zIndex: max - i }} />
+      ))}
+      {extra > 0 ? (
+        <View
+          style={{
+            marginLeft: -size * 0.32,
+            height: size,
+            minWidth: size,
+            paddingHorizontal: 6,
+            borderRadius: size,
+            backgroundColor: C.surfaceHigh,
+            borderWidth: 2,
+            borderColor: ringColour,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: C.textDim, fontSize: size * 0.36, fontWeight: "700" }}>+{extra}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -92,23 +221,25 @@ export function AccentPicker({ colours, value, onChange }) {
       {colours.map((c) => {
         const active = c.toLowerCase() === (value || "").toLowerCase();
         return (
-          <Pressable
+          <PressableScale
             key={c}
             onPress={() => onChange(c)}
-            accessibilityRole="button"
+            scaleTo={0.88}
             accessibilityLabel={`Accent ${c}`}
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
               borderWidth: 2,
-              borderColor: active ? C.text : "transparent",
+              borderColor: active ? c : "transparent",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c }} />
-          </Pressable>
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c, alignItems: "center", justifyContent: "center" }}>
+              {active ? <Check size={16} color="#000" strokeWidth={3} /> : null}
+            </View>
+          </PressableScale>
         );
       })}
     </View>

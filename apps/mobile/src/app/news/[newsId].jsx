@@ -1,11 +1,11 @@
 import React from "react";
-import { RefreshControl, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowRight, Newspaper } from "lucide-react-native";
+import { Newspaper } from "lucide-react-native";
 import { useDrops, useNews, useNewsItem } from "@/data/hooks";
-import { Body, C, Card, EmptyState, F, Header, Loading, Pill, Row, S, Screen, SectionHeader, Title } from "@/components/ui";
-import { HeroScreen } from "@/components/happenings/shared";
-import { StoryRow, categoryTone, relatedFor } from "@/components/happenings/NewsCards";
+import { C, EmptyState, F, FadeIn, Header, Pill, Row, S, Screen } from "@/components/ui";
+import { HeroScreen, HeroSkeleton } from "@/components/happenings/shared";
+import { RelatedCard, StoryRow, categoryColour, categoryTone, readMinutes, relatedFor } from "@/components/happenings/NewsCards";
 import { dateLabel, timeAgo } from "@/utils/format";
 
 export default function NewsArticleScreen() {
@@ -16,23 +16,11 @@ export default function NewsArticleScreen() {
   const { data: drops } = useDrops();
   const { data: all } = useNews();
 
-  if (isPending) {
-    return (
-      <Screen header={<Header back title="News" />}>
-        <Loading />
-      </Screen>
-    );
-  }
+  if (isPending) return <HeroSkeleton />;
   if (error || !story) {
     return (
       <Screen header={<Header back title="News" />}>
-        <EmptyState
-          icon={Newspaper}
-          title="Story not found"
-          body="It may have been taken down."
-          action="Back to news"
-          onAction={() => router.replace("/outside/news")}
-        />
+        <EmptyState icon={Newspaper} title="Story not found" body="It may have been taken down." action="Back to news" onAction={() => router.replace("/outside/news")} />
       </Screen>
     );
   }
@@ -44,40 +32,70 @@ export default function NewsArticleScreen() {
     .filter(Boolean);
   const more = (all || []).filter((s) => s.id !== story.id).slice(0, 3);
 
-  return (
-    <HeroScreen image={story.image} height={360} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} />}>
+  const overlay = (
+    <>
       <Row gap={8}>
         <Pill label={story.category.toUpperCase()} tone={categoryTone(story.category)} />
-        <Text style={{ color: C.textMute, fontSize: 13, fontWeight: "600" }}>{`${timeAgo(story.publishedAt)}, ${dateLabel(story.publishedAt)}`}</Text>
+        <Text style={styles.meta}>{`${readMinutes(story)} min read`}</Text>
       </Row>
-      <Title size={32} style={{ marginTop: S.md, lineHeight: 36 }}>
-        {story.title}
-      </Title>
-      <Text style={{ color: C.text, fontFamily: F.displayMedium, fontSize: 18, lineHeight: 25, marginTop: S.lg }}>{story.summary}</Text>
-      <View style={{ height: 1, backgroundColor: C.border, marginVertical: S.xl }} />
-      {paragraphs.map((p, i) => (
-        <Body key={i} dim size={16} style={{ lineHeight: 25, marginBottom: S.lg }}>
-          {p}
-        </Body>
-      ))}
+      <Text style={styles.title}>{story.title}</Text>
+    </>
+  );
+
+  return (
+    <HeroScreen
+      source={story.image}
+      seed={story.id}
+      accent={categoryColour(story.category)}
+      height={400}
+      overlay={overlay}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} />}
+    >
+      <FadeIn>
+        <Text style={styles.standfirst}>{story.summary}</Text>
+        <Row gap={S.sm} style={styles.byline}>
+          <View style={styles.mark}>
+            <Text style={styles.markText}>O</Text>
+          </View>
+          <View>
+            <Text style={styles.bylineName}>OutHere Editorial</Text>
+            <Text style={styles.meta}>{`${dateLabel(story.publishedAt)}, ${timeAgo(story.publishedAt)}`}</Text>
+          </View>
+        </Row>
+        {paragraphs.map((p, i) => (
+          <Text key={i} style={[styles.para, i === 0 && styles.lead]}>
+            {p}
+          </Text>
+        ))}
+      </FadeIn>
 
       {related ? (
-        <Card onPress={() => router.push(related.href)} highlight style={{ marginTop: S.sm }}>
-          <Row gap={S.md}>
-            <Text style={{ flex: 1, color: C.text, fontFamily: F.displayMedium, fontSize: 17 }}>{related.label}</Text>
-            <ArrowRight size={20} color={C.accent} />
-          </Row>
-        </Card>
+        <FadeIn index={1} style={{ marginTop: S.md }}>
+          <RelatedCard related={related} onPress={() => router.push(related.href)} />
+        </FadeIn>
       ) : null}
 
       {more.length ? (
-        <>
-          <SectionHeader title="More stories" />
-          {more.map((s) => (
-            <StoryRow key={s.id} story={s} onPress={() => router.push(`/news/${s.id}`)} />
+        <FadeIn index={2}>
+          <Text style={styles.moreTitle}>More stories</Text>
+          {more.map((s, i) => (
+            <StoryRow key={s.id} story={s} onPress={() => router.push(`/news/${s.id}`)} last={i === more.length - 1} />
           ))}
-        </>
+        </FadeIn>
       ) : null}
     </HeroScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  title: { color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.8, marginTop: S.md },
+  meta: { color: C.textMute, fontSize: 12, fontWeight: "600" },
+  standfirst: { color: C.text, fontFamily: F.displayMedium, fontSize: 20, lineHeight: 28, letterSpacing: -0.2 },
+  byline: { marginTop: S.xl, paddingBottom: S.xl, marginBottom: S.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderStrong },
+  mark: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  markText: { color: C.accentText, fontFamily: F.display, fontSize: 18 },
+  bylineName: { color: C.text, fontSize: 14, fontWeight: "700" },
+  para: { color: "#d4d4d8", fontSize: 17, lineHeight: 28, marginBottom: S.xl },
+  lead: { color: C.text },
+  moreTitle: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: S.xxl, marginBottom: S.xs },
+});

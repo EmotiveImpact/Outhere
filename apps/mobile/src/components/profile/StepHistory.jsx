@@ -2,10 +2,10 @@
 
 import React, { useState } from "react";
 import { Text, View } from "react-native";
-import { BarChart3 } from "lucide-react-native";
+import { Footprints } from "lucide-react-native";
 import { useStepHistory } from "@/data/hooks";
-import { compactNumber, formatNumber } from "@/utils/format";
-import { Body, C, Card, EmptyState, F, Label, Loading, Row, S, Segment } from "@/components/ui";
+import { compactNumber } from "@/utils/format";
+import { AnimatedNumber, Body, C, Card, F, Label, Row, S, Segment, Skeleton } from "@/components/ui";
 
 const CHART_H = 120;
 const weekday = (key) => {
@@ -28,7 +28,7 @@ export default function StepHistory({ goal = 10000 }) {
       <Row style={{ justifyContent: "space-between" }}>
         <View>
           <Label>Last {days} days</Label>
-          <Text style={{ color: C.text, fontFamily: F.display, fontSize: 26, marginTop: 2 }}>{formatNumber(total)}</Text>
+          <AnimatedNumber value={total} style={{ color: C.text, fontFamily: F.display, fontSize: 28, letterSpacing: -0.6, marginTop: 2 }} />
           <Body mute size={12}>
             steps · {activeDays} active day{activeDays === 1 ? "" : "s"} · avg {compactNumber(list.length ? total / list.length : 0)}
           </Body>
@@ -37,18 +37,30 @@ export default function StepHistory({ goal = 10000 }) {
       </Row>
 
       {isPending ? (
-        <Loading style={{ paddingVertical: 40 }} />
-      ) : total === 0 ? (
-        <EmptyState icon={BarChart3} title="No steps yet" body="Your daily steps show up here as you move." style={{ paddingVertical: 24 }} />
+        <Row gap={10} style={{ height: CHART_H, alignItems: "flex-end", marginTop: S.xl }}>
+          {[0.4, 0.7, 0.5, 0.9, 0.6, 0.3, 0.8].map((h, i) => (
+            <View key={i} style={{ flex: 1 }}>
+              <Skeleton height={CHART_H * h} radius={6} />
+            </View>
+          ))}
+        </Row>
       ) : (
         <View style={{ marginTop: S.xl }}>
           <View style={{ height: CHART_H, flexDirection: "row", alignItems: "flex-end", gap: days === 7 ? 10 : 3 }}>
             <View style={{ position: "absolute", left: 0, right: 0, bottom: goalY, height: 1, borderTopWidth: 1, borderStyle: "dashed", borderColor: C.borderStrong }} />
             {list.map((d) => {
-              const h = Math.max(3, (d.steps / max) * CHART_H);
+              const h = Math.max(4, (d.steps / max) * CHART_H);
               const hit = d.steps >= goal;
               return <View key={d.date} style={{ flex: 1, height: h, borderRadius: days === 7 ? 6 : 2, backgroundColor: hit ? C.accent : d.active ? "rgba(0,255,127,0.45)" : C.surfaceHigh }} />;
             })}
+            {total === 0 ? (
+              <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 24, alignItems: "center", justifyContent: "center" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: S.sm, backgroundColor: C.surfaceHigh, borderRadius: 99, paddingHorizontal: 14, height: 36, borderWidth: 1, borderColor: C.border }}>
+                  <Footprints size={15} color={C.accent} />
+                  <Text style={{ color: C.text, fontSize: 13, fontWeight: "600" }}>Day one starts now. Get moving.</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
           <Row gap={days === 7 ? 10 : 3} style={{ marginTop: S.sm }}>
             {list.map((d, i) => (
@@ -57,9 +69,16 @@ export default function StepHistory({ goal = 10000 }) {
               </Text>
             ))}
           </Row>
-          <Body mute size={11} style={{ marginTop: S.sm }}>
-            Dashed line is your {compactNumber(goal)} daily goal.
-          </Body>
+          <Row gap={6} style={{ marginTop: S.md }}>
+            <View style={{ width: 14, height: 0, borderTopWidth: 1, borderStyle: "dashed", borderColor: C.textMute }} />
+            <Body mute size={11}>
+              {compactNumber(goal)} daily goal
+            </Body>
+            <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: C.accent, marginLeft: S.sm }} />
+            <Body mute size={11}>
+              goal hit
+            </Body>
+          </Row>
         </View>
       )}
     </Card>

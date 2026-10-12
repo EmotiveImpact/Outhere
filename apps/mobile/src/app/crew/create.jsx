@@ -1,15 +1,14 @@
 // Create a crew: name, tagline, city, accent colour and privacy.
 
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Lock, Sparkles } from "lucide-react-native";
-import { Body, Button, C, Card, Header, Label, Row, S, Segment } from "@/components/ui";
+import { Body, Button, C, Card, F, Header, Label, PressableScale, Row, S, Segment } from "@/components/ui";
 import { CITIES } from "@/constants/theme";
 import { CREW_ACCENTS } from "@/data/seed";
 import { engine, useCrewLimits, useEngineMutation, useProfile, useUpgradePrompt } from "@/data/hooks";
-import { hapticSuccess } from "@/services/haptics";
 import { tierLabel } from "@/utils/format";
 import CrewCard from "@/components/crew/CrewCard";
 import { AccentPicker, useCrewFocus } from "@/components/crew/shared";
@@ -33,8 +32,8 @@ export default function CreateCrew() {
   const blocked = l && !l.canCreate;
 
   const create = useEngineMutation(engine.createCrew, {
+    success: (crew) => `${crew.name} is live. Bring your people.`,
     onSuccess: (crew) => {
-      hapticSuccess();
       focus(crew.id);
       router.dismissTo("/(tabs)/club");
     },
@@ -57,7 +56,9 @@ export default function CreateCrew() {
     privacy,
     memberCount: 1,
     weekKm: 0,
+    weeklyGoalKm: 100,
     badgeTier: "Bronze",
+    previewMembers: profile ? [{ id: "me", name: profile.name, username: profile.username, avatar: profile.avatar, color: profile.color, isMe: true }] : [],
   };
 
   return (
@@ -83,7 +84,8 @@ export default function CreateCrew() {
           <Label style={{ marginBottom: S.sm }}>Preview</Label>
           <CrewCard crew={preview} />
 
-          <Label style={{ marginTop: S.md }}>Name</Label>
+          <Text style={styles.section}>The basics</Text>
+          <Label>Name</Label>
           <TextInput value={name} onChangeText={setName} placeholder="e.g. Peckham Night Walkers" placeholderTextColor={C.textMute} maxLength={32} style={styles.input} />
           <Body mute size={12} style={{ marginTop: 6 }}>At least 3 characters. Must be unique.</Body>
 
@@ -95,14 +97,15 @@ export default function CreateCrew() {
             {CITIES.map((c) => {
               const active = c.name === chosenCity;
               return (
-                <Pressable key={c.name} onPress={() => setCity(c.name)} style={[styles.chip, active && { backgroundColor: C.accent, borderColor: C.accent }]}>
-                  <Text style={[styles.chipText, active && { color: C.accentText }]}>{c.name}</Text>
-                </Pressable>
+                <PressableScale key={c.name} onPress={() => setCity(c.name)} scaleTo={0.93} style={[styles.chip, active && { backgroundColor: `${accent}22`, borderColor: accent }]}>
+                  <Text style={[styles.chipText, active && { color: C.text }]}>{c.name}</Text>
+                </PressableScale>
               );
             })}
           </View>
 
-          <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Accent colour</Label>
+          <Text style={styles.section}>Make it yours</Text>
+          <Label style={{ marginBottom: S.sm }}>Accent colour</Label>
           <AccentPicker colours={CREW_ACCENTS} value={accent} onChange={setAccent} />
 
           <Label style={{ marginTop: S.lg, marginBottom: S.sm }}>Who can join</Label>
@@ -134,8 +137,9 @@ export default function CreateCrew() {
 }
 
 const styles = StyleSheet.create({
-  input: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 15, marginTop: S.sm },
+  section: { color: C.text, fontFamily: F.display, fontSize: 19, marginTop: S.xxl, marginBottom: S.md },
+  input: { height: 50, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 15, marginTop: S.sm },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
-  chip: { height: 36, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, justifyContent: "center" },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, justifyContent: "center" },
   chipText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
 });

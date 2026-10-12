@@ -1,14 +1,15 @@
-// Bottom HUD while a session is recording: distance, time, pace, controls.
+// Bottom HUD while a session is recording: hero distance, time and pace,
+// GPS quality and the big pause / resume / hold-to-finish controls.
 
 import React, { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { MotiView } from "moti";
+import { StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pause, Play, Square } from "lucide-react-native";
-import { C, F, Label, R, Row, S } from "@/components/ui";
+import { AnimatedNumber, C, F, Label, LiveDot, R, Row, S } from "@/components/ui";
 import { formatDuration, formatPace } from "@/utils/format";
-import { hapticHeavy } from "@/services/haptics";
 import { MOVE_SESSION_PHASE, sessionSeconds, useMoveStore } from "@/store/useMoveStore";
 import { activityFor, paceFor } from "./geo";
+import { GpsBadge, HoldButton, RoundControl, StatCell } from "./MoveKit";
 
 const useTick = (on) => {
   const [, setN] = useState(0);
@@ -19,7 +20,9 @@ const useTick = (on) => {
   }, [on]);
 };
 
-export default function LiveSessionPanel({ onFinish, bottomInset = 0 }) {
+const kmh = (secPerKm) => (secPerKm ? (3600 / secPerKm).toFixed(1) : "--");
+
+export default function LiveSessionPanel({ onFinish, accuracy, bottomInset = 0 }) {
   const s = useMoveStore();
   const paused = s.sessionPhase === MOVE_SESSION_PHASE.PAUSED;
   useTick(!paused);
@@ -29,78 +32,45 @@ export default function LiveSessionPanel({ onFinish, bottomInset = 0 }) {
   const activity = activityFor(s.activityType);
   const avgPace = paceFor(km, seconds);
   const ride = s.activityType === "ride";
-  const speed = (v) => (v ? `${(3600 / v).toFixed(1)}` : "--");
 
   return (
-    <View style={[styles.panel, { paddingBottom: S.xl + bottomInset }]}>
+    <View style={[styles.panel, { paddingBottom: S.lg + bottomInset }]}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={[paused ? "rgba(255,193,7,0.10)" : "rgba(0,255,127,0.10)", "transparent"]}
+        style={[StyleSheet.absoluteFill, { borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, height: 160 }]}
+      />
       <Row style={{ justifyContent: "space-between" }}>
-        <Row gap={6}>
-          <View style={[styles.dot, { backgroundColor: paused ? C.warn : C.accent }]} />
-          <Label style={{ color: paused ? C.warn : C.accent }}>{paused ? "Paused" : `${activity.label} live`}</Label>
+        <Row gap={8}>
+          {paused ? <View style={styles.pausedDot} /> : <LiveDot size={9} />}
+          <Label style={{ color: paused ? C.warn : C.accent }}>{paused ? "Paused" : `${activity.label} recording`}</Label>
         </Row>
-        <Text style={styles.time}>{formatDuration(seconds)}</Text>
+        <GpsBadge accuracy={accuracy} />
       </Row>
 
       <View style={styles.hero}>
-        <Text style={styles.distance} adjustsFontSizeToFit numberOfLines={1}>
-          {km.toFixed(2)}
-        </Text>
-        <Text style={styles.unit}>km</Text>
+        <AnimatedNumber value={km} format={(v) => v.toFixed(2)} duration={500} style={[styles.distance, paused && { color: C.textDim }]} />
+        <Text style={styles.unit}>KM</Text>
       </View>
 
-      <Row gap={S.sm}>
-        <Metric label={ride ? "Speed" : "Pace"} value={ride ? speed(s.currentPace) : formatPace(s.currentPace)} unit={ride ? "km/h" : "/km"} />
-        <Metric label={ride ? "Avg speed" : "Avg pace"} value={ride ? speed(avgPace) : formatPace(avgPace)} unit={ride ? "km/h" : "/km"} />
-      </Row>
+      <View style={styles.grid}>
+        <StatCell label="Time" value={formatDuration(seconds)} />
+        <View style={styles.rule} />
+        {ride ? <StatCell label="Speed" value={kmh(s.currentPace)} unit="km/h" /> : <StatCell label="Pace" value={formatPace(s.currentPace)} unit="/km" />}
+        <View style={styles.rule} />
+        {ride ? <StatCell label="Avg" value={kmh(avgPace)} unit="km/h" /> : <StatCell label="Avg pace" value={formatPace(avgPace)} unit="/km" />}
+      </View>
 
-      <Row gap={S.xl} style={styles.controls}>
+      <Row style={styles.controls}>
         {paused ? (
           <>
-            <RoundButton label="Finish" onPress={onFinish} icon={Square} tone="light" />
-            <RoundButton label="Resume" onPress={s.resume} icon={Play} tone="accent" big />
+            <HoldButton icon={Square} label="Finish" onComplete={onFinish} size={72} />
+            <RoundControl icon={Play} label="Resume" onPress={s.resume} tone="accent" size={88} />
           </>
         ) : (
-          <RoundButton label="Pause" onPress={s.pause} icon={Pause} tone="accent" big />
+          <RoundControl icon={Pause} label="Pause" onPress={s.pause} tone="accent" size={88} />
         )}
       </Row>
-    </View>
-  );
-}
-
-const Metric = ({ label, value, unit }) => (
-  <View style={styles.metric}>
-    <Label>{label}</Label>
-    <Row gap={4} style={{ alignItems: "baseline" }}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricUnit}>{unit}</Text>
-    </Row>
-  </View>
-);
-
-function RoundButton({ label, onPress, icon: Icon, tone, big }) {
-  const size = big ? 84 : 64;
-  const bg = tone === "accent" ? C.accent : C.surfaceHigh;
-  const fg = tone === "accent" ? C.accentText : C.text;
-  return (
-    <View style={{ alignItems: "center", gap: 6 }}>
-      <MotiView from={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 16 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          onPress={() => {
-            hapticHeavy();
-            onPress?.();
-          }}
-          style={({ pressed }) => [
-            { width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: "center", justifyContent: "center" },
-            tone !== "accent" && { borderWidth: 1, borderColor: C.borderStrong },
-            pressed && { transform: [{ scale: 0.94 }], opacity: 0.9 },
-          ]}
-        >
-          <Icon size={big ? 32 : 24} color={fg} fill={fg} />
-        </Pressable>
-      </MotiView>
-      <Text style={styles.btnLabel}>{label}</Text>
     </View>
   );
 }
@@ -111,19 +81,18 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: R.xl,
     borderTopRightRadius: R.xl,
     borderWidth: 1,
+    borderBottomWidth: 0,
     borderColor: C.border,
     paddingHorizontal: S.gutter,
     paddingTop: S.xl,
     gap: S.lg,
+    overflow: "hidden",
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  time: { color: C.text, fontFamily: F.displayMedium, fontSize: 22, fontVariant: ["tabular-nums"] },
-  hero: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", gap: 8 },
-  distance: { color: C.text, fontFamily: F.display, fontSize: 88, lineHeight: 92, letterSpacing: -2, fontVariant: ["tabular-nums"] },
-  unit: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 22 },
-  metric: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, borderWidth: 1, borderColor: C.border, padding: S.md, gap: 4 },
-  metricValue: { color: C.text, fontFamily: F.display, fontSize: 24, fontVariant: ["tabular-nums"] },
-  metricUnit: { color: C.textMute, fontSize: 12 },
-  controls: { justifyContent: "center", marginTop: S.xs },
-  btnLabel: { color: C.textDim, fontSize: 12, fontWeight: "600" },
+  pausedDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.warn },
+  hero: { alignItems: "center", marginTop: -S.xs },
+  distance: { color: C.text, fontFamily: F.display, fontSize: 64, lineHeight: 70, letterSpacing: -1.5, fontVariant: ["tabular-nums"] },
+  unit: { color: C.textMute, fontSize: 12, fontWeight: "800", letterSpacing: 2, marginTop: -2 },
+  grid: { flexDirection: "row", alignItems: "center", backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, paddingVertical: S.lg },
+  rule: { width: 1, alignSelf: "stretch", backgroundColor: C.border },
+  controls: { justifyContent: "center", alignItems: "flex-start", gap: 48, marginTop: S.xs },
 });

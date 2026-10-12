@@ -22,7 +22,7 @@ import { AnimatedBar, PressableScale } from "./motion";
 export { PressableScale, FadeIn, Skeleton, SkeletonList, AnimatedNumber, AnimatedBar, LiveDot } from "./motion";
 export { Cover, imageSource, accentFor } from "./Cover";
 export { Sheet } from "./Sheet";
-export { toast, ToastHost } from "./Toast";
+export { toast, ToastHost, ModalToastHost } from "./Toast";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ const BUTTON_VARIANTS = {
   danger: { bg: C.dangerDim, fg: C.danger, border: "rgba(255,69,58,0.4)" },
 };
 
-export function Button({ title, onPress, variant = "primary", size = "md", icon: Icon, loading = false, disabled = false, full = false, style }) {
+export function Button({ title, onPress, variant = "primary", size = "md", icon: Icon, iconRight: IconRight, loading = false, disabled = false, full = false, style }) {
   const v = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary;
   const height = size === "sm" ? 36 : size === "lg" ? 56 : 48;
   const off = disabled || loading;
@@ -214,6 +214,7 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon:
         <>
           {Icon ? <Icon size={size === "sm" ? 15 : 18} color={v.fg} /> : null}
           <Text style={{ color: v.fg, fontFamily: F.displayMedium, fontSize: size === "sm" ? 14 : 16, letterSpacing: 0.2 }}>{title}</Text>
+          {IconRight ? <IconRight size={size === "sm" ? 15 : 18} color={v.fg} /> : null}
         </>
       )}
     </PressableScale>
@@ -283,6 +284,8 @@ const colourFromName = (name) => {
  * photo still shows something personal.
  */
 export function Avatar({ uri, name = "", size = 44, ring, colour, outside = false, style }) {
+  const [failed, setFailed] = React.useState(false);
+  const [loaded, setLoaded] = React.useState(false);
   const initials = name
     .split(/[\s._]+/)
     .filter(Boolean)
@@ -306,7 +309,16 @@ export function Avatar({ uri, name = "", size = 44, ring, colour, outside = fals
         }}
       >
         <Text style={{ color: tint, fontFamily: F.display, fontSize: size * 0.38 }}>{initials || "?"}</Text>
-        {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
+        {uri && !failed ? (
+          <Image
+            source={{ uri }}
+            style={[StyleSheet.absoluteFill, { opacity: loaded ? 1 : 0 }]}
+            contentFit="cover"
+            transition={200}
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
+          />
+        ) : null}
       </View>
       {outside ? (
         <View

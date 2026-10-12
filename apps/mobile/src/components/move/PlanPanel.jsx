@@ -4,8 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
 import { Bookmark, Check, Trash2, Undo2 } from "lucide-react-native";
-import { Body, Button, C, F, Label, R, Row, S } from "@/components/ui";
-import { hapticSuccess } from "@/services/haptics";
+import { Body, Button, C, F, Label, R, Row, S, toast } from "@/components/ui";
 import { useMoveStore } from "@/store/useMoveStore";
 
 export default function PlanPanel({ onDone, bottom }) {
@@ -27,7 +26,7 @@ export default function PlanPanel({ onDone, bottom }) {
   const save = async () => {
     const route = await saveCurrentRoute(name);
     if (route) {
-      hapticSuccess();
+      toast.success("Route saved", `"${route.name}" is under Saved routes`);
       setSavedName(route.name);
       setNaming(false);
       setName("");
@@ -71,8 +70,14 @@ export default function PlanPanel({ onDone, bottom }) {
       ) : null}
 
       <Row gap={S.sm}>
-        {!naming ? <Button title="Save route" icon={Bookmark} variant="secondary" disabled={!hasRoute || isRouting} onPress={() => setNaming(true)} style={{ flex: 1 }} /> : null}
-        <Button title="Done" icon={Check} onPress={onDone} style={{ flex: 1 }} />
+        {!naming ? (
+          <View style={{ flex: 1 }}>
+            <Button title="Save route" icon={Bookmark} variant="secondary" disabled={!hasRoute || isRouting} onPress={() => setNaming(true)} full />
+          </View>
+        ) : null}
+        <View style={{ flex: 1 }}>
+          <Button title="Done" icon={Check} onPress={onDone} full />
+        </View>
       </Row>
     </View>
   );
@@ -80,6 +85,6 @@ export default function PlanPanel({ onDone, bottom }) {
 
 const styles = StyleSheet.create({
   panel: { marginHorizontal: S.md, backgroundColor: "rgba(10,10,10,0.94)", borderRadius: R.xl, borderWidth: 1, borderColor: C.border, padding: S.lg, gap: S.md },
-  km: { color: C.text, fontFamily: F.display, fontSize: 28 },
+  km: { color: C.text, fontFamily: F.display, fontSize: 32, letterSpacing: -0.8 },
   input: { flex: 1, height: 36, borderRadius: R.full, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.md, fontSize: 14 },
 });

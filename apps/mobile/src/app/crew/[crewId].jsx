@@ -1,17 +1,47 @@
-// Public crew page. Works for members and non-members: header, stats, members
+// Public crew page. Works for members and non-members: hero, stats, members
 // and leaderboard, with Join / Leave / Open in Crew tab.
 
 import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowRight, DoorOpen, KeyRound, Share2, Users } from "lucide-react-native";
-import { Avatar, Body, Button, C, Card, EmptyState, F, Header, IconButton, Loading, Row, S, Screen, SectionHeader, StatTile } from "@/components/ui";
+import { ArrowRight, ChevronRight, DoorOpen, KeyRound, Share2, Users } from "lucide-react-native";
+import { AnimatedNumber, Body, Button, C, Card, EmptyState, F, FadeIn, Header, IconButton, Label, LiveDot, PressableScale, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
 import { engine, useCrew, useEngineMutation } from "@/data/hooks";
 import { compactNumber } from "@/utils/format";
-import CrewHero from "@/components/crew/CrewHero";
+import CrewHero, { useCountUp } from "@/components/crew/CrewHero";
 import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
 import { shareInvite } from "@/components/crew/CrewSettings";
-import { ROLE_LABEL, useCrewFocus } from "@/components/crew/shared";
+import { PlayerAvatar, ROLE_LABEL, crewAccent, playerName, useCrewFocus } from "@/components/crew/shared";
+
+function Stat({ label, value, format, hint, live }) {
+  const shown = useCountUp(value);
+  return (
+    <View style={styles.stat}>
+      <Label>{label}</Label>
+      <AnimatedNumber value={shown} format={format} style={styles.statValue} />
+      <Row gap={5}>
+        {live ? <LiveDot size={6} /> : null}
+        <Body mute size={12} numberOfLines={1} style={live ? { color: C.accent } : null}>
+          {hint}
+        </Body>
+      </Row>
+    </View>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <View style={{ gap: S.md }}>
+      <Skeleton height={300} radius={24} />
+      <Skeleton height={56} radius={99} />
+      <Row gap={S.sm}>
+        <Skeleton height={92} radius={16} style={{ flex: 1 }} />
+        <Skeleton height={92} radius={16} style={{ flex: 1 }} />
+        <Skeleton height={92} radius={16} style={{ flex: 1 }} />
+      </Row>
+    </View>
+  );
+}
 
 export default function CrewDetail() {
   const { crewId } = useLocalSearchParams();
@@ -21,20 +51,23 @@ export default function CrewDetail() {
   const { data: crew, isPending, isError, refetch, isRefetching } = useCrew(id);
   const [code, setCode] = useState("");
 
-  const join = useEngineMutation(engine.joinCrew, { onSuccess: () => focus(id) });
+  const join = useEngineMutation(engine.joinCrew, { success: (c) => `You're in ${c.name}`, onSuccess: () => focus(id) });
   const joinByCode = useEngineMutation(engine.joinCrewByCode, {
+    success: (c) => `You're in ${c.name}`,
     onSuccess: (joined) => {
       setCode("");
       focus(joined.id);
       if (joined.id !== id) router.replace(`/crew/${joined.id}`);
     },
   });
-  const leave = useEngineMutation(engine.leaveCrew);
+  const leave = useEngineMutation(engine.leaveCrew, { success: () => `You left ${crew?.name || "the crew"}` });
 
   const openInTab = () => {
     focus(id);
     router.dismissTo("/(tabs)/club");
   };
+
+  const openPlayer = (p) => router.push(p.isMe ? "/(tabs)/profile" : `/player/${p.id}`);
 
   const confirmLeave = () =>
     Alert.alert(
@@ -62,7 +95,7 @@ export default function CrewDetail() {
   if (isPending) {
     return (
       <Screen header={<Header back title="Crew" />}>
-        <Loading />
+        <DetailSkeleton />
       </Screen>
     );
   }
@@ -75,6 +108,7 @@ export default function CrewDetail() {
     );
   }
 
+  const accent = crewAccent(crew);
   const members = crew.members || [];
   const totalWeekSteps = members.reduce((sum, m) => sum + (m.weekSteps || 0), 0);
   const outsideNow = members.filter((m) => m.isOutside).length;
@@ -83,61 +117,65 @@ export default function CrewDetail() {
     <Screen
       onRefresh={refetch}
       refreshing={isRefetching}
-      header={
-        <Header back title={crew.name} right={crew.isMember && crew.inviteCode ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null} />
-      }
+      header={<Header back title="Crew" right={crew.isMember && crew.inviteCode ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null} />}
     >
-      <CrewHero crew={crew} />
+      <FadeIn>
+        <CrewHero crew={crew} />
+      </FadeIn>
 
-      <View style={{ marginTop: S.lg }}>
+      <FadeIn index={1} style={{ marginTop: S.lg }}>
         {crew.isMember ? (
           <Row gap={S.sm}>
-            <Button title="Open in Crew tab" icon={ArrowRight} onPress={openInTab} style={{ flex: 1 }} />
-            <Button title="Leave" icon={DoorOpen} variant="secondary" onPress={confirmLeave} loading={leave.isPending} />
+            <View style={{ flex: 1 }}>
+              <Button title="Open in Crew tab" icon={ArrowRight} onPress={openInTab} full size="lg" />
+            </View>
+            <Button title="Leave" icon={DoorOpen} variant="secondary" onPress={confirmLeave} loading={leave.isPending} size="lg" />
           </Row>
         ) : crew.privacy === "public" ? (
           <Button title={`Join ${crew.name}`} icon={Users} onPress={() => join.mutate(id)} loading={join.isPending} full size="lg" />
         ) : (
-          <Card>
+          <Card style={{ borderColor: `${accent}55` }}>
             <Row gap={S.sm}>
-              <KeyRound size={16} color={C.accent} />
+              <KeyRound size={16} color={accent} />
               <Text style={styles.cardTitle}>Invite only</Text>
             </Row>
             <Body dim size={13} style={{ marginTop: 4 }}>
-              Ask a member for the crew code and enter it here.
+              Ask a member for the crew code and drop it in.
             </Body>
             <Row gap={S.sm} style={{ marginTop: S.md }}>
               <TextInput
                 value={code}
-                onChangeText={(t) => setCode(t.toUpperCase())}
-                placeholder="Crew code"
+                onChangeText={(t) => setCode(t.toUpperCase().replace(/\s/g, ""))}
+                placeholder="CREW CODE"
                 placeholderTextColor={C.textMute}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={12}
                 style={styles.input}
               />
-              <Button title="Join" onPress={() => joinByCode.mutate(code)} disabled={!code.trim()} loading={joinByCode.isPending} />
+              <Button title="Join" onPress={() => joinByCode.mutate(code)} disabled={!code.trim()} loading={joinByCode.isPending} size="lg" />
             </Row>
           </Card>
         )}
-      </View>
+      </FadeIn>
 
-      <Row gap={S.sm} style={{ marginTop: S.lg }}>
-        <StatTile label="Steps" value={compactNumber(totalWeekSteps)} hint="this week" />
-        <StatTile label="Members" value={String(crew.memberCount)} hint={`${outsideNow} outside now`} accent={outsideNow > 0} />
-        <StatTile label="Goal" value={`${crew.weeklyGoalKm}`} hint="km a week" />
-      </Row>
+      <FadeIn index={2}>
+        <Row gap={S.sm} style={{ marginTop: S.lg }}>
+          <Stat label="Steps" value={totalWeekSteps} format={compactNumber} hint="this week" />
+          <Stat label="Members" value={crew.memberCount} hint={outsideNow ? `${outsideNow} outside` : "none out now"} live={outsideNow > 0} />
+          <Stat label="Goal" value={crew.weeklyGoalKm} hint="km a week" />
+        </Row>
+      </FadeIn>
 
       {crew.owner ? (
-        <Card style={{ marginTop: S.md }} onPress={() => router.push(crew.owner.isMe ? "/(tabs)/profile" : `/player/${crew.owner.id}`)}>
+        <Card style={{ marginTop: S.md }} onPress={() => openPlayer(crew.owner)}>
           <Row gap={S.md}>
-            <Avatar uri={crew.owner.avatar} name={crew.owner.name || crew.owner.username} size={40} />
+            <PlayerAvatar player={crew.owner} size={44} ring={C.gold} />
             <View style={{ flex: 1 }}>
-              <Body mute size={12}>Run by</Body>
-              <Text style={styles.name}>{crew.owner.isMe ? "You" : crew.owner.name || crew.owner.username}</Text>
+              <Label>Run by</Label>
+              <Text style={styles.name}>{playerName(crew.owner)}</Text>
             </View>
-            <ArrowRight size={18} color={C.textMute} />
+            <ChevronRight size={18} color={C.textMute} />
           </Row>
         </Card>
       ) : null}
@@ -145,20 +183,22 @@ export default function CrewDetail() {
       <SectionHeader title="Members" />
       <Card padding={0}>
         {members.slice(0, 8).map((m, i) => (
-          <Pressable
-            key={m.player.id}
-            onPress={() => router.push(m.player.isMe ? "/(tabs)/profile" : `/player/${m.player.id}`)}
-            style={({ pressed }) => [styles.row, i > 0 && styles.divider, pressed && { opacity: 0.6 }]}
-          >
-            <Avatar uri={m.player.avatar} name={m.player.name || m.player.username} size={38} outside={m.isOutside} />
+          <PressableScale key={m.player.id} onPress={() => openPlayer(m.player)} scaleTo={0.985} style={[styles.row, i > 0 && styles.divider]}>
+            <PlayerAvatar player={m.player} size={40} outside={m.isOutside} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>
-                {m.player.isMe ? "You" : m.player.name || m.player.username}
+                {playerName(m.player)}
               </Text>
-              <Body mute size={12}>@{m.player.username}</Body>
+              <Body mute size={12}>
+                {compactNumber(m.weekSteps)} steps this week
+              </Body>
             </View>
-            {m.role !== "member" ? <Text style={[styles.role, { color: crew.accent || C.accent }]}>{ROLE_LABEL[m.role]}</Text> : null}
-          </Pressable>
+            {m.role !== "member" ? (
+              <View style={[styles.role, { backgroundColor: `${accent}1a`, borderColor: `${accent}55` }]}>
+                <Text style={[styles.roleText, { color: accent }]}>{ROLE_LABEL[m.role].toUpperCase()}</Text>
+              </View>
+            ) : null}
+          </PressableScale>
         ))}
         {members.length > 8 ? (
           <Body mute size={13} style={{ padding: S.lg, paddingTop: S.sm }}>
@@ -175,9 +215,12 @@ export default function CrewDetail() {
 
 const styles = StyleSheet.create({
   cardTitle: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
-  input: { flex: 1, height: 46, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceHigh, color: C.text, paddingHorizontal: S.md, fontSize: 15, fontFamily: F.displayMedium, letterSpacing: 2 },
+  input: { flex: 1, minWidth: 0, height: 56, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surfaceHigh, color: C.text, paddingHorizontal: S.lg, fontSize: 17, fontFamily: F.display, letterSpacing: 4 },
+  stat: { flex: 1, backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: S.md, gap: 4 },
+  statValue: { color: C.text, fontFamily: F.display, fontSize: 26, letterSpacing: -0.5 },
   row: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  name: { color: C.text, fontSize: 15, fontWeight: "600" },
-  role: { fontSize: 12, fontWeight: "700" },
+  name: { color: C.text, fontSize: 15, fontWeight: "600", marginTop: 2 },
+  role: { height: 24, paddingHorizontal: 8, borderRadius: 99, borderWidth: 1, justifyContent: "center" },
+  roleText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
 });

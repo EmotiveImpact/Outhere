@@ -2,7 +2,7 @@
 // Call toast("Saved") or toast.success("+20 XP") from anywhere; <ToastHost />
 // is mounted once at the root.
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Text, View } from "react-native";
 import Animated, { FadeInUp, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,11 @@ import { hapticError, hapticSuccess } from "@/services/haptics";
 
 const useToasts = create((set) => ({
   items: [],
+  // Modals cover the root host, so while any is open the topmost modal's own
+  // host shows toasts instead (see ModalToastHost).
+  modals: 0,
+  addModal: () => set((s) => ({ modals: s.modals + 1 })),
+  removeModal: () => set((s) => ({ modals: Math.max(0, s.modals - 1) })),
   push: (item) => set((s) => ({ items: [...s.items.slice(-2), item] })),
   remove: (id) => set((s) => ({ items: s.items.filter((t) => t.id !== id) })),
 }));
@@ -35,9 +40,22 @@ const TONES = {
   error: { icon: TriangleAlert, fg: "#ffffff", bg: "#3a1513" },
 };
 
-export function ToastHost() {
+/** Put inside any full-screen Modal so toasts fired there stay visible. */
+export function ModalToastHost() {
+  const addModal = useToasts((s) => s.addModal);
+  const removeModal = useToasts((s) => s.removeModal);
+  useEffect(() => {
+    addModal();
+    return removeModal;
+  }, [addModal, removeModal]);
+  return <ToastHost inModal />;
+}
+
+export function ToastHost({ inModal = false }) {
   const items = useToasts((s) => s.items);
+  const covered = useToasts((s) => s.modals > 0);
   const insets = useSafeAreaInsets();
+  if (!inModal && covered) return null;
   return (
     <View pointerEvents="none" style={{ position: "absolute", top: insets.top + 8, left: 16, right: 16, gap: 8, zIndex: 1000 }}>
       {items.map((t) => {

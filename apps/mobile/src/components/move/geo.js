@@ -76,7 +76,7 @@ export const rewardsFor = (km, tier = "free") => {
 
 export const runTitle = (type, ms = Date.now()) => {
   const h = new Date(ms).getHours();
-  const part = h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
+  const part = h < 5 ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
   return `${part} ${activityFor(type).noun}`;
 };
 
