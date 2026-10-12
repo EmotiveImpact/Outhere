@@ -17,6 +17,12 @@ import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { hapticSelection } from "@/services/haptics";
+import { AnimatedBar, PressableScale } from "./motion";
+
+export { PressableScale, FadeIn, Skeleton, SkeletonList, AnimatedNumber, AnimatedBar, LiveDot } from "./motion";
+export { Cover, imageSource, accentFor } from "./Cover";
+export { Sheet } from "./Sheet";
+export { toast, ToastHost } from "./Toast";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
@@ -131,23 +137,14 @@ export function Header({ title, subtitle, back = false, onBack, right, large = f
 }
 
 export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, style }) => (
-  <Pressable
-    onPress={() => {
-      hapticSelection();
-      onPress?.();
-    }}
-    hitSlop={8}
-    accessibilityRole="button"
-    accessibilityLabel={label}
-    style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.6 }, style]}
-  >
+  <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, style]}>
     <Icon size={size} color={C.text} />
     {badge ? (
       <View style={styles.badgeDot}>
         <Text style={styles.badgeDotText}>{badge > 9 ? "9+" : badge}</Text>
       </View>
     ) : null}
-  </Pressable>
+  </PressableScale>
 );
 
 export const Row = ({ children, gap = S.sm, style, ...rest }) => (
@@ -164,15 +161,9 @@ export function Card({ children, onPress, highlight = false, padding = S.lg, sty
   const base = [styles.card, { padding }, highlight && styles.cardHighlight, style];
   if (!onPress) return <View style={base}>{children}</View>;
   return (
-    <Pressable
-      onPress={() => {
-        hapticSelection();
-        onPress();
-      }}
-      style={({ pressed }) => [...base, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]}
-    >
+    <PressableScale onPress={onPress} scaleTo={0.98} style={base}>
       {children}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -204,19 +195,16 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon:
   const height = size === "sm" ? 36 : size === "lg" ? 56 : 48;
   const off = disabled || loading;
   return (
-    <Pressable
+    <PressableScale
       disabled={off}
-      onPress={() => {
-        hapticSelection();
-        onPress?.();
-      }}
-      accessibilityRole="button"
-      style={({ pressed }) => [
+      onPress={onPress}
+      scaleTo={0.96}
+      style={[
         styles.button,
         { height, backgroundColor: v.bg, borderColor: v.border, paddingHorizontal: size === "sm" ? 14 : 20 },
+        variant === "primary" && !off && styles.buttonGlow,
         full && { alignSelf: "stretch" },
         off && { opacity: 0.45 },
-        pressed && !off && { opacity: 0.8, transform: [{ scale: 0.98 }] },
         style,
       ]}
     >
@@ -228,7 +216,7 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon:
           <Text style={{ color: v.fg, fontFamily: F.displayMedium, fontSize: size === "sm" ? 14 : 16, letterSpacing: 0.2 }}>{title}</Text>
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -283,6 +271,17 @@ export const TierBadge = ({ tier, style }) =>
 
 // ── Data display ──────────────────────────────────────────────────────────────
 
+const AVATAR_COLOURS = ["#FF6B35", "#3DA9FC", "#9B5CFF", "#00d4aa", "#FFD700", "#FF6FB5", "#7CFC00"];
+const colourFromName = (name) => {
+  let h = 0;
+  for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLOURS[h % AVATAR_COLOURS.length];
+};
+
+/**
+ * Round avatar. Coloured initials always sit underneath, so a slow or failed
+ * photo still shows something personal.
+ */
 export function Avatar({ uri, name = "", size = 44, ring, colour, outside = false, style }) {
   const initials = name
     .split(/[\s._]+/)
@@ -290,6 +289,7 @@ export function Avatar({ uri, name = "", size = 44, ring, colour, outside = fals
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join("");
+  const tint = colour || colourFromName(name || "?");
   return (
     <View style={[{ width: size, height: size }, style]}>
       <View
@@ -298,18 +298,15 @@ export function Avatar({ uri, name = "", size = 44, ring, colour, outside = fals
           height: size,
           borderRadius: size / 2,
           overflow: "hidden",
-          backgroundColor: !uri && colour ? colour : C.surfaceHigh,
+          backgroundColor: `${tint}26`,
           alignItems: "center",
           justifyContent: "center",
           borderWidth: ring ? 2 : 0,
           borderColor: ring || "transparent",
         }}
       >
-        {uri ? (
-          <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-        ) : (
-          <Text style={{ color: colour ? C.bg : C.textDim, fontFamily: F.displayMedium, fontSize: size * 0.36 }}>{initials || "?"}</Text>
-        )}
+        <Text style={{ color: tint, fontFamily: F.display, fontSize: size * 0.38 }}>{initials || "?"}</Text>
+        {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
       </View>
       {outside ? (
         <View
@@ -341,9 +338,7 @@ export const StatTile = ({ label, value, hint, accent = false, style }) => (
 );
 
 export const ProgressBar = ({ value = 0, height = 8, colour = C.accent, track = C.surfaceHigh, style }) => (
-  <View style={[{ height, borderRadius: height, backgroundColor: track, overflow: "hidden" }, style]}>
-    <View style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, height: "100%", borderRadius: height, backgroundColor: colour }} />
-  </View>
+  <AnimatedBar value={value} height={height} colour={colour} track={track} style={style} />
 );
 
 /** Tappable list row with leading element, title, subtitle and trailing slot. */
@@ -367,15 +362,9 @@ export function ListRow({ leading, title, subtitle, trailing, onPress, chevron =
   );
   if (!onPress) return content;
   return (
-    <Pressable
-      onPress={() => {
-        hapticSelection();
-        onPress();
-      }}
-      style={({ pressed }) => pressed && { opacity: 0.6 }}
-    >
+    <PressableScale onPress={onPress} scaleTo={0.985}>
       {content}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -412,6 +401,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border },
   cardHighlight: { borderColor: "rgba(0,255,127,0.35)", backgroundColor: "#0f1a14" },
   button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: S.sm, borderRadius: R.full, borderWidth: 1 },
+  buttonGlow: { shadowColor: C.accent, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   segment: { flexDirection: "row", backgroundColor: C.surface, borderRadius: R.full, padding: 4, borderWidth: 1, borderColor: C.border },
   segmentItem: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   segmentItemActive: { backgroundColor: C.accent },

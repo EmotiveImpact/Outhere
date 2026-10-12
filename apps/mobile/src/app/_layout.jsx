@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { EngineBridge, useProfile } from "@/data/hooks";
 import { useStepSync } from "@/hooks/useStepSync";
 import UpgradeSheet from "@/components/ui/UpgradeSheet";
+import { ToastHost } from "@/components/ui/Toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -53,6 +54,7 @@ function RootStack() {
       </Stack>
       <StepSync />
       <UpgradeSheet />
+      <ToastHost />
     </>
   );
 }

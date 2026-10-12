@@ -236,7 +236,7 @@ const playerDayTotal = (pid, key) => {
   const weekend = date.getDay() === 0 || date.getDay() === 6;
   const n = noise(`${pid}:${key}`);
   const rest = n < 0.08; // the odd lazy day
-  return Math.round(p.base * (rest ? 0.3 : 0.6 + n * 0.8) * (weekend ? 1.12 : 1));
+  return Math.round(p.base * (rest ? 0.15 : 0.6 + n * 0.8) * (weekend ? 1.12 : 1));
 };
 
 const playerStepsBetween = (pid, from, to) => {

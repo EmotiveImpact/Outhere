@@ -3,11 +3,11 @@
 // this file and engine.js.
 
 import { useEffect } from "react";
-import { Alert } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import * as engine from "./engine";
 import { setHapticsEnabled } from "@/services/haptics";
+import { toast } from "@/components/ui/Toast";
 
 export { engine };
 
@@ -30,7 +30,7 @@ export const showEngineError = (error) => {
     useUpgradePrompt.getState().open(error.requiredTier || "pro", error.message);
     return;
   }
-  Alert.alert("Hold up", error?.message || "Something went wrong.");
+  toast.error(error?.message || "Something went wrong.");
 };
 
 // ── Bridge: keeps every query in step with the engine ─────────────────────────
@@ -71,13 +71,18 @@ export function EngineBridge() {
 const q = (key, fn, options = {}) => ({ queryKey: [KEY, ...key], queryFn: fn, staleTime: 30 * 1000, ...options });
 
 // ── Generic mutation ──────────────────────────────────────────────────────────
-// const join = useEngineMutation(engine.joinCrew); join.mutate(crewId)
-// Errors show an alert or the upgrade sheet unless `silent` is set.
+// const join = useEngineMutation(engine.joinCrew, { success: "You're in" }); join.mutate(crewId)
+// Errors show a toast or the upgrade sheet unless `silent` is set. `success` is
+// a toast title, or a function of the result returning one (or null for none).
 
-export function useEngineMutation(fn, { onSuccess, onError, silent = false } = {}) {
+export function useEngineMutation(fn, { onSuccess, onError, silent = false, success } = {}) {
   return useMutation({
     mutationFn: (args) => (Array.isArray(args) ? fn(...args) : fn(args)),
-    onSuccess,
+    onSuccess: (result, ...rest) => {
+      const title = typeof success === "function" ? success(result) : success;
+      if (title) toast.success(title);
+      onSuccess?.(result, ...rest);
+    },
     onError: (error, ...rest) => {
       if (!silent) showEngineError(error);
       onError?.(error, ...rest);
