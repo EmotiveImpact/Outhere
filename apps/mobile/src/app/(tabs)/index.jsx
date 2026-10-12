@@ -104,7 +104,22 @@ export default function HomeScreen() {
           <IconButton icon={Bell} label="Notifications" badge={unreadQ.data || 0} onPress={() => router.push("/notifications")} style={{ width: 44, height: 44, borderRadius: 22 }} />
         </Row>
 
-        <FadeIn index={0} style={{ marginTop: S.xxl }}>
+        <FadeIn index={0}>
+          <Heading title="Outside now" first />
+          <OutsideStrip
+            city={profile.city}
+            count={outsideQ.data?.count ?? 0}
+            people={outsideQ.data?.people || []}
+            friends={friendsOutside}
+            hasFriends={!!friendsQ.data?.length}
+            isOutside={!!profile.isOutside}
+            hidden={outsideHidden}
+            busy={setOutside.isPending}
+            onToggle={() => setOutside.mutate({ isOutside: !profile.isOutside })}
+            onPlayer={(id) => router.push(`/player/${id}`)}
+          />
+        </FadeIn>
+        <FadeIn index={1} style={{ marginTop: S.xxl }}>
           <StepHero
             steps={steps}
             goal={goal}
@@ -119,7 +134,7 @@ export default function HomeScreen() {
           />
         </FadeIn>
 
-        <FadeIn index={1} style={{ marginTop: S.xxl }}>
+        <FadeIn index={2} style={{ marginTop: S.xxl }}>
           <StatChips
             streak={profile.streak}
             level={profile.level}
@@ -130,21 +145,6 @@ export default function HomeScreen() {
           />
         </FadeIn>
 
-        <FadeIn index={2}>
-          <Heading title="Outside now" />
-          <OutsideStrip
-            city={profile.city}
-            count={outsideQ.data?.count ?? 0}
-            people={outsideQ.data?.people || []}
-            friends={friendsOutside}
-            hasFriends={!!friendsQ.data?.length}
-            isOutside={!!profile.isOutside}
-            hidden={outsideHidden}
-            busy={setOutside.isPending}
-            onToggle={() => setOutside.mutate({ isOutside: !profile.isOutside })}
-            onPlayer={(id) => router.push(`/player/${id}`)}
-          />
-        </FadeIn>
 
         <FadeIn index={3}>
           <Heading title="This week" meta={history ? `${formatNumber(weekTotal)} steps` : null} />
@@ -187,9 +187,9 @@ export default function HomeScreen() {
   );
 }
 
-function Heading({ title, meta, action, onAction }) {
+function Heading({ title, meta, action, onAction, first }) {
   return (
-    <Row style={{ justifyContent: "space-between", marginTop: 32, marginBottom: S.md }}>
+    <Row style={{ justifyContent: "space-between", marginTop: first ? S.xl : 32, marginBottom: S.md }}>
       <Title size={20}>{title}</Title>
       {action ? (
         <PressableScale onPress={onAction} hitSlop={10} scaleTo={0.94}>
