@@ -33,7 +33,7 @@ export default function CrewHero({ crew, showRole = true }) {
   const bar = useCountUp(progress);
   const words = (crew.name || "").split(" ");
   const last = words.length > 1 ? words.pop() : null;
-  const kicker = crew.verified ? "Official crew" : "Founding club";
+  const kicker = crew.verified ? `Official crew${crew.founded ? ` · Est. ${crew.founded}` : ""}` : "Founding club";
   const meets = crew.meets || crew.tagline;
 
   return (
@@ -69,11 +69,19 @@ export default function CrewHero({ crew, showRole = true }) {
         </View>
       </View>
 
-      <Row gap={S.sm} style={{ marginTop: S.md }}>
-        <StatTile value={String(crew.memberCount ?? 0)} label="Members" />
-        <StatTile value={String(Math.round(km))} label="km this week" />
-        <StatTile value={crew.badgeTier || "Bronze"} label="Crew badge" />
-      </Row>
+      {crew.record ? (
+        <Row gap={S.sm} style={{ marginTop: S.md }}>
+          <StatTile value={String(crew.memberCount ?? 0)} label="Members" />
+          <StatTile value={crew.lastTurnout != null ? String(crew.lastTurnout) : "–"} label="At last run" />
+          <StatTile value={`W${crew.record.w} L${crew.record.l}`} label="Club v club" />
+        </Row>
+      ) : (
+        <Row gap={S.sm} style={{ marginTop: S.md }}>
+          <StatTile value={String(crew.memberCount ?? 0)} label="Members" />
+          <StatTile value={String(Math.round(km))} label="km this week" />
+          <StatTile value={crew.badgeTier || "Bronze"} label="Crew badge" />
+        </Row>
+      )}
 
       <View style={{ marginTop: S.lg }}>
         <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>

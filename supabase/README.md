@@ -27,7 +27,9 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 | Ledger | `ledger` (XP and OUT, unique keys, 24h OUT hold), `wallets` view | server only |
 | Battles | `battles` (six modes), `battle_entries` (sealed blind results), `battle_board` view, `blocks`, `rival_passes`, `rival_deck()` | `create_battle`, `respond_battle`, `ready_battle`, `cancel_battle`, `submit_battle_result(battle, run)` |
 | Challenges | `challenges`, `challenge_progress` | `join_challenge`, `claim_challenge` |
-| Leagues | `seasons`, `divisions`, `league_entries`, `fixtures`, `squad_members` | scheduler: `draw_fixture`, `fixture_side_score` |
+| Leagues | `seasons`, `divisions`, `league_entries`, `fixtures`, `squad_members` | scheduler: `draw_fixture`, `fixture_side_score`, `settle_due_fixtures`; read: `fixture_view(fixture)` |
+| Club v club | `club_battles` (friendlies in five modes, turf war next season), `club_battle_votes` | captains: `challenge_club` (no opponent = mystery club), `respond_club_battle`, `cancel_club_battle`; members: `vote_club_battle`; read: `club_battles_for(club)` |
+| Club claims | `club_claims` (website and in app) | in app: `claim_my_club`; moderators: `review_club_claim` |
 | Social | `follows`, `posts`, `post_reactions`, `post_comments`, `stories`, `story_views` | direct insert under RLS |
 | Club chat | `club_channels` (general, announcements), `club_messages`, `poll_votes` | direct insert under RLS |
 | Notifications | `notifications` | server writes, member marks read |
@@ -43,6 +45,9 @@ Rules the database enforces, so no client can cheat them:
 - Every payout has a unique key, so a retry cannot pay twice. OUT is held for 24 hours.
 - Battle limits by tier (Free 1 a week and 1 active, Pro 5 active, Black 10). Blocked people cannot battle, message or see each other's posts. Under 18s only meet under 18s in the rival deck, and nobody can see who is under 18.
 - Battle modes. Most steps and last one standing score from counted steps (last one standing needs 8k on day one, 1k more each day, and ends the morning after someone misses). Live race, blind time trial and ghost race take your first run of at least the distance after the start, timed pro rata on the server; lower wins. A live race starts 10 seconds after both press ready (`ready_battle`). Blind times stay sealed until both are in. Hold the route keeps your best time on the saved route; a run must cover 95% of it.
+- Club v club. Club score is the squad's average counted steps a day times (1 + run turnout / 5), so turnout is worth up to 20%. Squads are equal, at most 25, drawn from members active on 3 of the last 7 days. A league win is 3 points, a draw 1, doubled for a derby. A mystery challenger stays hidden from the other club until the result, and blind time trial scores stay sealed until it ends.
+- Claiming a club needs proof: an Instagram or Strava page (we give a six digit code for the bio) or a booked video call. Three open claims at most. When a moderator approves, the club is made (or verified), the claimant becomes captain, and they get a year of Pro as an organiser.
+- Founding clubs go official after three meetups of six or more and ten different runners; `promote_founding_clubs()` checks nightly.
 - Routes shown to others have the first and last 200 m removed.
 - Club chat is for members only; announcements are for captains and admins.
 - Error codes are raised as the exception message (`TIER_REQUIRED`, `NOT_ENOUGH_OUT`, `EVENT_FULL`, `FUTURE_DAY` ...), so clients can switch on them.
@@ -51,7 +56,7 @@ Storage buckets (paths start with the owner's id, or the club's id for club medi
 
 Story photos live on Cloudflare R2, not in Supabase Storage. The phone shrinks each photo to about 1080 px WebP, asks the `story-media` Edge Function for a short lived upload link, and puts the file straight to R2 under `<author id>/<random>.webp`. Viewers get signed links from the same function, which only signs stories that RLS lets them see (author, audience, blocks). Stories expire after 24 hours; a nightly pg_cron job calls `story-media` to delete the files and rows.
 
-Schedules (pg_cron): `settle_due_battles()` every 5 minutes and `credit_club_fund()` on the 1st of the month. The Friday league draw (`draw_fixture`) runs from an Edge Function once seasons are set up.
+Schedules (pg_cron): `settle_due_battles()` and `settle_due_club_battles()` every 5 minutes, `settle_due_fixtures()` hourly on Sundays (the reveal is 20:00), `promote_founding_clubs()` nightly and `credit_club_fund()` on the 1st of the month. The Friday league draw (`draw_fixture`) runs from an Edge Function once seasons are set up.
 
 ## Working on it
 

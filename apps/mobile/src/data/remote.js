@@ -12,6 +12,8 @@ import { prepareStoryPhoto, storyFiles } from "@/services/media";
 import { EngineError, TIER_RULES, crewBadgeTier, levelFromXp, tierAtLeast } from "./engine";
 import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { lowerWins, modeOf, standingTarget } from "@/constants/battleModes";
+import { CLUB_MODE, clubModeOf } from "@/constants/clubModes";
+import { meetsLabel } from "./clubs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -46,6 +48,19 @@ const MESSAGES = {
   NOT_JOINED: "Join the challenge first.",
   NOT_DONE: "Not finished yet. Keep going.",
   SOLD_OUT: "Sold out.",
+  CAPTAINS_ONLY: "Only the club captain can do that.",
+  NOT_VERIFIED: "Club v club opens once the club is official.",
+  MODE_NOT_READY: "That mode opens next season.",
+  NO_CLUBS: "No other clubs near you are free right now.",
+  ALREADY_PLAYING: "You already have a friendly on with that club.",
+  CLUB_BATTLE_LIMIT: "Three friendlies at once is the most.",
+  BAD_TIME: "Pick a start in the future.",
+  CLAIM_LIMIT: "You have three claims waiting already.",
+  ALREADY_CLAIMED: "That claim is already with us.",
+  PROOF_REQUIRED: "Add the club's Instagram or Strava page, or book a call.",
+  BAD_NAME: "Club names need at least 3 characters.",
+  CHECK_IN_CLOSED: "Check-in opens 30 minutes before the start.",
+  EVENT_NOT_FOUND: "That club run has gone.",
 };
 
 const fail = (error) => {
@@ -891,7 +906,7 @@ const crewViews = async (rows, me, detailed = false) => {
       accent: c.accent,
       logo: publicUrl("club-media", c.logo_path),
       cover: publicUrl("club-media", c.cover_path),
-      meets: [c.meeting_place, c.usual_times].filter(Boolean).join(" · "),
+      meets: c.usual_times || "",
       privacy: "public",
       status: c.status,
       weeklyGoalKm: 100,
@@ -905,6 +920,16 @@ const crewViews = async (rows, me, detailed = false) => {
       owner: byId[c.created_by] || null,
       verified: c.status === "verified",
       founding: c.status === "founding",
+      founded: c.founded_year || null,
+      meetPlace: c.meeting_place || null,
+      distances: c.distances || null,
+      paces: c.paces || null,
+      beginners: !!c.beginners,
+      awayKm: null,
+      isCaptain: mine?.role === "captain",
+      record: null,
+      nextRun: null,
+      lastTurnout: null,
       previewMembers: members.slice(0, 5).map((m) => byId[m.user_id]).filter(Boolean),
     };
     if (detailed) {
@@ -942,6 +967,7 @@ export const getCrew = async (id) => {
     const invite = await run(supabase.from("club_invites").select("code").eq("club_id", id).limit(1).maybeSingle());
     view.inviteCode = invite?.code || null;
   }
+  view.nextRun = (await listClubRuns(id))[0] || null;
   return view;
 };
 
@@ -1033,6 +1059,307 @@ export const sendCrewMessage = async (id, text) => {
 };
 
 export const getCrewFeed = async () => [];
+
+// ── Run clubs ─────────────────────────────────────────────────────────────────
+
+const CLUB_RUN_OPEN_BEFORE = 30 * 60 * 1000;
+
+const clubBrief = (c) => (c ? { id: c.id, name: c.name, short: c.name.split(" ")[0], logo: publicUrl("club-media", c.logo_path), cover: publicUrl("club-media", c.cover_path), accent: c.accent, area: cityName(c.borough_id || c.city_id), memberCount: c.member_count, verified: c.status === "verified" } : null);
+
+const clubRunViews = async (rows, me) => {
+  const ids = rows.map((e) => e.id);
+  const clubIds = [...new Set(rows.map((e) => e.club_id))];
+  const [rsvps, previous] = await Promise.all([
+    ids.length ? run(supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", ids)) : [],
+    clubIds.length ? run(supabase.from("events").select("id, club_id, starts_at, event_rsvps(status)").eq("kind", "club_run").in("club_id", clubIds).lt("starts_at", new Date().toISOString()).order("starts_at", { ascending: false }).limit(20)) : [],
+  ]);
+  const last = {};
+  for (const e of previous || []) if (!(e.club_id in last)) last[e.club_id] = (e.event_rsvps || []).filter((r) => r.status === "checked_in").length;
+  const now = Date.now();
+  return rows.map((e) => {
+    const start = new Date(e.starts_at).getTime();
+    const end = e.ends_at ? new Date(e.ends_at).getTime() : start + 3 * 60 * 60 * 1000;
+    const mine = (rsvps || []).find((r) => r.event_id === e.id && r.user_id === me);
+    const all = (rsvps || []).filter((r) => r.event_id === e.id);
+    return {
+      id: e.id,
+      occurrenceId: e.id,
+      club: clubBrief(e.clubs),
+      clubId: e.club_id,
+      title: e.title,
+      startAt: start,
+      meetAt: start - 10 * 60 * 1000,
+      place: e.place_name,
+      lat: e.lat,
+      lng: e.lng,
+      km: e.distance_m ? e.distance_m / 1000 : null,
+      paceGroups: e.pace_groups || (e.pace_label ? [e.pace_label] : []),
+      pace: null,
+      going: all.length,
+      faces: [],
+      isGoing: !!mine,
+      checkedIn: mine?.status === "checked_in",
+      here: all.filter((r) => r.status === "checked_in").length,
+      lastTurnout: last[e.club_id] ?? null,
+      status: now < start ? "upcoming" : now <= end ? "live" : "ended",
+      checkInOpen: now >= start - CLUB_RUN_OPEN_BEFORE && now <= end + 60 * 60 * 1000,
+      needsCode: true,
+      rewardXp: null,
+      rewardOut: null,
+      streak: 0,
+    };
+  });
+};
+
+const CLUB_RUN = "*, clubs(id, name, logo_path, cover_path, accent, borough_id, city_id, member_count, status)";
+
+export const listClubRuns = async (clubId) => {
+  const me = await uid();
+  const rows = await run(supabase.from("events").select(CLUB_RUN).eq("club_id", clubId).eq("kind", "club_run").is("cancelled_at", null).gte("starts_at", new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()).order("starts_at").limit(6));
+  return clubRunViews(rows || [], me);
+};
+
+export const getClubRun = async (id) => {
+  const me = await uid();
+  const e = await run(supabase.from("events").select(CLUB_RUN).eq("id", id).maybeSingle());
+  if (!e) throw new EngineError("NOT_FOUND", "That club run has gone.");
+  const [view] = await clubRunViews([e], me);
+  if (me) view.streak = (await rpc("club_streak", { p_club: e.club_id })) || 0;
+  view.isMember = !!(me && (await run(supabase.from("club_members").select("user_id").eq("club_id", e.club_id).eq("user_id", me).maybeSingle())));
+  view.fixture = null;
+  return view;
+};
+
+export const rsvpClubRun = async (id, going = true) => {
+  await rpc("rsvp_event", { p_event: id, p_going: going });
+  changed();
+  return getClubRun(id);
+};
+
+export const checkInClubRun = async (id, code) => {
+  if (!code) throw new EngineError("CODE_REQUIRED", "Ask the run leader for tonight's code.");
+  await rpc("check_in_event", { p_event: id, p_code: code.trim() });
+  changed();
+  return { ...(await getClubRun(id)), earned: null };
+};
+
+export const findClubs = async ({ filter = "near", query = "" } = {}) => {
+  const me = await uid();
+  const p = me ? await run(supabase.from("profiles").select("city_id").eq("id", me).maybeSingle()) : null;
+  const q = query.trim().replace(/[%_,()]/g, "");
+  let req = supabase.from("clubs").select(CLUB).neq("status", "suspended").order("status", { ascending: false }).order("member_count", { ascending: false }).limit(40);
+  if (q) req = req.ilike("name", `%${q}%`);
+  else req = req.eq("city_id", p?.city_id || "london");
+  if (filter === "beginners") req = req.eq("beginners", true);
+  const clubs = await crewViews((await run(req)) || [], me);
+  const ids = clubs.map((c) => c.id);
+  const runs = ids.length ? await run(supabase.from("events").select("id, club_id, title, starts_at, distance_m").eq("kind", "club_run").in("club_id", ids).is("cancelled_at", null).gte("starts_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()).order("starts_at").limit(200)) : [];
+  const next = {};
+  for (const r of runs || []) if (!next[r.club_id]) next[r.club_id] = { id: r.id, title: r.title, startAt: new Date(r.starts_at).getTime(), km: r.distance_m ? r.distance_m / 1000 : null };
+  const tonightEnd = startOfDay(Date.now() + DAY_MS).getTime();
+  return clubs
+    .map((c) => ({ ...c, nextRun: next[c.id] || null }))
+    .filter((c) => filter !== "tonight" || (c.nextRun && c.nextRun.startAt < tonightEnd));
+};
+
+export const getFounding = async (clubId) => {
+  const [club, progress] = await Promise.all([getCrew(clubId), run(supabase.from("club_founding_progress").select("*").eq("club_id", clubId).maybeSingle())]);
+  const meetups = Math.min(3, progress?.qualifying_meetups || 0);
+  const people = Math.min(10, progress?.verified_people || 0);
+  return { club, meetups, meetupsNeeded: 3, people, peopleNeeded: 10, meetupsLeft: 3 - meetups, peopleLeft: 10 - people, nearest: null };
+};
+
+const claimView = (c) => ({ id: c.id, name: c.club_name, meetPlace: c.meeting_place, meets: c.usual_times || "", founded: c.founded_year, proofMethod: c.proof_method, proofHandle: c.proof_handle, code: c.proof_code, callAt: c.call_at ? new Date(c.call_at).getTime() : null, crewId: c.club_id, status: c.status, at: new Date(c.created_at).getTime() });
+
+export const claimClub = async ({ name, meetPlace, days = [], hour = 19, minute = 0, founded = null, proofMethod = "instagram", proofHandle = "", callAt = null, crewId = null }) => {
+  if (!days.length) throw new EngineError("DAYS_REQUIRED", "Pick the days your club meets.");
+  const usual = meetsLabel(days.map((dow) => ({ dow, hour, minute }))).replace(" · ", " ");
+  const res = await rpc("claim_my_club", {
+    p_name: name,
+    p_meeting_place: meetPlace,
+    p_usual_times: usual,
+    p_founded: founded,
+    p_proof_method: proofMethod,
+    p_proof_handle: proofHandle || null,
+    p_call_at: callAt ? new Date(callAt).toISOString() : null,
+    p_club: crewId,
+  });
+  changed();
+  return { id: res.id, name: name.trim(), meetPlace, meets: usual, founded, proofMethod, proofHandle: (proofHandle || "").replace("@", ""), code: res.code, callAt, crewId, status: res.status, at: Date.now() };
+};
+
+export const listMyClaims = async () => {
+  const me = await uid();
+  if (!me) return [];
+  const rows = await run(supabase.from("club_claims").select("*").eq("user_id", me).order("created_at", { ascending: false }));
+  return (rows || []).map(claimView);
+};
+
+// ── The club league ───────────────────────────────────────────────────────────
+
+const homeClubId = async (me) => {
+  const rows = await run(supabase.from("club_members").select("club_id, clubs(status)").eq("user_id", me));
+  const p = await run(supabase.from("profiles").select("home_club_id").eq("id", me).maybeSingle());
+  const verified = (rows || []).filter((r) => r.clubs?.status === "verified").map((r) => r.club_id);
+  return verified.includes(p?.home_club_id) ? p.home_club_id : verified[0] || null;
+};
+
+const fixtureShape = async (j, entries) => {
+  const by = Object.fromEntries((entries || []).map((e) => [e.id, e]));
+  const start = startOfDay(j.starts_on).getTime();
+  const end = startOfDay(j.ends_on).getTime();
+  const revealAt = end + 20 * 60 * 60 * 1000;
+  const now = Date.now();
+  const side = (id, score, size, out) => ({ club: clubBrief(by[id]?.clubs), score: score == null ? null : Math.round(Number(score)), daily: null, turnout: null, squad: size || 0, out: out || 0 });
+  const home = side(j.home_id, j.home_score, j.home_size, j.home_out);
+  const away = side(j.away_id, j.away_score, j.away_size, j.away_out);
+  return {
+    id: j.id,
+    week: j.week,
+    isDerby: j.is_derby,
+    startAt: start,
+    revealAt,
+    revealed: j.revealed,
+    live: now >= start && !j.revealed,
+    home,
+    away,
+    mySide: j.my_entry === j.home_id ? "home" : j.my_entry === j.away_id ? "away" : null,
+    inSquad: !!j.my_entry,
+    myDaily: j.my_steps ?? null,
+    myLift: j.my_lift ?? null,
+    result: j.revealed ? (home.score === away.score ? "draw" : home.score > away.score ? "home" : "away") : null,
+  };
+};
+
+export const getFixture = async (id) => {
+  const j = await rpc("fixture_view", { p_fixture: id });
+  const entries = await run(supabase.from("league_entries").select("id, clubs(id, name, logo_path, cover_path, accent, borough_id, city_id, member_count, status)").in("id", [j.home_id, j.away_id]));
+  return fixtureShape(j, entries);
+};
+
+export const getClubLeague = async () => {
+  const me = await uid();
+  const club = me ? await homeClubId(me) : null;
+  const today = dayKey();
+  const season = await run(supabase.from("seasons").select("*").eq("kind", "club").lte("starts_on", today).gte("ends_on", today).maybeSingle());
+  const empty = { season: season?.name || "Season 1", competition: "Club Championship", area: "", divisions: [], division: null, week: 1, weeks: 6, table: [], myClub: null, inLeague: false, fixture: null, bye: false };
+  if (!season || !club) return empty;
+  const entry = await run(supabase.from("league_entries").select("id, division_id, divisions!inner(id, name, season_id)").eq("club_id", club).eq("divisions.season_id", season.id).maybeSingle());
+  const week = Math.min(6, Math.floor((startOfDay(today).getTime() - startOfDay(season.starts_on).getTime()) / (7 * DAY_MS)) + 1);
+  if (!entry) return { ...empty, week };
+  const [rows, fx] = await Promise.all([
+    run(supabase.from("league_entries").select("id, points, played, won, drawn, lost, clubs(id, name, logo_path, cover_path, accent, borough_id, city_id, member_count, status)").eq("division_id", entry.division_id)),
+    run(supabase.from("fixtures").select("id").eq("division_id", entry.division_id).eq("week", week).or(`home_id.eq.${entry.id},away_id.eq.${entry.id}`).maybeSingle()),
+  ]);
+  const table = (rows || [])
+    .sort((a, b) => b.points - a.points || b.won - a.won || a.lost - b.lost)
+    .map((r, i) => ({ id: r.clubs?.id, pos: i + 1, club: clubBrief(r.clubs), played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, isMine: r.id === entry.id }));
+  const mine = table.find((r) => r.isMine);
+  return { ...empty, division: entry.divisions?.name, week, table, myClub: mine?.club || null, inLeague: true, fixture: fx ? await getFixture(fx.id) : null, bye: !fx };
+};
+
+export const getMyFixture = async () => (await getClubLeague()).fixture;
+
+// ── Club v club friendlies ────────────────────────────────────────────────────
+
+const clubBattleView = (r, myClub, myRole) => {
+  const m = clubModeOf(r.mode);
+  const finished = r.status === "finished";
+  return {
+    id: r.id,
+    mode: r.mode,
+    modeName: m.name,
+    tag: m.tag,
+    unit: m.unit,
+    status: r.status,
+    mystery: r.mystery,
+    hidden: !r.opponent_id,
+    home: r.home,
+    myClub,
+    opponent: r.opponent_id ? { id: r.opponent_id, name: r.opponent_name, short: r.opponent_name.split(" ")[0], logo: publicUrl("club-media", r.opponent_logo), memberCount: r.opponent_members, record: null } : null,
+    startAt: new Date(r.starts_at).getTime(),
+    endAt: new Date(r.ends_at).getTime(),
+    squad: r.squad,
+    myScore: r.my_score == null ? null : Number(r.my_score),
+    theirScore: r.their_score == null ? null : Number(r.their_score),
+    myLegs: null,
+    theirLegs: null,
+    legsOf: null,
+    myLegTimes: null,
+    sealed: r.mode === "blind_time_trial" && !finished,
+    won: finished ? r.won : null,
+    draw: finished && r.won == null,
+    votes: { yes: r.yes_votes, no: r.no_votes, mine: r.my_vote },
+    isCaptain: myRole === "captain",
+    canVote: !r.home && r.status === "pending",
+    canRespond: !r.home && r.status === "pending" && myRole === "captain",
+    canCancel: (r.status === "pending" || r.status === "accepted") && myRole === "captain",
+  };
+};
+
+const myClubsWithRoles = async (me) => run(supabase.from("club_members").select("club_id, role, clubs(id, name, logo_path, cover_path, accent, borough_id, city_id, member_count, status)").eq("user_id", me));
+
+export const listClubBattles = async (clubId) => {
+  const me = await requireUid();
+  const mine = ((await myClubsWithRoles(me)) || []).find((m) => m.club_id === clubId);
+  const rows = await rpc("club_battles_for", { p_club: clubId });
+  return (rows || []).map((r) => clubBattleView(r, clubBrief(mine?.clubs), mine?.role));
+};
+
+export const getClubBattle = async (id) => {
+  const me = await requireUid();
+  for (const m of (await myClubsWithRoles(me)) || []) {
+    if (m.clubs?.status !== "verified") continue;
+    const rows = await rpc("club_battles_for", { p_club: m.club_id });
+    const r = (rows || []).find((x) => x.id === id);
+    if (r) return clubBattleView(r, clubBrief(m.clubs), m.role);
+  }
+  throw new EngineError("NOT_FOUND", "That friendly has gone.");
+};
+
+export const getClubRoster = async (clubId) => {
+  const [mine, battles] = await Promise.all([getCrew(clubId), listClubBattles(clubId)]);
+  const p = await run(supabase.from("clubs").select("city_id").eq("id", clubId).single());
+  const others = await run(supabase.from("clubs").select("*").eq("status", "verified").eq("city_id", p.city_id).neq("id", clubId).order("member_count", { ascending: false }).limit(30));
+  const roster = (others || []).map((c) => {
+    const head = battles.filter((b) => b.status === "finished" && b.opponent?.id === c.id);
+    return {
+      club: { ...clubBrief(c), meets: c.usual_times || "" },
+      record: { w: head.filter((b) => b.won).length, l: head.filter((b) => b.won === false).length },
+      turnout: null,
+      tablePos: null,
+      group: null,
+      squad: Math.min(25, c.member_count, mine.memberCount),
+      isDerby: false,
+    };
+  });
+  return { me: { ...mine, short: mine.name.split(" ")[0], record: { w: battles.filter((b) => b.won).length, l: battles.filter((b) => b.won === false).length } }, roster };
+};
+
+export const challengeClub = async ({ crewId, opponentId = null, mode = "steps", startAt = null, hours = null }) => {
+  if (!CLUB_MODE[mode]) throw new EngineError("BAD_MODE", "Pick a mode.");
+  const b = await rpc("challenge_club", { p_my_club: crewId, p_opponent: opponentId, p_mode: mode, p_starts_at: startAt ? new Date(startAt).toISOString() : null, p_hours: hours });
+  changed();
+  return getClubBattle(b.id);
+};
+
+export const voteClubBattle = async (id, yes) => {
+  await rpc("vote_club_battle", { p_battle: id, p_yes: !!yes });
+  changed();
+  return getClubBattle(id);
+};
+
+export const respondClubBattle = async (id, accept) => {
+  await rpc("respond_club_battle", { p_battle: id, p_accept: !!accept });
+  changed();
+  return getClubBattle(id);
+};
+
+export const cancelClubBattle = async (id) => {
+  await rpc("cancel_club_battle", { p_battle: id });
+  changed();
+  return getClubBattle(id);
+};
 export const togglePostLike = async () => null;
 export const shareRunToCrew = async () => null;
 export const deletePost = async () => null;

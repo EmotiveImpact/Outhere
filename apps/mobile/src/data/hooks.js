@@ -143,3 +143,16 @@ export const useUnreadCount = () => useQuery(q(["unread"], engine.unreadNotifica
 export const useSettings = () => useQuery(q(["settings"], engine.getSettings));
 
 export const useStories = (authorId) => useQuery(q(["stories", authorId], () => engine.listStories(authorId), { enabled: !!authorId, staleTime: 60 * 1000 }));
+
+// Run clubs and club v club
+export const useFindClubs = (filter = "near", query = "") => useQuery(q(["findClubs", filter, query], () => engine.findClubs({ filter, query })));
+export const useClubRuns = (clubId) => useQuery(q(["clubRuns", clubId], () => engine.listClubRuns(clubId), { enabled: !!clubId }));
+export const useClubRun = (id) => useQuery(q(["clubRun", id], () => engine.getClubRun(id), { enabled: !!id }));
+export const useFounding = (clubId) => useQuery(q(["founding", clubId], () => engine.getFounding(clubId), { enabled: !!clubId }));
+export const useMyClaims = () => useQuery(q(["myClaims"], engine.listMyClaims));
+export const useClubLeague = () => useQuery(q(["clubLeague"], engine.getClubLeague));
+export const useFixture = (id) => useQuery(q(["fixture", id], () => engine.getFixture(id), { enabled: !!id }));
+export const useMyFixture = () => useQuery(q(["myFixture"], engine.getMyFixture));
+export const useClubBattles = (clubId) => useQuery(q(["clubBattles", clubId], () => engine.listClubBattles(clubId), { enabled: !!clubId }));
+export const useClubBattle = (id) => useQuery(q(["clubBattle", id], () => engine.getClubBattle(id), { enabled: !!id }));
+export const useClubRoster = (clubId) => useQuery(q(["clubRoster", clubId], () => engine.getClubRoster(clubId), { enabled: !!clubId }));

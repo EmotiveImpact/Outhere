@@ -18,7 +18,7 @@ const useDebounced = (value, ms = 250) => {
 };
 
 /** Invite code entry: one input with a go button. */
-function CodeJoin({ onJoined, style }) {
+export function CodeJoin({ onJoined, style }) {
   const [code, setCode] = useState("");
   const joinByCode = useEngineMutation(engine.joinCrewByCode, {
     success: (crew) => `You're in ${crew.name}`,

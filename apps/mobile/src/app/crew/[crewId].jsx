@@ -10,6 +10,7 @@ import { engine, useCrew, useEngineMutation } from "@/data/hooks";
 import { compactNumber } from "@/utils/format";
 import CrewHero, { useCountUp } from "@/components/crew/CrewHero";
 import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
+import { ClubPanel } from "@/components/clubs/parts";
 import { shareInvite } from "@/components/crew/CrewSettings";
 import { PlayerAvatar, ROLE_LABEL, playerName, useCrewFocus } from "@/components/crew/shared";
 
@@ -62,6 +63,7 @@ export default function CrewDetail() {
       if (joined.id !== id) router.replace(`/crew/${joined.id}`);
     },
   });
+  const rsvp = useEngineMutation(engine.rsvpClubRun, { success: (r) => (r.isGoing ? "See you there" : null) });
   const leave = useEngineMutation(engine.leaveCrew, { success: () => `You left ${crew?.name || "the crew"}` });
 
   const openInTab = () => {
@@ -120,10 +122,11 @@ export default function CrewDetail() {
     <Screen
       onRefresh={refetch}
       refreshing={isRefetching}
-      header={<Header back title="Crew" right={crew.isMember && crew.inviteCode ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null} />}
+      header={<Header back title={crew.verified ? "Run club" : "Founding club"} right={crew.isMember && crew.inviteCode ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null} />}
     >
       <FadeIn>
         <CrewHero crew={crew} />
+        <ClubPanel club={crew} onRunAction={(r) => r && !r.checkedIn && rsvp.mutate([r.id, !r.isGoing])} />
       </FadeIn>
 
       <FadeIn index={1} style={{ marginTop: S.xxl }}>

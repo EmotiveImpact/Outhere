@@ -14,6 +14,7 @@ export const PHOTOS = {
   chatsnap: require("../../assets/images/oh/chatsnap.jpg"),
   clubfind: require("../../assets/images/oh/clubfind.jpg"),
   clubhero: require("../../assets/images/oh/clubhero.jpg"),
+  clubhero2: require("../../assets/images/oh/clubhero2.jpg"),
   clubrun: require("../../assets/images/oh/clubrun.jpg"),
   coin: require("../../assets/images/oh/coin.jpg"),
   crest: require("../../assets/images/oh/crest.jpg"),

@@ -4,14 +4,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Compass, MessageCircle, Newspaper, Plus, Settings2, Share2, Trophy, Users, X } from "lucide-react-native";
+import { BadgeCheck, Compass, MessageCircle, Newspaper, Plus, Search, Settings2, Share2, Trophy, Users, X } from "lucide-react-native";
 import { PHOTOS } from "@/constants/photos";
 import { C, EmptyState, F, FadeIn, Hero, IconButton, PressableScale, Row, S, Screen, Sheet, Skeleton, TAB_BAR_SPACE, Title } from "@/components/ui";
-import { useCrew, useCrewLimits, useMyCrews, useUpgradePrompt } from "@/data/hooks";
+import { engine, useCrew, useCrewLimits, useEngineMutation, useMyCrews, useUpgradePrompt } from "@/data/hooks";
 import { tierLabel } from "@/utils/format";
 import ActionSheet from "@/components/crew/ActionSheet";
 import CrewChat from "@/components/crew/CrewChat";
-import CrewDiscover from "@/components/crew/CrewDiscover";
+import { CodeJoin } from "@/components/crew/CrewDiscover";
+import ClubFinder from "@/components/clubs/ClubFinder";
+import { ClubPanel } from "@/components/clubs/parts";
 import CrewFeed from "@/components/crew/CrewFeed";
 import CrewHero from "@/components/crew/CrewHero";
 import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
@@ -31,10 +33,11 @@ function DiscoverSheet({ visible, onClose }) {
   return (
     <Sheet visible={visible} onClose={onClose} scroll maxHeight="92%">
       <Row style={{ paddingBottom: S.md }}>
-        <Title size={24} style={{ flex: 1 }}>Find a crew</Title>
+        <Title size={24} style={{ flex: 1 }}>Find your run club</Title>
         <IconButton icon={X} onPress={onClose} label="Close" />
       </Row>
-      <CrewDiscover onDone={onClose} />
+      <ClubFinder onJoined={onClose} />
+      <CodeJoin onJoined={onClose} style={{ marginTop: S.xl }} />
     </Sheet>
   );
 }
@@ -85,6 +88,8 @@ export default function CrewTab() {
   const [menu, setMenu] = useState(false);
   const [discover, setDiscover] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const rsvp = useEngineMutation(engine.rsvpClubRun, { success: (r) => (r.isGoing ? `See you ${r.title ? "at " + r.title : "there"}` : null) });
 
   // A ?crew= link (from notifications or other screens) focuses that crew.
   useEffect(() => {
@@ -123,13 +128,15 @@ export default function CrewTab() {
         <Hero
           photo={PHOTOS.clubfind}
           height={330}
-          kicker="Run clubs"
+          kicker="Real clubs, near you"
           top="Find your"
           bottom="run club"
           sub="Every crew on Outhere is a real run club. Join one near you, or start a founding club with your people."
+          right={<IconButton icon={Search} onPress={() => setSearching(true)} label="Search clubs" />}
         />
         <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
-          <CrewDiscover />
+          <ClubFinder searchOpen={searching} onCloseSearch={() => setSearching(false)} />
+          <CodeJoin onJoined={(c) => focus(c.id)} style={{ marginTop: S.xl }} />
         </View>
       </Screen>
     );
@@ -146,8 +153,9 @@ export default function CrewTab() {
 
   const l = limits.data;
   const menuOptions = [
-    { label: "Find a crew", hint: "Browse crews near you or join with a code", icon: Compass, onPress: () => setDiscover(true) },
-    { label: "Start a crew", hint: l && l.maxOwned === 0 ? "Pro and Black members can run a crew" : "Name it, pick a colour, bring your people", icon: Plus, onPress: startCreate },
+    { label: "Find a run club", hint: "Clubs near you, tonight's runs, or join with a code", icon: Compass, onPress: () => setDiscover(true) },
+    { label: "Start a founding club", hint: l && l.maxOwned === 0 ? "Pro and Black members can start one" : "Official after 3 meetups of six", icon: Plus, onPress: startCreate },
+    { label: "Claim your club", hint: "For organisers of a real run club", icon: BadgeCheck, onPress: () => router.push("/clubs/claim") },
   ];
 
   const header = (
@@ -212,6 +220,7 @@ export default function CrewTab() {
       >
         <FadeIn key={crew.id} style={{ paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.xxl }}>
           <CrewHero crew={crew} />
+          <ClubPanel club={crew} onRunAction={(r) => r && !r.checkedIn && rsvp.mutate([r.id, !r.isGoing])} />
         </FadeIn>
         <View style={{ backgroundColor: C.bg, paddingTop: S.xs }}>{tabs}</View>
         <View key={`${crew.id}:${tab}`} style={{ paddingHorizontal: S.gutter }}>

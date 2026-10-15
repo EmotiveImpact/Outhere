@@ -22,6 +22,7 @@ import {
 import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { noise, randomCode, randomId } from "./random";
 import { PHOTOS } from "@/constants/photos";
+import { makeClubs } from "./clubs";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -95,6 +96,38 @@ let loading = null;
 let saveTimer = null;
 const listeners = new Set();
 
+const SEED_CODES = { c_southside: "SOUTH1", c_eastend: "EAST22", c_northlondon: "NORTH3", c_manny: "MANNY4", c_accra: "ACCRA5", c_southbank: "BANK16", c_peckham: "RYE619" };
+const CLUB_FIELDS = ["status", "founded", "extraMembers", "meetPlace", "lat", "lng", "awayKm", "distances", "paces", "beginners", "runs", "founding", "cover", "area", "logo"];
+
+const seedCrew = (c, i) => ({
+  id: c.id,
+  name: c.name,
+  tagline: c.tagline,
+  city: c.city,
+  accent: c.accent,
+  privacy: c.privacy,
+  weeklyGoalKm: c.weeklyGoalKm,
+  inviteCode: SEED_CODES[c.id] || randomCode(),
+  ownerId: c.ownerId,
+  createdAt: Date.now() - (60 + i * 20) * DAY_MS,
+  members: c.members.map((id, j) => ({ id, role: id === c.ownerId ? "owner" : j === 1 ? "admin" : "member", joinedAt: Date.now() - (50 - j * 5) * DAY_MS })),
+  ...Object.fromEntries(CLUB_FIELDS.filter((k) => c[k] !== undefined).map((k) => [k, c[k]])),
+});
+
+// Saved worlds from before run clubs: add the new clubs and their club details.
+const upgradeState = (s) => {
+  CREWS.forEach((c, i) => {
+    const have = s.crews[c.id];
+    if (!have) s.crews[c.id] = seedCrew(c, i);
+    else if (!have.status) for (const k of CLUB_FIELDS) if (c[k] !== undefined) have[k] = c[k];
+  });
+  s.clubRuns = s.clubRuns || {};
+  s.clubClaims = s.clubClaims || [];
+  s.clubBattles = s.clubBattles || [];
+  s.clubSeeded = s.clubSeeded || {};
+  return s;
+};
+
 const freshState = () => ({
   version: 1,
   seededAt: Date.now(),
@@ -105,25 +138,7 @@ const freshState = () => ({
   following: [],
   myStories: [],
   storyViews: {},
-  crews: Object.fromEntries(
-    CREWS.map((c, i) => [
-      c.id,
-      {
-        id: c.id,
-        name: c.name,
-        tagline: c.tagline,
-        city: c.city,
-        accent: c.accent,
-        logo: c.logo,
-        privacy: c.privacy,
-        weeklyGoalKm: c.weeklyGoalKm,
-        inviteCode: ["SOUTH1", "EAST22", "NORTH3", "MANNY4", "ACCRA5"][i] || randomCode(),
-        ownerId: c.ownerId,
-        createdAt: Date.now() - (60 + i * 20) * DAY_MS,
-        members: c.members.map((id, j) => ({ id, role: id === c.ownerId ? "owner" : j === 1 ? "admin" : "member", joinedAt: Date.now() - (50 - j * 5) * DAY_MS })),
-      },
-    ])
-  ),
+  crews: Object.fromEntries(CREWS.map((c, i) => [c.id, seedCrew(c, i)])),
   crewChat: Object.fromEntries(
     Object.entries(CREW_CHAT).map(([crewId, lines]) => [
       crewId,
@@ -146,6 +161,10 @@ const freshState = () => ({
     ])
   ),
   battles: [],
+  clubRuns: {},
+  clubClaims: [],
+  clubBattles: [],
+  clubSeeded: {},
   challenges: {},
   events: {},
   drops: {},
@@ -166,7 +185,7 @@ const load = async () => {
     loading = (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        state = raw ? { ...freshState(), ...JSON.parse(raw) } : freshState();
+        state = upgradeState(raw ? { ...freshState(), ...JSON.parse(raw) } : freshState());
       } catch (e) {
         console.warn("[engine] load failed, starting fresh", e);
         state = freshState();
@@ -210,6 +229,15 @@ const write = async (fn) => {
   await load();
   const result = fn(state);
   changed();
+  return result;
+};
+
+// Saves changes made while reading (time passing) without telling listeners,
+// so queries don't refetch each other in a loop.
+const touch = async (fn) => {
+  await load();
+  const result = fn(state);
+  persist();
   return result;
 };
 
@@ -1330,13 +1358,12 @@ const crewView = (s, crew, detailed = false) => {
     weeklyGoalKm: crew.weeklyGoalKm,
     weekKm,
     badgeTier: crewBadgeTier(weekKm),
-    memberCount: crew.members.length,
     isMember: isMember(crew),
     myRole: myRole(crew),
     inviteCode: isMember(crew) ? crew.inviteCode : null,
     ownerId: crew.ownerId,
     owner: crew.ownerId === ME ? (s.me ? meAsPlayer(s) : null) : publicPlayer(crew.ownerId),
-    verified: (crew.ownerId === ME ? s.me?.tier : playerById[crew.ownerId]?.tier) === "black",
+    ...clubs.clubBits(s, crew),
     previewMembers: crew.members.slice(0, 5).map((m) => (m.id === ME ? meAsPlayer(s) : publicPlayer(m.id))).filter(Boolean),
   };
   if (detailed) {
@@ -1550,6 +1577,30 @@ export const deletePost = async (crewId, postId) =>
   write((s) => {
     s.crewFeed[crewId] = (s.crewFeed[crewId] || []).filter((p) => !(p.id === postId && p.authorId === ME));
   });
+
+// ── Run clubs and club v club (see clubs.js) ──────────────────────────────────
+
+const clubs = makeClubs({ read, write, touch, requireMe, notify, award, myStepsBetween, publicPlayer, meAsPlayer, EngineError, ME });
+export const {
+  findClubs,
+  listClubRuns,
+  getClubRun,
+  rsvpClubRun,
+  checkInClubRun,
+  getFounding,
+  claimClub,
+  listMyClaims,
+  getClubLeague,
+  getFixture,
+  getMyFixture,
+  listClubBattles,
+  getClubBattle,
+  getClubRoster,
+  challengeClub,
+  voteClubBattle,
+  respondClubBattle,
+  cancelClubBattle,
+} = clubs;
 
 // ── Runs (Move tab sessions) ──────────────────────────────────────────────────
 
