@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 import { CalendarPlus, Check, Navigation } from "lucide-react-native";
 import { useEvent, useTicket } from "@/data/hooks";
-import { C, EmptyState, F, R, Row, S, Skeleton } from "@/components/ui";
+import { C, EmptyState, F, Row, S, Skeleton } from "@/components/ui";
 import { BottomBar, ButtonPair, TopBar } from "@/components/arena/OutsideKit";
 import { whenWord } from "@/components/happenings/EventsScreen";
 import { openDirections } from "@/components/happenings/shared";

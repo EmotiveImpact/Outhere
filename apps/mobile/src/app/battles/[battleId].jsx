@@ -1,350 +1,465 @@
-// One battle. The hero changes with the mode: a start line for a live race,
-// sealed envelopes for a blind time trial, their ghost for a ghost race, the
-// day's target for last one standing and the route for hold the route.
+// One battle. An invite gets the stake, the length and the prize with Accept
+// as the big button. A live most-steps battle is the versus screen: live
+// score, the pot and a boost, and a tray of emotes and set lines (no chat).
+// A finished one says who won and puts Rematch right there. The other five
+// modes keep their own views (start line, sealed envelopes, ghost, target,
+// route) in ClassicBattle.
 
-import React, { useEffect } from "react";
-import { Alert, Platform, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Check, Flag, Ghost, Lock, MapPin, Play, RotateCcw } from "lucide-react-native";
-import { engine, useBattle, useEngineMutation } from "@/data/hooks";
-import { AnimatedBar, Body, Button, C, Card, Divider, EmptyState, F, FadeIn, Header, LiveDot, R, Row, S, Screen, Skeleton, Title } from "@/components/ui";
-import { statusPill } from "@/components/arena/BattleCard";
-import { Countdown, FaceOffRow, ResultCard } from "@/components/arena/FaceOff";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
+import Animated, { FadeOut, ZoomIn } from "react-native-reanimated";
+import { Clock3, Share2, Swords, TrendingUp, Trophy, Zap } from "lucide-react-native";
+import { engine, useBattle, useBattleEmotes, useBattles, useEngineMutation, useHeadToHead, useProfile } from "@/data/hooks";
+import { Avatar, C, F, LiveDot, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
+import { BottomBar, ButtonPair, Coin, GlassChip, GlowHero, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
+import ClassicBattle from "@/components/arena/ClassicBattle";
 import Confetti from "@/components/arena/Confetti";
-import { battleFormat, battlePrize, BATTLE_PRIZES, ME, playerName, rivalColour, standingLine, useNow } from "@/components/arena/shared";
-import { distanceLabel, timeLabel } from "@/constants/battleModes";
-import { dateLabel, formatNumber, timeLabel as clockLabel } from "@/utils/format";
+import { durationLabel, formatScore, metricUnit, playerName, useNow } from "@/components/arena/shared";
+import { BATTLE_EMOTES, BATTLE_LINES, emoteLabel } from "@/data/seedOutside";
+import { PHOTOS } from "@/constants/photos";
+import { distanceLabel } from "@/constants/battleModes";
+import { formatNumber } from "@/utils/format";
+
+const BLUE = "#3d8bff";
+const RED = "#ff4d55";
+const BOOST_OUT = 20;
+
+export const clockText = (ms) => {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(t / 86400);
+  const h = Math.floor((t % 86400) / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  if (d > 0) return `${d}d ${h}h left`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+const lengthLabel = (b) => (b.distanceM && b.mode !== "most_steps" ? distanceLabel(b.distanceM) : durationLabel(b.durationHours || 24));
+const goalLabel = (b) => (b.mode === "most_steps" ? `most ${b.metric === "distance" ? "km" : b.metric === "minutes" ? "minutes" : "steps"}` : b.modeName?.toLowerCase() || "battle");
+const isStepWindow = (b) => b.mode === "most_steps";
 
 export default function BattleScreen() {
   const { battleId } = useLocalSearchParams();
   const id = Array.isArray(battleId) ? battleId[0] : battleId;
-  const router = useRouter();
-  const now = useNow(1000);
-  const { data: battle, isPending, error, refetch, isRefetching } = useBattle(id);
+  const { data: battle, isPending, error } = useBattle(id);
 
+  if (isPending) return <Loading />;
+  if (error || !battle) return <ClassicBattle />;
+  if (battle.status === "pending" && battle.incoming) return <Invite battle={battle} />;
+  if (isStepWindow(battle) && battle.status === "active") return <LiveBattle battle={battle} />;
+  if (battle.status === "complete" && (isStepWindow(battle) || battle.mode === "live_race" || battle.mode === "ghost_race")) return <Result battle={battle} />;
+  return <ClassicBattle />;
+}
+
+function Loading() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Skeleton height={220 + insets.top} radius={0} />
+      <View style={{ padding: S.gutter, gap: S.md }}>
+        <Skeleton height={160} radius={R.lg} />
+        <Skeleton height={70} radius={R.lg} />
+      </View>
+      <TopBar />
+    </View>
+  );
+}
+
+function useBattleActions(battle) {
+  const router = useRouter();
   const respond = useEngineMutation(engine.respondToBattle, {
     success: (b) => (b?.status === "active" ? `Game on vs ${playerName(b.opponent?.player)}` : "Invite declined"),
-    onSuccess: (_, [, accept]) => {
-      if (!accept) router.back();
+    onSuccess: (b, [, accept]) => {
+      if (accept && b?.status === "active") router.replace(`/battles/countdown/${b.id}`);
+      else if (router.canGoBack()) router.back();
+      else router.replace("/outside/arena");
     },
   });
-  const cancel = useEngineMutation(engine.cancelBattle, { success: "Battle called off" });
-  const ready = useEngineMutation(engine.readyBattle, { success: (b) => (b?.phase === "live" ? "Race on" : "You're on the line") });
+  const rematch = useEngineMutation(engine.rematchBattle, {
+    success: (b) => `Rematch sent to ${playerName(b?.opponent?.player)}`,
+    onSuccess: (b) => router.replace(`/battles/countdown/${b.id}`),
+  });
+  return { respond, rematch };
+}
 
-  const live = battle?.status === "active";
-  const ended = live && battle.endAt && now >= battle.endAt;
+// ── Invite ────────────────────────────────────────────────────────────────────
 
-  // Settle as soon as the clock runs out, and keep live scores moving.
-  useEffect(() => {
-    if (ended) refetch();
-  }, [ended, refetch]);
-  useEffect(() => {
-    if (!live) return undefined;
-    const t = setInterval(() => refetch(), battle?.phase === "lobby" ? 5000 : 30 * 1000);
-    return () => clearInterval(t);
-  }, [live, battle?.phase, refetch]);
-
-  if (isPending) {
-    return (
-      <Screen header={<Header back title="Battle" />}>
-        <Skeleton height={420} radius={20} />
-        <Skeleton height={150} radius={20} style={{ marginTop: S.lg }} />
-      </Screen>
-    );
-  }
-
-  if (error || !battle) {
-    return (
-      <Screen header={<Header back title="Battle" />}>
-        <EmptyState title="Battle not found" body="It may have been called off or declined." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
-      </Screen>
-    );
-  }
-
+function Invite({ battle }) {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const me = useProfile().data;
+  const { respond } = useBattleActions(battle);
   const opp = battle.opponent.player;
-  const oppName = opp?.name || "your rival";
-  const rival = rivalColour(opp);
-  const prize = battle.prize || battlePrize(battle.result);
-  const remaining = Math.max(0, (battle.endAt || 0) - now);
-  const won = battle.status === "complete" && battle.result === "won";
-  const canCancel = live && battle.isChallenger !== false && battle.phase !== "live";
-  const startsIn = battle.startAt ? battle.startAt - now : null;
-  const toMove = () => router.push("/(tabs)/move");
-  const rematch = () => router.push(`/battles/new?opponent=${opp?.id}&mode=${battle.mode}`);
+  const first = (opp?.name || "They").split(" ")[0];
+  const kick = `1v1 challenge${battle.rematchOf ? " · Rematch" : battle.isSurprise ? " · Mystery" : ""}`;
+  const pot = (battle.stakeOut || 0) * 2;
+  const short = battle.stakeOut && me && me.out < battle.stakeOut;
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <LinearGradient colors={["#07090c", "#0b1220", "#07090c"]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
+      <View style={[styles.inviteBody, { paddingBottom: insets.bottom + 120 }]}>
+        <Text style={styles.kick}>{kick}</Text>
+        <Row gap={S.lg} style={{ alignItems: "center", marginTop: S.md }}>
+          <Avatar uri={opp?.avatar} name={opp?.name} size={84} style={styles.ringWhite} />
+          <Text style={styles.vsSmall}>vs</Text>
+          <Avatar uri={me?.avatar} name={me?.name || "You"} size={84} style={styles.ringBlue} />
+        </Row>
+        <Text style={styles.inviteTitle} numberOfLines={2} adjustsFontSizeToFit>
+          {battle.rematchOf ? `${first} wants` : `${first} calls`}
+        </Text>
+        <Text style={[styles.inviteTitle, styles.blueGlow]} numberOfLines={1} adjustsFontSizeToFit>
+          {battle.rematchOf ? "a rematch" : "you out"}
+        </Text>
+        <StatBoxes
+          style={{ marginTop: S.xl, alignSelf: "stretch" }}
+          items={[
+            { value: battle.stakeOut ? formatNumber(battle.stakeOut) : "0", label: battle.stakeOut ? "OUT each" : "no stake" },
+            { value: lengthLabel(battle).replace(" days", "d").replace(" hours", "h"), label: goalLabel(battle) },
+            { value: formatNumber(pot || 15), label: "to the winner" },
+          ]}
+        />
+        {short ? <Text style={styles.warn}>You need {formatNumber(battle.stakeOut)} OUT to accept. You have {formatNumber(me.out)}.</Text> : null}
+      </View>
+      <BottomBar>
+        <ButtonPair
+          secondary={{ title: "Decline", disabled: respond.isPending, onPress: () => respond.mutate([battle.id, false]) }}
+          primary={{ title: "Accept", loading: respond.isPending, disabled: short, onPress: () => respond.mutate([battle.id, true]) }}
+        />
+      </BottomBar>
+      <TopBar close onMore={() => router.push(`/player/${opp?.id}`)} />
+    </View>
+  );
+}
 
-  const confirmCancel = () => {
-    const go = () => cancel.mutate(battle.id);
-    if (Platform.OS === "web") return go();
-    Alert.alert("Call it off?", `The battle with ${oppName} ends now with no winner and no XP.`, [
-      { text: "Keep going", style: "cancel" },
-      { text: "Call it off", style: "destructive", onPress: go },
-    ]);
-  };
+// ── Live: most steps ──────────────────────────────────────────────────────────
 
-  const standing = live ? standingLine(battle, oppName) : battle.status === "pending" ? (battle.incoming ? `${oppName} has called you out. The clock starts when you accept.` : `Waiting on ${oppName} to accept.`) : null;
-  const needsRun = live && battle.timed && !battle.myTimeIn && battle.phase === "live" && (startsIn == null || startsIn <= 0);
+function Burst({ code, onDone }) {
+  const emote = BATTLE_EMOTES.find((e) => e.code === code);
+  useEffect(() => {
+    const t = setTimeout(onDone, 1300);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <View style={styles.burstWrap} pointerEvents="none">
+      <Animated.View entering={ZoomIn.springify().damping(9)} exiting={FadeOut.duration(250)} style={{ alignItems: "center" }}>
+        {emote ? <Image source={emote.image} style={{ width: 170, height: 170 }} contentFit="contain" /> : null}
+        <Text style={styles.burstText}>{emoteLabel(code)}</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+function LiveBattle({ battle }) {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const now = useNow(1000);
+  const { data: fresh, refetch } = useBattle(battle.id);
+  const b = fresh || battle;
+  const emotes = useBattleEmotes(b.id).data || [];
+  const [burst, setBurst] = useState(null);
+  const seen = useRef(null);
+
+  const send = useEngineMutation(engine.sendBattleEmote, { onSuccess: (e) => BATTLE_EMOTES.some((x) => x.code === e.code) && setBurst({ code: e.code, key: e.id }) });
+  const boost = useEngineMutation(engine.boostBattle, { success: "Boosted. Double XP if you win" });
+
+  // Their emotes burst over the screen when they land.
+  useEffect(() => {
+    const latest = emotes[0];
+    if (!latest) return;
+    if (seen.current && latest.id !== seen.current && !latest.mine && BATTLE_EMOTES.some((x) => x.code === latest.code)) setBurst({ code: latest.code, key: latest.id });
+    seen.current = latest.id;
+  }, [emotes]);
+
+  const remaining = Math.max(0, (b.endAt || 0) - now);
+  useEffect(() => {
+    if (b.endAt && remaining === 0) refetch();
+  }, [remaining, b.endAt, refetch]);
+  useEffect(() => {
+    const t = setInterval(() => refetch(), 30_000);
+    return () => clearInterval(t);
+  }, [refetch]);
+
+  const opp = b.opponent.player;
+  const oppName = (opp?.name || "Rival").split(" ")[0];
+  const mine = b.me.value || 0;
+  const theirs = b.opponent.value || 0;
+  const share = mine + theirs ? mine / (mine + theirs) : 0.5;
+  const gap = Math.abs(mine - theirs);
+  const unit = metricUnit(b.metric);
+  const lead = b.leader === "me" ? `You lead by ${formatScore(b.metric, gap)}` : b.leader ? `${oppName} leads by ${formatScore(b.metric, gap)}` : "Dead level";
+  const areas = [b.me.player?.area, opp?.area].every(Boolean) ? `${b.me.player.area} vs ${opp.area}` : null;
+  const pot = (b.stakeOut || 0) * 2;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen header={<Header back title={battle.modeName || "Battle"} subtitle={`vs ${oppName}`} />} onRefresh={refetch} refreshing={isRefetching}>
-        <FadeIn>
-          <View style={styles.hero}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 190 + insets.bottom }}>
+        {/* Versus header: you in blue on the left, them in red on the right. */}
+        <View style={[styles.versus, { height: 200 + insets.top }]}>
+          <LinearGradient colors={["rgba(61,139,255,0.55)", "rgba(61,139,255,0.08)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.half, { left: 0 }]} />
+          <LinearGradient colors={["rgba(255,77,85,0.08)", "rgba(255,77,85,0.5)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.half, { right: 0 }]} />
+          <LinearGradient colors={["rgba(7,9,12,0)", C.bg]} style={[StyleSheet.absoluteFill, { top: "55%" }]} />
+          <View style={styles.seam} />
+          <Text style={[styles.vsBig, { top: insets.top + 56 }]}>VS</Text>
+          <Text style={[styles.sideName, { left: S.gutter }]}>You</Text>
+          <Text style={[styles.sideName, { right: S.gutter, textAlign: "right" }]} numberOfLines={1}>
+            {oppName}
+          </Text>
+        </View>
+
+        <View style={{ paddingHorizontal: S.gutter, marginTop: -16 }}>
+          <View style={styles.scoreCard}>
             <Row style={{ justifyContent: "space-between" }}>
-              {live ? (
-                <Row gap={8}>
-                  <LiveDot size={8} colour={battle.phase === "lobby" ? C.warn : C.out} />
-                  <Text style={styles.liveText}>{battle.phase === "lobby" ? "AT THE START" : battle.sealed ? "SEALED" : "LIVE"}</Text>
-                </Row>
-              ) : (
-                statusPill(battle)
-              )}
-              <Text style={styles.meta}>{battle.endAt ? `${live ? "Ends" : "Ended"} ${clockLabel(battle.endAt)}` : `Sent ${clockLabel(battle.createdAt)}`}</Text>
+              <Text style={styles.scoreLabel}>You</Text>
+              <Text style={styles.scoreLabel}>{oppName}</Text>
             </Row>
-
-            {battle.phase === "lobby" ? (
-              <Lobby battle={battle} oppName={oppName} onReady={() => ready.mutate(battle.id)} busy={ready.isPending} />
-            ) : live && battle.mode === "live_race" && startsIn != null && startsIn > 0 ? (
-              <StartCount ms={startsIn} />
-            ) : live && battle.endAt ? (
-              <View style={{ marginTop: S.xl }}>
-                <Countdown ms={remaining} />
-                <Text style={[styles.meta, { textAlign: "center", marginTop: S.sm }]}>left on the clock</Text>
+            <Row style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={[styles.score, { color: "#6fa8ff" }]} numberOfLines={1} adjustsFontSizeToFit>
+                {formatScore(b.metric, mine)}
+              </Text>
+              <View style={styles.vsDot}>
+                <Text style={styles.vsDotText}>VS</Text>
               </View>
-            ) : null}
-
-            {battle.phase !== "lobby" ? (
-              <View style={{ marginTop: S.xxl }}>
-                {battle.mode === "blind_time_trial" && battle.sealed ? <Envelopes battle={battle} oppName={oppName} /> : <FaceOffRow battle={battle} rival={rival} onOpponent={() => router.push(`/player/${opp?.id}`)} />}
-              </View>
-            ) : null}
-            {standing ? <Text style={[styles.standing, battle.leader === "me" && { color: C.text }]}>{standing}</Text> : null}
+              <Text style={[styles.score, { color: "#ff7d84", textAlign: "right" }]} numberOfLines={1} adjustsFontSizeToFit>
+                {formatScore(b.metric, theirs)}
+              </Text>
+            </Row>
+            <View style={styles.tug}>
+              <LinearGradient colors={["#2a6af0", BLUE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${share * 100}%`, height: "100%" }} />
+              <LinearGradient colors={[RED, "#c8323a"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, height: "100%" }} />
+              <View style={[styles.tugKnob, { left: `${share * 100}%` }]} />
+            </View>
+            <Row style={{ justifyContent: "space-between", marginTop: S.sm }}>
+              <Text style={styles.small}>
+                <Text style={{ color: C.text }}>{lead}</Text>
+                {unit && b.leader ? ` ${unit}` : ""}
+              </Text>
+              {areas ? <Text style={styles.small}>{areas}</Text> : null}
+            </Row>
           </View>
-        </FadeIn>
 
-        {live && battle.mode === "ghost_race" && battle.ghostSec ? <GhostCard battle={battle} oppName={oppName} /> : null}
-        {live && battle.mode === "last_one_standing" ? <StandingCard battle={battle} oppName={oppName} /> : null}
-        {battle.mode === "hold_the_route" ? <RouteCard battle={battle} /> : null}
+          <Row gap={S.sm} style={{ marginTop: S.md }}>
+            <GlassChip icon={Clock3} label="Ends in" value={clockText(remaining)} tone="accent" />
+            {b.isSurprise ? <GlassChip label="Mystery battle" /> : null}
+          </Row>
 
-        {battle.status === "complete" ? (
-          <>
-            {battle.mode === "blind_time_trial" ? <Text style={styles.reveal}>Both times are in</Text> : null}
-            <ResultCard battle={battle} prize={prize} rival={rival} />
-            {battle.forfeit ? <Body dim size={13} style={{ textAlign: "center", marginTop: S.sm }}>{battle.result === "won" ? `${oppName} didn't post a time.` : "No time from you before the clock ran out."}</Body> : null}
-          </>
-        ) : null}
+          <View style={styles.pot}>
+            <Image source={PHOTOS.coin} style={styles.potImage} contentFit="cover" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.potTitle}>{pot ? `${formatNumber(pot)} OUT pot` : "Bragging rights"}</Text>
+              <Text style={styles.small}>{pot ? `${formatNumber(b.stakeOut)} each · winner takes all` : "Win for 150 XP and 15 OUT"}</Text>
+            </View>
+            {b.boosted ? <Text style={styles.boosted}>×2 XP</Text> : null}
+          </View>
 
-        {battle.status === "cancelled" ? (
-          <Card style={{ marginTop: S.lg, alignItems: "center", paddingVertical: S.xl, borderWidth: 0 }}>
-            <Text style={styles.cancelTitle}>Called off</Text>
-            <Body dim size={14} style={{ marginTop: 4 }}>
-              No winner, no XP{battle.stakeOut ? ", and your stake is back" : ""}. Run it back any time.
-            </Body>
-          </Card>
-        ) : null}
+          {/* The set lines, newest at the bottom: theirs on the right, yours on the left. */}
+          <View style={{ marginTop: S.lg, gap: S.sm }}>
+            {emotes
+              .slice(0, 5)
+              .reverse()
+              .map((e) => {
+                const art = BATTLE_EMOTES.find((x) => x.code === e.code)?.image;
+                return (
+                  <View key={e.id} style={[styles.bubble, e.mine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                    {art ? <Image source={art} style={{ width: 22, height: 22 }} contentFit="contain" /> : <Avatar uri={e.mine ? b.me.player?.avatar : opp?.avatar} name={e.mine ? "You" : oppName} size={22} />}
+                    <Text style={styles.bubbleText}>{emoteLabel(e.code)}</Text>
+                  </View>
+                );
+              })}
+          </View>
 
-        <View style={{ marginTop: S.xl, gap: S.md }}>
-          {battle.incoming ? (
-            <Row>
-              <View style={{ flex: 1 }}>
-                <Button title="Decline" variant="secondary" onPress={() => respond.mutate([battle.id, false])} disabled={respond.isPending} full />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button title="Accept" onPress={() => respond.mutate([battle.id, true])} loading={respond.isPending} full />
-              </View>
-            </Row>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.tray, { bottom: insets.bottom + S.sm }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.sm, paddingHorizontal: S.md }}>
+          {!b.boosted ? (
+            <PressableScale onPress={() => boost.mutate(b.id)} disabled={boost.isPending} scaleTo={0.92} style={[styles.emote, styles.boostTile]} accessibilityLabel={`Boost for ${BOOST_OUT} OUT`}>
+              <Zap size={22} color="#fff" />
+              <Text style={styles.boostText}>{BOOST_OUT} OUT</Text>
+            </PressableScale>
           ) : null}
-          {needsRun ? <Button title={battle.mode === "hold_the_route" ? "Run the route" : `Go run ${distanceLabel(battle.distanceM)}`} icon={Play} size="lg" onPress={toMove} full /> : null}
-          {live && battle.mode === "hold_the_route" && battle.myTimeIn ? <Button title="Go again" icon={Play} variant="secondary" onPress={toMove} full /> : null}
-          {battle.status === "complete" || battle.status === "cancelled" ? <Button title={`Rematch ${oppName}`} icon={RotateCcw} size="lg" onPress={rematch} full /> : null}
-        </View>
+          {BATTLE_EMOTES.map((e) => (
+            <PressableScale key={e.code} onPress={() => send.mutate([b.id, e.code])} scaleTo={0.88} style={styles.emote} accessibilityLabel={e.label}>
+              <Image source={e.image} style={{ width: 40, height: 40 }} contentFit="contain" />
+            </PressableScale>
+          ))}
+        </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.sm, paddingHorizontal: S.md, marginTop: S.sm }}>
+          {BATTLE_LINES.map((l) => (
+            <PressableScale key={l.code} onPress={() => send.mutate([b.id, l.code])} scaleTo={0.94} style={styles.line}>
+              <Text style={styles.lineText}>{l.label}</Text>
+            </PressableScale>
+          ))}
+        </ScrollView>
+      </View>
 
-        <Title size={20} style={{ marginTop: S.xxl + 4, marginBottom: S.sm }}>Details</Title>
-        <View>
-          <Info label="Format" value={battleFormat(battle)} />
-          {battle.startAt ? <Info label="Started" value={`${dateLabel(battle.startAt)}, ${clockLabel(battle.startAt)}`} /> : <Info label="Sent" value={`${dateLabel(battle.createdAt)}, ${clockLabel(battle.createdAt)}`} />}
-          {battle.endAt ? <Info label={live ? "Ends" : "Ended"} value={`${dateLabel(battle.endAt)}, ${clockLabel(battle.endAt)}`} /> : null}
-          {battle.stakeOut ? <Info label="Stake" value={`${battle.stakeOut} OUT each`} /> : null}
-          <Info label="Winner gets" value={`${BATTLE_PRIZES.win.xp} XP + ${BATTLE_PRIZES.win.out + (battle.stakeOut || 0) * 2} OUT`} />
-          <Info label="Everyone else" value={`${BATTLE_PRIZES.other.xp} XP for showing up`} last />
-        </View>
+      <TopBar
+        center={
+          <View style={styles.livePill}>
+            <LiveDot size={7} />
+            <Text style={styles.livePillText}>Live · {remaining > 86_400_000 ? clockText(remaining) : `${clockText(remaining)} left`}</Text>
+          </View>
+        }
+        onMore={() => router.push(`/player/${opp?.id}`)}
+      />
+      {burst ? <Burst key={burst.key} code={burst.code} onDone={() => setBurst(null)} /> : null}
+    </View>
+  );
+}
 
-        {canCancel ? <Button title="Call it off" variant="danger" size="sm" icon={Flag} onPress={confirmCancel} loading={cancel.isPending} style={{ marginTop: S.lg, alignSelf: "center" }} /> : null}
-      </Screen>
+// ── Result ────────────────────────────────────────────────────────────────────
+
+function winStreak(battles) {
+  const done = (battles || []).filter((x) => x.status === "complete").sort((a, z) => (z.completedAt || z.endAt || 0) - (a.completedAt || a.endAt || 0));
+  let n = 0;
+  for (const x of done) {
+    if (x.result === "won") n += 1;
+    else break;
+  }
+  return n;
+}
+
+function Result({ battle }) {
+  const router = useRouter();
+  const { rematch } = useBattleActions(battle);
+  const all = useBattles().data;
+  const h2h = useHeadToHead(battle.opponent.player?.id).data;
+  const opp = battle.opponent.player;
+  const oppName = (opp?.name || "Rival").split(" ")[0];
+  const won = battle.result === "won";
+  const draw = battle.result === "draw";
+  const mine = battle.me.value;
+  const theirs = battle.opponent.value;
+  const diff = (mine || 0) - (theirs || 0);
+  const streak = useMemo(() => (won ? winStreak(all) : 0), [won, all]);
+  const prize = battle.prize || {};
+  const lostLately = !won && !draw && battle.completedAt && Date.now() - battle.completedAt < 86_400_000;
+  const halfStake = lostLately && battle.stakeOut ? Math.floor(battle.stakeOut / 2) : null;
+  const metric = battle.mode === "most_steps" ? battle.metric : "time";
+  const kicker = won ? `Battle over · Beat ${oppName}` : draw ? "Battle over · Dead heat" : `Battle over · ${oppName} won`;
+  const [top, bottom] = won ? ["You", "won"] : draw ? ["All", "square"] : diff && Math.abs(diff) / Math.max(1, theirs || 1) < 0.08 ? ["So", "close"] : ["Not", "this time"];
+  const ratio = mine != null && theirs != null && mine + theirs ? mine / (mine + theirs) : 0.5;
+  const share = () =>
+    Share.share({ message: `${won ? "Beat" : "Battled"} ${oppName} on Outhere: ${formatScore(metric, mine)} to ${formatScore(metric, theirs)}${metric === "steps" ? " steps" : ""}.` }).catch(() => {});
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
+        <GlowHero height={300} center kicker={kicker} kickerColour={won ? C.accentHi : C.textDim}>
+          <Text style={styles.resultTitle} numberOfLines={1} adjustsFontSizeToFit>
+            {top} <Text style={won ? styles.blueGlow : { color: "#a9b4c4" }}>{bottom}</Text>
+          </Text>
+        </GlowHero>
+        <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.md }}>
+          <View style={styles.strip}>
+            <Avatar uri={battle.me.player?.avatar} name="You" size={40} style={won ? styles.ringBlueThin : null} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stripScore}>{formatScore(metric, mine)}</Text>
+              <Text style={styles.small}>You</Text>
+            </View>
+            <View style={{ alignItems: "center", width: 54 }}>
+              <Text style={styles.small}>{metric === "time" ? "" : `${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatScore(metric, Math.abs(diff))}`}</Text>
+              <View style={styles.miniBar}>
+                <View style={{ width: `${ratio * 100}%`, height: "100%", backgroundColor: won ? BLUE : "#a9b4c4", borderRadius: 3 }} />
+              </View>
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <Text style={styles.stripScore}>{formatScore(metric, theirs)}</Text>
+              <Text style={styles.small}>{oppName}</Text>
+            </View>
+            <Avatar uri={opp?.avatar} name={opp?.name} size={40} />
+          </View>
+
+          {won || draw ? (
+            <View style={{ alignItems: "center", gap: S.sm }}>
+              <Row gap={S.sm}>
+                {prize.out ? <GlassChip icon={() => <Coin size={14} />} label={`+${formatNumber(prize.out)} OUT`} /> : null}
+                {prize.xp ? <GlassChip icon={Zap} label={`+${formatNumber(prize.xp)} XP`} tone="accent" /> : null}
+              </Row>
+              {streak >= 2 ? <GlassChip icon={Trophy} label={`${streak} wins in a row`} /> : null}
+              {h2h?.played ? <Text style={styles.small}>Head to head: you {h2h.mine}, {oppName} {h2h.theirs}</Text> : null}
+            </View>
+          ) : (
+            <>
+              {halfStake ? (
+                <View style={styles.offer}>
+                  <View style={styles.offerIcon}>
+                    <TrendingUp size={18} color={C.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.potTitle}>Rematch at {formatNumber(halfStake)} OUT</Text>
+                    <Text style={styles.small}>Half stake for 24 hours after a loss</Text>
+                  </View>
+                </View>
+              ) : null}
+              <Text style={[styles.small, { textAlign: "center" }]}>
+                {prize.xp ? `+${formatNumber(prize.xp)} XP for showing up.` : ""} {h2h?.played ? `Head to head: you ${h2h.mine}, ${oppName} ${h2h.theirs}.` : ""}
+              </Text>
+            </>
+          )}
+        </View>
+      </ScrollView>
+      <BottomBar>
+        <ButtonPair
+          secondary={won ? { title: "Share", icon: Share2, onPress: share } : { title: "Done", onPress: () => (router.canGoBack() ? router.back() : router.replace("/outside/arena")) }}
+          primary={{ title: won ? "Rematch" : `Rematch ${oppName}`, icon: Swords, loading: rematch.isPending, onPress: () => rematch.mutate(battle.id) }}
+        />
+      </BottomBar>
+      <TopBar />
       {won ? <Confetti seed={battle.id} height={700} /> : null}
     </View>
   );
 }
 
-// Live race, before the start: both press ready.
-function Lobby({ battle, oppName, onReady, busy }) {
-  return (
-    <View style={{ marginTop: S.xl }}>
-      <Text style={styles.kick}>Live race · {distanceLabel(battle.distanceM)}</Text>
-      <Text style={styles.big}>
-        Same start,{"\n"}
-        <Text style={{ color: C.accent }}>wherever you are</Text>
-      </Text>
-      <Row gap={S.sm} style={{ marginTop: S.lg }}>
-        <ReadyLight on={battle.readyMe} label={battle.readyMe ? "You're ready" : "You"} />
-        <ReadyLight on={battle.readyThem} label={battle.readyThem ? `${oppName} is ready` : oppName} />
-      </Row>
-      {!battle.readyMe ? <Button title="I'm ready" size="lg" full onPress={onReady} loading={busy} style={{ marginTop: S.lg }} /> : null}
-      <Body dim size={12} style={{ marginTop: S.md }}>
-        When you're both ready the countdown starts on both phones at the same moment. Then start your run on Move.
-      </Body>
-    </View>
-  );
-}
-
-function ReadyLight({ on, label }) {
-  return (
-    <View style={[styles.readyLight, on && styles.readyOn]}>
-      <View style={[styles.readyDot, on && { backgroundColor: C.accent }]}>{on ? <Check size={11} color="#fff" strokeWidth={3} /> : null}</View>
-      <Text style={[styles.readyText, on && { color: C.text }]} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function StartCount({ ms }) {
-  const s = Math.ceil(ms / 1000);
-  return (
-    <View style={{ marginTop: S.xl, alignItems: "center" }}>
-      <Text style={styles.count}>{s}</Text>
-      <Text style={styles.meta}>Start your run on Move when it hits zero</Text>
-    </View>
-  );
-}
-
-// Blind time trial: both times in sealed envelopes until both are in.
-function Envelopes({ battle, oppName }) {
-  return (
-    <Row gap={S.sm}>
-      <Envelope colour={ME} title="You" line={battle.myTimeIn ? `Done · ${timeLabel(battle.me.value)}` : "Not run yet"} foot={battle.myTimeIn ? `Hidden from ${oppName}` : `One go at ${distanceLabel(battle.distanceM)}`} />
-      <Envelope colour={C.danger} title={oppName} line={battle.theirTimeIn ? "Done · sealed" : "Not run yet"} foot={battle.theirTimeIn ? "Opens when you've run" : "Must start within 12 hours"} />
-    </Row>
-  );
-}
-
-function Envelope({ colour, title, line, foot }) {
-  return (
-    <View style={[styles.envelope, { borderColor: `${colour}55` }]}>
-      <View style={[styles.lock, { backgroundColor: `${colour}22` }]}>
-        <Lock size={18} color={colour} />
-      </View>
-      <Text style={styles.envTitle} numberOfLines={1}>{title}</Text>
-      <Text style={styles.envLine}>{line}</Text>
-      <Text style={styles.envFoot}>{foot}</Text>
-    </View>
-  );
-}
-
-function GhostCard({ battle, oppName }) {
-  const km = (battle.distanceM || 0) / 1000;
-  const pace = km ? Math.round(battle.ghostSec / km) : null;
-  return (
-    <Card style={{ marginTop: S.lg, borderWidth: 0 }} padding={S.lg}>
-      <Row gap={S.md}>
-        <View style={styles.ghostIcon}>
-          <Ghost size={20} color={C.accentHi} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{oppName}'s ghost</Text>
-          <Body dim size={13}>
-            {timeLabel(battle.ghostSec)} over {distanceLabel(battle.distanceM)}, {pace ? `${Math.floor(pace / 60)}'${String(pace % 60).padStart(2, "0")}" a km` : ""}. Beat it.
-          </Body>
-        </View>
-      </Row>
-    </Card>
-  );
-}
-
-function StandingCard({ battle, oppName }) {
-  const target = battle.target || 8000;
-  const mine = battle.todaySteps?.me || 0;
-  const theirs = battle.todaySteps?.them || 0;
-  return (
-    <Card style={{ marginTop: S.lg, borderWidth: 0 }} padding={S.lg}>
-      <Row style={{ justifyContent: "space-between" }}>
-        <Text style={styles.cardTitle}>Today's target</Text>
-        <Text style={styles.target}>{formatNumber(target)}</Text>
-      </Row>
-      <Body dim size={12} style={{ marginTop: 2 }}>
-        Up 1,000 every day. Miss it and you're out.
-      </Body>
-      <View style={{ marginTop: S.md, gap: S.sm }}>
-        <TargetRow label="You" value={mine} target={target} colour={ME} />
-        <TargetRow label={oppName} value={theirs} target={target} colour={C.danger} />
-      </View>
-    </Card>
-  );
-}
-
-function TargetRow({ label, value, target, colour }) {
-  return (
-    <View>
-      <Row style={{ justifyContent: "space-between" }}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue}>{value >= target ? "Safe today" : `${formatNumber(target - value)} to go`}</Text>
-      </Row>
-      <AnimatedBar value={Math.min(1, value / target)} colour={colour} height={6} style={{ marginTop: 5 }} />
-    </View>
-  );
-}
-
-function RouteCard({ battle }) {
-  return (
-    <Card style={{ marginTop: S.lg, borderWidth: 0 }} padding={S.lg}>
-      <Row gap={S.md}>
-        <View style={styles.ghostIcon}>
-          <MapPin size={20} color={C.accentHi} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{battle.routeName || `Any ${distanceLabel(battle.distanceM)} loop`}</Text>
-          <Body dim size={13}>
-            {distanceLabel(battle.distanceM)}. Any run that covers 95% of it is a go, and your best time counts.
-          </Body>
-        </View>
-      </Row>
-    </Card>
-  );
-}
-
-function Info({ label, value, last = false }) {
-  return (
-    <>
-      <Row style={{ justifyContent: "space-between", alignItems: "flex-start", paddingVertical: S.md }} gap={S.lg}>
-        <Body dim size={15}>{label}</Body>
-        <Body size={15} style={{ flex: 1, textAlign: "right" }}>{value}</Body>
-      </Row>
-      {last ? null : <Divider />}
-    </>
-  );
-}
-
 const styles = StyleSheet.create({
-  hero: { padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
-  liveText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12, letterSpacing: 1 },
-  meta: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
-  standing: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 14, textAlign: "center", marginTop: S.lg },
-  cancelTitle: { color: C.text, fontFamily: F.display, fontSize: 22, marginTop: S.sm, textTransform: "uppercase" },
-  kick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
-  big: { color: C.text, fontFamily: F.display, fontSize: 36, lineHeight: 36, textTransform: "uppercase", marginTop: 6 },
-  readyLight: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, padding: S.md, borderRadius: R.md, backgroundColor: C.surfaceHigh },
-  readyOn: { backgroundColor: "rgba(61,139,255,0.14)" },
-  readyDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" },
-  readyText: { flex: 1, color: C.textDim, fontFamily: F.bodySemi, fontSize: 13 },
-  count: { color: C.out, fontFamily: F.display, fontSize: 120, lineHeight: 120, textShadowColor: "rgba(61,139,255,0.6)", textShadowRadius: 30 },
-  envelope: { flex: 1, padding: S.lg, borderRadius: R.lg, backgroundColor: "#0e1117", borderWidth: 1, minHeight: 170 },
-  lock: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  envTitle: { color: C.text, fontFamily: F.display, fontSize: 24, textTransform: "uppercase", marginTop: S.md },
-  envLine: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 13, marginTop: 2 },
-  envFoot: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, marginTop: S.sm },
-  reveal: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase", textAlign: "center", marginTop: S.xl },
-  ghostIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  target: { color: C.text, fontFamily: F.display, fontSize: 26 },
-  rowLabel: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 13 },
-  rowValue: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  kick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" },
+  inviteBody: { flex: 1, justifyContent: "flex-end", alignItems: "center", paddingHorizontal: S.gutter },
+  ringWhite: { borderWidth: 3, borderColor: "#e9edf3", borderRadius: 999 },
+  ringBlue: { borderWidth: 3, borderColor: BLUE, borderRadius: 999, shadowColor: BLUE, shadowOpacity: 0.7, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+  ringBlueThin: { borderWidth: 2, borderColor: BLUE, borderRadius: 999 },
+  vsSmall: { color: C.text, fontFamily: F.display, fontSize: 26 },
+  inviteTitle: { color: C.text, fontFamily: F.display, fontSize: 48, lineHeight: 50, textTransform: "uppercase", textAlign: "center", marginTop: S.lg },
+  blueGlow: { color: C.accent, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 }, marginTop: 0 },
+  warn: { color: C.warn, fontFamily: F.body, fontSize: 13, marginTop: S.md, textAlign: "center" },
+  versus: { overflow: "hidden", backgroundColor: "#07090c" },
+  half: { position: "absolute", top: 0, bottom: 0, width: "50%" },
+  seam: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.6)" },
+  vsBig: { position: "absolute", left: 0, right: 0, textAlign: "center", color: "#fff", fontFamily: F.display, fontSize: 58, fontStyle: "italic", textShadowColor: "rgba(255,255,255,0.6)", textShadowRadius: 20, textShadowOffset: { width: 0, height: 0 } },
+  sideName: { position: "absolute", bottom: 26, color: "#fff", fontFamily: F.display, fontSize: 22, textTransform: "uppercase", maxWidth: "45%" },
+  scoreCard: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  scoreLabel: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
+  score: { flex: 1, fontFamily: F.display, fontSize: 40, lineHeight: 46 },
+  vsDot: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center", marginHorizontal: S.sm },
+  vsDotText: { color: C.textSoft, fontFamily: F.display, fontSize: 13 },
+  tug: { flexDirection: "row", height: 8, borderRadius: 4, overflow: "hidden", marginTop: S.md, backgroundColor: C.surfaceHigh },
+  tugKnob: { position: "absolute", top: -4, width: 4, height: 16, marginLeft: -2, borderRadius: 2, backgroundColor: "#fff" },
+  small: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  pot: { flexDirection: "row", alignItems: "center", gap: S.md, marginTop: S.md, padding: S.md, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
+  potImage: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#000" },
+  potTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  boosted: { color: C.accent, fontFamily: F.display, fontSize: 18 },
+  bubble: { flexDirection: "row", alignItems: "center", gap: 8, maxWidth: "75%", paddingHorizontal: 12, height: 38, borderRadius: 19 },
+  bubbleMine: { alignSelf: "flex-start", backgroundColor: BLUE },
+  bubbleTheirs: { alignSelf: "flex-end", backgroundColor: C.surfaceHigh },
+  bubbleText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 14 },
+  tray: { position: "absolute", left: S.md, right: S.md, paddingVertical: S.md, borderRadius: R.lg, backgroundColor: "rgba(18,21,26,0.96)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  emote: { width: 58, height: 58, borderRadius: 16, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  boostTile: { backgroundColor: BLUE, gap: 2 },
+  boostText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10 },
+  line: { height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: C.surfaceHigh, justifyContent: "center" },
+  lineText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  livePill: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(12,15,20,0.6)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)", alignSelf: "flex-end" },
+  livePillText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12 },
+  burstWrap: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  burstText: { color: "#fff", fontFamily: F.display, fontSize: 30, textTransform: "uppercase", marginTop: S.sm, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 10 },
+  resultTitle: { color: C.text, fontFamily: F.display, fontSize: 60, lineHeight: 62, textTransform: "uppercase", textAlign: "center" },
+  strip: { flexDirection: "row", alignItems: "center", gap: S.sm, padding: S.md, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  stripScore: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 26 },
+  miniBar: { width: 30, height: 6, borderRadius: 3, backgroundColor: C.surfaceHigh, marginTop: 4, overflow: "hidden" },
+  offer: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  offerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center" },
 });

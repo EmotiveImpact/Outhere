@@ -21,7 +21,7 @@ const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").re
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 export function makeOutside(h) {
-  const { read, write, touch, requireMe, notify, award, balance, EngineError, ME, PLAYERS, publicPlayer, myDay, myStepsBetween, playerDayTotal, playerStepsBetween, playerIsOutside, levelFromXp, tierAtLeast } = h;
+  const { read, write, touch, requireMe, notify, award, balance, EngineError, ME, PLAYERS, myDay, myStepsBetween, playerDayTotal, playerStepsBetween, playerIsOutside, levelFromXp, tierAtLeast } = h;
   const playerById = Object.fromEntries(PLAYERS.map((p) => [p.id, p]));
 
   const box = (s) => {
