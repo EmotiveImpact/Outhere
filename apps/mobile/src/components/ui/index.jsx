@@ -35,6 +35,7 @@ export { Hero } from "./Hero";
 export { Logo, Wordmark } from "./Logo";
 export { SlideToStart } from "./SlideToStart";
 export { toast, ToastHost, ModalToastHost } from "./Toast";
+export { ErrorState, OfflineBanner, StillCounting, SyncList } from "./states";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 

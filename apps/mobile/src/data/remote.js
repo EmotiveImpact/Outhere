@@ -62,7 +62,7 @@ const MESSAGES = {
   BAD_NAME: "Club names need at least 3 characters.",
   CHECK_IN_CLOSED: "Check-in opens 30 minutes before the start.",
   EVENT_NOT_FOUND: "That club run has gone.",
-  // Account and under 18 mode (20261015101500_account.sql)
+  // Account and under 18 mode (20261015101710_account.sql)
   UNDER_18: "In under 18 mode you play with friends and your club.",
   TOO_YOUNG: "Outhere is for 13 and over.",
   BAD_DATE: "That date doesn't look right.",
@@ -375,6 +375,8 @@ export const getProfile = async () => {
     name: p.display_name,
     city: cityName(p.city_id),
     area: cityName(p.borough_id),
+    cityId: p.city_id || null,
+    areaId: p.borough_id || null,
     bio: p.bio || "",
     avatar: publicUrl("avatars", p.avatar_path),
     tier: p.tier,
@@ -431,12 +433,12 @@ export const updateProfile = async (patch) => {
   return getProfile();
 };
 
-export const createProfile = async ({ username, city = "London", crewCode, dailyGoal }) => {
+export const createProfile = async ({ username, city = "London", cityId: placeId, crewCode, dailyGoal }) => {
   const me = await requireUid();
   const name = username.trim().toLowerCase();
   const check = await checkUsername(name);
   if (!check.available) throw new EngineError("BAD_USERNAME", check.reason);
-  await rpc("finish_onboarding", { p_username: name, p_display_name: username.trim(), p_city: cityId(city) });
+  await rpc("finish_onboarding", { p_username: name, p_display_name: username.trim(), p_city: placeId || cityId(city) });
   if (dailyGoal) await run(supabase.from("profiles").update({ daily_goal: Math.min(50000, Math.max(1000, Math.round(dailyGoal))) }).eq("id", me));
   if (crewCode) await joinCrewByCode(crewCode).catch(() => null);
   changed();

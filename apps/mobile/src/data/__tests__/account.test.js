@@ -155,3 +155,12 @@ test("the live count is per city or the whole UK", async () => {
   const london = await engine.getOutsideCount({ cityId: "london" });
   expect(uk.count).toBeGreaterThanOrEqual(london.count);
 });
+
+test("a stranger's waiting invite goes when the member turns out to be under 18", async () => {
+  await engine.createProfile({ username: "jadenruns", city: "London" });
+  const [invite] = (await engine.listBattles("pending")).filter((b) => b.incoming);
+  expect(invite).toBeTruthy();
+  await engine.unfollow(invite.opponent.player.id);
+  await engine.setBirthDate("2011-05-02");
+  expect((await engine.listBattles("pending")).filter((b) => b.incoming)).toHaveLength(0);
+});

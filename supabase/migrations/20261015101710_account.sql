@@ -65,6 +65,10 @@ begin
   if public.is_minor(me) then
     update profiles set surprise_challengers = false where id = me;
     update member_settings set map_visibility = 'friends' where user_id = me and map_visibility = 'everyone';
+    -- Invites already waiting from strangers or mystery challengers go.
+    update battles set status = 'cancelled'
+     where status = 'pending' and me in (challenger_id, opponent_id)
+       and (is_surprise or not (public.are_friends(challenger_id, opponent_id) or public.share_club(challenger_id, opponent_id)));
   end if;
   return public.is_minor(me);
 end $$;
@@ -113,6 +117,8 @@ create table public.member_settings (
   show_outside_status  boolean not null default true,
   step_source     text not null default 'phone'
                   check (step_source in ('phone', 'apple_health', 'health_connect', 'garmin', 'strava')),
+  -- Sources the member asked for before we connect them: { "garmin": "2026-10-15T..." }
+  source_requests jsonb not null default '{}'::jsonb,
   updated_at      timestamptz not null default now()
 );
 create trigger member_settings_touch before update on public.member_settings

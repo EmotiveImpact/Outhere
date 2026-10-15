@@ -3,7 +3,7 @@
 // phone so the app opens with them offline), date of birth and under 18 mode
 // go through set_birth_date and am_i_minor, and the patch picker reads
 // public.cities and public.boroughs through patch_places and patch_areas.
-// See supabase/migrations/20261015101500_account.sql.
+// See supabase/migrations/20261015101710_account.sql.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
@@ -31,6 +31,7 @@ const toRow = (me, s) => ({
   show_on_leaderboards: s.privacy.showOnLeaderboards,
   show_outside_status: s.privacy.showOutsideStatus,
   step_source: s.stepSource,
+  source_requests: s.sourceRequests,
 });
 
 const fromRow = (r) =>
@@ -52,6 +53,7 @@ const fromRow = (r) =>
           showOutsideStatus: r.show_outside_status,
         },
         stepSource: r.step_source,
+        sourceRequests: r.source_requests || {},
       }
     : {};
 

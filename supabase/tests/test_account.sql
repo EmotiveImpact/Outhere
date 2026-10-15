@@ -14,6 +14,10 @@ create function pg_temp.act(uid text) returns void language sql as $$
   select set_config('request.jwt.claim.sub', uid, false)
 $$;
 
+-- A stranger's invite is already waiting before the date of birth is given.
+insert into battles (mode, challenger_id, opponent_id, duration_h)
+values ('most_steps', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1', 24);
+
 -- ── Date of birth ────────────────────────────────────────────────────────────
 select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
 set role authenticated;
@@ -32,6 +36,7 @@ do $$ begin
   end;
   assert set_birth_date((london_today() - interval '15 years')::date) = true, 'a 15 year old is a minor';
   assert am_i_minor(), 'am_i_minor';
+  assert (select status from battles where challenger_id = '00000000-0000-0000-0000-0000000000c1' and opponent_id = auth.uid()) = 'cancelled', 'stranger invite cancelled for a minor';
   begin
     perform set_birth_date((london_today() - interval '20 years')::date);
     raise exception 'date of birth is set once';

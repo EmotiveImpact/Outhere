@@ -35,11 +35,13 @@ export const DEFAULT_SETTINGS = {
   },
   // phone (the motion chip) | apple_health | health_connect | garmin | strava
   stepSource: "phone",
+  // Sources asked for before they connect: { garmin: 1760000000000 }
+  sourceRequests: {},
   // What the member allowed on the permissions step.
   permissions: { location: null, motion: null, notifications: null },
 };
 
-const NESTED = ["sound", "pings", "quietHours", "notifications", "privacy", "permissions"];
+const NESTED = ["sound", "pings", "quietHours", "notifications", "privacy", "permissions", "sourceRequests"];
 
 export const mergeSettings = (base = {}, patch = {}) => {
   const out = { ...DEFAULT_SETTINGS, ...base, ...patch };
@@ -250,6 +252,11 @@ export function makeAccount({ read, write, requireMe, EngineError, ME, players =
       if (minor(s)) {
         s.settings = mergeSettings(s.settings, {});
         if (s.settings.privacy.mapVisibility === "everyone") s.settings.privacy.mapVisibility = "friends";
+        // Invites already waiting from strangers go, as on the server.
+        for (const b of s.battles || []) {
+          const other = b.creatorId === ME ? b.opponentId : b.creatorId;
+          if (b.status === "pending" && (b.opponentId === ME || b.creatorId === ME) && (b.isSurprise || !friendOrClubMate(s, other))) b.status = "declined";
+        }
       }
       return accountView(s);
     });

@@ -1,21 +1,38 @@
 // Home. Built to fit one screen: greeting with the membership mark, the
-// friends row (rings for membership, dots for who is out), the two-tone
-// headline, today's dial, three quick buttons and the outside now carousel.
+// stories row (rings for stories, dots for who is out), the two-tone
+// headline, today's dial (tap it for your week), three quick buttons and the
+// carousel sitting just above the tab bar. Offline it keeps counting and
+// lists what is waiting to sync; if Home can't load it says so and offers
+// one button to try again.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import ConfettiCannon from "react-native-confetti-cannon";
-import { Bell, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
+import { Bell, CheckCheck, ChevronsRight, Flame, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useChallenges, useDrops, useEvents, useFriends, useOutsideNow, useProfile, useStories, useUnreadCount } from "@/data/hooks";
+import {
+  engine,
+  useBattles,
+  useChallenges,
+  useDrops,
+  useEngineMutation,
+  useEvents,
+  useFriends,
+  useOutsideNow,
+  useProfile,
+  useRuns,
+  useStories,
+  useUnreadCount,
+} from "@/data/hooks";
 import { useStepStatus } from "@/hooks/useStepSync";
-import { Avatar, C, F, FadeIn, IconButton, Kicker, LIT, PressableScale, R, Row, S, Screen, Skeleton, Title, toast } from "@/components/ui";
-import GoalDial from "@/components/home/GoalDial";
+import { OPENED_WITH_STATE, STATE_PREVIEW, useOnline } from "@/hooks/useOnline";
+import { Avatar, C, ErrorState, F, FadeIn, IconButton, Kicker, LIT, OfflineBanner, PressableScale, R, Row, S, Screen, Skeleton, SyncList, Title, toast } from "@/components/ui";
+import GoalDial, { Dial } from "@/components/home/GoalDial";
 import OutsideCarousel from "@/components/home/OutsideCarousel";
 import { PHOTOS } from "@/constants/photos";
 import { hapticSuccess } from "@/services/haptics";
-import { dateLabel, formatNumber, greeting } from "@/utils/format";
+import { dateLabel, formatKm, formatNumber, greeting, tierLabel } from "@/utils/format";
 
 const QUICK = [
   { key: "move", icon: Route, label: "Move", hint: "Track", href: "/(tabs)/move" },
@@ -27,16 +44,40 @@ function TierMark({ tier }) {
   if (tier !== "pro" && tier !== "black") return null;
   return (
     <View style={[styles.mark, tier === "black" ? styles.markBlack : styles.markPro]}>
-      <Text style={[styles.markText, { color: tier === "black" ? "#e6eaef" : C.accentHi }]}>{tier === "black" ? "BLACK" : "PRO"}</Text>
+      <Text style={[styles.markText, { color: tier === "black" ? "#e6eaef" : "#fff" }]}>{tier === "black" ? "BLACK" : "PRO"}</Text>
     </View>
   );
 }
 
 export default function HomeScreen() {
-  const router = useRouter();
-  const { width } = useWindowDimensions();
+  const params = useLocalSearchParams();
+  const preview = STATE_PREVIEW ? params?.state || OPENED_WITH_STATE : null;
+  const online = useOnline() && preview !== "offline";
   const profileQ = useProfile();
-  const profile = profileQ.data;
+  const { liveSteps } = useStepStatus();
+  const [retrying, setRetrying] = useState(false);
+
+  if (preview === "loading" || (profileQ.isPending && !profileQ.data)) return <HomeSkeleton />;
+  if (preview === "error" || (profileQ.isError && !profileQ.data)) {
+    const retry = async () => {
+      setRetrying(true);
+      await profileQ.refetch().catch(() => {});
+      setRetrying(false);
+    };
+    return (
+      <Screen tab padded={false} style={{ paddingTop: 0 }}>
+        <ErrorState what="your home" steps={liveSteps ?? null} onRetry={retry} retrying={retrying} />
+      </Screen>
+    );
+  }
+  if (!profileQ.data) return <HomeSkeleton />;
+  if (!online) return <OfflineHome profile={profileQ.data} liveSteps={liveSteps} />;
+  return <OnlineHome profile={profileQ.data} liveSteps={liveSteps} />;
+}
+
+function OnlineHome({ profile, liveSteps }) {
+  const router = useRouter();
+  const { width, height: screenH } = useWindowDimensions();
   const unreadQ = useUnreadCount();
   const friendsQ = useFriends();
   const { data: myStories } = useStories(profile?.id);
@@ -44,8 +85,9 @@ export default function HomeScreen() {
   const eventsQ = useEvents(profile?.city);
   const challengesQ = useChallenges();
   const dropsQ = useDrops();
-  const { liveSteps } = useStepStatus();
   const [confetti, setConfetti] = useState(0);
+  const remind = useEngineMutation(engine.toggleDropReminder, { success: (d) => (d?.reminder === false ? "Reminder off" : "We'll ping you when it drops") });
+  const join = useEngineMutation(engine.joinChallenge);
 
   const goal = profile?.dailyGoal || 10000;
   const steps = Math.max(profile?.today?.steps || 0, liveSteps || 0);
@@ -53,22 +95,22 @@ export default function HomeScreen() {
   // Celebrate the moment the goal is crossed while the app is open.
   const prevSteps = useRef(null);
   useEffect(() => {
-    if (!profile) return;
     if (prevSteps.current != null && prevSteps.current < goal && steps >= goal) {
       hapticSuccess();
       toast.success("Daily goal smashed", "+40 XP   +4 OUT");
       setConfetti((n) => n + 1);
     }
     prevSteps.current = steps;
-  }, [steps, goal, profile]);
+  }, [steps, goal]);
 
   const slides = useMemo(() => {
-    if (!profile) return [];
     const out = outsideQ.data;
     const nextEvent = (eventsQ.data || []).find((e) => e.startAt > Date.now());
-    const chase = (challengesQ.data || []).find((c) => c.status === "joined" || c.status === "open");
+    const today = (challengesQ.data || []).find((c) => c.period === "day" && c.status !== "claimed");
+    const chase = (challengesQ.data || []).find((c) => c.period !== "day" && (c.status === "joined" || c.status === "open"));
     const drop = (dropsQ.data || []).find((d) => d.status !== "soldout");
     const friendsOut = (friendsQ.data || []).filter((f) => f.isOutside);
+    const place = profile.city || "your city";
     const list = [
       {
         key: "live",
@@ -76,8 +118,8 @@ export default function HomeScreen() {
         kicker: "Live now",
         title: formatNumber(out?.count ?? 0),
         body: friendsOut.length
-          ? `outside in ${profile.city}. ${friendsOut.slice(0, 2).map((f) => f.name).join(" and ")} ${friendsOut.length > 1 ? "are" : "is"} out near you.`
-          : `outside in ${profile.city} right now.`,
+          ? `outside in ${place}. ${friendsOut.slice(0, 2).map((f) => f.name).join(" and ")} ${friendsOut.length > 1 ? "are" : "is"} out near you.`
+          : `outside in ${place} right now.`,
         faces: (out?.people || []).slice(0, 4),
         image: PHOTOS.navCity,
         onPress: () => router.push("/(tabs)/move"),
@@ -87,29 +129,62 @@ export default function HomeScreen() {
       list.push({ key: "event", kicker: dateLabel(nextEvent.startAt), title: nextEvent.title, body: `${nextEvent.location} · ${nextEvent.rsvpCount} going`, image: nextEvent.image || PHOTOS.event, onPress: () => router.push(`/events/${nextEvent.id}`) });
     if (chase)
       list.push({ key: "challenge", kicker: "Challenge", title: chase.title, body: `${chase.description} +${chase.rewardXp} XP`, image: PHOTOS.flame, onPress: () => router.push("/outside/challenges") });
-    if (drop)
-      list.push({ key: "drop", kicker: drop.status === "live" ? "Drop live" : "Next drop", title: drop.title, body: drop.subtitle || "Limited run. Spend your OUT.", image: drop.image || PHOTOS.tee, onPress: () => router.push(`/drops/${drop.id}`) });
+    if (drop) {
+      const opens = drop.status === "upcoming" ? drop.releaseAt : null;
+      list.push({
+        key: "drop",
+        icon: ShoppingBag,
+        kicker: drop.status === "live" ? "Drop · live now" : drop.status === "early" ? "Drop · early access" : `Drop · ${drop.tag || "next up"}`,
+        title: drop.title,
+        body: drop.status === "live" ? `${drop.remaining} left. Spend your OUT.` : drop.subtitle || "Limited run.",
+        countdownTo: opens,
+        countdownLabel: "Drops in",
+        onPress: () => router.push(`/drops/${drop.id}`),
+        action:
+          drop.status === "upcoming" || drop.status === "early"
+            ? { label: drop.reminder ? "Reminder on" : "Remind me", onPress: () => remind.mutate(drop.id) }
+            : { label: "Shop", primary: true, onPress: () => router.push(`/drops/${drop.id}`) },
+      });
+    }
+    // Today's challenge goes last, as in the demo.
+    const target = today?.target || goal;
+    const left = Math.max(0, target - steps);
+    list.push({
+      key: "today",
+      icon: Flame,
+      kicker: "Today's challenge",
+      title: `${formatNumber(target)} steps`,
+      body: left > 0 ? `${formatNumber(left)} to go${profile.streak ? ` · keeps your ${profile.streak} day streak` : ""}` : "Done. Your streak is safe for today.",
+      onPress: () => router.push("/outside/challenges"),
+      action: {
+        label: left > 0 ? "Go" : "See all",
+        primary: true,
+        onPress: () => {
+          if (today && !today.joined && today.status === "open") join.mutate(today.id);
+          router.push(left > 0 ? "/(tabs)/move" : "/outside/challenges");
+        },
+      },
+    });
     return list;
-  }, [profile, outsideQ.data, eventsQ.data, challengesQ.data, dropsQ.data, friendsQ.data, router]);
-
-  if (!profile) return <HomeSkeleton />;
+  }, [profile, outsideQ.data, eventsQ.data, challengesQ.data, dropsQ.data, friendsQ.data, router, steps, goal, remind, join]);
 
   const name = (profile.name || profile.username || "").split(" ")[0];
   const level = profile.level?.level ?? profile.level;
   const line = [
-    profile.foundingNumber ? `Founding member #${profile.foundingNumber}` : null,
+    profile.tier === "black" && profile.foundingNumber ? `Founding member #${profile.foundingNumber}` : null,
     `Level ${level}`,
-    profile.area || profile.borough || profile.city,
-    !profile.foundingNumber && profile.streak ? `${profile.streak} day streak` : null,
+    profile.area || profile.city,
+    profile.tier !== "black" && profile.streak ? `${profile.streak} day streak` : null,
   ]
     .filter(Boolean)
     .join(" · ");
   const friends = friendsQ.data || [];
   const done = steps >= goal;
+  const compact = screenH < 760;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen tab padded>
+      <Screen tab padded contentStyle={{ flexGrow: 1 }}>
         {/* Greeting */}
         <Row style={{ justifyContent: "space-between", alignItems: "flex-start", paddingTop: S.md }}>
           <View style={{ flex: 1 }}>
@@ -125,7 +200,7 @@ export default function HomeScreen() {
 
         {/* Stories row: here the ring shows the story (blue until watched,
             then grey), not membership. Dots still show who's out. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: S.lg }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: compact ? S.md : S.lg, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
           <View style={styles.friend}>
             <PressableScale onPress={() => router.push(myStories?.length ? `/stories/${profile.id}` : "/stories/new")} accessibilityLabel={myStories?.length ? "Your story" : "Add a story"}>
               <Avatar uri={profile.avatar} name={name} story={myStories?.length ? "watched" : undefined} size={56} />
@@ -160,19 +235,29 @@ export default function HomeScreen() {
           ) : null}
         </ScrollView>
 
-        <FadeIn index={0} style={{ marginTop: S.lg }}>
-          <Title size={36}>{done ? "Goal smashed" : `${formatNumber(steps)} steps`}</Title>
-          <Title size={36} blue>{done ? `${formatNumber(steps)} and counting` : "and counting"}</Title>
+        <FadeIn index={0} style={{ marginTop: compact ? S.md : S.lg }}>
+          <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+            <View style={{ flex: 1 }}>
+              <Title size={36}>{done ? "Goal smashed" : `${formatNumber(steps)} steps`}</Title>
+              <Title size={36} blue>{done ? `${formatNumber(steps)} and counting` : "and counting"}</Title>
+            </View>
+          </Row>
         </FadeIn>
 
         <FadeIn index={1} style={{ marginTop: S.md }}>
-          <GoalDial steps={steps} goal={goal} xp={profile.today?.xp || 0} out={profile.today?.out || 0} streak={profile.streak || 0} size={width < 370 ? 96 : 112} />
+          <PressableScale onPress={() => router.push("/week")} scaleTo={0.985} accessibilityLabel="See your week">
+            <GoalDial steps={steps} goal={goal} xp={profile.today?.xp || 0} out={profile.today?.out || 0} streak={profile.streak || 0} size={width < 370 || compact ? 96 : 112} />
+            <View style={styles.seeWeek} pointerEvents="none">
+              <Text style={styles.seeWeekText}>See week</Text>
+              <ChevronsRight size={13} color={C.textDim} />
+            </View>
+          </PressableScale>
         </FadeIn>
 
         <FadeIn index={2} style={{ marginTop: S.md }}>
           <Row gap={S.md}>
             {QUICK.map(({ key, icon: Icon, label, hint, href }) => (
-              <PressableScale key={key} onPress={() => router.push(href)} scaleTo={0.95} style={styles.quick}>
+              <PressableScale key={key} onPress={() => router.push(href)} scaleTo={0.95} style={[styles.quick, compact && { height: 84 }]}>
                 <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
                 <View style={styles.quickIcon}>
                   <Icon size={18} color={C.accentHi} />
@@ -184,8 +269,11 @@ export default function HomeScreen() {
           </Row>
         </FadeIn>
 
-        <FadeIn index={3} style={{ marginTop: S.md }}>
-          <OutsideCarousel slides={slides} height={width < 370 ? 128 : 146} />
+        {/* Pushes the carousel down to sit just above the tab bar. */}
+        <View style={{ flex: 1, minHeight: S.md }} />
+
+        <FadeIn index={3}>
+          <OutsideCarousel slides={slides} height={width < 370 || compact ? 120 : 132} />
         </FadeIn>
       </Screen>
 
@@ -196,22 +284,91 @@ export default function HomeScreen() {
   );
 }
 
+// ── Offline ───────────────────────────────────────────────────────────────────
+// Steps keep counting on the phone; anything that needs the server is listed
+// as waiting, from what the app already had on screen.
+
+function OfflineHome({ profile, liveSteps }) {
+  const battlesQ = useBattles("active");
+  const challengesQ = useChallenges();
+  const runsQ = useRuns(5);
+  const steps = Math.max(profile?.today?.steps || 0, liveSteps || 0);
+  const goal = profile?.dailyGoal || 10000;
+  const name = (profile.name || profile.username || "").split(" ")[0];
+  const greet = greeting().replace("Late one", "Evening");
+
+  const items = [];
+  const todayStart = new Date().setHours(0, 0, 0, 0);
+  for (const r of (runsQ.data || []).filter((x) => (x.endedAt || 0) >= todayStart).slice(0, 2)) {
+    items.push({ key: `run:${r.id}`, icon: Route, title: r.title || "Today's run", sub: `${formatKm(r.distanceKm || 0)} ${r.kind === "walk" ? "walk" : "run"}${r.outEarned ? ` · +${r.outEarned} OUT` : ""}` });
+  }
+  const day = (challengesQ.data || []).filter((c) => c.period === "day");
+  if (day.length) {
+    const doneN = day.filter((c) => c.status === "complete" || c.status === "claimed").length;
+    items.push({ key: "tasks", icon: CheckCheck, title: "Daily tasks", sub: `${doneN} of ${day.length} done` });
+  }
+  for (const b of (battlesQ.data || []).slice(0, 2)) {
+    items.push({ key: `battle:${b.id}`, icon: Swords, title: `Battle vs ${b.opponent?.player?.name || "your rival"}`, sub: "Score updates when you're back" });
+  }
+  if (!items.length) items.push({ key: "steps", icon: Route, title: "Today's steps", sub: `${formatNumber(steps)} steps to send` });
+
+  return (
+    <Screen tab padded>
+      <OfflineBanner style={{ marginTop: S.md }} />
+      <Row gap={S.md} style={{ marginTop: S.lg }}>
+        <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={46} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.offName}>{`${greet}, ${name}`}</Text>
+          <Text style={styles.line} numberOfLines={1}>
+            {[tierLabel(profile.tier), `Level ${profile.level?.level ?? profile.level}`, profile.area || profile.city].filter(Boolean).join(" · ")}
+          </Text>
+        </View>
+      </Row>
+      <View style={[styles.savedCard, { marginTop: S.lg }]}>
+        <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
+        <Dial value={goal ? steps / goal : 0} size={112}>
+          <Text style={styles.savedNum}>{formatNumber(steps)}</Text>
+          <Text style={styles.savedUnit}>steps</Text>
+        </Dial>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.savedTitle}>Saved on this phone</Text>
+          <Text style={styles.savedBody}>Counted from your phone's motion chip, no signal needed</Text>
+        </View>
+      </View>
+      <SyncList items={items} style={{ marginTop: S.xl }} />
+      <View style={[styles.savedCard, { marginTop: S.lg, opacity: 0.6, paddingVertical: S.lg }]}>
+        <View style={styles.greyDot} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.savedTitle}>Outside now</Text>
+          <Text style={styles.savedBody}>The live count comes back with your signal</Text>
+        </View>
+        <Text style={styles.savedBody}>–</Text>
+      </View>
+    </Screen>
+  );
+}
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+// Shapes in the layout of the real screen, so nothing jumps when it arrives.
+
 function HomeSkeleton() {
   return (
     <Screen tab scroll={false}>
-      <View style={{ paddingTop: S.md, gap: 8 }}>
-        <Skeleton width={110} height={12} />
-        <Skeleton width={180} height={38} />
-        <Skeleton width={240} height={12} />
-      </View>
-      <Row gap={14} style={{ marginTop: S.lg }}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} width={56} height={56} radius={28} />
+      <Row gap={S.md} style={{ paddingTop: S.md }}>
+        <Skeleton width={48} height={48} radius={24} />
+        <View style={{ gap: 8 }}>
+          <Skeleton width={150} height={14} radius={7} />
+          <Skeleton width={100} height={10} radius={5} />
+        </View>
+      </Row>
+      <Skeleton height={250} radius={22} style={{ marginTop: S.lg }} />
+      <Row gap={S.md} style={{ marginTop: S.lg }}>
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} height={74} radius={18} style={{ flex: 1 }} />
         ))}
       </Row>
-      <Skeleton height={80} width={260} style={{ marginTop: S.lg }} />
-      <Skeleton height={150} radius={20} style={{ marginTop: S.md }} />
-      <Skeleton height={96} radius={20} style={{ marginTop: S.md }} />
+      <Skeleton height={96} radius={20} style={{ marginTop: S.lg }} />
+      <Skeleton height={60} radius={18} style={{ marginTop: S.lg }} />
     </Screen>
   );
 }
@@ -219,15 +376,24 @@ function HomeSkeleton() {
 const styles = StyleSheet.create({
   line: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },
   mark: { height: 20, paddingHorizontal: 7, borderRadius: 5, justifyContent: "center", marginTop: 4 },
-  markPro: { backgroundColor: "rgba(61,139,255,0.16)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(130,180,255,0.6)" },
+  markPro: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
   markBlack: { backgroundColor: "#2a3038", borderWidth: StyleSheet.hairlineWidth, borderColor: "#7d8691" },
   markText: { fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 1.6 },
   friend: { alignItems: "center", width: 60 },
   friendName: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 6 },
   add: { position: "absolute", right: 1, top: 37, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   findFriends: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
-  quick: { flex: 1, height: 96, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  seeWeek: { position: "absolute", right: S.lg, bottom: 10, flexDirection: "row", alignItems: "center", gap: 2 },
+  seeWeekText: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 11 },
+  quick: { flex: 1, height: 88, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", borderWidth: 1, borderColor: "rgba(61,139,255,0.3)", alignItems: "center", justifyContent: "center", marginBottom: 6 },
   quickLabel: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   quickHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 1 },
+  offName: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
+  savedCard: { flexDirection: "row", alignItems: "center", gap: S.lg, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  savedNum: { color: C.text, fontFamily: F.display, fontSize: 26, lineHeight: 28 },
+  savedUnit: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
+  savedTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
+  savedBody: { color: C.textDim, fontFamily: F.body, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  greyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.textMute },
 });
