@@ -4,9 +4,12 @@
 //   Pro   blue ring with a soft glow
 //   Black gunmetal ring with a light that travels round it
 //
+// In the stories row only (story="unwatched" or "watched"), the ring is about
+// the story and membership is not shown: bright blue until watched, then a
+// thin grey line. Everywhere else the ring is membership.
+//
 // The dot always sits at the bottom right: blue while someone is out, red
-// once they have just stopped. An unwatched story is a soft blue glow round
-// the ring. Clubs get a rounded square instead of a circle.
+// once they have just stopped. Clubs get a rounded square instead of a circle.
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -19,6 +22,11 @@ const RING = {
   free: { width: 1.5, colour: C.free },
   pro: { width: 2.5, colour: C.pro },
   black: { width: 3, colour: "#59616c" },
+};
+
+const STORY = {
+  unwatched: { width: 2.5, colour: C.accent },
+  watched: { width: 1.5, colour: C.free },
 };
 
 const initialsOf = (name = "") =>
@@ -72,9 +80,11 @@ export function Dot({ state, size = 10, style }) {
   );
 }
 
-export function Ring({ size = 44, tier, dot, story = false, square = false, ringColour, source, name = "", style }) {
+export function Ring({ size = 44, tier: membership, dot, story, square = false, ringColour, source, name = "", style }) {
   const [failed, setFailed] = useState(false);
-  const spec = RING[tier] || (ringColour ? { width: 2, colour: ringColour } : null);
+  const storyMode = story === "unwatched" || story === "watched";
+  const tier = storyMode ? null : membership;
+  const spec = storyMode ? STORY[story] : RING[tier] || (ringColour ? { width: 2, colour: ringColour } : null);
   const ringW = spec ? spec.width : 0;
   const gap = spec ? Math.max(1.5, size * 0.04) : 0;
   const inner = size - (ringW + gap) * 2;
@@ -86,7 +96,7 @@ export function Ring({ size = 44, tier, dot, story = false, square = false, ring
     <View
       style={[
         { width: size, height: size },
-        story && { borderRadius: radius, shadowColor: C.accent, shadowOpacity: 0.75, shadowRadius: size * 0.18, shadowOffset: { width: 0, height: 0 } },
+        story === "unwatched" && { borderRadius: radius, shadowColor: C.accent, shadowOpacity: 0.75, shadowRadius: size * 0.18, shadowOffset: { width: 0, height: 0 } },
         style,
       ]}
     >

@@ -101,6 +101,7 @@ const freshState = () => ({
   ledger: [],
   streakAwards: {},
   following: [],
+  storiesSeen: [],
   crews: Object.fromEntries(
     CREWS.map((c, i) => [
       c.id,
@@ -704,8 +705,20 @@ const personView = (s, pid) => {
   if (pid === ME) return { ...meAsPlayer(s), todaySteps: myDay(s, dayKey()).steps, isOutside: !!s.me.isOutside, streak: computeStreak(s) };
   const p = publicPlayer(pid);
   if (!p) return null;
-  return { ...p, todaySteps: playerStepsToday(pid), isOutside: playerIsOutside(pid), streak: playerStreak(pid), isFollowing: s.following.includes(pid) };
+  return { ...p, todaySteps: playerStepsToday(pid), isOutside: playerIsOutside(pid), streak: playerStreak(pid), isFollowing: s.following.includes(pid), story: storyState(s, pid) };
 };
+
+// Demo stories: people who are out, and some others, posted one today.
+const storyState = (s, pid) => {
+  if (!playerIsOutside(pid) && noise(`story:${pid}:${dayKey()}`) < 0.6) return null;
+  return (s.storiesSeen || []).includes(`${pid}:${dayKey()}`) ? "watched" : "unwatched";
+};
+
+export const markStoryWatched = async (pid) =>
+  write((s) => {
+    const key = `${pid}:${dayKey()}`;
+    s.storiesSeen = [...(s.storiesSeen || []).filter((k) => k.endsWith(dayKey())), key].filter((k, i, a) => a.indexOf(k) === i);
+  });
 
 export const getFriends = async () =>
   read((s) => s.following.map((pid) => personView(s, pid)).filter(Boolean).sort((a, b) => Number(b.isOutside) - Number(a.isOutside) || b.todaySteps - a.todaySteps));

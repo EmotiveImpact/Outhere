@@ -8,6 +8,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
+import { prepareStoryPhoto, storyFiles } from "@/services/media";
 import { EngineError, TIER_RULES, crewBadgeTier, levelFromXp, tierAtLeast } from "./engine";
 import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
 
@@ -150,8 +151,16 @@ export const getFriends = async () => {
   if (!me) return [];
   const following = await followingSet(me);
   if (!following.size) return [];
-  const rows = await run(supabase.from("profiles").select(PERSON).in("id", [...following]));
-  const list = await peopleViews(rows || [], me, following);
+  const ids = [...following];
+  const [rows, stories, seen] = await Promise.all([
+    run(supabase.from("profiles").select(PERSON).in("id", ids)),
+    run(supabase.from("stories").select("id, author_id").in("author_id", ids).gt("expires_at", new Date().toISOString())),
+    run(supabase.from("story_views").select("story_id").eq("user_id", me)),
+  ]);
+  const seenIds = new Set((seen || []).map((v) => v.story_id));
+  const storyOf = {};
+  for (const st of stories || []) storyOf[st.author_id] = storyOf[st.author_id] === "unwatched" || !seenIds.has(st.id) ? "unwatched" : "watched";
+  const list = (await peopleViews(rows || [], me, following)).map((p) => ({ ...p, story: storyOf[p.id] || null }));
   return list.sort((a, b) => Number(b.isOutside) - Number(a.isOutside) || b.todaySteps - a.todaySteps);
 };
 
@@ -189,6 +198,27 @@ export const getPlayer = async (pid) => {
 export const follow = async (pid) => {
   const me = await requireUid();
   await run(supabase.from("follows").upsert({ follower_id: me, followee_id: pid }, { ignoreDuplicates: true }));
+  changed();
+};
+
+// Posts a photo story. audience: "followers" (default), "public" or "club".
+export const postStory = async ({ uri, width, height, caption = "", audience = "followers", clubId = null }) => {
+  const me = await requireUid();
+  const path = await storyFiles.upload(await prepareStoryPhoto(uri, { width, height }));
+  try {
+    await run(supabase.from("stories").insert({ author_id: me, media_path: path, caption: caption || null, audience: clubId ? "club" : audience, club_id: clubId }));
+  } catch (e) {
+    await storyFiles.remove(path).catch(() => {});
+    throw e;
+  }
+  changed();
+};
+
+// Marks every live story from this person as seen by me.
+export const markStoryWatched = async (pid) => {
+  const me = await requireUid();
+  const live = await run(supabase.from("stories").select("id").eq("author_id", pid).gt("expires_at", new Date().toISOString()));
+  if (live?.length) await run(supabase.from("story_views").upsert(live.map((st) => ({ story_id: st.id, user_id: me })), { ignoreDuplicates: true }));
   changed();
 };
 

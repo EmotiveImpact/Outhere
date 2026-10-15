@@ -310,10 +310,11 @@ export const TierBadge = ({ tier, style }) =>
 /**
  * A person's photo. The ring shows their membership (pass `tier`), the dot at
  * the bottom right shows they are out now (`dot="out"`, blue) or have just
- * stopped (`dot="stopped"`, red). `story` adds the soft glow of an unwatched
- * story. Clubs pass `square`. Old callers may still pass `outside` (blue dot).
+ * stopped (`dot="stopped"`, red). In the stories row only, pass
+ * `story="unwatched"` or `"watched"`: the ring then shows the story, not
+ * membership. Clubs pass `square`. Old callers may still pass `outside`.
  */
-export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story = false, square = false, ring, style }) {
+export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story, square = false, ring, style }) {
   return (
     <Ring
       size={size}

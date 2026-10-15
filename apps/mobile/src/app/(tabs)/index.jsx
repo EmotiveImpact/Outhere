@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { Bell, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useChallenges, useDrops, useEvents, useFriends, useOutsideNow, useProfile, useUnreadCount } from "@/data/hooks";
+import { engine, useChallenges, useDrops, useEvents, useFriends, useOutsideNow, useProfile, useUnreadCount } from "@/data/hooks";
 import { useStepStatus } from "@/hooks/useStepSync";
 import { Avatar, C, F, FadeIn, IconButton, Kicker, LIT, PressableScale, R, Row, S, Screen, Skeleton, Title, toast } from "@/components/ui";
 import GoalDial from "@/components/home/GoalDial";
@@ -122,11 +122,12 @@ export default function HomeScreen() {
           <IconButton icon={Bell} label="Notifications" badge={unreadQ.data || 0} onPress={() => router.push("/notifications")} />
         </Row>
 
-        {/* Friends: rings show membership, dots show who's out */}
+        {/* Stories row: here the ring shows the story (blue until watched,
+            then grey), not membership. Dots still show who's out. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: S.lg }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
           <PressableScale onPress={() => router.push("/(tabs)/profile")} style={styles.friend}>
             <View>
-              <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={56} />
+              <Avatar uri={profile.avatar} name={name} story="watched" size={56} />
               <View style={styles.add}>
                 <Plus size={12} color="#fff" strokeWidth={3} />
               </View>
@@ -134,8 +135,15 @@ export default function HomeScreen() {
             <Text style={styles.friendName}>You</Text>
           </PressableScale>
           {friends.map((f) => (
-            <PressableScale key={f.id} onPress={() => router.push(`/player/${f.id}`)} style={styles.friend}>
-              <Avatar uri={f.avatar} name={f.name} tier={f.tier} dot={f.isOutside ? "out" : null} story={f.isOutside} size={56} />
+            <PressableScale
+              key={f.id}
+              onPress={() => {
+                if (f.story === "unwatched") engine.markStoryWatched(f.id).catch(() => {});
+                router.push(`/player/${f.id}`);
+              }}
+              style={styles.friend}
+            >
+              <Avatar uri={f.avatar} name={f.name} dot={f.dot || (f.isOutside ? "out" : null)} story={f.story || "watched"} size={56} />
               <Text style={[styles.friendName, f.isOutside && { color: C.text }]} numberOfLines={1}>{f.name}</Text>
             </PressableScale>
           ))}

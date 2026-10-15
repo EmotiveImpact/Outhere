@@ -1459,6 +1459,8 @@ export type Database = {
           run_id: string | null;
           created_at: string;
           expires_at: string;
+          audience: string;
+          saved_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1469,6 +1471,8 @@ export type Database = {
           run_id?: string | null;
           created_at?: string;
           expires_at?: string;
+          audience?: string;
+          saved_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1479,6 +1483,8 @@ export type Database = {
           run_id?: string | null;
           created_at?: string;
           expires_at?: string;
+          audience?: string;
+          saved_at?: string | null;
         };
         Relationships: [];
       };
