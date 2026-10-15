@@ -25,7 +25,10 @@ const SIM_ACCEPT_MS = 60 * 1000;
 const CHECK_IN_XP = 40;
 const CHECK_IN_OUT = 5;
 
-export const countedSteps = (raw) => Math.min(15000, Math.min(raw, 10000) + Math.max(0, Math.min(raw, 20000) - 10000) / 2);
+// One rule for counted steps across the apps and the database.
+import { countedSteps } from "@outhere/core";
+
+export { countedSteps };
 
 const pad = (n) => String(n).padStart(2, "0");
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));

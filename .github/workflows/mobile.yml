@@ -2,33 +2,45 @@ name: Mobile
 
 on:
   pull_request:
-    paths: ["apps/mobile/**", ".github/workflows/mobile.yml"]
+    paths:
+      - "apps/mobile/**"
+      - "packages/core/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - ".github/workflows/mobile.yml"
   push:
     branches: [main]
-    paths: ["apps/mobile/**"]
+    paths:
+      - "apps/mobile/**"
+      - "packages/core/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
-      - run: npm ci
-      - name: Typecheck
-        run: npx tsc --noEmit
-      - name: Tests
-        run: npx jest --ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Typecheck and test the phone app and the shared package it uses.
+      - run: pnpm turbo run typecheck test --filter "@outhere/mobile..."
       - name: Web build (local data)
-        run: npx expo export --platform web --output-dir /tmp/web
+        working-directory: apps/mobile
+        run: pnpm exec expo export --platform web --output-dir /tmp/web
       - name: Web build (Supabase mode)
+        working-directory: apps/mobile
         env:
           EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-        run: npx expo export --platform web --clear --output-dir /tmp/web-remote
+        run: pnpm exec expo export --platform web --clear --output-dir /tmp/web-remote

@@ -6,13 +6,28 @@ OUT HERE is an urban movement app built with React Native + Expo. It rewards rea
 
 ## Monorepo Structure
 
-- `apps/mobile` - Expo mobile app (the app)
-- `apps/web` - early web app generated on Anything (not yet part of the plan)
-- `backend` - FastAPI server, not used by the app while it runs local-first
-- `Docs` - PRD, [roadmap](Docs/ROADMAP.md), build plan and task specs
+pnpm workspaces with Turborepo.
+
+- `apps/web` - the website at weouthere.app
+- `apps/app` - the member app: clubs, battles, league, Club HQ, and the public club pages (`/<club>`, `/join/<club>`, `/@<handle>`)
+- `apps/admin` - Outhere HQ, the staff app
+- `apps/mobile` - Expo phone app (primary client). Run it with `pnpm --filter @outhere/mobile start`. Its package pins and patches live in `pnpm-workspace.yaml`, and it shares rules with `packages/core`.
+- `supabase` - the database: migrations, seed data, tests and Edge Functions (see [supabase/README.md](supabase/README.md))
+- `packages/core` - shared types, rules and data access (example data and Supabase)
+- `packages/ui` - shared React components and the stylesheet
+- `backend` - API/backend services
+- `Docs` - PRD, build plan, and task specs
 - `marketing` - website/marketing assets
 
-Where the app is heading, phase by phase, is in [Docs/ROADMAP.md](Docs/ROADMAP.md).
+```sh
+corepack enable          # once, so the pinned pnpm is used
+pnpm install
+pnpm dev:app             # http://localhost:5173
+pnpm dev:admin           # http://localhost:5174
+pnpm check               # typecheck, test, lint and build everything
+```
+
+weouthere.app is the website. It serves its own files and passes every other path to the member app, so club links stay on weouthere.app. The member app keeps its built files under `/_app/`, and `RESERVED_SLUGS` in `packages/core/src/rules.ts` lists every top-level path either app uses, so no club can take one.
 
 ## Mobile Navigation (Current)
 
@@ -48,8 +63,8 @@ Bottom tabs:
 - Expo Router
 - React Query
 - Zustand + AsyncStorage
-- Local-first data engine (`apps/mobile/src/data`); server stack to be chosen
-- react-native-maps, with OSRM (or Mapbox when a token is set) for route snapping
+- Supabase + FastAPI integrations via app API layer
+- Mapbox / maps integrations (mobile-specific)
 
 ## Local Development
 
@@ -62,23 +77,15 @@ Bottom tabs:
 ### Install
 
 ```bash
-cd apps/mobile
-npm install
+corepack enable
+pnpm install            # from the repo root
 ```
 
 ### Run mobile app
 
-Every feature runs on the phone for now (see `apps/mobile/src/data/README.md`), so there is no server to start and the app runs in Expo Go.
-
 ```bash
-cd apps/mobile
-npm install
-npx expo start
+pnpm --filter @outhere/mobile start
 ```
-
-Scan the QR code with the Expo Go app (iOS: the Camera app). Press `i` or `a` for a simulator, or `w` for the browser. Simulators and the browser have no step counter: in a development build, Settings has a Developer section to add steps, fill two weeks of history or reset.
-
-For a standalone development build instead: `npx expo run:ios` or `npx expo run:android` (the `ios/` and `android/` folders are generated, not committed).
 
 Useful options:
 
@@ -100,26 +107,12 @@ This ensures duplicate transitive native modules are cleaned up after install so
 
 ## Environment
 
-Mobile uses `apps/mobile/.env` for `EXPO_PUBLIC_*` values; see `apps/mobile/.env.example`.
-The backend uses `backend/.env`; see `backend/.env.example`.
+Mobile uses `apps/mobile/.env` for `EXPO_PUBLIC_*` values (API URLs, keys, app config).
 
-## Backend
+## Status
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn server:app --reload --port 8000
-# in another shell, with the server running:
-EXPO_PUBLIC_BACKEND_URL=http://localhost:8000 python tests/api_smoke_test.py
-```
+Current baseline (after install):
 
-With no database configured the server runs on an in-memory mock, which is fine for local work only.
-
-## Checks
-
-```bash
-cd apps/mobile
-npx tsc --noEmit                              # type check (TypeScript files only)
-npx jest                                      # engine tests
-npx expo export --platform ios --platform android   # confirms the app bundles
-```
+- `npx expo-doctor` passes
+- `npx tsc --noEmit` passes
+- `npx expo start` boots Metro successfully

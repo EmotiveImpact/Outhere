@@ -1,0 +1,28 @@
+{
+  "name": "outhere",
+  "private": true,
+  "description": "Outhere monorepo: the website (apps/web), the member app (apps/app), Outhere HQ (apps/admin), the phone app (apps/mobile) and shared packages.",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:app": "turbo run dev --filter=@outhere/app",
+    "dev:admin": "turbo run dev --filter=@outhere/admin",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "check": "turbo run typecheck test lint build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "turbo": "^2.11.8",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

@@ -8,6 +8,7 @@
 // interface later.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RESERVED_SLUGS } from "@outhere/core";
 import {
   CHALLENGE_TEMPLATES,
   CREWS,
@@ -434,7 +435,8 @@ const applyStreakEffects = (s) => {
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
-const RESERVED = new Set(["admin", "outhere", "support", "root", "test", "dev", "official"]);
+// Usernames sit beside club slugs on the website, so the shared reserved list applies too.
+const RESERVED = new Set(["admin", "outhere", "support", "root", "test", "dev", "official", ...RESERVED_SLUGS]);
 
 const usernameProblem = (s, raw) => {
   const name = (raw || "").trim().toLowerCase();
