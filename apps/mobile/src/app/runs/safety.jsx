@@ -1,17 +1,18 @@
 // Live sharing: the people you trust can follow your spot while you're out,
 // and get a text if you stop moving for ten minutes. Contacts, the two
-// automatic settings and the switch to start or stop sharing now.
+// automatic settings and the switch to start or stop sharing now. The slab
+// shows you on your last route on the night map, like the prototype.
 
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft, ChevronsRight, Clock, Link2, Navigation, Plus } from "lucide-react-native";
-import { Avatar, Button, C, F, FadeIn, PressableScale, S, Segment, Skeleton } from "@/components/ui";
-import { engine, useEngineMutation, useSafety } from "@/data/hooks";
+import { Avatar, C, F, FadeIn, GlowButton, PressableScale, Segment, Skeleton } from "@/components/ui";
+import { engine, useEngineMutation, useProfile, useRunHistory, useSafety } from "@/data/hooks";
 import { PHOTOS } from "@/constants/photos";
 import { RecChip, RoundGlass, ToggleRow } from "@/components/move/parts";
-import { Slab } from "@/components/move/RunBits";
+import { LitCard, Slab } from "@/components/move/RunBits";
 
 const MODES = [
   { value: "live", label: "Live spot" },
@@ -32,8 +33,8 @@ function AddContact({ onDone }) {
       <TextInput value={phone} onChangeText={setPhone} placeholder="Mobile number" placeholderTextColor={C.textMute} keyboardType="phone-pad" maxLength={20} style={styles.input} />
       <Segment options={MODES} value={mode} onChange={setMode} />
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <Button title="Cancel" variant="secondary" onPress={onDone} style={{ flex: 1 }} />
-        <Button title="Add contact" onPress={() => add.mutate({ name, phone, mode })} loading={add.isPending} disabled={!name.trim() || phone.replace(/\D/g, "").length < 7} style={{ flex: 1.4 }} />
+        <GlowButton title="Cancel" variant="quiet" onPress={onDone} style={{ flex: 1 }} />
+        <GlowButton title="Add contact" onPress={() => add.mutate({ name, phone, mode })} loading={add.isPending} disabled={!name.trim() || phone.replace(/\D/g, "").length < 7} style={{ flex: 1.4 }} />
       </View>
     </View>
   );
@@ -43,6 +44,8 @@ export default function Safety() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { data, isPending } = useSafety();
+  const { data: profile } = useProfile();
+  const lastRoute = (useRunHistory("year").data?.runs || []).find((r) => r.route?.length > 1)?.route;
   const [adding, setAdding] = useState(false);
 
   const settings = useEngineMutation(engine.updateSafety, { silent: false });
@@ -67,9 +70,17 @@ export default function Safety() {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Slab object={PHOTOS.shield} height={240} kicker="Safety" top={top} bottom={bottom} left={<RoundGlass icon={ChevronLeft} label="Back" onPress={back} />} right={sharing && data.share.link ? <RoundGlass icon={Link2} label="Share your live link" onPress={() => Share.share({ message: `Follow my run live: ${data.share.link}` }).catch(() => {})} /> : null} />
+        <Slab
+          route={lastRoute}
+          face={{ uri: profile?.avatar, name: profile?.name, tier: profile?.tier, size: 44 }}
+          object={PHOTOS.shield}
+          height={290}
+          size={42}
+          kicker="Safety"
+          top={top}
+          bottom={bottom} left={<RoundGlass icon={ChevronLeft} label="Back" onPress={back} />} right={sharing && data.share.link ? <RoundGlass icon={Link2} label="Share your live link" onPress={() => Share.share({ message: `Follow my run live: ${data.share.link}` }).catch(() => {})} /> : null} />
         {sharing ? (
-          <View style={[styles.chip, { top: insets.top + 10 }]} pointerEvents="none">
+          <View style={[styles.chip, { top: insets.top + 8 }]} pointerEvents="none">
             <RecChip>Sharing live</RecChip>
           </View>
         ) : null}
@@ -79,10 +90,10 @@ export default function Safety() {
             <Skeleton height={180} radius={20} />
           ) : (
             <FadeIn>
-              <View style={styles.box}>
+              <LitCard style={styles.box}>
                 {contacts.map((c, i) => (
                   <PressableScale key={c.id} onPress={() => manage(c)} scaleTo={0.99} accessibilityLabel={`${c.name}, ${subFor(c, sharing)}`} style={[styles.row, i > 0 && styles.rule]}>
-                    <Avatar name={c.name} size={36} />
+                    <Avatar name={c.name} size={32} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.name}>{c.name}</Text>
                       <Text style={styles.sub}>{subFor(c, sharing)}</Text>
@@ -102,29 +113,27 @@ export default function Safety() {
                   </View>
                 ) : (
                   <PressableScale onPress={() => setAdding(true)} scaleTo={0.99} accessibilityLabel="Add a trusted contact" style={[styles.row, contacts.length > 0 && styles.rule]}>
-                    <Plus size={20} color={C.textSoft} style={{ marginHorizontal: 8 }} />
+                    <Plus size={18} color={C.textDim} />
                     <Text style={[styles.name, { flex: 1 }]}>Add a trusted contact</Text>
-                    <ChevronsRight size={18} color={C.textDim} />
+                    <ChevronsRight size={14} color={C.textDim} />
                   </PressableScale>
                 )}
-              </View>
+              </LitCard>
             </FadeIn>
           )}
 
           <FadeIn index={1}>
-            <View style={styles.box}>
+            <LitCard style={styles.toggles}>
               <ToggleRow first icon={Navigation} title="Share on every night run" sub="Starts when you start, ends when you finish" value={!!data?.nightAuto} onChange={(v) => settings.mutate({ nightAuto: v })} />
               <ToggleRow icon={Clock} title="Check on me after 10 min still" sub="Then texts your contacts" value={data ? data.checkIn : true} onChange={(v) => settings.mutate({ checkIn: v })} />
-            </View>
+            </LitCard>
           </FadeIn>
 
           <FadeIn index={2}>
             {sharing ? (
-              <PressableScale onPress={() => stop.mutate()} disabled={stop.isPending} accessibilityLabel="Stop sharing" style={styles.stop}>
-                <Text style={styles.stopText}>Stop sharing</Text>
-              </PressableScale>
+              <GlowButton title="Stop sharing" variant="quiet" onPress={() => stop.mutate()} loading={stop.isPending} full style={{ height: 46 }} textStyle={styles.stopText} />
             ) : (
-              <Button title="Start sharing now" onPress={() => (contacts.length ? start.mutate({}) : setAdding(true))} loading={start.isPending} full style={{ height: 56 }} />
+              <GlowButton title="Start sharing now" onPress={() => (contacts.length ? start.mutate({}) : setAdding(true))} loading={start.isPending} full />
             )}
             <Text style={styles.note}>
               {sharing
@@ -141,16 +150,19 @@ export default function Safety() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   chip: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  body: { paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md },
-  box: { backgroundColor: C.surface, borderRadius: 20, paddingHorizontal: S.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 },
-  rule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  sub: { color: C.textDim, fontFamily: F.body, fontSize: 12.5, marginTop: 2 },
-  mode: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 14 },
+  // .body.nt
+  body: { paddingHorizontal: 18, paddingTop: 16, gap: 12 },
+  // .setlist
+  box: { paddingHorizontal: 14 },
+  toggles: {},
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
+  rule: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
+  name: { color: C.text, fontFamily: F.bodyMedium, fontSize: 13 },
+  sub: { color: C.textDim, fontFamily: F.body, fontSize: 10.5, marginTop: 2 },
+  mode: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 12 },
   form: { gap: 10, paddingVertical: 14 },
-  input: { height: 48, borderRadius: 14, backgroundColor: C.surfaceHigh, color: C.text, fontFamily: F.body, fontSize: 15, paddingHorizontal: 14 },
-  stop: { height: 56, borderRadius: 28, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
-  stopText: { color: C.danger, fontFamily: F.bodySemi, fontSize: 16 },
-  note: { color: C.textDim, fontFamily: F.body, fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: S.md, paddingHorizontal: S.md },
+  input: { height: 48, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.06)", color: C.text, fontFamily: F.body, fontSize: 15, paddingHorizontal: 14 },
+  // .btn.sec in red: red stops
+  stopText: { color: "#ff5d6c" },
+  note: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, lineHeight: 17, textAlign: "center", marginTop: 12, paddingHorizontal: 12 },
 });

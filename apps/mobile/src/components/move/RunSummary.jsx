@@ -3,11 +3,12 @@
 // this opens; Share to club opens the share card.
 
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Share2, X } from "lucide-react-native";
-import { Button, C, F, FadeIn, ModalToastHost, S, Title } from "@/components/ui";
+import { C, F, FadeIn, GlowButton, ModalToastHost, Title } from "@/components/ui";
 import { engine, useEngineMutation, useProfile } from "@/data/hooks";
 import { stepsFor } from "@/data/runMath";
 import { formatDuration, formatPace } from "@/utils/format";
@@ -15,7 +16,7 @@ import { MOVE_SESSION_PHASE, useMoveStore } from "@/store/useMoveStore";
 import { PHOTOS } from "@/constants/photos";
 import { activityFor, paceFor, rewardsFor } from "./geo";
 import { RoundGlass } from "./parts";
-import RoutePreview from "./RoutePreview";
+import { MapArt } from "./MapTexture";
 import { EarnChips, FeelSlider, Slab } from "./RunBits";
 
 const MIN_SAVE_KM = 0.01;
@@ -24,6 +25,7 @@ const headline = (km) => (km >= 10 ? ["Monster", "session"] : km >= 5 ? ["You", 
 
 export default function RunSummary({ onDone }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const phase = useMoveStore((s) => s.sessionPhase);
   const finished = useMoveStore((s) => s.finished);
@@ -114,7 +116,10 @@ export default function RunSummary({ onDone }) {
         <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
           <Slab
             object={PHOTOS.medal}
-            height={250}
+            objectSize={214}
+            objectStyle={{ right: -46, top: 6 }}
+            height={268}
+            size={48}
             kicker={tooShort ? `${activity.label} too short` : saved ? `${activity.label} saved${streak > 1 ? ` · ${streak} day streak` : ""}` : failed ? "Not saved yet" : `Saving your ${activity.noun}`}
             top={tooShort ? "Not quite" : l1}
             bottom={tooShort ? "enough" : l2}
@@ -124,14 +129,19 @@ export default function RunSummary({ onDone }) {
           <View style={styles.body}>
             <FadeIn>
               <View style={styles.mapcard}>
-                <RoutePreview route={finished.route} height={150} radius={0} strokeWidth={5} style={{ backgroundColor: "transparent" }} />
+                {finished.route?.length > 1 ? (
+                  <MapArt width={width - 36} height={128} lines={[{ path: finished.route, width: 6 }]} pad={{ top: 10, right: 24, bottom: 30, left: 24 }} shade={false} style={StyleSheet.absoluteFill} />
+                ) : (
+                  <MapArt width={width - 36} height={128} lines={[]} style={StyleSheet.absoluteFill} />
+                )}
+                <LinearGradient colors={["rgba(2,6,14,0)", "rgba(2,6,14,0.9)"]} style={styles.ovShade} pointerEvents="none" />
                 <View style={styles.ov}>
                   {[
                     [finished.distanceKm.toFixed(2), "km"],
                     [formatDuration(finished.durationSec), "Time"],
                     [formatPace(pace), "Pace"],
                   ].map(([v, l]) => (
-                    <View key={l}>
+                    <View key={l} style={{ flex: 1 }}>
                       <Text style={styles.ovValue}>{v}</Text>
                       <Text style={styles.ovLabel}>{l}</Text>
                     </View>
@@ -164,21 +174,21 @@ export default function RunSummary({ onDone }) {
           </View>
         </ScrollView>
 
-        <View style={[styles.foot, { paddingBottom: insets.bottom + S.lg }]}>
+        <LinearGradient colors={["rgba(7,9,12,0)", "rgba(7,9,12,0.94)"]} locations={[0, 0.35]} pointerEvents="box-none" style={[styles.foot, { paddingBottom: Math.max(30, insets.bottom + 14) }]}>
           {tooShort ? (
-            <Button title="Close" variant="secondary" onPress={done} full style={{ flex: 1, height: 56 }} />
+            <GlowButton title="Close" variant="quiet" onPress={done} style={{ flex: 1 }} />
           ) : failed ? (
             <>
-              <Button title="Discard" variant="secondary" onPress={discard} style={{ flex: 1, height: 56 }} />
-              <Button title="Try again" onPress={doSave} loading={save.isPending} style={{ flex: 1.6, height: 56 }} />
+              <GlowButton title="Discard" variant="quiet" onPress={discard} style={{ flex: 1 }} />
+              <GlowButton title="Try again" onPress={doSave} loading={save.isPending} style={{ flex: 1.6 }} />
             </>
           ) : (
             <>
-              <Button title="Done" variant="secondary" onPress={done} disabled={!saved} style={{ flex: 1, height: 56 }} />
-              <Button title="Share to club" icon={Share2} onPress={share} disabled={!saved} loading={save.isPending} style={{ flex: 1.6, height: 56 }} />
+              <GlowButton title="Done" variant="quiet" onPress={done} disabled={!saved} style={{ flex: 1 }} />
+              <GlowButton title="Share to club" icon={Share2} onPress={share} disabled={!saved} loading={save.isPending} style={{ flex: 1.6 }} />
             </>
           )}
-        </View>
+        </LinearGradient>
       </View>
       {visible ? <ModalToastHost /> : null}
     </Modal>
@@ -186,11 +196,14 @@ export default function RunSummary({ onDone }) {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.lg },
-  mapcard: { borderRadius: 22, overflow: "hidden", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  ov: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: S.lg, paddingBottom: S.md },
-  ovValue: { color: C.text, fontFamily: F.display, fontSize: 30, fontVariant: ["tabular-nums"] },
-  ovLabel: { color: C.textSoft, fontFamily: F.body, fontSize: 12.5 },
-  copy: { color: C.textDim, fontFamily: F.body, fontSize: 14, lineHeight: 20, marginTop: 4 },
-  foot: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: 10, paddingHorizontal: S.lg, paddingTop: S.md, backgroundColor: "rgba(7,9,12,0.94)" },
+  // .body.nt, 12 apart
+  body: { paddingHorizontal: 18, paddingTop: 16, gap: 12 },
+  // .mapcard: the route on the night map, the numbers over its foot
+  mapcard: { height: 128, borderRadius: 22, overflow: "hidden", backgroundColor: "#05080e", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 30px -18px rgba(0,0,0,0.85)" },
+  ovShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 70 },
+  ov: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
+  ovValue: { color: "#fff", fontFamily: F.display, fontSize: 24, lineHeight: 23, marginBottom: 2, fontVariant: ["tabular-nums"] },
+  ovLabel: { color: "#b4bfd0", fontFamily: F.body, fontSize: 10.5 },
+  copy: { color: C.textDim, fontFamily: F.body, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  foot: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: 8, paddingHorizontal: 18, paddingTop: 24 },
 });

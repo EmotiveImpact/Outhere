@@ -10,6 +10,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { Image } from "expo-image";
 import { C, F, imageSource } from "@/components/ui";
 import { DARK_MAP_STYLE, DEFAULT_REGION, isCoord, regionFor } from "./geo";
+import { MapShade } from "./MapTexture";
 
 const EDGE = { top: 120, right: 60, bottom: 320, left: 60 };
 const CAMERA = { map: { zoom: 16.2, pitch: 0 }, pilot: { zoom: 17.6, pitch: 60 }, street: { zoom: 18.6, pitch: 0 } };
@@ -48,6 +49,7 @@ const RunMap = forwardRef(function RunMap(
     padding = EDGE,
     interactive = true,
     showsUser = true,
+    shade = true,
     style,
   },
   ref,
@@ -138,6 +140,8 @@ const RunMap = forwardRef(function RunMap(
             lineJoin="round"
           />
         ) : null}
+        {/* path(): a wide soft glow under the track */}
+        {segments.map((seg, i) => (seg.length > 1 ? <Polyline key={`glow-${i}`} coordinates={seg} strokeColor="rgba(61,139,255,0.22)" strokeWidth={18} lineCap="round" lineJoin="round" zIndex={3} /> : null))}
         {segments.map((seg, i) => (seg.length > 1 ? <Polyline key={`seg-${i}`} coordinates={seg} strokeColor={trackColour} strokeWidth={7} lineCap="round" lineJoin="round" zIndex={4} /> : null))}
         {rejoin && isCoord(rejoin.from) && isCoord(rejoin.to) ? (
           <Polyline coordinates={[rejoin.from, rejoin.to]} strokeColor={C.accentHi} strokeWidth={5} lineDashPattern={[1, 10]} lineCap="round" zIndex={5} />
@@ -166,6 +170,7 @@ const RunMap = forwardRef(function RunMap(
           </Marker>
         ) : null}
       </MapView>
+      {shade ? <MapShade /> : null}
     </View>
   );
 });

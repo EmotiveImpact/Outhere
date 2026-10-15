@@ -11,7 +11,7 @@ import { engine, useEngineMutation, useRunDetail } from "@/data/hooks";
 import { formatDuration, formatPace } from "@/utils/format";
 import { PHOTOS } from "@/constants/photos";
 import { RoundGlass } from "@/components/move/parts";
-import { EarnChips, FeelSlider, Slab, Splits, StatCards, twoLines, whenLabel } from "@/components/move/RunBits";
+import { EarnChips, FeelSlider, LitCard, Slab, Splits, StatCards, twoLines, whenLabel } from "@/components/move/RunBits";
 
 export default function RunDetail() {
   const { runId } = useLocalSearchParams();
@@ -60,7 +60,7 @@ export default function RunDetail() {
         <Slab
           route={hasMap ? run.route : null}
           object={hasMap ? null : PHOTOS.shoe}
-          height={260}
+          height={300}
           kicker={[whenLabel(run.startedAt, { time: true }), run.area].filter(Boolean).join(" · ")}
           top={l1}
           bottom={l2}
@@ -86,7 +86,7 @@ export default function RunDetail() {
             <EarnChips xp={run.earned?.xp || 0} out={run.earned?.out || 0} steps={run.steps} climbM={run.climbM} />
           </FadeIn>
           <FadeIn index={3}>
-            <View style={styles.box}>
+            <LitCard style={styles.box}>
               <FeelSlider
                 value={feel}
                 onChange={(v) => {
@@ -94,30 +94,33 @@ export default function RunDetail() {
                   rate.mutate([run.id, v]);
                 }}
               />
-            </View>
+            </LitCard>
           </FadeIn>
           <FadeIn index={4}>
             {run.routeId && run.routeName ? (
-              <PressableScale onPress={() => router.push(`/routes/${run.routeId}`)} style={styles.link} accessibilityLabel={`Open ${run.routeName}`}>
-                <RouteIcon size={18} color={C.accentHi} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.linkTitle}>{run.routeName}</Text>
-                  <Text style={styles.linkSub}>See your best and who's fastest here</Text>
-                </View>
-                <ChevronRight size={18} color={C.textDim} />
+              <PressableScale onPress={() => router.push(`/routes/${run.routeId}`)} accessibilityLabel={`Open ${run.routeName}`}>
+                <LitCard style={styles.link}>
+                  <RouteIcon size={18} color={C.accentHi} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.linkTitle}>{run.routeName}</Text>
+                    <Text style={styles.linkSub}>See your best and who's fastest here</Text>
+                  </View>
+                  <ChevronRight size={18} color={C.textDim} />
+                </LitCard>
               </PressableScale>
             ) : hasMap && run.distanceKm >= 0.3 ? (
               <PressableScale
                 onPress={() => keep.mutate({ name: (run.title || "My route").slice(0, 30), path: run.route, distanceKm: run.distanceKm, climbM: run.climbM, hideEnds: true })}
-                style={styles.link}
                 accessibilityLabel="Save as a route"
               >
-                <Bookmark size={18} color={C.accentHi} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.linkTitle}>Save as a route</Text>
-                  <Text style={styles.linkSub}>Run it again and race this time</Text>
-                </View>
-                <ChevronRight size={18} color={C.textDim} />
+                <LitCard style={styles.link}>
+                  <Bookmark size={18} color={C.accentHi} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.linkTitle}>Save as a route</Text>
+                    <Text style={styles.linkSub}>Run it again and race this time</Text>
+                  </View>
+                  <ChevronRight size={18} color={C.textDim} />
+                </LitCard>
               </PressableScale>
             ) : null}
           </FadeIn>
@@ -133,11 +136,12 @@ export default function RunDetail() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  body: { paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md },
-  box: { backgroundColor: C.surface, borderRadius: 20, padding: S.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  link: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.surface, borderRadius: 18, paddingHorizontal: S.lg, paddingVertical: 14 },
-  linkTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  linkSub: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },
+  // .body.nt
+  body: { paddingHorizontal: 18, paddingTop: 16, gap: 12 },
+  box: { padding: 16 },
+  link: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  linkTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  linkSub: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
   delete: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },
-  deleteText: { color: C.danger, fontFamily: F.bodySemi, fontSize: 14 },
+  deleteText: { color: C.danger, fontFamily: F.bodySemi, fontSize: 13 },
 });
