@@ -90,8 +90,8 @@ function ShopDrop({ drop }) {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
-        <GlowHero photo={imageSource(drop.image)} photoOpacity={0.6} height={330} kicker={KICKER[drop.status]} top={top} bottom={bottom} />
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.xl }}>
+        <GlowHero photo={imageSource(drop.image)} photoFocus={{ x: 0.5, y: 0.4 }} height={358} headlineSize={44} kicker={KICKER[drop.status]} top={top} bottom={bottom} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
           <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
             <Row gap={S.sm} style={{ alignItems: "flex-end" }}>
               <Coin size={28} style={{ marginBottom: 6 }} />
@@ -101,7 +101,7 @@ function ShopDrop({ drop }) {
             <Text style={[styles.left, left < 0 && { color: C.danger }]}>{left >= 0 ? `You'll have ${formatNumber(left)} left` : `You have ${formatNumber(balance)}`}</Text>
           </Row>
 
-          <Row style={{ justifyContent: "space-between", marginTop: S.xl, marginBottom: S.sm }}>
+          <Row style={{ justifyContent: "space-between", marginTop: S.lg, marginBottom: 7 }}>
             <Text style={styles.label}>Stock</Text>
             <Text style={styles.stock}>
               {formatNumber(drop.remaining)} of {formatNumber(drop.total)} left
@@ -110,7 +110,7 @@ function ShopDrop({ drop }) {
           <Bar value={drop.total ? drop.remaining / drop.total : 0} />
 
           {needsSize ? (
-            <View style={{ marginTop: S.xl }}>
+            <View style={{ marginTop: S.lg }}>
               <SizeRow sizes={drop.sizes} soldOut={drop.soldOutSizes} value={size} onChange={setSize} />
               {drop.sizeNote ? <Text style={[styles.label, { marginTop: S.sm }]}>{drop.sizeNote}</Text> : null}
             </View>

@@ -46,7 +46,7 @@ function Faces({ people }) {
   return (
     <Row gap={0}>
       {people.slice(0, 3).map((p, i) => (
-        <Avatar key={p.id} uri={p.avatar} name={p.name} size={28} style={[styles.face, i > 0 && { marginLeft: -9 }]} />
+        <Avatar key={p.id} uri={p.avatar} name={p.name} size={32} style={[styles.face, i > 0 && { marginLeft: -10 }]} />
       ))}
     </Row>
   );
@@ -60,8 +60,9 @@ function NextEvent({ event, onOpen }) {
   const kicker = `${live ? "On now" : whenWord(event.startAt)} · ${timeLabel(event.startAt)} · ${event.location}`;
   return (
     <PressableScale onPress={onOpen} scaleTo={0.995} haptic={false} accessibilityLabel={`Open ${event.title}`}>
-      <GlowHero photo={imageSource(event.image)} photoOpacity={0.4} height={330} kicker={kicker} top={top} bottom={bottom}>
-        <Row style={{ marginTop: S.lg, justifyContent: "space-between" }}>
+      {/* .slab.photo 384: the event photo at full strength, faded into the floor */}
+      <GlowHero photo={imageSource(event.image)} photoFocus={{ x: 0.5, y: 0.3 }} height={370} headlineSize={46} kicker={kicker} top={top} bottom={bottom}>
+        <Row style={{ marginTop: 12, justifyContent: "space-between" }}>
           <Row gap={S.sm} style={{ flex: 1 }}>
             <Faces people={going?.people} />
             <Text style={styles.going} numberOfLines={1}>
@@ -69,11 +70,12 @@ function NextEvent({ event, onOpen }) {
             </Text>
           </Row>
           {event.checkedIn ? (
-            <Button title="Checked in" variant="secondary" onPress={onOpen} />
+            <Button title="Checked in" size="sm" variant="secondary" onPress={onOpen} />
           ) : event.isGoing ? (
-            <Button title="Going" variant="secondary" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, false])} />
+            <Button title="Going" size="sm" variant="secondary" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, false])} />
           ) : (
             <Button
+              size="sm"
               title={event.isFull ? "Full" : !event.canAttend ? "Members" : "I'm going"}
               disabled={event.isFull}
               loading={rsvp.isPending}
@@ -104,20 +106,19 @@ function WeekStrip({ days, selected, today, onPick }) {
   );
 }
 
+/** .poster: the photo fills the card, a frosted day badge top left and the words over a dark fade. */
 function Poster({ event, onPress }) {
   const at = new Date(event.startAt);
   return (
-    <PressableScale onPress={onPress} scaleTo={0.97} style={styles.poster}>
-      <View style={styles.posterArt}>
-        {event.image ? <Image source={imageSource(event.image)} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
-        <LinearGradient colors={["rgba(7,9,12,0.55)", "rgba(7,9,12,0)"]} locations={[0, 0.6]} style={StyleSheet.absoluteFill} />
-        <View style={styles.badge}>
-          <Text style={styles.badgeDay}>{at.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()}</Text>
-          <Text style={styles.badgeNum}>{at.getDate()}</Text>
-        </View>
-        {event.isGoing ? <Text style={styles.goingTag}>Going</Text> : null}
+    <PressableScale onPress={onPress} scaleTo={0.97} style={styles.poster} accessibilityLabel={`Open ${event.title}`}>
+      {event.image ? <Image source={imageSource(event.image)} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
+      <LinearGradient colors={["rgba(0,0,0,0)", "rgba(2,6,14,0.9)"]} locations={[0.3, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.badge}>
+        <Text style={styles.badgeDay}>{at.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()}</Text>
+        <Text style={styles.badgeNum}>{at.getDate()}</Text>
       </View>
-      <View style={{ padding: S.md }}>
+      {event.isGoing ? <Text style={styles.goingTag}>Going</Text> : null}
+      <View style={styles.posterText}>
         <Text style={styles.posterTitle} numberOfLines={1}>
           {event.title}
         </Text>
@@ -179,13 +180,18 @@ export default function OutsideEventsScreen() {
         <>
           <NextEvent event={hero} onOpen={() => open(hero)} />
           <WeekStrip days={days} selected={selected} today={today} onPick={(at) => setPicked(at === picked ? null : at)} />
-          <View style={{ paddingHorizontal: S.gutter }}>
-            <SectionLabel style={{ marginTop: S.md }} right={picked != null ? "This week" : null} onRight={() => setPicked(null)}>
-              {picked == null ? "Coming up" : new Date(picked).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
-            </SectionLabel>
-          </View>
+          {/* The prototype runs the posters straight under the strip; a label only shows once a day is picked. */}
+          {picked != null ? (
+            <View style={{ paddingHorizontal: S.gutter }}>
+              <SectionLabel style={{ marginTop: 12 }} right="This week" onRight={() => setPicked(null)}>
+                {new Date(picked).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+              </SectionLabel>
+            </View>
+          ) : (
+            <View style={{ height: 12 }} />
+          )}
           {cards.length ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: S.md }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 10 }}>
               {cards.map((e, i) => (
                 <FadeIn key={e.occurrenceId} index={i}>
                   <Poster event={e} onPress={() => open(e)} />
@@ -203,20 +209,22 @@ export default function OutsideEventsScreen() {
 
 const styles = StyleSheet.create({
   face: { borderWidth: 2, borderColor: C.bg },
-  going: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 14 },
-  strip: { paddingHorizontal: S.gutter, marginTop: S.lg },
-  day: { flex: 1, height: 64, borderRadius: 14, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", gap: 2 },
-  dayOn: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
-  dayName: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  dayNum: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
-  dayDot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
-  poster: { width: 200, borderRadius: R.lg, backgroundColor: C.surface, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)" },
-  posterArt: { height: 112, backgroundColor: "#0d1118" },
-  badge: { position: "absolute", left: 10, top: 8, alignItems: "flex-start" },
-  badgeDay: { color: "#fff", fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 0.6 },
-  badgeNum: { color: "#fff", fontFamily: F.display, fontSize: 20, lineHeight: 22 },
-  goingTag: { position: "absolute", right: 10, top: 10, color: "#fff", backgroundColor: C.accent, borderRadius: R.full, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 2, fontFamily: F.bodySemi, fontSize: 11 },
-  posterTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  posterSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 3 },
+  going: { color: "#c3cad6", fontFamily: F.body, fontSize: 12 },
+  // .strip: seven lit day tiles, today in blue with a glow
+  strip: { paddingHorizontal: S.gutter, marginTop: 16 },
+  day: { flex: 1, borderRadius: 14, backgroundColor: C.surface, alignItems: "center", paddingTop: 9, paddingBottom: 8, gap: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.04)" },
+  dayOn: { backgroundColor: C.accent, boxShadow: "0 8px 20px -8px rgba(61,139,255,0.8), inset 0 1px 0 rgba(255,255,255,0.25)" },
+  dayName: { color: C.textDim, fontFamily: F.body, fontSize: 10.5 },
+  dayNum: { color: C.text, fontFamily: F.bodySemi, fontSize: 15, marginTop: -2 },
+  dayDot: { width: 4, height: 4, borderRadius: 2 },
+  // .poster 168 x 112
+  poster: { width: 168, height: 112, borderRadius: 18, backgroundColor: "#0d1118", overflow: "hidden" },
+  badge: { position: "absolute", left: 9, top: 9, alignItems: "center", backgroundColor: "rgba(10,14,20,0.6)", backdropFilter: "blur(8px)", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 5 },
+  badgeDay: { color: "#fff", fontFamily: F.bodySemi, fontSize: 9, letterSpacing: 0.6 },
+  badgeNum: { color: "#fff", fontFamily: F.display, fontSize: 17, lineHeight: 18, marginTop: 2 },
+  goingTag: { position: "absolute", right: 9, top: 9, color: "#fff", backgroundColor: C.accent, borderRadius: R.full, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 2, fontFamily: F.bodySemi, fontSize: 10.5 },
+  posterText: { position: "absolute", left: 12, right: 10, bottom: 10 },
+  posterTitle: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13, lineHeight: 16 },
+  posterSub: { color: "#c3cad6", fontFamily: F.body, fontSize: 10.5, marginTop: 1 },
   nothing: { color: C.textDim, fontFamily: F.body, fontSize: 14, paddingHorizontal: S.gutter, lineHeight: 20 },
 });

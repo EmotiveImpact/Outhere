@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNews } from "@/data/hooks";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
-import { C, Cover, EmptyState, F, FadeIn, imageSource, PressableScale, R, S, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { C, Cover, EmptyState, F, FadeIn, imageSource, S, Skeleton, Surface, PressableScale, TAB_BAR_SPACE } from "@/components/ui";
 import { GlowHero, SectionLabel } from "@/components/arena/OutsideKit";
 import { StoryRow } from "@/components/happenings/NewsCards";
 import { splitTitle } from "@/components/happenings/EventsScreen";
@@ -25,16 +25,17 @@ const when = (ms) => {
 
 function StoryCard({ story, onPress }) {
   return (
-    <PressableScale onPress={onPress} scaleTo={0.97} style={styles.card}>
+    // .story-card: 196 wide, the photo on top of a lit card
+    <Surface onPress={onPress} pressScale={0.97} radius={18} padding={null} style={styles.card}>
       <Cover source={story.image} seed={story.id} style={styles.cardArt} />
-      <View style={{ padding: S.md, gap: 4 }}>
+      <View style={styles.cardText}>
         <Text style={styles.cardKicker}>{newsKicker(story.category).toUpperCase()}</Text>
         <Text style={styles.cardTitle} numberOfLines={2}>
           {story.title}
         </Text>
         <Text style={styles.cardWhen}>{when(story.publishedAt)}</Text>
       </View>
-    </PressableScale>
+    </Surface>
   );
 }
 
@@ -70,14 +71,14 @@ export default function OutsideNewsScreen() {
       ) : (
         <>
           <PressableScale onPress={() => open(top.id)} scaleTo={0.995} haptic={false} accessibilityLabel={`Read ${top.title}`}>
-            <GlowHero photo={imageSource(top.image)} height={396} kicker={`${newsKicker(top.category)} · ${when(top.publishedAt)}`} top={white} bottom={blue} sub={top.summary} />
+            <GlowHero photo={imageSource(top.image)} height={396} headlineSize={44} kicker={`${newsKicker(top.category)} · ${when(top.publishedAt)}`} top={white} bottom={blue} sub={top.summary} />
           </PressableScale>
           {swipe.length ? (
             <>
               <View style={{ paddingHorizontal: S.gutter }}>
                 <SectionLabel>More stories</SectionLabel>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: S.md }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 10 }}>
                 {swipe.map((s, i) => (
                   <FadeIn key={s.id} index={i}>
                     <StoryCard story={s} onPress={() => open(s.id)} />
@@ -101,9 +102,10 @@ export default function OutsideNewsScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { width: 240, borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)" },
-  cardArt: { height: 120 },
-  cardKicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6 },
-  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15, lineHeight: 20 },
-  cardWhen: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  card: { width: 196 },
+  cardArt: { height: 96 },
+  cardText: { paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 5 },
+  cardKicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.6 },
+  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, lineHeight: 17 },
+  cardWhen: { color: C.textDim, fontFamily: F.body, fontSize: 10.5 },
 });

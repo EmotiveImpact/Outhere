@@ -89,7 +89,7 @@ export default function EventScreen() {
   if (isPending) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <Skeleton height={330 + insets.top} radius={30} />
+        <Skeleton height={316 + insets.top} radius={30} />
         <View style={{ padding: S.gutter, gap: S.md }}>
           <Skeleton height={150} radius={R.lg} />
           <Skeleton width={220} height={28} />
@@ -121,8 +121,9 @@ export default function EventScreen() {
         contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
       >
-        <GlowHero photo={imageSource(event.image)} photoOpacity={0.35} height={290} kicker={kicker} top={top} bottom={bottom} />
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
+        {/* .slab.photo 330: the event photo at full strength */}
+        <GlowHero photo={imageSource(event.image)} photoFocus={{ x: 0.5, y: 0.3 }} height={316} headlineSize={44} kicker={kicker} top={top} bottom={bottom} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: 16 }}>
           <PressableScale onPress={() => openDirections(event.location, event.city)} scaleTo={0.98} style={styles.mapCard} accessibilityLabel="Directions">
             <RouteArt points={line} seed={event.id} radius={0} style={StyleSheet.absoluteFill} />
             <View style={styles.mapShade} />
@@ -143,7 +144,7 @@ export default function EventScreen() {
           <PressableScale onPress={() => router.push(`/events/going/${event.id}`)} scaleTo={0.98} style={styles.goingRow}>
             <Row gap={0}>
               {(going?.people || []).slice(0, 4).map((p, i) => (
-                <Avatar key={p.id} uri={p.avatar} name={p.name} size={28} style={[styles.face, i > 0 && { marginLeft: -9 }]} />
+                <Avatar key={p.id} uri={p.avatar} name={p.name} size={32} style={[styles.face, i > 0 && { marginLeft: -10 }]} />
               ))}
             </Row>
             <Text style={styles.goingText} numberOfLines={1}>
@@ -189,14 +190,15 @@ export default function EventScreen() {
 }
 
 const styles = StyleSheet.create({
-  mapCard: { height: 150, borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface, justifyContent: "flex-end" },
+  // .mapcard: the route on the dark map, lit along its edge
+  mapCard: { height: 150, borderRadius: 20, overflow: "hidden", backgroundColor: C.surface, justifyContent: "flex-end", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.9)" },
   mapShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(7,9,12,0.25)" },
   mapStats: { padding: S.lg, alignItems: "flex-end" },
   mapValue: { color: "#fff", fontFamily: F.display, fontSize: 24, lineHeight: 26 },
   mapLabel: { color: "rgba(255,255,255,0.75)", fontFamily: F.body, fontSize: 12 },
-  goingRow: { flexDirection: "row", alignItems: "center", gap: S.md, marginTop: S.lg },
+  goingRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 },
   face: { borderWidth: 2, borderColor: C.bg },
-  goingText: { flex: 1, color: C.textSoft, fontFamily: F.body, fontSize: 13 },
+  goingText: { flex: 1, color: C.textDim, fontFamily: F.body, fontSize: 12 },
   info: { flex: 1, color: C.text, fontFamily: F.bodyMedium, fontSize: 14 },
   link: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13 },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 13, lineHeight: 19 },

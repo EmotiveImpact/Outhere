@@ -9,7 +9,7 @@ import { Image } from "expo-image";
 import { Package } from "lucide-react-native";
 import { useDropShop, useOrders, useProfile } from "@/data/hooks";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
-import { C, EmptyState, F, FadeIn, imageSource, PressableScale, R, Row, S, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { C, EmptyState, F, FadeIn, imageSource, PressableScale, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { Coin, GlowHero, SectionLabel } from "@/components/arena/OutsideKit";
 import { useNow } from "@/components/happenings/shared";
 import { ORDER_LABELS } from "@/data/outsideShared";
@@ -34,9 +34,9 @@ const TAG_STYLE = {
 function ShopCard({ drop, onPress }) {
   const gone = drop.status === "soldout" || drop.status === "ended";
   return (
-    <PressableScale onPress={onPress} scaleTo={0.97} style={styles.card}>
+    <Surface onPress={onPress} pressScale={0.97} radius={18} padding={null} style={styles.card} contentStyle={styles.cardIn}>
       <View style={styles.art}>
-        {drop.image ? <Image source={imageSource(drop.image)} style={[StyleSheet.absoluteFill, gone && { opacity: 0.45 }]} contentFit="cover" transition={200} /> : null}
+        {drop.image ? <Image source={imageSource(drop.image)} style={[StyleSheet.absoluteFill, gone && { opacity: 0.4 }]} contentFit="cover" transition={200} /> : null}
         {drop.tag ? (
           <View style={[styles.tag, TAG_STYLE[drop.tag] || { backgroundColor: "rgba(0,0,0,0.7)", borderColor: "rgba(255,255,255,0.25)" }]}>
             <Text style={styles.tagText}>{drop.tag}</Text>
@@ -46,11 +46,11 @@ function ShopCard({ drop, onPress }) {
       <Text style={styles.cardTitle} numberOfLines={1}>
         {drop.title}
       </Text>
-      <Row gap={6} style={{ marginTop: 4 }}>
+      <Row gap={5} style={{ marginTop: 5, marginHorizontal: 4 }}>
         <Coin size={16} />
-        <Text style={styles.price}>{formatNumber(drop.priceOut)}</Text>
+        <Text style={[styles.price, gone && { color: C.textDim }]}>{gone ? "Sold out" : formatNumber(drop.priceOut)}</Text>
       </Row>
-    </PressableScale>
+    </Surface>
   );
 }
 
@@ -64,10 +64,14 @@ export default function OutsideDropsScreen() {
   const now = useNow(1000);
   const drops = useMemo(() => data || [], [data]);
 
-  // The next drop still to open, else the newest one live.
+  // The hero is the headline drop: one opening in the next six hours, else the
+  // newest live drop still in stock, else whatever opens next. A drop further
+  // away no longer pushes a live one off the top.
   const next = useMemo(() => {
     const soon = drops.filter((d) => d.opensAt > now).sort((a, b) => a.opensAt - b.opensAt);
-    return soon[0] || drops.find((d) => d.status === "live") || null;
+    const live = drops.filter((d) => d.status === "live" && d.remaining !== 0).sort((a, b) => b.opensAt - a.opensAt);
+    const close = soon.find((d) => d.opensAt - now < 6 * 3_600_000);
+    return close || live[0] || soon[0] || drops.find((d) => d.status === "live") || null;
   }, [drops, now]);
 
   React.useEffect(() => {
@@ -105,7 +109,7 @@ export default function OutsideDropsScreen() {
         <>
           {next ? (
             <PressableScale onPress={() => router.push(`/drops/${next.id}`)} scaleTo={0.995} haptic={false} accessibilityLabel={`Open ${next.title}`}>
-              <GlowHero photo={imageSource(next.image)} photoOpacity={0.45} height={340} kicker={kicker} top={next.title} bottom={openNow ? `${formatNumber(next.priceOut)} OUT` : clock(next.opensAt, now)} />
+              <GlowHero photo={imageSource(next.image)} photoFocus={{ x: 0.5, y: 0.4 }} height={362} headlineSize={44} kicker={kicker} top={next.title} bottom={openNow ? `${formatNumber(next.priceOut)} OUT` : clock(next.opensAt, now)} />
             </PressableScale>
           ) : null}
 
@@ -120,11 +124,11 @@ export default function OutsideDropsScreen() {
           ) : null}
 
           <View style={{ paddingHorizontal: S.gutter }}>
-            <SectionLabel right={`All ${drops.length}`} onRight={() => router.push("/drops")}>
+            <SectionLabel right={`All ${drops.length}`} onRight={() => router.push("/drops")} style={{ marginTop: S.lg }}>
               In the drop shop
             </SectionLabel>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: S.md }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 10, paddingBottom: 18 }}>
             {shop.map((d, i) => (
               <FadeIn key={d.id} index={i}>
                 <ShopCard drop={d} onPress={() => router.push(`/drops/${d.id}`)} />
@@ -150,12 +154,14 @@ export default function OutsideDropsScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { width: 150, padding: 10, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)" },
-  art: { height: 112, borderRadius: 12, overflow: "hidden", backgroundColor: "#000", marginBottom: S.md },
-  tag: { position: "absolute", left: 8, top: 8, paddingHorizontal: 8, height: 22, borderRadius: R.full, borderWidth: 1, justifyContent: "center" },
-  tagText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 0.8 },
-  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
-  price: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  // .pcard
+  card: { width: 146 },
+  cardIn: { paddingTop: 7, paddingHorizontal: 7, paddingBottom: 11 },
+  art: { height: 116, borderRadius: 13, overflow: "hidden", backgroundColor: "#000", marginBottom: 9 },
+  tag: { position: "absolute", left: 7, top: 7, paddingHorizontal: 7, height: 20, borderRadius: 6, borderWidth: 1, justifyContent: "center" },
+  tagText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 9.5, letterSpacing: 0.9 },
+  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5, marginHorizontal: 4 },
+  price: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
   orderRow: { flexDirection: "row", alignItems: "center", gap: S.md, marginHorizontal: S.gutter, marginTop: S.lg, height: 52, paddingHorizontal: S.lg, borderRadius: R.md, backgroundColor: C.surface },
   orderText: { flex: 1, color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   orderLink: { color: C.accent, fontFamily: F.bodyMedium, fontSize: 13 },

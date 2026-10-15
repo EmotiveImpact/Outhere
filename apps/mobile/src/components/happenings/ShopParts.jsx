@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Image } from "expo-image";
 import { Check, Crosshair, Package } from "lucide-react-native";
-import { Button, C, F, imageSource, PressableScale, R, Row, S, Sheet } from "@/components/ui";
+import { Button, C, F, imageSource, PressableScale, R, Row, S, Sheet, Surface } from "@/components/ui";
 import { addressProblem, formatAddress, ORDER_FLOW, ORDER_LABELS } from "@/data/outsideShared";
 import { formatNumber } from "@/utils/format";
 
@@ -35,7 +35,7 @@ export function SizeRow({ sizes, soldOut = [], value, onChange }) {
 
 export function AddressCard({ address, onChange }) {
   return (
-    <PressableScale onPress={onChange} scaleTo={0.98} style={styles.card}>
+    <Surface onPress={onChange} pressScale={0.98} radius={18} padding={null} contentStyle={styles.card}>
       <View style={styles.pin}>
         <Crosshair size={18} color={C.accent} />
       </View>
@@ -50,7 +50,7 @@ export function AddressCard({ address, onChange }) {
         )}
       </View>
       <Text style={styles.link}>{address ? "Change" : "Add"}</Text>
-    </PressableScale>
+    </Surface>
   );
 }
 
@@ -111,7 +111,7 @@ export function OrderTimeline({ order }) {
   const steps = order.status === "cancelled" ? ["claimed", "cancelled"] : ORDER_FLOW;
   const current = order.status;
   return (
-    <View style={styles.timeline}>
+    <Surface radius={20} padding={null} contentStyle={styles.timeline}>
       {steps.map((st, i) => {
         const at = done.get(st);
         const reached = !!at || st === current;
@@ -130,7 +130,7 @@ export function OrderTimeline({ order }) {
           </View>
         );
       })}
-    </View>
+    </Surface>
   );
 }
 
@@ -155,32 +155,35 @@ export function OrderItem({ order, onPress }) {
     </>
   );
   return onPress ? (
-    <PressableScale onPress={onPress} scaleTo={0.98} style={styles.card}>
+    <Surface onPress={onPress} pressScale={0.98} radius={18} padding={null} contentStyle={styles.card}>
       {body}
-    </PressableScale>
+    </Surface>
   ) : (
-    <View style={styles.card}>{body}</View>
+    <Surface radius={18} padding={null} contentStyle={styles.card}>
+      {body}
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
-  size: { minWidth: 56, flexGrow: 1, height: 50, borderRadius: 14, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)" },
-  sizeOn: { backgroundColor: C.accent, borderColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  // .sizes span
+  size: { minWidth: 56, flexGrow: 1, height: 46, borderRadius: 13, backgroundColor: "#12151a", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" },
+  sizeOn: { backgroundColor: C.accent, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 8px 20px -8px rgba(42,106,240,0.95)" },
   sizeGone: { opacity: 0.4 },
   sizeText: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   sizeTextGone: { textDecorationLine: "line-through", color: C.textDim },
-  card: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  pin: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center" },
+  card: { flexDirection: "row", alignItems: "center", gap: S.md, paddingVertical: 13, paddingHorizontal: 14 },
+  pin: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(61,139,255,0.28), 0 8px 18px -10px rgba(42,106,240,0.7)" },
   name: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   addr: { color: C.textSoft, fontFamily: F.body, fontSize: 13, marginTop: 2, lineHeight: 18 },
   link: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13 },
   sheetTitle: { color: C.text, fontFamily: F.display, fontSize: 24, marginBottom: S.lg },
   input: { height: 50, borderRadius: R.md, backgroundColor: C.surfaceHigh, color: C.text, paddingHorizontal: S.lg, fontFamily: F.body, fontSize: 15, marginBottom: S.sm },
   error: { color: C.danger || "#ff4d55", fontFamily: F.body, fontSize: 13, marginTop: 4 },
-  timeline: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
+  timeline: { paddingVertical: 14, paddingHorizontal: 14 },
   step: { flexDirection: "row", gap: S.md },
   node: { width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: C.textMute, backgroundColor: C.surface, marginTop: 3 },
-  nodeOn: { backgroundColor: C.accent, borderColor: C.accent },
+  nodeOn: { backgroundColor: C.accent, borderColor: C.accent, boxShadow: "0 0 10px rgba(61,139,255,0.6)" },
   nodeNow: { width: 18, height: 18, borderRadius: 9, marginTop: 1, borderWidth: 4, borderColor: "rgba(61,139,255,0.35)" },
   line: { flex: 1, width: 2, backgroundColor: C.border, marginTop: 2, marginBottom: -3 },
   stepTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },

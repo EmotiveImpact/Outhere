@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { engine, useDeliveryAddress, useDropItem, useEngineMutation, useProfile } from "@/data/hooks";
-import { Button, C, EmptyState, F, imageSource, R, Row, S, Skeleton, SlideToStart } from "@/components/ui";
+import { Button, C, EmptyState, F, imageSource, R, Row, S, Skeleton, SlideToStart, Surface } from "@/components/ui";
 import { BottomBar, Coin, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 import { AddressCard, AddressSheet, SizeRow } from "@/components/happenings/ShopParts";
 import { addressProblem } from "@/data/outsideShared";
@@ -80,7 +80,7 @@ export default function CheckoutScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }} keyboardShouldPersistTaps="handled">
-        <GlowHero photo={imageSource(drop.image)} photoOpacity={0.35} height={190} kicker={`Checkout · ${formatNumber(drop.remaining)} left`}>
+        <GlowHero photo={imageSource(drop.image)} photoFocus={{ x: 0.5, y: 0.35 }} height={238} kicker={`Checkout · ${formatNumber(drop.remaining)} left`}>
           <Text style={styles.title} numberOfLines={2} adjustsFontSizeToFit>
             {first} <Text style={{ color: C.accent }}>{rest}</Text>
           </Text>
@@ -88,14 +88,14 @@ export default function CheckoutScreen() {
         <View style={{ paddingHorizontal: S.gutter }}>
           {needsSize ? (
             <>
-              <SectionLabel right={drop.sizeNote || null}>Size</SectionLabel>
+              <SectionLabel right={drop.sizeNote || null} style={{ marginTop: S.lg, marginBottom: 10 }}>Size</SectionLabel>
               <SizeRow sizes={drop.sizes} soldOut={drop.soldOutSizes} value={size} onChange={setSize} />
             </>
           ) : null}
-          <View style={{ marginTop: S.xl }}>
+          <View style={{ marginTop: 12 }}>
             <AddressCard address={address} onChange={() => setEditing(true)} />
           </View>
-          <View style={styles.summary}>
+          <Surface radius={18} padding={null} style={{ marginTop: 12 }} contentStyle={styles.summary}>
             <Row style={styles.line}>
               <Text style={styles.dim}>{drop.title}</Text>
               <Row gap={6}>
@@ -111,7 +111,7 @@ export default function CheckoutScreen() {
               <Text style={styles.dim}>Balance after</Text>
               <Text style={[styles.value, after < 0 && { color: C.danger }]}>{formatNumber(after)} OUT</Text>
             </Row>
-          </View>
+          </Surface>
         </View>
       </ScrollView>
       <BottomBar>
@@ -142,8 +142,8 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   title: { color: C.text, fontFamily: F.display, fontSize: 42, lineHeight: 44, textTransform: "uppercase" },
-  summary: { marginTop: S.md, paddingHorizontal: S.lg, paddingVertical: S.sm, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  line: { justifyContent: "space-between", paddingVertical: 8 },
+  summary: { paddingHorizontal: 14, paddingVertical: 8 },
+  line: { justifyContent: "space-between", paddingVertical: 6 },
   dim: { color: C.textSoft, fontFamily: F.body, fontSize: 14 },
   value: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
 });
