@@ -85,6 +85,10 @@ describe("run maths", () => {
     expect(m.distanceM(loop[loop.length - 1], LEEDS)).toBeLessThan(1);
     expect(m.lengthM(loop) / 1000).toBeGreaterThan(4);
     expect(m.lengthM(loop) / 1000).toBeLessThan(6);
+    // A loop ends where it starts; its corners still read as turns.
+    const turns = m.turnsFor(loop);
+    expect(turns.length).toBeGreaterThan(3);
+    expect(m.navigate(loop, loop[1]).next).not.toBeNull();
   });
 
   test("hiding the ends drops the first and last 200 m", () => {

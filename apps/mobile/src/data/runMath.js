@@ -134,9 +134,10 @@ export const simplify = (path = [], toleranceM = 8) => {
     const b = pts[e];
     const dx = b.x - a.x;
     const dy = b.y - a.y;
-    const len = Math.hypot(dx, dy) || 1e-9;
+    const len = Math.hypot(dx, dy);
     for (let i = s + 1; i < e; i += 1) {
-      const d = Math.abs(dy * pts[i].x - dx * pts[i].y + b.x * a.y - b.y * a.x) / len;
+      // A loop starts and ends in the same place: measure from that point.
+      const d = len < 1 ? Math.hypot(pts[i].x - a.x, pts[i].y - a.y) : Math.abs(dy * pts[i].x - dx * pts[i].y + b.x * a.y - b.y * a.x) / len;
       if (d > maxD) {
         maxD = d;
         idx = i;
@@ -352,21 +353,50 @@ export const trimEnds = (path = [], m = 200) => {
  * Used for suggestions when there's nothing saved near you yet.
  */
 export const loopAround = (center, km, seed = "loop") => {
+  // Reads like streets: a handful of corners round a middle point, joined by
+  // blocks that turn at right angles on a grid tilted to suit the seed. Then
+  // scaled so the whole loop is exactly the distance asked for.
   const rnd = seededRandom(`${seed}:${km}`);
-  const radius = (km * 1000) / (2 * Math.PI) / 1.08; // wobble adds about 8%
-  const heading = rnd() * 360;
-  const mid = destination(center, heading, radius);
-  const back = (heading + 180) % 360;
-  const n = 28;
-  const wob = [rnd() * 0.18, rnd() * 0.12, rnd() * Math.PI * 2];
-  const path = [];
-  for (let i = 0; i <= n; i += 1) {
-    const a = back + (i / n) * 360;
-    const r = i === 0 || i === n ? radius : radius * (1 + wob[0] * Math.sin((i / n) * Math.PI * 3 + wob[2]) + wob[1] * Math.cos((i / n) * Math.PI * 5));
-    path.push(destination(mid, a, r));
+  const start = rnd() * Math.PI * 2;
+  const tilt = rnd() * Math.PI * 0.5;
+  const n = 5 + Math.floor(rnd() * 3);
+  const corners = [];
+  for (let i = 0; i < n; i += 1) {
+    const a = start + (i / n) * Math.PI * 2 + (i ? (rnd() - 0.5) * 0.5 : 0);
+    const r = i ? 0.65 + rnd() * 0.6 : 1;
+    corners.push([Math.sin(a) * r, Math.cos(a) * r]);
   }
-  path[0] = { latitude: center.latitude, longitude: center.longitude };
-  path[n] = { latitude: center.latitude, longitude: center.longitude };
+  corners.push(corners[0]);
+  const pts = [corners[0]];
+  for (let k = 1; k < corners.length; k += 1) {
+    const [ax, ay] = corners[k - 1];
+    const [bx, by] = corners[k];
+    const steps = Math.hypot(bx - ax, by - ay) > 0.7 && rnd() < 0.5 ? 2 : 1;
+    const xFirst = rnd() < 0.5;
+    for (let s = 1; s <= steps; s += 1) {
+      const tx = ax + ((bx - ax) * s) / steps;
+      const ty = ay + ((by - ay) * s) / steps;
+      const [px, py] = pts[pts.length - 1];
+      pts.push(xFirst ? [tx, py] : [px, ty]);
+      pts.push([tx, ty]);
+    }
+  }
+  // Tilt the grid, then put the first corner on `center`.
+  const cos = Math.cos(tilt);
+  const sin = Math.sin(tilt);
+  const turned = pts.map(([x, y]) => [x * cos - y * sin, x * sin + y * cos]);
+  let len = 0;
+  for (let i = 1; i < turned.length; i += 1) len += Math.hypot(turned[i][0] - turned[i - 1][0], turned[i][1] - turned[i - 1][1]);
+  const scale = (km * 1000) / (len || 1);
+  const [x0, y0] = turned[0];
+  const mPerLng = 111320 * Math.cos(toRad(center.latitude));
+  const path = [];
+  for (const [x, y] of turned) {
+    const p = { latitude: center.latitude + ((y - y0) * scale) / 111320, longitude: center.longitude + ((x - x0) * scale) / mPerLng };
+    const last = path[path.length - 1];
+    if (!last || Math.abs(last.latitude - p.latitude) + Math.abs(last.longitude - p.longitude) > 1e-7) path.push(p);
+  }
+  path[path.length - 1] = { latitude: center.latitude, longitude: center.longitude };
   return path;
 };
 

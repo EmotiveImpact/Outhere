@@ -1,6 +1,6 @@
 // Move and runs on Supabase: the twin of runs.js, with the same names, args
 // and return shapes. Everything that moves XP or OUT stays in save_run; the
-// rest goes through the functions in 20261015101400_runs.sql.
+// rest goes through the functions in 20261015101700_runs.sql.
 
 import { climbFor, elevationProfile, ghostTrack, isPoint, periodStart, splitsFor, stepsFor, thin } from "./runMath";
 import { withFreshLoops } from "./runs";
