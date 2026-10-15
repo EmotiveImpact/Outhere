@@ -1,173 +1,103 @@
-import React, { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+// Feed tab, the club feed: the stories row, the club's next run and this
+// week's fixture, last night's club run, then a box to share a run, photo or
+// route and the posts, one big post at a time.
+
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { Heart, MessageCircle, Trash2 } from "lucide-react-native";
-import { Body, C, Card, Cover, EmptyState, F, FadeIn, PressableScale, Row, S, Skeleton } from "@/components/ui";
-import { engine, useCrewFeed, useEngineMutation } from "@/data/hooks";
-import { hapticImpact } from "@/services/haptics";
-import { formatPace, timeAgo } from "@/utils/format";
-import { PlayerAvatar, crewAccent, playerName } from "./shared";
+import { Camera } from "lucide-react-native";
+import { C, EmptyState, F, FadeIn, PressableScale, Row, S, Skeleton } from "@/components/ui";
+import { ClubPanel } from "@/components/clubs/parts";
+import { PHOTOS } from "@/constants/photos";
+import { engine, useCrewFeed, useEngineMutation, useProfile } from "@/data/hooks";
+import CommentsSheet from "./CommentsSheet";
+import ComposeSheet from "./ComposeSheet";
+import CrewStoriesRow from "./CrewStoriesRow";
+import PostCard from "./PostCard";
+import ReportSheet from "./ReportSheet";
+import { PlayerAvatar } from "./shared";
+import { pickPhoto } from "./pickPhoto";
 
-const playerHref = (p) => (p?.isMe ? "/(tabs)/profile" : `/player/${p?.id}`);
-
-const minutesLabel = (min) => {
-  const m = Math.max(0, Math.round(Number(min) || 0));
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
-};
-
-/** Heart that pops when liked. Optimistic so it responds instantly. */
-function LikeButton({ liked, count, onToggle }) {
-  const [state, setState] = useState({ liked, count });
-  useEffect(() => setState({ liked, count }), [liked, count]);
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  const press = () => {
-    const next = !state.liked;
-    setState((s) => ({ liked: next, count: s.count + (next ? 1 : -1) }));
-    if (next) {
-      hapticImpact();
-      scale.value = withSequence(withTiming(1.45, { duration: 110 }), withSpring(1, { damping: 7, stiffness: 260 }));
-    } else {
-      scale.value = withSequence(withTiming(0.8, { duration: 80 }), withSpring(1));
-    }
-    onToggle();
-  };
-
-  return (
-    <Pressable onPress={press} hitSlop={10} style={styles.action} accessibilityRole="button" accessibilityLabel={state.liked ? "Unlike" : "Like"}>
-      <Animated.View style={style}>
-        <Heart size={18} color={state.liked ? C.danger : C.textDim} fill={state.liked ? C.danger : "transparent"} />
-      </Animated.View>
-      <Text style={[styles.actionText, state.liked && { color: C.danger }]}>{state.count}</Text>
-    </Pressable>
-  );
-}
-
-function Post({ post, crewId, accent }) {
+function Recap({ crew }) {
   const router = useRouter();
-  const like = useEngineMutation(engine.togglePostLike);
-  const remove = useEngineMutation(engine.deletePost, { success: "Post deleted" });
-  const pace = post.km > 0 && post.minutes > 0 ? (post.minutes * 60) / post.km : 0;
-  const tint = post.author?.color || accent;
-
-  const confirmDelete = () =>
-    Alert.alert("Delete post?", "It disappears from the crew feed for everyone.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => remove.mutate([crewId, post.id]) },
-    ]);
-
+  if (!crew.verified || !crew.lastTurnout) return null;
   return (
-    <Card style={{ marginBottom: S.md }}>
-      <Row gap={S.md}>
-        <PressableScale onPress={() => router.push(playerHref(post.author))} scaleTo={0.92}>
-          <PlayerAvatar player={post.author} size={40} />
-        </PressableScale>
-        <Pressable style={{ flex: 1 }} onPress={() => router.push(playerHref(post.author))}>
-          <Text style={styles.name} numberOfLines={1}>
-            {playerName(post.author)}
-          </Text>
-          <Body dim size={13}>
-            Shared a run · {timeAgo(post.at)}
-          </Body>
-        </Pressable>
-        {post.isMine ? (
-          <PressableScale onPress={confirmDelete} hitSlop={10} accessibilityLabel="Delete post" style={styles.iconBtn}>
-            <Trash2 size={16} color={C.textMute} />
-          </PressableScale>
-        ) : null}
-      </Row>
-
-      <View style={styles.run}>
-        <View style={{ flex: 1, justifyContent: "space-between" }}>
-          <Row gap={4} style={{ alignItems: "baseline" }}>
-            <Text style={styles.distance}>{Number(post.km || 0).toFixed(1)}</Text>
-            <Text style={styles.unit}>km</Text>
-          </Row>
-          <Row gap={S.xl} style={{ marginTop: S.sm }}>
-            <View>
-              <Text style={styles.metaValue}>{minutesLabel(post.minutes)}</Text>
-              <Text style={styles.metaLabel}>time</Text>
-            </View>
-            {pace ? (
-              <View>
-                <Text style={styles.metaValue}>{formatPace(pace)}/km</Text>
-                <Text style={styles.metaLabel}>pace</Text>
-              </View>
-            ) : null}
-          </Row>
-        </View>
-        <Cover seed={`run:${post.id}`} accent={tint} style={styles.map} />
+    <PressableScale onPress={() => crew.nextRun && router.push(`/clubs/run/${crew.nextRun.id}`)} scaleTo={0.98} style={styles.recap}>
+      <Image source={crew.cover ? (typeof crew.cover === "string" ? { uri: crew.cover } : crew.cover) : PHOTOS.clubrun} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <LinearGradient colors={["rgba(7,9,12,0.05)", "rgba(7,9,12,0.92)"]} locations={[0.25, 1]} style={StyleSheet.absoluteFill} />
+      <View style={{ padding: S.lg }}>
+        <Text style={styles.recapKick}>Club run recap</Text>
+        <Text style={styles.recapTitle} numberOfLines={2}>
+          {crew.lastTurnout} ran with {crew.name} last time
+        </Text>
       </View>
-
-      {post.caption ? <Body style={{ marginTop: S.md }}>{post.caption}</Body> : null}
-
-      <Row gap={S.xl} style={{ marginTop: S.md }}>
-        <LikeButton liked={post.likedByMe} count={post.likeCount} onToggle={() => like.mutate([crewId, post.id])} />
-        {post.comments ? (
-          <View style={styles.action}>
-            <MessageCircle size={17} color={C.textMute} />
-            <Text style={[styles.actionText, { color: C.textMute }]}>{post.comments}</Text>
-          </View>
-        ) : null}
-      </Row>
-    </Card>
+    </PressableScale>
   );
 }
 
-function FeedSkeleton() {
+function Composer({ onOpen, onCamera }) {
+  const { data: me } = useProfile();
   return (
-    <View style={{ gap: S.md }}>
-      {[0, 1].map((i) => (
-        <View key={i} style={styles.skel}>
-          <Row gap={S.md}>
-            <Skeleton width={40} height={40} radius={20} />
-            <View style={{ flex: 1, gap: 6 }}>
-              <Skeleton width="40%" height={14} />
-              <Skeleton width="30%" height={10} />
-            </View>
-          </Row>
-          <Skeleton height={112} radius={16} style={{ marginTop: S.md }} />
-        </View>
-      ))}
-    </View>
+    <PressableScale onPress={onOpen} scaleTo={0.985} style={styles.composer} accessibilityLabel="Share a run, photo or route">
+      <PlayerAvatar player={me ? { ...me, isOutside: false } : null} size={34} />
+      <Text style={styles.composerText}>Share a run, photo or route</Text>
+      <PressableScale onPress={onCamera} hitSlop={8} scaleTo={0.88} style={styles.camera} accessibilityLabel="Share a photo">
+        <Camera size={17} color={C.accentHi} />
+      </PressableScale>
+    </PressableScale>
   );
 }
 
 export default function CrewFeed({ crew }) {
-  const feed = useCrewFeed(crew.id);
   const router = useRouter();
-  if (feed.isPending) return <FeedSkeleton />;
+  const feed = useCrewFeed(crew.id);
+  const [compose, setCompose] = useState(null);
+  const [comments, setComments] = useState(null);
+  const [report, setReport] = useState(null);
+  const rsvp = useEngineMutation(engine.rsvpClubRun, { success: (r) => (r.isGoing ? `See you ${r.title ? "at " + r.title : "there"}` : null) });
   const posts = feed.data || [];
-  if (!posts.length)
-    return (
-      <EmptyState
-        title="No runs shared yet"
-        body="Finish a run on Move and share it here to get the feed going."
-        action="Go to Move"
-        onAction={() => router.push("/(tabs)/move")}
-      />
-    );
-  return posts.map((p, i) => (
-    <FadeIn key={p.id} index={i}>
-      <Post post={p} crewId={crew.id} accent={crewAccent(crew)} />
-    </FadeIn>
-  ));
+
+  const camera = async () => {
+    const photo = await pickPhoto({ camera: false });
+    if (photo) setCompose({ kind: "photo", photo });
+  };
+
+  return (
+    <View>
+      <CrewStoriesRow crew={crew} />
+      <View style={{ paddingHorizontal: S.gutter }}>
+        <ClubPanel club={crew} onRunAction={(r) => r && !r.checkedIn && rsvp.mutate([r.id, !r.isGoing])} />
+        <Recap crew={crew} />
+        <Composer onOpen={() => setCompose({ kind: "photo" })} onCamera={camera} />
+        {feed.isPending ? (
+          <View style={{ gap: S.md }}>
+            <Skeleton height={340} radius={20} />
+            <Skeleton height={90} radius={20} />
+          </View>
+        ) : posts.length ? (
+          posts.map((p, i) => (
+            <FadeIn key={p.id} index={Math.min(i, 6)}>
+              <PostCard post={p} crew={crew} onComments={setComments} onReport={(post) => setReport({ crewId: crew.id, targetType: "post", targetId: post.id, author: post.author })} />
+            </FadeIn>
+          ))
+        ) : (
+          <EmptyState title="Nothing shared yet" body="Finish a run and share it here, or post a photo from today." action="Go to Move" onAction={() => router.push("/(tabs)/move")} />
+        )}
+      </View>
+      <ComposeSheet crew={crew} visible={!!compose} start={compose} onClose={() => setCompose(null)} />
+      <CommentsSheet crewId={crew.id} post={comments} onClose={() => setComments(null)} />
+      <ReportSheet target={report} onClose={() => setReport(null)} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  name: { color: C.text, fontSize: 15, fontWeight: "600" },
-  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  run: { flexDirection: "row", gap: S.md, marginTop: S.lg },
-  distance: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -1, lineHeight: 48 },
-  unit: { color: C.textDim, fontFamily: F.displayMedium, fontSize: 16 },
-  metaLabel: { color: C.textDim, fontSize: 13, marginTop: 1 },
-  metaValue: { color: C.text, fontFamily: F.displayMedium, fontSize: 15 },
-  map: { width: 96, height: 96, borderRadius: 14 },
-  action: { flexDirection: "row", alignItems: "center", gap: 6, height: 32 },
-  actionText: { color: C.textDim, fontSize: 14, fontWeight: "600" },
-  skel: { padding: S.lg, borderRadius: 20, backgroundColor: C.surface },
+  recap: { height: 170, borderRadius: 20, overflow: "hidden", marginTop: S.md, justifyContent: "flex-end", backgroundColor: C.surface },
+  recapKick: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" },
+  recapTitle: { color: C.text, fontFamily: F.display, fontSize: 26, lineHeight: 28, textTransform: "uppercase", marginTop: 4 },
+  composer: { flexDirection: "row", alignItems: "center", gap: S.md, height: 58, paddingLeft: S.md, paddingRight: S.sm, borderRadius: 20, backgroundColor: C.surface, marginTop: S.lg, marginBottom: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  composerText: { flex: 1, color: C.textDim, fontFamily: F.body, fontSize: 15 },
+  camera: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
 });

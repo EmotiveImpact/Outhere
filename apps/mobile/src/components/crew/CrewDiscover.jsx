@@ -6,7 +6,7 @@ import { Body, Button, C, Card, EmptyState, F, FadeIn, PressableScale, Row, S, S
 import { engine, useCrewLimits, useDiscoverCrews, useEngineMutation, useUpgradePrompt } from "@/data/hooks";
 import { tierLabel } from "@/utils/format";
 import CrewCard from "./CrewCard";
-import { useCrewFocus } from "./shared";
+import { joinedToast, useCrewFocus } from "./shared";
 
 const useDebounced = (value, ms = 250) => {
   const [v, setV] = useState(value);
@@ -100,7 +100,7 @@ export default function CrewDiscover({ intro = false, onDone }) {
     onDone?.();
   };
 
-  const join = useEngineMutation(engine.joinCrew, { success: (crew) => `You're in ${crew.name}`, onSuccess: joined });
+  const join = useEngineMutation(engine.joinCrew, { success: joinedToast, onSuccess: (crew) => crew.isMember && joined(crew) });
 
   const startCreate = () => {
     if (l && !l.canCreate) {

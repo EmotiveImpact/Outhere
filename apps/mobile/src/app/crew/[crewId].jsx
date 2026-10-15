@@ -11,8 +11,7 @@ import { compactNumber } from "@/utils/format";
 import CrewHero, { useCountUp } from "@/components/crew/CrewHero";
 import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
 import { ClubPanel } from "@/components/clubs/parts";
-import { shareInvite } from "@/components/crew/CrewSettings";
-import { PlayerAvatar, ROLE_LABEL, playerName, useCrewFocus } from "@/components/crew/shared";
+import { PlayerAvatar, ROLE_LABEL, joinedToast, playerName, shareInvite, useCrewFocus } from "@/components/crew/shared";
 
 function Stat({ value, format, hint, live }) {
   const shown = useCountUp(value);
@@ -54,7 +53,8 @@ export default function CrewDetail() {
   const { data: crew, isPending, isError, refetch, isRefetching } = useCrew(id);
   const [code, setCode] = useState("");
 
-  const join = useEngineMutation(engine.joinCrew, { success: (c) => `You're in ${c.name}`, onSuccess: () => focus(id) });
+  const join = useEngineMutation(engine.joinCrew, { success: joinedToast, onSuccess: (c) => c.isMember && focus(id) });
+  const cancel = useEngineMutation(engine.cancelJoinRequest, { success: "Request withdrawn" });
   const joinByCode = useEngineMutation(engine.joinCrewByCode, {
     success: (c) => `You're in ${c.name}`,
     onSuccess: (joined) => {
@@ -139,6 +139,17 @@ export default function CrewDetail() {
           </Row>
         ) : crew.privacy === "public" ? (
           <Button title={`Join ${crew.name}`} icon={Users} onPress={() => join.mutate(id)} loading={join.isPending} full size="lg" />
+        ) : crew.privacy === "request" ? (
+          crew.requested ? (
+            <View>
+              <Button title="Asked to join" variant="secondary" onPress={() => cancel.mutate(id)} loading={cancel.isPending} full size="lg" />
+              <Body dim size={13} style={{ marginTop: S.sm, textAlign: "center" }}>
+                The admins will let you know. Tap to withdraw.
+              </Body>
+            </View>
+          ) : (
+            <Button title={`Ask to join ${crew.name}`} icon={Users} onPress={() => join.mutate(id)} loading={join.isPending} full size="lg" />
+          )
         ) : (
           <View>
             <Text style={styles.cardTitle}>Invite only</Text>

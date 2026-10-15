@@ -1,77 +1,107 @@
-// Crew tab. No crew yet: discover, join with a code or create one. In a crew:
-// switcher, crew hero and Feed / Chat / Ranks / Members.
+// Crew tab. No crew yet: three ways in (a code, crews near you, your own),
+// with the run clubs near you underneath. In a crew: Leaderboard, Feed,
+// Chat, Challenges and Stats, each with its own header. The crew's rank is
+// in its own city, so nothing here assumes London.
 
-import React, { useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { BadgeCheck, Compass, MessageCircle, Newspaper, Plus, Search, Settings2, Share2, Trophy, Users, X } from "lucide-react-native";
+import { BadgeCheck, ChevronsRight, Compass, Inbox, Lock, Plus, Settings2, Share2, Trophy, UserPlus, Users } from "lucide-react-native";
 import { PHOTOS } from "@/constants/photos";
-import { C, EmptyState, F, FadeIn, Hero, IconButton, PressableScale, Row, S, Screen, Sheet, Skeleton, TAB_BAR_SPACE, Title } from "@/components/ui";
-import { engine, useCrew, useCrewLimits, useEngineMutation, useMyCrews, useUpgradePrompt } from "@/data/hooks";
+import { Body, C, EmptyState, F, Hero, IconButton, PressableScale, Row, S, Screen, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { useCrew, useCrewGoal, useCrewHeader, useCrewLimits, useCrewStats, useCrewUnread, useCrewsNear, useJoinRequests, useMyCrews, useUpgradePrompt } from "@/data/hooks";
+import { CREW_PHOTOS } from "@/data/seedCrew";
 import { tierLabel } from "@/utils/format";
 import ActionSheet from "@/components/crew/ActionSheet";
-import CrewChat from "@/components/crew/CrewChat";
-import { CodeJoin } from "@/components/crew/CrewDiscover";
 import ClubFinder from "@/components/clubs/ClubFinder";
-import { ClubPanel } from "@/components/clubs/parts";
+import CrewChallenges from "@/components/crew/CrewChallenges";
+import CrewChat from "@/components/crew/CrewChat";
 import CrewFeed from "@/components/crew/CrewFeed";
-import CrewHero from "@/components/crew/CrewHero";
-import CrewLeaderboard from "@/components/crew/CrewLeaderboard";
-import CrewMembers from "@/components/crew/CrewMembers";
-import CrewSettings, { shareInvite } from "@/components/crew/CrewSettings";
-import CrewTabs from "@/components/crew/CrewTabs";
-import { CrewLogo, useCrewFocus } from "@/components/crew/shared";
+import { BellButton, CrewBar, CrewSlab, FeedHead, MoreButton, twoTone } from "@/components/crew/CrewHead";
+import CrewRace from "@/components/crew/CrewRace";
+import CrewStats from "@/components/crew/CrewStats";
+import UnderlineTabs from "@/components/crew/UnderlineTabs";
+import { shareInvite, useCrewFocus } from "@/components/crew/shared";
 
-const TABS = [
-  { value: "feed", label: "Feed", icon: Newspaper },
-  { value: "chat", label: "Chat", icon: MessageCircle },
-  { value: "board", label: "Ranks", icon: Trophy },
-  { value: "members", label: "Members", icon: Users },
-];
+const TAB_KEYS = ["board", "feed", "chat", "challenges", "stats"];
 
-function DiscoverSheet({ visible, onClose }) {
+function useStartCrew() {
+  const router = useRouter();
+  const limits = useCrewLimits();
+  const openUpgrade = useUpgradePrompt((s) => s.open);
+  return () => {
+    const l = limits.data;
+    if (l && !l.canCreate) {
+      openUpgrade(l.maxOwned === 0 ? "pro" : "black", l.maxOwned === 0 ? "Starting a crew is a Pro feature." : `You already own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}.`);
+      return;
+    }
+    router.push("/crew/create");
+  };
+}
+
+function WayIn({ icon: Icon, title, sub, onPress, highlight }) {
   return (
-    <Sheet visible={visible} onClose={onClose} scroll maxHeight="92%">
-      <Row style={{ paddingBottom: S.md }}>
-        <Title size={24} style={{ flex: 1 }}>Find your run club</Title>
-        <IconButton icon={X} onPress={onClose} label="Close" />
-      </Row>
-      <ClubFinder onJoined={onClose} />
-      <CodeJoin onJoined={onClose} style={{ marginTop: S.xl }} />
-    </Sheet>
+    <PressableScale onPress={onPress} scaleTo={0.98} style={[styles.way, highlight && styles.wayOn]} accessibilityLabel={title}>
+      <View style={styles.wayIcon}>
+        <Icon size={18} color={C.accentHi} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.wayTitle}>{title}</Text>
+        <Body dim size={13} numberOfLines={1}>
+          {sub}
+        </Body>
+      </View>
+      <ChevronsRight size={18} color={C.textMute} />
+    </PressableScale>
   );
 }
 
-function Switcher({ crews, activeId, onSelect }) {
-  if (crews.length < 2) return null;
+/** Running solo: three ways in rather than an empty page. */
+function NoCrew({ refresh, refreshing }) {
+  const router = useRouter();
+  const near = useCrewsNear();
+  const start = useStartCrew();
+  const scroll = useRef(null);
+  const [finderY, setFinderY] = useState(0);
+  const count = near.data?.length || 0;
+  const closest = near.data?.length ? Math.max(...near.data.map((c) => c.awayKm || 0)) : 0;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.sm, paddingHorizontal: S.gutter, paddingBottom: S.md }}>
-      {crews.map((c) => {
-        const active = c.id === activeId;
-        return (
-          <PressableScale
-            key={c.id}
-            onPress={() => onSelect(c.id)}
-            scaleTo={0.94}
-            style={[styles.chip, active && styles.chipActive]}
-          >
-            <CrewLogo crew={c} size={28} radius={9} ring={false} />
-            <Text style={[styles.chipText, active && { color: C.text }]} numberOfLines={1}>
-              {c.name}
-            </Text>
-          </PressableScale>
-        );
-      })}
-    </ScrollView>
+    <Screen tab scroll={false} padded={false} style={{ paddingTop: 0 }}>
+      <ScrollView
+        ref={scroll}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + 20 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
+      >
+        <Hero object={PHOTOS.crest} kicker="Crew" top="Running solo" bottom="for now" sub="Crews share a weekly goal, a chat and the Area Cup." height={300} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
+          <WayIn icon={Lock} title="Join with a code" sub="A friend sent you six letters" onPress={() => router.push("/crew/join")} />
+          <WayIn
+            icon={Compass}
+            title="Find crews near you"
+            sub={count ? `${count} ${count === 1 ? "crew" : "crews"}${closest ? ` within ${Math.ceil(closest)} km` : " in your city"}` : "Run clubs in your city"}
+            highlight
+            onPress={() => scroll.current?.scrollTo({ y: finderY, animated: true })}
+          />
+          <WayIn icon={Plus} title="Start your own" sub="Invite friends, set a goal" onPress={start} />
+        </View>
+        <View onLayout={(e) => setFinderY(e.nativeEvent.layout.y - S.md)} style={{ paddingHorizontal: S.gutter, paddingTop: S.xxl }}>
+          <Text style={styles.section}>Run clubs near you</Text>
+          <ClubFinder />
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }
 
 function CrewSkeleton() {
   return (
-    <View style={{ paddingHorizontal: S.gutter, gap: S.md }}>
-      <Skeleton height={300} radius={24} />
-      <Skeleton height={48} radius={99} />
-      <Skeleton height={200} radius={20} />
+    <View style={{ gap: S.md }}>
+      <Skeleton height={280} radius={30} />
+      <View style={{ paddingHorizontal: S.gutter, gap: S.md }}>
+        <Skeleton height={36} radius={10} />
+        <Skeleton height={260} radius={20} />
+      </View>
     </View>
   );
 }
@@ -80,163 +110,175 @@ export default function CrewTab() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const myCrews = useMyCrews();
-  const limits = useCrewLimits();
-  const openUpgrade = useUpgradePrompt((s) => s.open);
   const focusedId = useCrewFocus((s) => s.crewId);
   const focus = useCrewFocus((s) => s.focus);
-  const [tab, setTab] = useState("feed");
+  const [tab, setTab] = useState("board");
   const [menu, setMenu] = useState(false);
-  const [discover, setDiscover] = useState(false);
-  const [settings, setSettings] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const rsvp = useEngineMutation(engine.rsvpClubRun, { success: (r) => (r.isGoing ? `See you ${r.title ? "at " + r.title : "there"}` : null) });
+  const start = useStartCrew();
 
-  // A ?crew= link (from notifications or other screens) focuses that crew.
+  // ?crew= and ?tab= links (notifications, other screens) open that crew and tab.
   useEffect(() => {
     if (params.crew) focus(String(params.crew));
-  }, [params.crew, focus]);
+    if (params.tab && TAB_KEYS.includes(String(params.tab))) setTab(String(params.tab));
+  }, [params.crew, params.tab, focus]);
 
   const crews = useMemo(() => myCrews.data || [], [myCrews.data]);
   const activeId = crews.some((c) => c.id === focusedId) ? focusedId : crews[0]?.id;
   const crewQuery = useCrew(activeId);
   const crew = crewQuery.data && crewQuery.data.id === activeId && crewQuery.data.isMember ? crewQuery.data : null;
+  const header = useCrewHeader(crew?.id);
+  const goal = useCrewGoal(tab === "challenges" ? crew?.id : null);
+  const stats = useCrewStats(tab === "stats" ? crew?.id : null);
+  const unread = useCrewUnread(crew?.id);
+  const staff = crew && (crew.myRole === "owner" || crew.myRole === "admin");
+  const requests = useJoinRequests(crew?.id, !!staff);
 
   const refreshing = myCrews.isRefetching || crewQuery.isRefetching;
   const refresh = () => {
     myCrews.refetch();
     crewQuery.refetch();
+    header.refetch();
   };
-
-  const titleRow = (right) => (
-    <Row style={styles.top}>
-      <Title size={34} style={{ flex: 1 }}>Crew</Title>
-      {right}
-    </Row>
-  );
 
   if (myCrews.isPending) {
     return (
-      <Screen tab scroll={false} padded={false} header={titleRow(null)}>
+      <Screen tab scroll={false} padded={false} style={{ paddingTop: 0 }}>
         <CrewSkeleton />
       </Screen>
     );
   }
 
-  if (!crews.length) {
-    return (
-      <Screen tab onRefresh={refresh} refreshing={refreshing} padded={false} style={{ paddingTop: 0 }}>
-        <Hero
-          photo={PHOTOS.clubfind}
-          height={330}
-          kicker="Real clubs, near you"
-          top="Find your"
-          bottom="run club"
-          sub="Every crew on Outhere is a real run club. Join one near you, or start a founding club with your people."
-          right={<IconButton icon={Search} onPress={() => setSearching(true)} label="Search clubs" />}
-        />
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
-          <ClubFinder searchOpen={searching} onCloseSearch={() => setSearching(false)} />
-          <CodeJoin onJoined={(c) => focus(c.id)} style={{ marginTop: S.xl }} />
-        </View>
-      </Screen>
-    );
-  }
-
-  const startCreate = () => {
-    const l = limits.data;
-    if (l && !l.canCreate) {
-      openUpgrade(l.maxOwned === 0 ? "pro" : "black", l.maxOwned === 0 ? "Owning a crew is a Pro feature." : `You already own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}.`);
-      return;
-    }
-    router.push("/crew/create");
-  };
-
-  const l = limits.data;
-  const menuOptions = [
-    { label: "Find a run club", hint: "Clubs near you, tonight's runs, or join with a code", icon: Compass, onPress: () => setDiscover(true) },
-    { label: "Start a founding club", hint: l && l.maxOwned === 0 ? "Pro and Black members can start one" : "Official after 3 meetups of six", icon: Plus, onPress: startCreate },
-    { label: "Claim your club", hint: "For organisers of a real run club", icon: BadgeCheck, onPress: () => router.push("/clubs/claim") },
-  ];
-
-  const header = (
-    <View>
-      {titleRow(
-        <>
-          {crew ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null}
-          {crew ? <IconButton icon={Settings2} onPress={() => setSettings(true)} label="Crew settings" /> : null}
-          <IconButton icon={Plus} onPress={() => setMenu(true)} label="More crews" />
-        </>
-      )}
-      <Switcher crews={crews} activeId={activeId} onSelect={focus} />
-    </View>
-  );
-
-  const sheets = (
-    <>
-      <ActionSheet
-        visible={menu}
-        title="More crews"
-        subtitle={l ? `In ${l.joined} of ${l.maxJoined} crews · own ${l.owned} of ${l.maxOwned} on ${tierLabel(l.tier)}` : undefined}
-        options={menuOptions}
-        onClose={() => setMenu(false)}
-      />
-      <DiscoverSheet visible={discover} onClose={() => setDiscover(false)} />
-      {crew ? <CrewSettings crew={crew} visible={settings} onClose={() => setSettings(false)} onLeft={() => focus(null)} /> : null}
-    </>
-  );
+  if (!crews.length) return <NoCrew refresh={refresh} refreshing={refreshing} />;
 
   if (!crew) {
     return (
-      <Screen tab scroll={false} padded={false} header={header}>
-        {crewQuery.isError ? (
-          <EmptyState title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} />
-        ) : (
-          <CrewSkeleton />
-        )}
-        {sheets}
+      <Screen tab scroll={false} padded={false} style={{ paddingTop: 0 }}>
+        {crewQuery.isError ? <EmptyState title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} style={{ marginTop: 120 }} /> : <CrewSkeleton />}
       </Screen>
     );
   }
 
-  const tabs = <CrewTabs options={TABS} value={tab} onChange={setTab} style={{ marginHorizontal: S.gutter, marginBottom: S.md }} />;
+  const h = header.data;
+  const asks = requests.data?.length || 0;
+  const menuOptions = [
+    { label: "Invite people", hint: crew.inviteCode ? `Code ${crew.inviteCode}` : undefined, icon: UserPlus, onPress: () => shareInvite(crew) },
+    staff ? { label: "Crew settings", hint: "Who can join, weekly goal, chat and roles", icon: Settings2, onPress: () => router.push(`/crew/settings/${crew.id}`) } : null,
+    staff && (asks || crew.joinPolicy === "request") ? { label: "Join requests", hint: asks ? `${asks} waiting` : "Nobody waiting", icon: Inbox, onPress: () => router.push(`/crew/requests/${crew.id}`) } : null,
+    { label: "Club page", hint: "Runs, fixtures and members", icon: Users, onPress: () => router.push(`/crew/${crew.id}`) },
+    { label: `${h?.city || crew.city} leaderboard`, hint: "People, crews and areas", icon: Trophy, onPress: () => router.push("/crew/board") },
+    ...crews.filter((c) => c.id !== crew.id).map((c) => ({ label: `Switch to ${c.name}`, icon: ChevronsRight, onPress: () => focus(c.id) })),
+    { label: "Find more crews", hint: "Join with a code or one near you", icon: Compass, onPress: () => router.push("/crew/join") },
+    { label: "Start your own", icon: Plus, onPress: start },
+    { label: "Claim your club", hint: "For organisers of a real run club", icon: BadgeCheck, onPress: () => router.push("/clubs/claim") },
+    !staff ? { label: "Crew settings", hint: "Leave the crew", icon: Settings2, onPress: () => router.push(`/crew/settings/${crew.id}`) } : null,
+  ].filter(Boolean);
+
+  const more = <MoreButton onPress={() => setMenu(true)} />;
+  const tabs = (
+    <View style={{ backgroundColor: C.bg }}>
+      <UnderlineTabs
+        options={[
+          { value: "board", label: "Leaderboard" },
+          { value: "feed", label: "Feed" },
+          { value: "chat", label: "Chat", badge: tab === "chat" ? 0 : unread.data || 0 },
+          { value: "challenges", label: "Challenges" },
+          { value: "stats", label: "Stats" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+    </View>
+  );
+  const sheet = <ActionSheet visible={menu} title={crew.name} subtitle={h ? `${h.memberCount} members · ${h.city}` : undefined} options={menuOptions} onClose={() => setMenu(false)} />;
 
   if (tab === "chat") {
     return (
-      <Screen tab scroll={false} padded={false} header={header}>
+      <Screen tab scroll={false} padded={false}>
+        <CrewBar crew={crew} header={h} right={more} />
         {tabs}
         <CrewChat key={crew.id} crew={crew} />
-        {sheets}
+        {sheet}
       </Screen>
     );
   }
 
+  const [top, bottom] = twoTone(crew.name);
+  let head;
+  if (tab === "board") {
+    head = (
+      <CrewSlab
+        kicker={h ? `Crew · #${h.cityRank} in ${h.city}` : "Crew"}
+        top={top}
+        bottom={bottom}
+        sub={h ? `${h.memberCount} members · ${h.outNow} out right now` : " "}
+        object={PHOTOS.podium}
+        right={more}
+      />
+    );
+  } else if (tab === "challenges") {
+    const g = goal.data;
+    head = <CrewSlab kicker={g ? `Crew goal · ${g.daysLeft} ${g.daysLeft === 1 ? "day" : "days"} left` : "Crew goal"} top={`${(g?.goalKm ?? crew.weeklyGoalKm ?? 100).toLocaleString("en-GB")} km`} bottom="together" object={PHOTOS.dial} height={220} right={more} />;
+  } else if (tab === "stats") {
+    const st = stats.data;
+    const share = () =>
+      st &&
+      Share.share({ message: `${crew.name} ran ${st.monthKm.toLocaleString("en-GB")} km together in ${st.monthLabel}. ${st.runs} runs, all on Outhere.` }).catch(() => {});
+    head = (
+      <CrewSlab
+        kicker={st ? `${st.monthLabel} so far` : "This month"}
+        top={st ? `${st.monthKm.toLocaleString("en-GB")} km` : " "}
+        bottom="as a crew"
+        object={CREW_PHOTOS.bars}
+        height={230}
+        right={
+          <>
+            <IconButton icon={Share2} label="Share the month" onPress={share} />
+            {more}
+          </>
+        }
+      />
+    );
+  } else {
+    head = (
+      <FeedHead
+        crew={crew}
+        right={
+          <>
+            <BellButton />
+            {more}
+          </>
+        }
+      />
+    );
+  }
+
+  const slab = tab !== "feed";
   return (
-    <Screen tab scroll={false} padded={false} header={header}>
+    <Screen tab scroll={false} padded={false} style={slab ? { paddingTop: 0 } : undefined}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + 20 }}
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
       >
-        <FadeIn key={crew.id} style={{ paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.xxl }}>
-          <CrewHero crew={crew} />
-          <ClubPanel club={crew} onRunAction={(r) => r && !r.checkedIn && rsvp.mutate([r.id, !r.isGoing])} />
-        </FadeIn>
-        <View style={{ backgroundColor: C.bg, paddingTop: S.xs }}>{tabs}</View>
-        <View key={`${crew.id}:${tab}`} style={{ paddingHorizontal: S.gutter }}>
+        <View key={`${crew.id}:${tab}:head`}>{head}</View>
+        {tabs}
+        <View key={`${crew.id}:${tab}`}>
+          {tab === "board" ? <CrewRace crew={crew} /> : null}
           {tab === "feed" ? <CrewFeed crew={crew} /> : null}
-          {tab === "board" ? <CrewLeaderboard crew={crew} /> : null}
-          {tab === "members" ? <CrewMembers crew={crew} /> : null}
+          {tab === "challenges" ? <CrewChallenges crew={crew} /> : null}
+          {tab === "stats" ? <CrewStats crew={crew} /> : null}
         </View>
       </ScrollView>
-      {sheets}
+      {sheet}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { paddingHorizontal: S.gutter, paddingTop: S.md, paddingBottom: S.md, gap: S.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 44, paddingLeft: 7, paddingRight: 14, borderRadius: 99, backgroundColor: C.surface, maxWidth: 220 },
-  chipActive: { backgroundColor: C.surfaceHigh },
-  chipText: { color: C.textDim, fontSize: 13, fontFamily: F.bodySemi, flexShrink: 1 },
+  way: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1.5, borderColor: "transparent", borderTopColor: C.hairlineTop },
+  wayOn: { borderColor: C.accent, borderTopColor: C.accent },
+  wayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
+  wayTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
+  section: { color: C.text, fontFamily: F.display, fontSize: 24, textTransform: "uppercase", marginBottom: S.md },
 });

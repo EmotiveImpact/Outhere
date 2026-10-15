@@ -15,6 +15,7 @@ import { lowerWins, modeOf, standingTarget } from "@/constants/battleModes";
 import { CLUB_MODE, clubModeOf } from "@/constants/clubModes";
 import { meetsLabel } from "./clubs";
 import { makeRemoteProfile } from "./remoteProfile";
+import { makeRemoteCrew } from "./remoteCrew";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -73,6 +74,13 @@ const MESSAGES = {
   ALREADY_REFERRED: "You've already said who invited you.",
   TOO_LATE: "Invites count in your first week.",
   TOO_MANY: "Too many contacts at once.",
+  BAD_POLICY: "Pick who can join.",
+  BAD_GOAL: "Pick a goal between 10 and 5,000 km.",
+  BATTLE_NOT_DONE: "Share a battle once it's finished.",
+  TOO_MANY_REPORTS: "That's a lot of reports. Try again in an hour.",
+  INVITE_INVALID: "No crew has that code.",
+  CLUB_UNAVAILABLE: "You can't join this crew.",
+  ALREADY_DECIDED: "That request has already been answered.",
 };
 
 const fail = (error) => {
@@ -241,22 +249,36 @@ export const listStories = async (authorId) => {
   const me = await uid();
   if (!me) return [];
   const rows = await run(
-    supabase.from("stories").select("id, author_id, caption, audience, club_id, created_at, expires_at, saved_at").eq("author_id", authorId).gt("expires_at", new Date().toISOString()).order("created_at"),
+    supabase
+      .from("stories")
+      .select("id, author_id, caption, audience, club_id, created_at, expires_at, saved_at, stickers, run_id, runs(title, distance_m, moving_s, avg_pace_s_per_km)")
+      .eq("author_id", authorId)
+      .eq("as_club", false)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at"),
   );
   if (!rows?.length) return [];
-  const [urls, seen] = await Promise.all([
+  const [urls, seen, dots] = await Promise.all([
     storyFiles.urls(rows.map((r) => r.id)),
     run(supabase.from("story_views").select("story_id, emote").eq("user_id", me).in("story_id", rows.map((r) => r.id))),
+    dotsFor([authorId]),
   ]);
+  const out = dots[authorId] === "out";
   const seenBy = Object.fromEntries((seen || []).map((v) => [v.story_id, v]));
   return rows
-    .filter((r) => urls[r.id])
-    .map((r) => ({
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => urls[r.id])
+    .map(({ r, i }) => ({
       id: r.id,
       authorId: r.author_id,
       image: urls[r.id],
       caption: r.caption || "",
       audience: r.audience,
+      clubId: r.club_id,
+      stickers: r.stickers || [],
+      run: r.runs ? { km: Math.round(r.runs.distance_m / 10) / 100, seconds: r.runs.moving_s, paceSec: r.runs.avg_pace_s_per_km, title: r.runs.title || "" } : null,
+      // Out now: the latest story carries the run so far, when there is one.
+      live: out && i === rows.length - 1 ? (r.runs ? { km: Math.round(r.runs.distance_m / 100) / 10, paceSec: r.runs.avg_pace_s_per_km, minutes: Math.round(r.runs.moving_s / 60) } : {}) : null,
       postedAt: new Date(r.created_at).getTime(),
       expiresAt: new Date(r.expires_at).getTime(),
       seen: !!seenBy[r.id],
@@ -266,7 +288,8 @@ export const listStories = async (authorId) => {
 
 // Posts a photo story. audience: "followers" (default), "public" or "club".
 // Posting is for Pro and Black members; anyone can watch and react.
-export const postStory = async ({ uri, width, height, caption = "", audience = "followers", clubId = null }) => {
+// A run puts its stats on the photo; stickers: route, streak, battle, club.
+export const postStory = async ({ uri, width, height, caption = "", audience = "followers", clubId = null, runId = null, stickers = [] }) => {
   const me = await requireUid();
   const p = await run(supabase.from("profiles").select("tier").eq("id", me).single());
   if (p.tier === "free") {
@@ -276,7 +299,18 @@ export const postStory = async ({ uri, width, height, caption = "", audience = "
   }
   const key = await storyFiles.upload(await prepareStoryPhoto(uri, { width, height }));
   try {
-    await run(supabase.from("stories").insert({ author_id: me, media_path: key, caption: caption.trim() || null, audience: clubId ? "club" : audience, club_id: clubId }));
+    const club = audience === "club" || (clubId && audience !== "public" && audience !== "followers") ? clubId : null;
+    await run(
+      supabase.from("stories").insert({
+        author_id: me,
+        media_path: key,
+        caption: caption.trim() || null,
+        audience: club ? "club" : audience === "club" ? "followers" : audience,
+        club_id: club,
+        run_id: runId,
+        stickers: stickers.filter((x) => ["route", "streak", "battle", "club"].includes(x)),
+      }),
+    );
   } catch (e) {
     await storyFiles.discard(key).catch(() => {});
     throw e;
@@ -885,7 +919,7 @@ export const randomRival = async () => {
 
 // ── Crews (clubs) ─────────────────────────────────────────────────────────────
 
-const CLUB = "*, club_members(user_id, role)";
+const CLUB = "*, club_members(user_id, role, joined_at)";
 
 const crewViews = async (rows, me, detailed = false) => {
   const weekFrom = dayKey(startOfWeek());
@@ -919,9 +953,12 @@ const crewViews = async (rows, me, detailed = false) => {
       logo: publicUrl("club-media", c.logo_path),
       cover: publicUrl("club-media", c.cover_path),
       meets: c.usual_times || "",
-      privacy: "public",
+      privacy: c.join_policy === "request" ? "request" : "public",
+      joinPolicy: c.join_policy === "request" ? "request" : "open",
+      chatPolicy: "everyone",
+      requested: false,
       status: c.status,
-      weeklyGoalKm: 100,
+      weeklyGoalKm: c.weekly_goal_km || 100,
       weekKm,
       badgeTier: crewBadgeTier(weekKm),
       memberCount: c.member_count,
@@ -946,7 +983,7 @@ const crewViews = async (rows, me, detailed = false) => {
     };
     if (detailed) {
       view.members = members
-        .map((m) => ({ role: m.role === "captain" ? "owner" : m.role, player: byId[m.user_id], weekSteps: weekBy[m.user_id]?.steps || 0, isOutside: dots[m.user_id] === "out", dot: dots[m.user_id] || null }))
+        .map((m) => ({ role: m.role === "captain" ? "owner" : m.role, joinedAt: m.joined_at ? new Date(m.joined_at).getTime() : null, player: byId[m.user_id], weekSteps: weekBy[m.user_id]?.steps || 0, isOutside: dots[m.user_id] === "out", dot: dots[m.user_id] || null }))
         .filter((m) => m.player);
     }
     return view;
@@ -975,10 +1012,14 @@ export const getCrew = async (id) => {
   const c = await run(supabase.from("clubs").select(CLUB).eq("id", id).maybeSingle());
   if (!c) throw new EngineError("NOT_FOUND", "Crew not found.");
   const [view] = await crewViews([c], me, true);
-  if (view.myRole === "owner" || view.myRole === "admin") {
-    const invite = await run(supabase.from("club_invites").select("code").eq("club_id", id).limit(1).maybeSingle());
-    view.inviteCode = invite?.code || null;
-  }
+  const [code, channel, ask] = await Promise.all([
+    view.isMember ? rpc("crew_invite_code", { p_club: id }).catch(() => null) : null,
+    view.isMember ? run(supabase.from("club_channels").select("staff_only_post").eq("club_id", id).eq("name", "general").maybeSingle()) : null,
+    me && !view.isMember ? run(supabase.from("club_join_requests").select("id").eq("club_id", id).eq("user_id", me).eq("status", "pending").maybeSingle()) : null,
+  ]);
+  view.inviteCode = code ? String(code).toUpperCase() : null;
+  view.chatPolicy = channel?.staff_only_post ? "admins" : "everyone";
+  view.requested = !!ask;
   view.nextRun = (await listClubRuns(id))[0] || null;
   return view;
 };
@@ -1001,6 +1042,8 @@ export const createCrew = async ({ name, tagline = "", city }) => {
   return getCrew(c.id);
 };
 
+// Open crews let you straight in; crews that ask first get a request
+// (getCrew then shows requested: true).
 export const joinCrew = async (id) => {
   await rpc("join_club", { p_club: id });
   changed();
@@ -1023,7 +1066,26 @@ export const updateCrew = async (id, patch) => {
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.tagline !== undefined) row.tagline = patch.tagline;
   if (patch.accent !== undefined) row.accent = patch.accent;
+  // A new crest from the phone goes to the club's folder in club-media.
+  if (typeof patch.logo === "string" && !/^https?:/.test(patch.logo)) {
+    const blob = await (await fetch(await prepareStoryPhoto(patch.logo))).blob();
+    const path = `${id}/logo-${Date.now().toString(36)}.webp`;
+    const { error } = await supabase.storage.from("club-media").upload(path, blob, { contentType: "image/webp" });
+    if (error) throw new EngineError("UPLOAD", "The crest didn't upload. Try again.");
+    row.logo_path = path;
+  }
   if (Object.keys(row).length) await run(supabase.from("clubs").update(row).eq("id", id));
+  // The database knows open and ask first; invite only asks first too, and a
+  // crew code always lets people straight in.
+  const policy = patch.privacy === undefined ? null : patch.privacy === "public" ? "open" : "request";
+  if (policy || patch.weeklyGoalKm !== undefined || patch.chatPolicy !== undefined) {
+    await rpc("set_crew_settings", {
+      p_club: id,
+      p_join_policy: policy,
+      p_weekly_goal_km: patch.weeklyGoalKm ?? null,
+      p_chat_admins_only: patch.chatPolicy === undefined ? null : patch.chatPolicy === "admins",
+    });
+  }
   changed();
   return getCrew(id);
 };
@@ -1042,28 +1104,64 @@ export const setCrewRole = async (crewId, pid, role) => {
   changed();
 };
 
-export const getCrewLeaderboard = async (id) => {
-  const crew = await getCrew(id);
-  return [...(crew.members || [])].sort((a, b) => b.weekSteps - a.weekSteps).map((m, i) => ({ rank: i + 1, player: m.player, value: m.weekSteps }));
+export const getCrewLeaderboard = async (id, period = "week") => {
+  const race = await getCrewRace(id, period === "month" ? "month" : period === "all" ? "all" : "week");
+  return race.rows.map((r) => ({ rank: r.rank, player: r.player, steps: r.steps, km: r.km, isMe: r.isMe, role: "member" }));
 };
 
-export const getCrewMessages = async (id) => {
-  const me = await uid();
-  const channel = await run(supabase.from("club_channels").select("id").eq("club_id", id).eq("name", "general").maybeSingle());
-  if (!channel) return [];
-  const rows = await run(supabase.from("club_messages").select("*, profiles!club_messages_author_id_fkey(" + PERSON + ")").eq("channel_id", channel.id).order("created_at", { ascending: true }).limit(200));
-  return (rows || []).map((m) => ({ id: String(m.id), text: m.body, at: new Date(m.created_at).getTime(), author: playerView(m.profiles, me), isMe: m.author_id === me }));
-};
-
-export const sendCrewMessage = async (id, text) => {
-  const me = await requireUid();
-  const channel = await run(supabase.from("club_channels").select("id").eq("club_id", id).eq("name", "general").maybeSingle());
-  if (!channel) throw new EngineError("NOT_FOUND", "This crew has no chat yet.");
-  await run(supabase.from("club_messages").insert({ channel_id: channel.id, club_id: id, author_id: me, body: text.trim() }));
-  changed();
-};
-
-export const getCrewFeed = async () => [];
+// Feed, chat, the race, requests, reports and the club's stories row.
+export const {
+  getCrewHeader,
+  getCrewRace,
+  getCrewGoal,
+  getCrewDays,
+  listCrewChallenges,
+  joinCrewChallenge,
+  getCrewStats,
+  getCityBoard,
+  getCrewFeed,
+  postToCrew,
+  shareRunToCrew,
+  togglePostLike,
+  getPostComments,
+  commentOnPost,
+  deletePost,
+  getCrewMessages,
+  sendCrewMessage,
+  shareToCrewChat,
+  reactToMessage,
+  toggleChatRun,
+  getCrewUnread,
+  markCrewRead,
+  getCrewTyping,
+  listCrewsNear,
+  cancelJoinRequest,
+  listJoinRequests,
+  decideJoinRequest,
+  reportContent,
+  blockPlayer,
+  unblockPlayer,
+  listBlocked,
+  listCrewStories,
+  listClubStories,
+  cheerStory,
+  replyToStory,
+} = makeRemoteCrew({
+  supabase,
+  run,
+  rpc,
+  uid,
+  requireUid,
+  changed: () => changed(),
+  publicUrl,
+  playerView,
+  cityName,
+  EngineError,
+  dotsFor,
+  listClubRuns: (id) => listClubRuns(id),
+  prepareStoryPhoto,
+  storyFiles,
+});
 
 // ── Run clubs ─────────────────────────────────────────────────────────────────
 
@@ -1365,9 +1463,6 @@ export const cancelClubBattle = async (id) => {
   changed();
   return getClubBattle(id);
 };
-export const togglePostLike = async () => null;
-export const shareRunToCrew = async () => null;
-export const deletePost = async () => null;
 
 // ── Runs ──────────────────────────────────────────────────────────────────────
 
