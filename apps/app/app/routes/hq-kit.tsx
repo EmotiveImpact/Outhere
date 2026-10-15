@@ -162,7 +162,7 @@ export default function HqKit({ loaderData }: Route.ComponentProps) {
               <div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {club.verified && <span className="pill glass"><Tick /> Verified club</span>}
-                  <span className="pill glass">{club.borough}</span>
+                  <span className="pill glass">{club.borough || club.city}</span>
                 </div>
                 <h3>{club.nameTop}<br /><span>{club.nameBottom}</span></h3>
                 <p id="ktlv" style={{ fontSize: 13, color: "#dfe5ee", marginTop: 8, maxWidth: "40ch" }}>{tagline}</p>

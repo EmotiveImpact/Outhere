@@ -7,7 +7,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
  * The calendar as an iCalendar feed, so phones can subscribe to it and pick
- * up changes on their own. Times are London local time.
+ * up changes on their own. Times are UK local time (Europe/London).
  * Phones fetch this without cookies, so once real accounts are live the URL
  * needs a private per-person token (see the Supabase data source notes).
  */

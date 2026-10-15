@@ -768,7 +768,7 @@ span.cav{display:block;height:0}
 .cev .tag svg{width:12px;height:12px}
 .cev.s-mine{background:rgba(79,155,255,.16)}
 .cev.s-mine .tm,.cev.s-mine .tag{color:var(--blue-hi)}
-.cev.s-london{background:transparent;box-shadow:inset 0 0 0 1px var(--line-2)}
+.cev.s-city{background:transparent;box-shadow:inset 0 0 0 1px var(--line-2)}
 .cev.glob{background:linear-gradient(135deg,rgba(79,155,255,.30),rgba(79,155,255,.08));box-shadow:none}
 .cev.glob .tag,.cev.glob .tm{color:var(--blue-hi)}
 .cfree{font-size:12px;color:var(--ink-dim);padding:4px}
@@ -804,7 +804,7 @@ span.cav{display:block;height:0}
 .mev i{font:500 10px var(--mono);font-style:normal;color:var(--ink-muted);margin-right:5px}
 .mev.s-mine{background:rgba(79,155,255,.2);color:var(--ink)}
 .mev.s-mine i{color:var(--blue-hi)}
-.mev.s-london{background:transparent;box-shadow:inset 0 0 0 1px var(--line-2)}
+.mev.s-city{background:transparent;box-shadow:inset 0 0 0 1px var(--line-2)}
 .mev.glob{background:linear-gradient(135deg,rgba(79,155,255,.4),rgba(79,155,255,.12));box-shadow:none;color:var(--ink)}
 .mev.done{opacity:.8}
 .more{font-size:11px;color:var(--ink-muted);padding:0 6px}
@@ -1111,3 +1111,17 @@ em.ld.stop{background:var(--alert);box-shadow:0 0 10px rgba(255,77,85,.8)}
 .qrt svg.qr{width:100%;height:auto;display:block}
 @keyframes tilein{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
 .preview-note{font-size:11px;color:var(--ink-dim);text-align:center;margin-top:6px}
+/* city picker */
+.citysel{position:relative;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink);cursor:pointer;max-width:100%}
+.citysel:focus-within{border-color:var(--blue)}
+.citysel>svg{width:16px;height:16px;flex:none;color:var(--ink-muted);pointer-events:none}
+.citysel>svg:last-child{transform:rotate(90deg);width:14px;height:14px}
+.citysel select{appearance:none;-webkit-appearance:none;background:transparent;border:0;outline:none;font-size:14px;font-weight:500;padding:0 2px;cursor:pointer;min-width:0;text-overflow:ellipsis}
+.citysel select option,.citysel select optgroup{background:var(--surface);color:var(--ink)}
+.slab .citysel{background:rgba(10,14,22,.55);border-color:rgba(255,255,255,.18);backdrop-filter:blur(8px)}
+.arealist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.arealist button{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;text-align:left}
+.arealist button[aria-pressed=true]{background:rgba(79,155,255,.13);border-color:rgba(79,155,255,.5)}
+.arealist button b{font-weight:500}
+.arealist button span{color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.tag-region{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-muted);margin-left:8px;font-weight:500}

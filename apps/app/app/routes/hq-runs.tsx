@@ -94,15 +94,15 @@ export default function HqRuns({ loaderData }: Route.ComponentProps) {
   );
 }
 
-/** Today in London as YYYY-MM-DD, for the date picker's lower bound. */
-const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
+/** Today in the UK as YYYY-MM-DD, for the date picker's lower bound. */
+const ukToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
 
 function AddRun({ clubId, onDone }: { clubId: string; onDone: () => void }) {
   const toast = useToast();
   const { act, result, state } = useAct();
   const [kind, setKind] = useState<"run" | "walk">("run");
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(londonToday);
+  const [date, setDate] = useState(ukToday);
   const [time, setTime] = useState("19:00");
   const [place, setPlace] = useState("");
   const [detail, setDetail] = useState("");
@@ -137,7 +137,7 @@ function AddRun({ clubId, onDone }: { clubId: string; onDone: () => void }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div>
           <label className="pkl" htmlFor="ard">Day</label>
-          <input className="pkin" id="ard" type="date" required min={londonToday()} value={date} onChange={(e) => setDate(e.target.value)} />
+          <input className="pkin" id="ard" type="date" required min={ukToday()} value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div>
           <label className="pkl" htmlFor="art">Time</label>

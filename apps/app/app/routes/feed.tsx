@@ -61,9 +61,9 @@ export default function Feed({ loaderData }: Route.ComponentProps) {
         <div>
           <div className="kick">Feed</div>
           <h1 className="disp">What's <span className="b">moving</span></h1>
-          <p>Your clubs, your people and your borough. In order, no ads, and nobody can see where you live.</p>
+          <p>Your clubs, your people and your area. In order, no ads, and nobody can see where you live.</p>
         </div>
-        <Seg id="ff" options={[["all", "For you"], ["club", "Club"], ["follow", "Following"], ["borough", viewer.borough]] as const} value={scope} onChange={setScope} />
+        <Seg id="ff" options={[["all", "For you"], ["club", "Club"], ["follow", "Following"], ["borough", viewer.borough || "Near me"]] as const} value={scope} onChange={setScope} />
       </div>
       <div className="g g-73 feedg">
         <div className="fstream">

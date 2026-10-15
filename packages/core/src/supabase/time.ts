@@ -1,7 +1,7 @@
 /**
- * London time helpers. The database stores timestamptz and treats a "day" as
- * the Europe/London calendar day, so every label the UI shows is worked out
- * in London time, whatever the server's own zone is.
+ * UK time helpers. The whole of the UK keeps one clock (Europe/London), and
+ * the database treats a "day" as that calendar day, so every label the UI
+ * shows is worked out in UK time, whatever the server's own zone is.
  */
 
 const TZ = "Europe/London";
@@ -19,7 +19,7 @@ const fmt = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
-export interface LondonParts {
+export interface UkParts {
   /** YYYY-MM-DD */
   date: string;
   year: number;
@@ -32,7 +32,7 @@ export interface LondonParts {
   weekday: number;
 }
 
-export function london(at: Date | string): LondonParts {
+export function ukTime(at: Date | string): UkParts {
   const d = typeof at === "string" ? new Date(at) : at;
   const p: Record<string, string> = {};
   for (const part of fmt.formatToParts(d)) p[part.type] = part.value;
@@ -60,29 +60,29 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-/** The instant London's day starts, as an ISO string, for timestamptz filters. */
-export function londonMidnight(date: string): string {
+/** The instant the UK day starts, as an ISO string, for timestamptz filters. */
+export function ukMidnight(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   const guess = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-  const shown = london(new Date(guess));
-  // London is UTC or one hour ahead, so midnight there is at or before midnight UTC.
+  const shown = ukTime(new Date(guess));
+  // The UK is on UTC or one hour ahead, so midnight there is at or before midnight UTC.
   const ahead = shown.date === date ? Number(shown.hh) * 60 + Number(shown.mm) : 0;
   return new Date(guess - ahead * 60_000).toISOString();
 }
 
 export const hhmm = (iso: string): string => {
-  const p = london(iso);
+  const p = ukTime(iso);
   return `${p.hh}:${p.mm}`;
 };
 
 /** "TUE" for date boxes. */
-export const dayCaps = (iso: string): string => (SHORT_DAYS[london(iso).weekday] ?? "").toUpperCase();
+export const dayCaps = (iso: string): string => (SHORT_DAYS[ukTime(iso).weekday] ?? "").toUpperCase();
 
 export const shortDay = (date: string): string => SHORT_DAYS[weekdayOf(date)] ?? "";
 
 /** "Sun 26 Oct" */
 export function dateLabel(iso: string): string {
-  const p = london(iso);
+  const p = ukTime(iso);
   return `${SHORT_DAYS[p.weekday] ?? ""} ${p.day} ${(MONTHS[p.month - 1] ?? "").slice(0, 3)}`;
 }
 
@@ -97,8 +97,8 @@ export function ago(iso: string, now: Date): string {
 
 /** "Today 19:15", "Tomorrow 12:30", "Thursday 07:00" or "Sun 26 Oct 09:00". */
 export function whenLabel(iso: string, now: Date): string {
-  const t = london(iso).date;
-  const today = london(now).date;
+  const t = ukTime(iso).date;
+  const today = ukTime(now).date;
   const diff = Math.round((Date.parse(`${t}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000);
   const time = hhmm(iso);
   if (diff === 0) return `Today ${time}`;
@@ -109,17 +109,17 @@ export function whenLabel(iso: string, now: Date): string {
 
 /** Separator label in chat: "Today", "Yesterday", a weekday, or "12 Oct". */
 export function chatDay(iso: string, now: Date): string {
-  const t = london(iso).date;
-  const today = london(now).date;
+  const t = ukTime(iso).date;
+  const today = ukTime(now).date;
   if (t === today) return "Today";
   if (t === addDays(today, -1)) return "Yesterday";
   if (t > addDays(today, -7)) return WEEKDAYS[weekdayOf(t)] ?? t;
-  const p = london(iso);
+  const p = ukTime(iso);
   return `${p.day} ${(MONTHS[p.month - 1] ?? "").slice(0, 3)}`;
 }
 
 /** "Ends Friday 23:59" style countdown target. */
-export const endsLabel = (iso: string): string => `Ends ${WEEKDAYS[london(iso).weekday] ?? ""} ${hhmm(iso)}`;
+export const endsLabel = (iso: string): string => `Ends ${WEEKDAYS[ukTime(iso).weekday] ?? ""} ${hhmm(iso)}`;
 
 /** Seconds as "24:18" or "1:25:07". */
 export function duration(seconds: number): string {

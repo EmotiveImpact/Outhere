@@ -11,9 +11,10 @@ export const meta: Route.MetaFunction = () => [{ title: "Home · Outhere" }];
 
 export async function loader({ request }: Route.LoaderArgs) {
   const db = await getData(request);
-  const [home, steps, clubs, last] = await Promise.all([db.home(), db.boroughs("steps"), db.boroughs("clubs"), config().example ? db.lastReveal() : null]);
+  const [home, steps, clubs, last, viewer, cities] = await Promise.all([db.home(), db.boroughs("steps"), db.boroughs("clubs"), config().example ? db.lastReveal() : null, db.viewer(), db.cities()]);
+  const city = cities.find((c) => c.id === viewer.cityId);
   // The preview plays this week's derby as it stands. Example data adds last week's cards, as in the mockup.
-  return { home, maps: { steps, clubs }, previewCards: last?.cards ?? [] };
+  return { home, maps: { steps, clubs }, previewCards: last?.cards ?? [], myArea: viewer.borough, areaWord: city?.areaWord ?? "area", hasMap: !!city?.hasMap };
 }
 
 function Activity({ personId, html, ago }: { personId: string; html: string; ago: string }) {
@@ -27,7 +28,7 @@ function Activity({ personId, html, ago }: { personId: string; html: string; ago
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { home, maps, previewCards } = loaderData;
+  const { home, maps, previewCards, myArea, areaWord, hasMap } = loaderData;
   const { derby, callup, nextRun } = home;
   const toast = useToast();
   const { act } = useAct();
@@ -119,11 +120,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <div className="g g-73 mt">
         <div className="card">
           <div className="hd">
-            <div><span className="kick">Borough league</span><h3 style={{ marginTop: 8 }}>{home.boroughLine}</h3></div>
-            <Seg id="bm" options={[["steps", "Steps a day"], ["clubs", "Clubs"]] as const} value={metric} onChange={setMetric} />
+            <div><span className="kick">{areaWord === "borough" ? "Borough" : "Area"} league</span><h3 style={{ marginTop: 8 }}>{home.boroughLine}</h3></div>
+            {hasMap && <Seg id="bm" options={[["steps", "Steps a day"], ["clubs", "Clubs"]] as const} value={metric} onChange={setMetric} />}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 22, alignItems: "center" }} className="bwrap">
-            <BoroughMap stats={maps[metric]} metric={metric} home="Southwark" />
+          <div style={hasMap ? { display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 22, alignItems: "center" } : undefined} className="bwrap">
+            {hasMap && <BoroughMap stats={maps[metric]} metric={metric} home={myArea || undefined} />}
             <div>
               <table>
                 <tbody>
@@ -136,7 +137,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   ))}
                 </tbody>
               </table>
-              <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>Every walker counts for their borough, in a club or not.</p>
+              <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>Every walker counts for their {areaWord}, in a club or not.</p>
             </div>
           </div>
         </div>
