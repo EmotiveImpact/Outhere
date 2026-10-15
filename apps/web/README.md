@@ -57,4 +57,4 @@ app (or to `404.html` without one).
 - `src/content`: words and settings that change most (FAQ, feature table, reel cut list, prices, social links, app demo link)
 - `src/styles/site.css`: the prototype's stylesheet, kept as is, plus a small Radix block at the end
 - `public/img`: the Higgsfield photography and 3D objects from the prototype
-- The database side (waitlist, club claims and Black requests, reachable only through four functions) lives in `supabase/migrations/20261015100900_website.sql`. Places are UK-wide: a launch city (plus the borough in London) or a town and its region (`src/lib/places.ts`); the matching database change is proposed in `/mnt/project-files/outhere-website/build/uk-waitlist.sql` for the app's migrations, and until it lands a live build's sign-ups will fail, so keep the site in example mode
+- The database side (waitlist, club claims and Black requests, reachable only through four functions) lives in `supabase/migrations/20261015100900_website.sql`. Places are UK-wide: a launch city (plus the borough in London) or a town and its region (`src/lib/places.ts`), matching `supabase/migrations/20261015101400_website_uk.sql`
