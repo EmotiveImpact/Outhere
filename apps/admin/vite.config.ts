@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   // Share the member app's images (/img/...) and favicon instead of copying them.
-  publicDir: "../web/public",
+  publicDir: "../app/public",
   server: { port: 5174 },
   preview: { port: 5174 },
 });

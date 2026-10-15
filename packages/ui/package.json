@@ -7,10 +7,11 @@
     "./app.css": "./src/app.css"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@outhere/core": "*",
+    "@outhere/core": "workspace:*",
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {

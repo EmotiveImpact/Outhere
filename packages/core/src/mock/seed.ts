@@ -9,7 +9,7 @@ import type {
   VerificationRequest, Viewer, AuditEntry,
 } from "../types";
 
-const img = (name: string) => `/img/${name}.jpg`;
+const img = (name: string) => `/_app/img/${name}.jpg`;
 
 /** Crest drawn as an SVG data URL for clubs without a photographed crest. */
 export function crestSvg(text: string, hue: number): string {
@@ -323,8 +323,8 @@ export const SEED = "7f3a…c91e";
 
 /** Badges shown on profiles, newest first. */
 export const PROFILE_BADGES: { image: string; label: string }[] = [
-  { image: "/img/3d-laurel.jpg", label: "Founding" },
-  { image: "/img/3d-flame.jpg", label: "30 day" },
-  { image: "/img/3d-badge.jpg", label: "Club run" },
-  { image: "/img/3d-podium.jpg", label: "Derby win" },
+  { image: "/_app/img/3d-laurel.jpg", label: "Founding" },
+  { image: "/_app/img/3d-flame.jpg", label: "30 day" },
+  { image: "/_app/img/3d-badge.jpg", label: "Club run" },
+  { image: "/_app/img/3d-podium.jpg", label: "Derby win" },
 ];

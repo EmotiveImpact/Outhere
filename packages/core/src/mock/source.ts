@@ -288,9 +288,9 @@ export class MockData implements OuthereData {
       weekStart: seed.TODAY,
       events: seed.calendarEvents(),
       bigMoments: [
-        { image: "/img/event.jpg", date: "Sun 26 Oct", title: "London v Manchester reveal", line: "Shows in everyone's calendar" },
-        { image: "/img/bridge.jpg", date: "Sat 7 Nov", title: "Winter Night Run", line: "10k along the river · 3,000 places" },
-        { image: "/img/founding.jpg", date: "Thu 19 Nov", title: "Founding 500 night", line: "For the first 500 members" },
+        { image: "/_app/img/event.jpg", date: "Sun 26 Oct", title: "London v Manchester reveal", line: "Shows in everyone's calendar" },
+        { image: "/_app/img/bridge.jpg", date: "Sat 7 Nov", title: "Winter Night Run", line: "10k along the river · 3,000 places" },
+        { image: "/_app/img/founding.jpg", date: "Thu 19 Nov", title: "Founding 500 night", line: "For the first 500 members" },
       ],
       clubName: this.club(this.s.viewer.homeClubId).name,
     };
@@ -316,7 +316,7 @@ export class MockData implements OuthereData {
         { personId: "hannah", won: true, mode: "Hold the route", line: "held Rye Lane loop for 6 days" },
       ],
       surpriseChallengers: this.s.surprise,
-      rivalClub: { name: "Southbank Social", crest: "/img/tealclub.jpg" },
+      rivalClub: { name: "Southbank Social", crest: "/_app/img/tealclub.jpg" },
     };
   }
 
@@ -557,7 +557,7 @@ export class MockData implements OuthereData {
         { personId: "zain", role: "Run leader", group: "Steady group" },
         { personId: "hannah", role: "Back marker", group: "Easy group" },
       ],
-      gallery: ["clubrun", "clubhero2", "lbattle", "event", "lcrew"].map((p) => `/img/${p}.jpg`),
+      gallery: ["clubrun", "clubhero2", "lbattle", "event", "lcrew"].map((p) => `/_app/img/${p}.jpg`),
       locals: [
         { name: "Rye Lane Coffee", kind: "Café", perk: "Free filter coffee after every Saturday run." },
         { name: "Peckham Physio", kind: "Physio", perk: "15% off for members, and a free check after a race." },
@@ -696,7 +696,7 @@ export class MockData implements OuthereData {
   async kit(clubId: string): Promise<KitView> {
     return {
       club: clone(this.club(clubId)),
-      covers: ["clubhero", "derby", "clubrun", "lcrew"].map((p) => `/img/${p}.jpg`),
+      covers: ["clubhero", "derby", "clubrun", "lcrew"].map((p) => `/_app/img/${p}.jpg`),
       allTags: ["All paces", "Women-led", "Coffee after", "Beginners welcome", "Night runs", "Walkers welcome"],
       codes: [
         { code: "RYE-04", placed: "Poster, Rye Lane station", scans: 96, cameToRun: 31, joined: 21 },

@@ -116,6 +116,9 @@ export const RESERVED_SLUGS = new Set([
   "home", "feed", "battles", "pickups", "chat", "calendar", "league", "clubs", "me", "locals",
   "membership", "hq", "join", "admin", "api", "app", "login", "logout", "settings", "help",
   "about", "privacy", "terms", "search", "assets", "img", "signin", "signout", "auth", "act", "webhooks",
+  // The website (apps/web) owns these on weouthere.app and passes everything else to this app.
+  "crews", "black", "boroughs", "i", "404", "sitemap.xml", "robots.txt", "og.jpg", "favicon.svg", "site.webmanifest",
+  "apple-touch-icon.png", "icon-192.png", "icon-512.png", "_app",
 ]);
 
 export function slugify(input: string): string {

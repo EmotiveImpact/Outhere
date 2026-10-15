@@ -93,7 +93,7 @@ export function Seasons() {
           </div>
         </div>
         <div className="card" style={{ overflow: "hidden" }}>
-          <img className="obj" src="/img/3d-dial.jpg" alt="" style={{ width: 150, margin: "-6px auto 0", display: "block" }} />
+          <img className="obj" src="/_app/img/3d-dial.jpg" alt="" style={{ width: 150, margin: "-6px auto 0", display: "block" }} />
           <h3 style={{ textAlign: "center", marginTop: 4 }}>Sunday reveal</h3>
           <div className="disp tab" style={{ textAlign: "center", fontSize: 44, marginTop: 8 }}>
             <Countdown to={data.reveal.at} />

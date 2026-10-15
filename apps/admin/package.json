@@ -6,11 +6,12 @@
     "build": "tsc && vite build",
     "dev": "vite",
     "preview": "vite preview",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@outhere/core": "*",
-    "@outhere/ui": "*",
+    "@outhere/core": "workspace:*",
+    "@outhere/ui": "workspace:*",
     "@supabase/supabase-js": "^2.117.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

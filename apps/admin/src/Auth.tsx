@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Icon, Logo } from "@outhere/ui";
-import { resetData, supabase, WEB_URL } from "./data";
+import { resetData, supabase, APP_URL } from "./data";
 
 /*
  * Staff sign in for Outhere HQ. On example data there is nothing to sign in
@@ -140,7 +140,7 @@ function StaffSignIn({ error: urlError }: { error: string | null }) {
           </form>
         </>
       )}
-      <a className="muted" href={`${WEB_URL}/`} style={{ display: "inline-block", marginTop: 28, fontSize: 13 }}>
+      <a className="muted" href={`${APP_URL}/`} style={{ display: "inline-block", marginTop: 28, fontSize: 13 }}>
         Back to the app
       </a>
     </main>

@@ -1,20 +1,26 @@
 {
-  "name": "outhere-web",
+  "name": "outhere",
   "private": true,
-  "description": "Workspace for the Outhere web app, admin and shared packages. apps/mobile is a separate Expo project and is not part of this workspace.",
-  "workspaces": [
-    "packages/core",
-    "packages/ui",
-    "apps/web",
-    "apps/admin"
-  ],
+  "description": "Outhere monorepo: the website (apps/web), the member app (apps/app), Outhere HQ (apps/admin), the phone app (apps/mobile) and shared packages.",
+  "packageManager": "pnpm@10.28.0",
   "scripts": {
-    "dev:web": "npm run dev -w @outhere/web",
-    "dev:admin": "npm run dev -w @outhere/admin",
-    "build": "npm run build -w @outhere/web && npm run build -w @outhere/admin",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "dev": "turbo run dev",
+    "dev:app": "turbo run dev --filter=@outhere/app",
+    "dev:admin": "turbo run dev --filter=@outhere/admin",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "check": "turbo run typecheck test lint build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "turbo": "^2.11.8",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2"
   },
   "engines": {
     "node": ">=20.19"

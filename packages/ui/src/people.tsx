@@ -7,7 +7,7 @@ export function PeopleProvider({ people, children }: { people: Record<string, Pe
   return <PeopleContext.Provider value={people}>{children}</PeopleContext.Provider>;
 }
 
-const UNKNOWN: Person = { id: "unknown", name: "Someone", photo: "/img/lone.jpg", avatar: "/img/lone.jpg", tier: "free" };
+const UNKNOWN: Person = { id: "unknown", name: "Someone", photo: "/_app/img/lone.jpg", avatar: "/_app/img/lone.jpg", tier: "free" };
 
 export function usePerson(id: string | undefined): Person {
   const people = useContext(PeopleContext);

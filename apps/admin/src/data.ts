@@ -37,4 +37,4 @@ export function resetData(): void {
 }
 
 /** The member web app, for "Back to the app" and club page links. */
-export const WEB_URL = (import.meta.env.VITE_WEB_URL || "http://localhost:5173").replace(/\/$/, "");
+export const APP_URL = (import.meta.env.VITE_APP_URL || "http://localhost:5173").replace(/\/$/, "");

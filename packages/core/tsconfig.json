@@ -1,13 +1,7 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM"],
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true
   },
   "include": ["src", "test"]

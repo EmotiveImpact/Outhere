@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Club } from "@outhere/core";
 import { Icon, useToast } from "@outhere/ui";
-import { WEB_URL } from "../data";
+import { APP_URL } from "../data";
 import { useAct, useLoad } from "../load";
 import { signature } from "../util";
 
@@ -70,7 +70,7 @@ export function Verify() {
                   {c.borough} · organiser {q.organiser} · {c.members} people so far
                 </div>
               </div>
-              <a className="btn btn-q btn-s" href={`${WEB_URL}/${c.slug}`} target="_blank" rel="noreferrer">
+              <a className="btn btn-q btn-s" href={`${APP_URL}/${c.slug}`} target="_blank" rel="noreferrer">
                 <Icon name="eye" />
                 Page
               </a>

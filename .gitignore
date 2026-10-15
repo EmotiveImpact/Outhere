@@ -56,3 +56,6 @@ venv/
 
 # React Router
 .react-router/
+
+# Turborepo
+.turbo/

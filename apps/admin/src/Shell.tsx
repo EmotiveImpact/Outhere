@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { canSeeStaff, type IconName } from "@outhere/core";
 import { Icon, Logo, ToastProvider } from "@outhere/ui";
 import { DataProvider, useLoad } from "./load";
-import { usingSupabase, WEB_URL } from "./data";
+import { usingSupabase, APP_URL } from "./data";
 import { signOut } from "./Auth";
 import { pageTitle } from "./util";
 
@@ -80,7 +80,7 @@ function Frame() {
         </div>
         <div className="grow" />
         <nav className="nav" style={{ marginBottom: 10 }}>
-          <a href={`${WEB_URL}/`}>
+          <a href={`${APP_URL}/`}>
             <span style={{ display: "inline-flex", transform: "scaleX(-1)" }}>
               <Icon name="arrow" />
             </span>
@@ -99,7 +99,7 @@ function Frame() {
             </a>
           )}
         </nav>
-        <button className="me-btn" type="button" onClick={() => (window.location.href = `${WEB_URL}/me`)}>
+        <button className="me-btn" type="button" onClick={() => (window.location.href = `${APP_URL}/me`)}>
           <img src={viewer.avatar} alt="" />
           <span>
             <b>{viewer.name}</b>
@@ -152,7 +152,7 @@ function Locked() {
       <p className="muted" style={{ marginTop: 12 }}>
         Staff only. Every action here is logged.
       </p>
-      <a className="btn btn-p mt" href={`${WEB_URL}/`}>
+      <a className="btn btn-p mt" href={`${APP_URL}/`}>
         Back to the app
       </a>
       {usingSupabase && (
