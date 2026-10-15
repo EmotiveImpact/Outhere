@@ -157,6 +157,8 @@ export const useClubBattles = (clubId) => useQuery(q(["clubBattles", clubId], ()
 export const useClubBattle = (id) => useQuery(q(["clubBattle", id], () => engine.getClubBattle(id), { enabled: !!id }));
 export const useClubRoster = (clubId) => useQuery(q(["clubRoster", clubId], () => engine.getClubRoster(clubId), { enabled: !!clubId }));
 
+// Outside: cities, swipe, battle extras, drops, tickets and fair play
+export * from "./hooksOutside";
 // Profile, membership, wallet, friends, badges and emotes
 export * from "./hooksProfile";
 // Crew tab and stories

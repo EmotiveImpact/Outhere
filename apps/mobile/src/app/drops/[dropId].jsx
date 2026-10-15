@@ -1,230 +1,145 @@
-import React, { useEffect, useState } from "react";
-import { RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Bell, BellRing, Crown, Lock, PackageCheck } from "lucide-react-native";
-import { engine, useDrop, useEngineMutation } from "@/data/hooks";
-import { Body, Button, C, EmptyState, F, FadeIn, Header, ProgressBar, Row, S, Screen, Title } from "@/components/ui";
-import { DropPills, dropAccent, dropState, earlyHours, useDropBoundaries } from "@/components/happenings/DropCard";
-import { CountdownBoxes, HeroScreen, HeroSkeleton, priceLabel, useNow } from "@/components/happenings/shared";
-import { ReservedSheet, SizePicker } from "@/components/happenings/DropParts";
-import { detailStyles } from "@/components/happenings/DetailParts";
-import Celebration from "@/components/happenings/Celebration";
-import { dateLabel, formatNumber, timeLabel } from "@/utils/format";
+// One drop. The product is the hero; price in OUT, what you'll have left,
+// stock, sizes, then slide to claim so nobody buys by accident. Claiming goes
+// on to checkout for the address and the total.
 
-export default function DropDetailScreen() {
-  const router = useRouter();
+import React, { useEffect, useState } from "react";
+import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDropItem, useProfile } from "@/data/hooks";
+import { Body, Button, C, F, imageSource, Row, S, Skeleton, SlideToStart } from "@/components/ui";
+import { BottomBar, Coin, GlowHero, TopBar, Bar } from "@/components/arena/OutsideKit";
+import { SizeRow } from "@/components/happenings/ShopParts";
+import { splitTitle } from "@/components/happenings/EventsScreen";
+import { clock } from "@/components/happenings/DropsScreen";
+import { useNow } from "@/components/happenings/shared";
+import LegacyDropScreen from "@/components/happenings/LegacyDropScreen";
+import { formatNumber } from "@/utils/format";
+
+export default function DropScreen() {
   const { dropId } = useLocalSearchParams();
   const id = Array.isArray(dropId) ? dropId[0] : dropId;
-  const { data: drop, isPending, error, refetch, isRefetching } = useDrop(id);
+  const { data: drop, isPending, error } = useDropItem(id);
+  // Older reservable drops (priced in pounds) still open on their own screen.
+  if (error?.code === "NOT_FOUND") return <LegacyDropScreen />;
+  if (isPending || !drop) return <Loading />;
+  return <ShopDrop drop={drop} />;
+}
+
+function Loading() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Skeleton height={360 + insets.top} radius={30} />
+      <View style={{ padding: S.gutter, gap: S.md }}>
+        <Skeleton width={160} height={36} />
+        <Skeleton height={8} />
+        <Skeleton height={50} radius={14} />
+      </View>
+      <TopBar />
+    </View>
+  );
+}
+
+const KICKER = {
+  live: "Limited · first come, first served",
+  early: "Early access · members first",
+  upcoming: "Coming soon",
+  soldout: "Sold out",
+  ended: "This drop has ended",
+};
+
+function ShopDrop({ drop }) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const profile = useProfile().data;
   const now = useNow(1000);
   const [size, setSize] = useState(null);
-  const [sheet, setSheet] = useState(false);
-  const [party, setParty] = useState(0);
-
-  useDropBoundaries(drop ? [drop] : [], now, refetch);
 
   useEffect(() => {
-    if (drop?.sizes?.length === 1) setSize(drop.sizes[0]);
-  }, [drop?.sizes]);
+    if (size) return;
+    const open = (drop.sizes || []).filter((s) => !(drop.soldOutSizes || []).includes(s));
+    if (open.length === 1) setSize(open[0]);
+  }, [drop, size]);
 
-  const reserve = useEngineMutation(engine.reserveDrop, {
-    success: "Reserved. It's yours",
-    onSuccess: () => {
-      setParty(Date.now());
-      setTimeout(() => setSheet(true), 500);
-    },
-  });
-  const reminder = useEngineMutation(engine.toggleDropReminder, { success: (d) => (d?.reminder ? "Reminder on. We'll ping you" : "Reminder off") });
+  const [top, bottom] = splitTitle(drop.title);
+  const balance = profile?.out ?? 0;
+  const left = balance - drop.priceOut;
+  const needsSize = drop.sizes?.length > 0;
+  const share = () => Share.share({ message: `${drop.title} drops on Outhere for ${formatNumber(drop.priceOut)} OUT.` }).catch(() => {});
 
-  if (isPending) return <HeroSkeleton />;
-  if (error || !drop) {
-    return (
-      <Screen header={<Header back title="Drop" />}>
-        <EmptyState title="Drop not found" body="It may have been pulled." action="See all drops" onAction={() => router.replace("/outside/drops")} />
-      </Screen>
-    );
+  const goCheckout = () => router.push({ pathname: "/drops/checkout/[dropId]", params: { dropId: drop.id, size: size || "" } });
+
+  let action;
+  if (drop.claimed) {
+    action = <Button title="Track your order" size="lg" full onPress={() => router.push(`/orders/${drop.orderId}`)} />;
+  } else if (!drop.tierOk) {
+    action = <Button title="Black members only" size="lg" full variant="secondary" onPress={() => router.push("/membership")} />;
+  } else if (drop.status === "upcoming" || (drop.status === "early" && !drop.hasEarlyAccess)) {
+    action = <Button title={`Opens in ${clock(drop.opensAt, now)}`} size="lg" full variant="secondary" disabled />;
+  } else if (drop.status === "soldout" || drop.status === "ended") {
+    action = <Button title={drop.status === "ended" ? "Drop ended" : "Sold out"} size="lg" full variant="secondary" disabled />;
+  } else if (needsSize && !size) {
+    action = <Button title="Pick a size" size="lg" full variant="secondary" disabled />;
+  } else if (left < 0) {
+    action = <Button title={`${formatNumber(-left)} OUT short`} size="lg" full variant="secondary" onPress={() => router.push("/outside/challenges")} />;
+  } else {
+    action = <SlideToStart key={size || "one"} label="Slide to claim" done="Claiming" onComplete={goCheckout} />;
   }
 
-  const state = dropState(drop);
-  const lockedEarly = drop.status === "early" && !drop.hasEarlyAccess;
-  const onSale = drop.status === "live" || drop.status === "early";
-  const needsSize = drop.sizes.length > 1;
-  const hrs = earlyHours(drop);
-  const ReminderIcon = drop.reminder ? BellRing : Bell;
-  const left = drop.stock ? drop.remaining / drop.stock : 0;
-
-  const footer = (() => {
-    if (drop.reservation) {
-      return (
-        <Row gap={S.md}>
-          <View style={styles.tick}>
-            <PackageCheck size={18} color={C.text} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.barTitle}>{`Reserved, size ${drop.reservation.size}`}</Text>
-            <Text style={styles.barSub}>{`Ref ${drop.reservation.ref}`}</Text>
-          </View>
-          <Button size="sm" variant="secondary" title="Details" onPress={() => setSheet(true)} />
-        </Row>
-      );
-    }
-    if (drop.status === "soldout") return <Button full size="lg" variant="secondary" title="Sold out" disabled />;
-    const priceBlock = (
-      <View>
-        <Text style={styles.barPrice}>{priceLabel(drop.priceGbp)}</Text>
-        {!needsSize || size ? <Text style={styles.barSub}>{needsSize ? `Size ${size}` : drop.sizes[0]}</Text> : null}
-      </View>
-    );
-    if (lockedEarly) {
-      return (
-        <Row gap={S.md}>
-          {priceBlock}
-          <View style={{ flex: 1 }}>
-            <Button full size="lg" icon={Lock} title="Unlock early access" loading={reserve.isPending} onPress={() => reserve.mutate([drop.id, size || drop.sizes[0]])} />
-          </View>
-        </Row>
-      );
-    }
-    if (onSale) {
-      return (
-        <Row gap={S.md}>
-          {priceBlock}
-          <View style={{ flex: 1 }}>
-            <Button full size="lg" title={needsSize && !size ? "Pick a size" : "Reserve"} disabled={needsSize && !size} loading={reserve.isPending} onPress={() => reserve.mutate([drop.id, size])} />
-          </View>
-        </Row>
-      );
-    }
-    return (
-      <Row gap={S.md}>
-        {priceBlock}
-        <View style={{ flex: 1 }}>
-          <Button
-            full
-            size="lg"
-            variant={drop.reminder ? "secondary" : "primary"}
-            icon={ReminderIcon}
-            title={drop.reminder ? "Reminder on" : "Remind me"}
-            loading={reminder.isPending}
-            onPress={() => reminder.mutate(drop.id)}
-          />
-        </View>
-      </Row>
-    );
-  })();
-
-  const overlay = (
-    <>
-      <DropPills drop={drop} />
-      <Row style={{ alignItems: "flex-end", marginTop: S.md }} gap={S.md}>
-        <Title size={36} style={styles.heroTitle}>
-          {drop.title}
-        </Title>
-        <Text style={styles.heroPrice}>{priceLabel(drop.priceGbp)}</Text>
-      </Row>
-      <Body size={15} style={{ color: "#c8c8cc", marginTop: 6 }}>
-        {drop.subtitle}
-      </Body>
-    </>
-  );
-
   return (
-    <View style={{ flex: 1 }}>
-      <HeroScreen
-        source={drop.image}
-        seed={drop.id}
-        accent={dropAccent(drop)}
-        height={460}
-        overlay={overlay}
-        footer={footer}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} />}
-      >
-        {state.target ? (
-          <FadeIn>
-            <View style={detailStyles.card}>
-              <Text style={styles.cardTitle}>{state.sub}</Text>
-              <CountdownBoxes target={state.target} now={now} size="lg" style={{ marginVertical: S.md }} />
-              <Body dim size={13}>
-                {state.headline}
-              </Body>
-            </View>
-          </FadeIn>
-        ) : null}
-
-        {drop.status === "live" ? (
-          <FadeIn>
-            <View style={detailStyles.card}>
-              <Row style={{ justifyContent: "space-between" }}>
-                <Text style={styles.cardTitle}>Stock</Text>
-                {left < 0.2 ? <Text style={styles.small}>Going fast</Text> : null}
-              </Row>
-              <Row gap={6} style={{ alignItems: "flex-end", marginTop: S.md, marginBottom: S.md }}>
-                <Text style={styles.big}>{formatNumber(drop.remaining)}</Text>
-                <Text style={[styles.small, { marginBottom: 10 }]}>{`of ${formatNumber(drop.stock)} left`}</Text>
-              </Row>
-              <ProgressBar value={left} height={6} />
-            </View>
-          </FadeIn>
-        ) : null}
-
-        {!drop.reservation && drop.status !== "soldout" && needsSize ? (
-          <FadeIn index={1}>
-            <Text style={[styles.sectionTitle, { marginTop: 32, marginBottom: S.md }]}>Size</Text>
-            <SizePicker sizes={drop.sizes} value={size} onChange={setSize} />
-          </FadeIn>
-        ) : null}
-
-        <FadeIn index={2}>
-          <Text style={[styles.sectionTitle, { marginTop: 32, marginBottom: S.md }]}>The kit</Text>
-          <Body dim size={16} style={{ lineHeight: 25 }}>
-            {drop.description}
-          </Body>
-        </FadeIn>
-
-        {drop.status !== "soldout" ? (
-          <FadeIn index={3}>
-            <View style={[detailStyles.card, { marginTop: 32 }]}>
-              <Row gap={S.md} style={{ alignItems: "flex-start" }}>
-                <Crown size={18} color={C.pro} style={{ marginTop: 1 }} />
-                <View style={{ flex: 1 }}>
-                  <Title size={17}>{drop.hasEarlyAccess ? "You have early access" : "How early access works"}</Title>
-                  <Body dim size={13} style={{ marginTop: 4 }}>
-                    {`Pro and Black reserve ${hrs} hours before the public, from ${dateLabel(drop.earlyAccessAt)} at ${timeLabel(drop.earlyAccessAt)}. Everyone else gets in from ${dateLabel(drop.releaseAt)} at ${timeLabel(drop.releaseAt)}.`}
-                  </Body>
-                  {!drop.hasEarlyAccess ? (
-                    <Button variant="secondary" size="sm" title="See membership" onPress={() => router.push("/membership")} style={{ alignSelf: "flex-start", marginTop: S.md }} />
-                  ) : null}
-                </View>
-              </Row>
-            </View>
-          </FadeIn>
-        ) : null}
-
-        {lockedEarly ? (
-          <Row style={{ justifyContent: "space-between", marginTop: S.xl }} gap={S.md}>
-            <Body dim size={14} style={{ flex: 1 }}>
-              {drop.reminder ? "We'll ping you at public release" : "Get a ping at public release"}
-            </Body>
-            <Button size="sm" variant="secondary" icon={ReminderIcon} title={drop.reminder ? "On" : "Remind me"} loading={reminder.isPending} onPress={() => reminder.mutate(drop.id)} />
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
+        <GlowHero photo={imageSource(drop.image)} photoOpacity={0.6} height={330} kicker={KICKER[drop.status]} top={top} bottom={bottom} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.xl }}>
+          <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+            <Row gap={S.sm} style={{ alignItems: "flex-end" }}>
+              <Coin size={28} style={{ marginBottom: 6 }} />
+              <Text style={styles.price}>{formatNumber(drop.priceOut)}</Text>
+              <Text style={styles.unit}>OUT</Text>
+            </Row>
+            <Text style={[styles.left, left < 0 && { color: C.danger }]}>{left >= 0 ? `You'll have ${formatNumber(left)} left` : `You have ${formatNumber(balance)}`}</Text>
           </Row>
-        ) : null}
-      </HeroScreen>
-      <Celebration trigger={party} title="Reserved" subtitle={drop.reservation ? `Size ${drop.reservation.size}` : undefined} />
-      <ReservedSheet visible={sheet} onClose={() => setSheet(false)} drop={drop} />
+
+          <Row style={{ justifyContent: "space-between", marginTop: S.xl, marginBottom: S.sm }}>
+            <Text style={styles.label}>Stock</Text>
+            <Text style={styles.stock}>
+              {formatNumber(drop.remaining)} of {formatNumber(drop.total)} left
+            </Text>
+          </Row>
+          <Bar value={drop.total ? drop.remaining / drop.total : 0} />
+
+          {needsSize ? (
+            <View style={{ marginTop: S.xl }}>
+              <SizeRow sizes={drop.sizes} soldOut={drop.soldOutSizes} value={size} onChange={setSize} />
+              {drop.sizeNote ? <Text style={[styles.label, { marginTop: S.sm }]}>{drop.sizeNote}</Text> : null}
+            </View>
+          ) : null}
+
+          {drop.status === "upcoming" || drop.status === "early" ? (
+            <Text style={[styles.label, { marginTop: S.lg }]}>
+              {drop.hasEarlyAccess && drop.earlyAccessHours ? `Your early access opens ${drop.earlyAccessHours}h before everyone else.` : drop.earlyAccessHours ? `Pro and Black members get ${drop.earlyAccessHours}h early access.` : "Opens to everyone at once."}
+            </Text>
+          ) : null}
+
+          {drop.description ? (
+            <Body dim style={{ marginTop: S.xl, lineHeight: 22 }}>
+              {drop.description}
+            </Body>
+          ) : null}
+          <Text style={[styles.label, { marginTop: S.md }]}>{drop.deliveryOut ? `Delivery ${formatNumber(drop.deliveryOut)} OUT. Free with Black.` : "Free delivery with Black."}</Text>
+        </View>
+      </ScrollView>
+      <BottomBar>{action}</BottomBar>
+      <TopBar onShare={share} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  heroTitle: { flex: 1, lineHeight: 38, letterSpacing: -0.8 },
-  cardTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
-  heroPrice: { color: C.text, fontFamily: F.display, fontSize: 36, letterSpacing: -1 },
-  small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  big: { color: C.text, fontFamily: F.display, fontSize: 56, lineHeight: 60, letterSpacing: -1 },
-  sectionTitle: { color: C.text, fontFamily: F.display, fontSize: 20 },
-  tick: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  barTitle: { color: C.text, fontFamily: F.display, fontSize: 17 },
-  barSub: { color: C.textDim, fontSize: 12, marginTop: 1 },
-  barPrice: { color: C.text, fontFamily: F.display, fontSize: 26, letterSpacing: -0.5 },
+  price: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 42 },
+  unit: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 13, marginBottom: 6 },
+  left: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginBottom: 8 },
+  label: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
+  stock: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
 });
-

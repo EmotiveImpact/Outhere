@@ -14,6 +14,7 @@ import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { lowerWins, modeOf, standingTarget } from "@/constants/battleModes";
 import { CLUB_MODE, clubModeOf } from "@/constants/clubModes";
 import { meetsLabel } from "./clubs";
+import { makeRemoteOutside } from "./remoteOutside";
 import { makeRemoteProfile } from "./remoteProfile";
 import { makeRemoteCrew } from "./remoteCrew";
 import { makeRemoteAccount } from "./remoteAccount";
@@ -693,8 +694,13 @@ const battleViews = async (rows, me) => {
     ids.length ? run(supabase.from("profiles").select(PERSON).in("id", ids)) : [],
     routeIds.length ? run(supabase.from("runs").select("id, distance_m, title").in("id", routeIds)) : [],
     entryIds.length ? run(supabase.from("battle_entries").select("battle_id, user_id, result").in("battle_id", entryIds)) : [],
-    from ? run(supabase.from("daily_steps").select("user_id, day, steps, counted").in("user_id", ids).gte("day", from)) : [],
+    from ? run(supabase.from("daily_steps").select("user_id, day, steps, counted, distance_m, active_minutes").in("user_id", ids).gte("day", from)) : [],
   ]);
+  const boostRows = me && rows.length ? await run(supabase.from("battle_boosts").select("battle_id").eq("user_id", me).in("battle_id", rows.map((b) => b.id))) : [];
+  const boosted = new Set((boostRows || []).map((r) => r.battle_id));
+  // Most steps battles can be on distance (km here, metres in the database) or active minutes.
+  const metricOf = (b) => (b.mode === "most_steps" ? b.metric || "steps" : null);
+  const fromDb = (b, v) => (v != null && metricOf(b) === "distance" ? Math.round(v / 10) / 100 : v);
   const byId = Object.fromEntries((people || []).map((p) => [p.id, playerView(p, me)]));
   const routeOf = Object.fromEntries((routes || []).map((r) => [r.id, r]));
   const entry = (bid, pid) => (entries || []).find((e) => e.battle_id === bid && e.user_id === pid)?.result ?? null;
@@ -706,7 +712,12 @@ const battleViews = async (rows, me) => {
     if (!b.starts_at) return 0;
     const first = londonDay(new Date(b.starts_at).getTime());
     const last = londonDay(Math.min(Date.now(), new Date(b.ends_at).getTime()));
-    if (b.mode === "most_steps") return daysBetween(first, last).reduce((sum, k) => sum + (day(pid, k)?.counted || 0), 0);
+    if (b.mode === "most_steps") {
+      const keys = daysBetween(first, last);
+      if (metricOf(b) === "distance") return Math.round(keys.reduce((sum, k) => sum + (day(pid, k)?.distance_m || 0), 0) / 10) / 100;
+      if (metricOf(b) === "minutes") return keys.reduce((sum, k) => sum + (day(pid, k)?.active_minutes || 0), 0);
+      return keys.reduce((sum, k) => sum + (day(pid, k)?.counted || 0), 0);
+    }
     let n = 0;
     for (const k of daysBetween(first, londonDay(Date.now() - DAY_MS))) {
       if ((day(pid, k)?.steps || 0) < standingTarget(n)) break;
@@ -721,8 +732,8 @@ const battleViews = async (rows, me) => {
     const oppId = mineIsChallenger ? b.opponent_id : b.challenger_id;
     const status = STATUS[b.status] || b.status;
     const done = status === "complete";
-    const mine = done ? (mineIsChallenger ? b.challenger_result : b.opponent_result) : liveValue(b, me);
-    let theirs = done ? (mineIsChallenger ? b.opponent_result : b.challenger_result) : liveValue(b, oppId);
+    const mine = done ? fromDb(b, mineIsChallenger ? b.challenger_result : b.opponent_result) : liveValue(b, me);
+    let theirs = done ? fromDb(b, mineIsChallenger ? b.opponent_result : b.challenger_result) : liveValue(b, oppId);
     const sealed = b.mode === "blind_time_trial" && !done && !(mine != null && theirs != null);
     if (sealed) theirs = null;
     const endAt = b.ends_at ? new Date(b.ends_at).getTime() : null;
@@ -733,7 +744,7 @@ const battleViews = async (rows, me) => {
       id: b.id,
       mode: b.mode,
       modeName: def.name,
-      metric: b.mode === "most_steps" ? "steps" : def.unit,
+      metric: b.mode === "most_steps" ? metricOf(b) : def.unit,
       durationHours: b.duration_h,
       distanceM: b.mode === "hold_the_route" ? routeOf[b.route_run_id]?.distance_m || 2000 : b.distance_m,
       routeKm: b.mode === "hold_the_route" ? (routeOf[b.route_run_id]?.distance_m || 2000) / 1000 : null,
@@ -765,6 +776,9 @@ const battleViews = async (rows, me) => {
       winnerId: b.winner_id,
       forfeit: b.status === "forfeit",
       result: done ? (b.winner_id === me ? "won" : b.winner_id ? "lost" : "draw") : null,
+      boosted: boosted.has(b.id),
+      rematchOf: b.rematch_of || null,
+      completedAt: b.finished_at ? new Date(b.finished_at).getTime() : null,
     };
   });
 };
@@ -1763,6 +1777,17 @@ export const {
   signInWithProvider,
   getOutsideCount,
 } = account;
+
+// ── Outside: cities, swipe, battle extras, drops, tickets, fair play (see remoteOutside.js)
+
+export const {
+  listCities, listAreas, getPlaySide, getCityLeague, getCityFixture, getCallUp, respondCallUp, getRising, claimFoundingMedal,
+  getCityInvite, redeemCityInvite, getAreaTable, getClubWeekTable, getFriendsWeek, getSwipeDeck, swipeRival, listPicks,
+  challengePick, setShowOnSwipe, getMysterySettings, setMysterySettings, findMysteryChallenger, getMysteryOffer, answerMystery,
+  sendBattleEmote, listBattleEmotes, boostBattle, rematchBattle, getHeadToHead, getArenaNow, getSeasonResults,
+  claimSeasonRewards, listDropShop, getDropItem, getDeliveryAddress, claimDrop, listOrders, getOrder, getTicket,
+  getEventGoing, getRunReview, answerRunReview,
+} = makeRemoteOutside({ supabase, run, rpc, uid, requireUid, publicUrl, changed, getBattle, EngineError });
 
 // Keep queries fresh when the session or our rows change elsewhere.
 if (supabase) {

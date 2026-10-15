@@ -1,14 +1,14 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check } from "lucide-react-native";
-import { engine, useChallenges, useEngineMutation, useProfile, useStepHistory } from "@/data/hooks";
+import { engine, useBattles, useChallenges, useEngineMutation, useProfile, useStepHistory } from "@/data/hooks";
 import { PHOTOS } from "@/constants/photos";
-import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Header, Pill, ProgressBar, R, Row, S, Screen, SectionHeader, Skeleton, toast } from "@/components/ui";
+import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Pill, PressableScale, ProgressBar, R, Row, S, SectionHeader, Skeleton, TAB_BAR_SPACE, toast } from "@/components/ui";
 import { countdown, dateLabel, formatKm, formatNumber } from "@/utils/format";
 import { useNow } from "@/components/arena/shared";
+import { Bar, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 
 const PERIOD_LABEL = { day: "Today", week: "This week", weekend: "Weekend" };
 
@@ -24,7 +24,7 @@ const SECTIONS = [
 
 // The streak flame on top, every day of the month underneath (blue for a day
 // outside), then the challenges to chase.
-function StreakHero({ streak, days }) {
+function StreakHero({ streak, days, standalone }) {
   const now = new Date();
   const month = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -37,13 +37,8 @@ function StreakHero({ streak, days }) {
   const cells = [...Array(lead).fill(null), ...Array.from({ length: inMonth }, (_, i) => i + 1)];
   return (
     <View>
-      <View style={styles.slab}>
-        <Image source={PHOTOS.flame} style={styles.flame} contentFit="contain" />
-        <LinearGradient colors={["rgba(7,9,12,0)", "rgba(7,9,12,0.7)"]} start={{ x: 0.4, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
-        <Text style={styles.kicker}>Your streak</Text>
-        <Text style={styles.big}>{streak} {streak === 1 ? "day" : "days"}</Text>
-        <Text style={[styles.big, { color: C.accent }]}>outside</Text>
-      </View>
+      <GlowHero photo={PHOTOS.flame} photoOpacity={0.3} height={standalone ? 220 : 250} kicker="Your streak" top={`${streak} ${streak === 1 ? "day" : "days"}`} bottom="outside" />
+      <View style={{ paddingHorizontal: S.gutter }}>
       <Row style={{ justifyContent: "space-between", marginTop: S.xl, marginBottom: S.md }}>
         <Text style={styles.month}>{month}</Text>
         <Text style={styles.monthMeta}>
@@ -68,14 +63,53 @@ function StreakHero({ streak, days }) {
           );
         })}
       </View>
+      </View>
+    </View>
+  );
+}
+
+// Today: the day's challenges, your check-in and your live battle, ticked off
+// as you go. Every reward shown is one you actually get.
+function TodayCard({ list, profile, battles, onClaim }) {
+  const tasks = [];
+  if (profile) tasks.push({ key: "checkin", title: "Check in today", done: !!profile.checkedInToday, reward: "+XP" });
+  for (const c of list.filter((x) => x.period === "day")) {
+    tasks.push({ key: c.id, title: c.metric === "distance" ? formatKm(c.target) : `${formatNumber(c.target)} steps`, done: c.status === "complete" || c.status === "claimed", progress: c.percent, reward: `+${formatNumber(c.rewardXp)} XP`, claim: c.status === "complete" ? () => onClaim(c.id) : null });
+  }
+  const live = (battles || []).find((b) => b.status === "active" && b.phase === "live" && !b.timed);
+  if (live) {
+    const name = live.opponent.player?.name || "your rival";
+    tasks.push({ key: live.id, title: `Lead ${name} at the whistle`, done: live.leader === "me", reward: `+${15 + (live.stakeOut || 0) * 2} OUT` });
+  }
+  if (!tasks.length) return null;
+  const done = tasks.filter((t) => t.done).length;
+  return (
+    <View style={{ paddingHorizontal: S.gutter }}>
+      <SectionLabel right={`${done} of ${tasks.length} done`}>Today</SectionLabel>
+      <View style={styles.today}>
+        {tasks.map((t, i) => (
+          <PressableScale key={t.key} disabled={!t.claim} onPress={t.claim || undefined} scaleTo={0.98} style={[styles.task, i > 0 && styles.taskLine]}>
+            <View style={[styles.check, t.done && styles.checkOn]}>{t.done ? <Check size={14} color="#fff" strokeWidth={3} /> : null}</View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
+                {t.title}
+              </Text>
+              {!t.done && t.progress != null ? <Bar value={t.progress} style={{ marginTop: 6, width: "70%" }} /> : null}
+            </View>
+            <Text style={styles.taskReward}>{t.claim ? "Claim" : t.reward}</Text>
+          </PressableScale>
+        ))}
+      </View>
     </View>
   );
 }
 
 export default function ChallengesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const inOutside = usePathname()?.startsWith("/outside");
   const profile = useProfile().data;
+  const battles = useBattles().data;
   const month = useStepHistory(31).data;
   const now = useNow(30 * 1000);
   const { data, isPending, refetch, isRefetching } = useChallenges();
@@ -100,21 +134,27 @@ export default function ChallengesScreen() {
   let index = 0;
 
   return (
-    <Screen tab header={inOutside ? null : <Header back title="Challenges" />} onRefresh={refetch} refreshing={isRefetching} style={inOutside ? { paddingTop: 0 } : null}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <ScrollView
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + insets.bottom + 24 }}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
+    >
       {isPending ? (
-        <View style={{ gap: S.md }}>
+        <View style={{ gap: S.md, paddingHorizontal: S.gutter, paddingTop: insets.top + 70 }}>
           <Skeleton height={168} radius={20} />
           <Skeleton width={140} height={20} style={{ marginTop: S.lg }} />
           <Skeleton height={230} radius={20} />
           <Skeleton height={230} radius={20} />
         </View>
       ) : !list.length ? (
-        <EmptyState title="No challenges right now" body="New ones land every day and every week." action="Go to the Arena" onAction={() => router.push("/outside/arena")} />
+        <EmptyState style={{ paddingTop: insets.top + 90 }} title="No challenges right now" body="New ones land every day and every week." action="Go to the Arena" onAction={() => router.push("/outside/arena")} />
       ) : (
         <>
-          <FadeIn>
-            <StreakHero streak={profile?.streak || 0} days={month} />
-          </FadeIn>
+          <StreakHero streak={profile?.streak || 0} days={month} standalone={!inOutside} />
+          <TodayCard list={list} profile={profile} battles={battles} onClaim={(id) => claim.mutate(id)} />
+          <View style={{ paddingHorizontal: S.gutter }}>
           <FadeIn>
             <View style={[styles.hero, { marginTop: S.xxl }]}>
               <Row gap={8} style={{ alignItems: "flex-end" }}>
@@ -156,9 +196,12 @@ export default function ChallengesScreen() {
               </View>
             );
           })}
+          </View>
         </>
       )}
-    </Screen>
+    </ScrollView>
+    {!inOutside ? <TopBar /> : null}
+    </View>
   );
 }
 
@@ -229,10 +272,14 @@ function ChallengeCard({ challenge: c, now, primary, joining, claiming, onJoin, 
 
 const styles = StyleSheet.create({
   hero: { padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
-  slab: { height: 190, borderRadius: 26, overflow: "hidden", backgroundColor: "#0b0e13", padding: S.xl, justifyContent: "flex-end" },
-  flame: { position: "absolute", right: -20, top: -10, width: 210, height: 210 },
-  kicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 6 },
-  big: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 50, textTransform: "uppercase" },
+  today: { borderRadius: R.lg, backgroundColor: C.surface, paddingHorizontal: S.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)" },
+  task: { flexDirection: "row", alignItems: "center", gap: S.md, paddingVertical: 14 },
+  taskLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+  check: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" },
+  checkOn: { backgroundColor: C.accent, borderColor: C.accent },
+  taskTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  taskDone: { color: C.textDim, textDecorationLine: "line-through" },
+  taskReward: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 13 },
   month: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   monthMeta: { color: C.accent, fontFamily: F.body, fontSize: 12 },
   grid: { flexDirection: "row", flexWrap: "wrap" },

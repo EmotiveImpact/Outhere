@@ -443,7 +443,9 @@ begin
       left join borough_week_steps w on w.borough_id = b.id and w.week_start = wk
       where b.city_id = p_city
       group by b.id, b.name) x;
-    return jsonb_build_object('kind', 'boroughs', 'place', (select name from cities where id = p_city), 'rows', rows_);
+    -- London plays borough against borough; every other city plays by area.
+    return jsonb_build_object('kind', case when p_city = 'london' then 'boroughs' else 'areas' end,
+      'place', (select name from cities where id = p_city), 'rows', rows_);
   end if;
   select region into reg from cities where id = p_city;
   if (select count(*) from cities where region = reg) > 1 then

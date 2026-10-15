@@ -297,9 +297,11 @@ begin
   j := area_board('london');
   assert j->>'kind' = 'boroughs' and jsonb_array_length(j->'rows') = 33, 'London ranks its boroughs';
   j := area_board('manchester');
-  assert j->>'kind' = 'towns' and j->>'place' = 'North West', 'Manchester ranks the North West';
+  assert j->>'kind' = 'areas' and j->>'place' = 'Manchester' and jsonb_array_length(j->'rows') = 12, 'Manchester ranks its areas';
+  j := area_board('preston');
+  assert j->>'kind' = 'towns' and j->>'place' = 'North West', 'Preston ranks the North West';
   j := area_board('cardiff');
-  assert j->>'kind' = 'regions', 'a lone city ranks the regions';
+  assert j->>'kind' = 'towns' and j->>'place' = 'Wales', 'Cardiff ranks the towns of Wales';
 end $$;
 reset role;
 select pg_temp.act('00000000-0000-0000-0000-0000000000e4');
