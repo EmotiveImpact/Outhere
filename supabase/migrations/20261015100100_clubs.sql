@@ -89,7 +89,7 @@ create table public.club_bans (
 
 -- Invite codes back the QR join page and per-poster codes.
 create table public.club_invites (
-  code        text primary key default lower(substr(encode(gen_random_bytes(6), 'hex'), 1, 8)),
+  code        text primary key default lower(substr(encode(extensions.gen_random_bytes(6), 'hex'), 1, 8)),
   club_id     uuid not null references public.clubs(id) on delete cascade,
   label       text,                              -- 'Poster, Peckham Rye café'
   created_by  uuid not null references public.profiles(id),
@@ -135,7 +135,7 @@ create index events_club_time_idx on public.events(club_id, starts_at);
 -- before they arrive.
 create table public.event_codes (
   event_id    uuid primary key references public.events(id) on delete cascade,
-  code        text not null default lower(substr(encode(gen_random_bytes(4), 'hex'), 1, 6))
+  code        text not null default lower(substr(encode(extensions.gen_random_bytes(4), 'hex'), 1, 6))
 );
 
 create or replace function public.make_event_code()

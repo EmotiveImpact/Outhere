@@ -579,7 +579,7 @@ declare
   h league_entries;
   a league_entries;
   size_ int;
-  seed text := coalesce(p_seed, encode(gen_random_bytes(8), 'hex'));
+  seed text := coalesce(p_seed, encode(extensions.gen_random_bytes(8), 'hex'));
 begin
   select * into f from fixtures where id = p_fixture for update;
   select * into h from league_entries where id = f.home_id;

@@ -8,7 +8,10 @@
 --   * Times are timestamptz. A "day" is the Europe/London calendar day.
 --   * Money is integer pence. OUT and XP are integers.
 
-create extension if not exists pgcrypto;
+-- Supabase keeps extensions in their own schema, and our functions pin
+-- search_path to public, so pgcrypto calls are written extensions.<fn>.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
