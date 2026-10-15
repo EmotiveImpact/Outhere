@@ -1,6 +1,10 @@
-// OutHere design kit. Every screen builds from these so spacing, type and
-// colour stay consistent: near-black canvas, one neon green accent, Clash
-// Grotesk for headings and numbers, system font for body copy.
+// Outhere design kit, midnight finish. Every screen builds from these so
+// spacing, type and colour stay consistent: a near-black blue canvas, surfaces
+// lit from above, Barlow Condensed for headlines and numbers, Inter for copy.
+//
+// Colour rule: blue acts, red is stop. Blue fills forward actions and the
+// out now dot; red is only for End, Pause, Leave, the opponent in a 1v1 and
+// the just stopped dot. The ring round a photo only ever means membership.
 
 import React from "react";
 import {
@@ -15,57 +19,68 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { hapticSelection } from "@/services/haptics";
 import { AnimatedBar, PressableScale } from "./motion";
+import { Ring } from "./Ring";
+import { imageSource } from "./Cover";
+import { C, F, LIT, R, S } from "./tokens";
 
 export { PressableScale, FadeIn, Skeleton, SkeletonList, AnimatedNumber, AnimatedBar, LiveDot } from "./motion";
 export { Cover, imageSource, accentFor } from "./Cover";
 export { Sheet } from "./Sheet";
+export { Ring, Dot } from "./Ring";
+export { Hero } from "./Hero";
 export { toast, ToastHost, ModalToastHost } from "./Toast";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
-export const C = {
-  bg: "#0a0a0a",
-  surface: "#121214",
-  surfaceHigh: "#1a1a1d",
-  border: "#1f1f22",
-  borderStrong: "#34343a",
-  text: "#ffffff",
-  textDim: "#a1a1a6",
-  textMute: "#636366",
-  accent: "#00ff7f",
-  accentDim: "rgba(0,255,127,0.12)",
-  accentText: "#04140b",
-  danger: "#ff453a",
-  dangerDim: "rgba(255,69,58,0.12)",
-  warn: "#ffc107",
-  fire: "#ff6b35",
-  gold: "#ffd700",
-  pro: "#7cc4ff",
-  black: "#e5e4e2",
-};
-
-export const F = {
-  display: "ClashGrotesk-Medium",
-  displayMedium: "ClashGrotesk-Medium",
-};
-
-export const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, gutter: 20 };
-export const R = { sm: 10, md: 14, lg: 20, xl: 28, full: 999 };
+export { C, F, S, R, LIT } from "./tokens";
 
 // Room left at the bottom of tab screens so content clears the tab bar.
 export const TAB_BAR_SPACE = 110;
 
 export const tierColour = (tier) => (tier === "black" ? C.black : tier === "pro" ? C.pro : C.textDim);
 
+
+
 // ── Text ──────────────────────────────────────────────────────────────────────
 
-export const Title = ({ children, size = 28, style, ...rest }) => (
-  <Text style={[{ fontFamily: F.display, fontSize: size, color: C.text, letterSpacing: -0.3 }, style]} {...rest}>
-    {children}
-  </Text>
+/**
+ * Headlines. Big sizes use upright Barlow Condensed in capitals; small
+ * sizes (card titles) use Inter. `blue` is the second tone of a two-tone
+ * headline: <Title>8,412 steps</Title><Title blue>and counting</Title>.
+ */
+export const Title = ({ children, size = 28, blue = false, style, ...rest }) => {
+  const display = size >= 24;
+  return (
+    <Text
+      style={[
+        display
+          ? { fontFamily: F.display, fontSize: size * 1.12, lineHeight: size * 1.08, textTransform: "uppercase", letterSpacing: 0.2 }
+          : { fontFamily: F.bodySemi, fontSize: size, letterSpacing: -0.2 },
+        { color: blue ? C.accent : C.text },
+        style,
+      ]}
+      {...rest}
+    >
+      {children}
+    </Text>
+  );
+};
+
+/** Two-tone headline used once per screen: white line then blue line. */
+export const Headline = ({ top, bottom, size = 40, style }) => (
+  <View style={style}>
+    <Title size={size} numberOfLines={2} adjustsFontSizeToFit>{top}</Title>
+    {bottom ? <Title size={size} blue numberOfLines={2} adjustsFontSizeToFit>{bottom}</Title> : null}
+  </View>
+);
+
+/** Small tracked blue caption over a headline: "YOUR STREAK". */
+export const Kicker = ({ children, colour = C.accent, style }) => (
+  <Text style={[{ color: colour, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" }, style]}>{children}</Text>
 );
 
 export const Label = ({ children, style, ...rest }) => (
@@ -75,7 +90,7 @@ export const Label = ({ children, style, ...rest }) => (
 );
 
 export const Body = ({ children, dim, mute, size = 15, style, ...rest }) => (
-  <Text style={[{ fontSize: size, lineHeight: size * 1.4, color: mute ? C.textMute : dim ? C.textDim : C.text }, style]} {...rest}>
+  <Text style={[{ fontFamily: F.body, fontSize: size, lineHeight: size * 1.4, color: mute ? C.textMute : dim ? C.textDim : C.text }, style]} {...rest}>
     {children}
   </Text>
 );
@@ -158,11 +173,17 @@ export const Spacer = ({ h = S.lg }) => <View style={{ height: h }} />;
 // ── Surfaces ──────────────────────────────────────────────────────────────────
 
 export function Card({ children, onPress, highlight = false, padding = S.lg, style }) {
-  const base = [styles.card, { padding }, highlight && styles.cardHighlight, style];
-  if (!onPress) return <View style={base}>{children}</View>;
+  const base = [styles.card, highlight && styles.cardHighlight, style];
+  const inner = (
+    <>
+      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
+      <View style={{ padding }}>{children}</View>
+    </>
+  );
+  if (!onPress) return <View style={base}>{inner}</View>;
   return (
     <PressableScale onPress={onPress} scaleTo={0.98} style={base}>
-      {children}
+      {inner}
     </PressableScale>
   );
 }
@@ -172,7 +193,7 @@ export const SectionHeader = ({ title, action, onAction, style }) => (
     <Title size={20}>{title}</Title>
     {action ? (
       <Pressable onPress={onAction} hitSlop={8}>
-        <Text style={{ color: C.textDim, fontSize: 14, fontWeight: "600" }}>{action}</Text>
+        <Text style={{ color: C.accent, fontSize: 13, fontFamily: F.bodyMedium }}>{action}</Text>
       </Pressable>
     ) : null}
   </Row>
@@ -183,36 +204,51 @@ export const Divider = ({ style }) => <View style={[{ height: StyleSheet.hairlin
 // ── Controls ──────────────────────────────────────────────────────────────────
 
 const BUTTON_VARIANTS = {
-  primary: { bg: C.accent, fg: C.accentText, border: C.accent },
-  secondary: { bg: C.surfaceHigh, fg: C.text, border: "transparent" },
-  ghost: { bg: "transparent", fg: C.text, border: "transparent" },
-  outline: { bg: "transparent", fg: C.accent, border: C.accent },
-  danger: { bg: C.dangerDim, fg: C.danger, border: "rgba(255,69,58,0.4)" },
+  primary: { bg: C.accent, fg: C.accentText, gradient: [C.accent, C.accentDeep] },
+  secondary: { bg: C.surfaceHigh, fg: C.text },
+  ghost: { bg: "transparent", fg: C.text },
+  outline: { bg: C.accentDim, fg: C.accentHi },
+  danger: { bg: C.danger, fg: "#ffffff", gradient: ["#ff5c63", "#e0343d"] },
 };
 
-export function Button({ title, onPress, variant = "primary", size = "md", icon: Icon, iconRight: IconRight, loading = false, disabled = false, full = false, style }) {
+/** Borderless pill buttons. Primary is the blue gradient with a soft glow. */
+export function Button({ title, onPress, variant = "primary", size = "md", icon: Icon, iconRight: IconRight, loading = false, disabled = false, full = false, accessibilityLabel, style }) {
   const v = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary;
-  const height = size === "sm" ? 36 : size === "lg" ? 56 : 48;
+  const height = size === "sm" ? 36 : size === "lg" ? 58 : 48;
   const off = disabled || loading;
+  const big = size === "lg";
   return (
     <PressableScale
       disabled={off}
       onPress={onPress}
       scaleTo={0.96}
+      accessibilityLabel={accessibilityLabel || title}
       style={[
         styles.button,
-        { height, backgroundColor: v.bg, borderColor: v.border, paddingHorizontal: size === "sm" ? 14 : 20 },
+        { height, backgroundColor: v.gradient ? "transparent" : v.bg, paddingHorizontal: size === "sm" ? 14 : 22 },
+        v.gradient && !off && { shadowColor: v.bg, shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
         full && { alignSelf: "stretch" },
         off && { opacity: 0.45 },
         style,
       ]}
     >
+      {v.gradient ? (
+        <LinearGradient colors={v.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
+      ) : null}
       {loading ? (
         <ActivityIndicator color={v.fg} />
       ) : (
         <>
           {Icon ? <Icon size={size === "sm" ? 15 : 18} color={v.fg} /> : null}
-          <Text style={{ color: v.fg, fontFamily: F.displayMedium, fontSize: size === "sm" ? 14 : 16, letterSpacing: 0.2 }}>{title}</Text>
+          <Text
+            style={
+              big
+                ? { color: v.fg, fontFamily: F.display, fontSize: 20, letterSpacing: 1.6, textTransform: "uppercase" }
+                : { color: v.fg, fontFamily: F.bodySemi, fontSize: size === "sm" ? 13 : 15 }
+            }
+          >
+            {title}
+          </Text>
           {IconRight ? <IconRight size={size === "sm" ? 15 : 18} color={v.fg} /> : null}
         </>
       )}
@@ -252,10 +288,10 @@ export function Pill({ label, tone = "neutral", icon: Icon, style }) {
     accent: [C.accentDim, C.accent],
     neutral: [C.surfaceHigh, C.textDim],
     danger: [C.dangerDim, C.danger],
-    warn: ["rgba(255,193,7,0.14)", C.warn],
-    pro: ["rgba(124,196,255,0.14)", C.pro],
-    black: ["rgba(229,228,226,0.12)", C.black],
-    fire: ["rgba(255,107,53,0.15)", C.fire],
+    warn: ["rgba(255,181,71,0.14)", C.warn],
+    pro: ["rgba(61,139,255,0.16)", C.accentHi],
+    black: ["rgba(154,163,174,0.16)", "#d9dee5"],
+    fire: ["rgba(255,122,61,0.15)", C.fire],
   };
   const [bg, fg] = tones[tone] || tones.neutral;
   return (
@@ -271,79 +307,35 @@ export const TierBadge = ({ tier, style }) =>
 
 // ── Data display ──────────────────────────────────────────────────────────────
 
-const AVATAR_COLOURS = ["#FF6B35", "#3DA9FC", "#9B5CFF", "#00d4aa", "#FFD700", "#FF6FB5", "#7CFC00"];
-const colourFromName = (name) => {
-  let h = 0;
-  for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return AVATAR_COLOURS[h % AVATAR_COLOURS.length];
-};
-
 /**
- * Round avatar. Coloured initials always sit underneath, so a slow or failed
- * photo still shows something personal.
+ * A person's photo. The ring shows their membership (pass `tier`), the dot at
+ * the bottom right shows they are out now (`dot="out"`, blue) or have just
+ * stopped (`dot="stopped"`, red). `story` adds the soft glow of an unwatched
+ * story. Clubs pass `square`. Old callers may still pass `outside` (blue dot).
  */
-export function Avatar({ uri, name = "", size = 44, ring, colour, outside = false, style }) {
-  const [failed, setFailed] = React.useState(false);
-  const [loaded, setLoaded] = React.useState(false);
-  const initials = name
-    .split(/[\s._]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-  const tint = colour || colourFromName(name || "?");
+export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story = false, square = false, ring, style }) {
   return (
-    <View style={[{ width: size, height: size }, style]}>
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          overflow: "hidden",
-          backgroundColor: `${tint}26`,
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: ring ? 2 : 0,
-          borderColor: ring || "transparent",
-        }}
-      >
-        <Text style={{ color: tint, fontFamily: F.display, fontSize: size * 0.38 }}>{initials || "?"}</Text>
-        {uri && !failed ? (
-          <Image
-            source={{ uri }}
-            style={[StyleSheet.absoluteFill, { opacity: loaded ? 1 : 0 }]}
-            contentFit="cover"
-            transition={200}
-            onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
-          />
-        ) : null}
-      </View>
-      {outside ? (
-        <View
-          style={{
-            position: "absolute",
-            right: 0,
-            bottom: 0,
-            width: Math.max(10, size * 0.26),
-            height: Math.max(10, size * 0.26),
-            borderRadius: 99,
-            backgroundColor: C.accent,
-            borderWidth: 2,
-            borderColor: C.bg,
-          }}
-        />
-      ) : null}
-    </View>
+    <Ring
+      size={size}
+      tier={tier}
+      dot={dot || (outside ? "out" : null)}
+      story={story}
+      square={square}
+      ringColour={ring}
+      source={source ?? imageSource(uri)}
+      name={name}
+      style={style}
+    />
   );
 }
 
 export const StatTile = ({ label, value, hint, accent = false, style }) => (
   <View style={[styles.statTile, style]}>
-    <Label>{label}</Label>
+    <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.md }]} />
     <Text style={[styles.statValue, accent && { color: C.accent }]} numberOfLines={1} adjustsFontSizeToFit>
       {value}
     </Text>
+    <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
     {hint ? <Body mute size={12}>{hint}</Body> : null}
   </View>
 );
@@ -358,11 +350,11 @@ export function ListRow({ leading, title, subtitle, trailing, onPress, chevron =
     <Row gap={S.md} style={[{ paddingVertical: S.md }, style]}>
       {leading}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: C.text, fontSize: 15, fontWeight: "600" }} numberOfLines={1}>
+        <Text style={{ color: C.text, fontSize: 15, fontFamily: F.bodySemi }} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={{ color: C.textDim, fontSize: 13, marginTop: 2 }} numberOfLines={2}>
+          <Text style={{ color: C.textDim, fontSize: 13, marginTop: 2, fontFamily: F.body }} numberOfLines={2}>
             {subtitle}
           </Text>
         ) : null}
@@ -403,22 +395,34 @@ export function EmptyState({ icon: Icon, title, body, action, onAction, style })
 }
 
 const styles = StyleSheet.create({
-  label: { color: C.textMute, fontSize: 11, fontWeight: "600", letterSpacing: 1.1, textTransform: "uppercase" },
+  label: { color: C.textDim, fontSize: 11, fontFamily: F.bodySemi, letterSpacing: 1.4, textTransform: "uppercase" },
   header: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.md },
   headerRight: { flexDirection: "row", alignItems: "center", gap: S.sm },
-  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
-  badgeDot: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
-  badgeDotText: { color: C.accentText, fontSize: 10, fontWeight: "600" },
-  card: { backgroundColor: C.surface, borderRadius: R.lg },
-  cardHighlight: { borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", backgroundColor: "#161618" },
-  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: S.sm, borderRadius: R.full, borderWidth: 1 },
+  iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(27,31,38,0.85)", alignItems: "center", justifyContent: "center", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  badgeDot: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
+  badgeDotText: { color: C.accentText, fontSize: 10, fontFamily: F.bodySemi },
+  card: {
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.04)",
+    borderTopColor: C.hairlineTop,
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 4,
+  },
+  cardHighlight: { borderColor: "rgba(61,139,255,0.35)" },
+  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: S.sm, borderRadius: R.full, overflow: "visible" },
   segment: { flexDirection: "row", backgroundColor: C.surface, borderRadius: R.full, padding: 4 },
   segmentItem: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-  segmentItemActive: { backgroundColor: C.text },
-  segmentText: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  segmentTextActive: { color: C.bg },
+  segmentItemActive: { backgroundColor: C.accent },
+  segmentText: { color: C.textDim, fontSize: 13, fontFamily: F.bodySemi },
+  segmentTextActive: { color: C.accentText },
   pill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, height: 22, borderRadius: R.full, alignSelf: "flex-start" },
-  pillText: { fontSize: 11, fontWeight: "600", letterSpacing: 0.4 },
-  statTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, padding: S.md, gap: 4 },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 24 },
+  pillText: { fontSize: 11, fontFamily: F.bodySemi, letterSpacing: 0.6 },
+  statTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, padding: S.md, gap: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  statValue: { color: C.text, fontFamily: F.display, fontSize: 28 },
+  statLabel: { color: C.textDim, fontSize: 12, fontFamily: F.body },
 });

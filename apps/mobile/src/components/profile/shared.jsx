@@ -19,9 +19,9 @@ export const PRESET_AVATARS = [
 ];
 
 // Colours for the initials avatar, with a name for screen readers.
-export const AVATAR_COLOURS = ["#00ff7f", "#3DA9FC", "#9B5CFF", "#FF6B35", "#ffd700", "#ff4f8b", "#00d4aa", "#e5e4e2"];
+export const AVATAR_COLOURS = ["#3d8bff", "#3DA9FC", "#9B5CFF", "#FF6B35", "#ffd700", "#ff4f8b", "#00d4aa", "#e5e4e2"];
 export const COLOUR_NAMES = {
-  "#00ff7f": "Neon",
+  "#3d8bff": "Blue",
   "#3DA9FC": "Sky",
   "#9B5CFF": "Violet",
   "#FF6B35": "Ember",

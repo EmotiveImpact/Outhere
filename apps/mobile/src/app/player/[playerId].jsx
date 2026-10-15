@@ -35,7 +35,7 @@ function PlayerProfile({ id }) {
   if (error || !player) {
     return (
       <Screen header={<Header back />}>
-        <EmptyState title="Player not found" body="They may have left OutHere." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
+        <EmptyState title="Player not found" body="They may have left Outhere." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
       </Screen>
     );
   }

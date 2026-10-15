@@ -10,7 +10,7 @@ import { AvatarStack, InfoRow, detailStyles, useAttendees } from "@/components/h
 import Celebration from "@/components/happenings/Celebration";
 import { countdown, formatNumber, tierLabel, timeLabel } from "@/utils/format";
 
-const HOSTS = { outhere: "Official OutHere event", crew: "Crew-run event", partner: "Partner event" };
+const HOSTS = { outhere: "Official Outhere event", crew: "Crew-run event", partner: "Partner event" };
 
 function ActionBar({ event, rsvp, checkIn }) {
   const locked = !event.canAttend;

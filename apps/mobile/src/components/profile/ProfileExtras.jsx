@@ -62,7 +62,7 @@ export function MembershipCard({ tier, blackEligible, onPress }) {
         {edge ? <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: edge }} /> : null}
         <Row gap={S.md}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18 }}>OutHere {tierLabel(tier)}</Text>
+            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18 }}>Outhere {tierLabel(tier)}</Text>
             <Body dim size={13} style={{ marginTop: 2 }}>
               {line}
             </Body>

@@ -35,7 +35,7 @@ toast.success = (title, body) => show("success", title, body);
 toast.error = (title, body) => show("error", title, body);
 
 const TONES = {
-  success: { icon: Check, fg: "#ffffff", bg: "#1c1c1f", iconColour: "#00ff7f" },
+  success: { icon: Check, fg: "#ffffff", bg: "#1b1f26", iconColour: "#4f9bff" },
   info: { icon: Info, fg: "#ffffff", bg: "#1c1c1f" },
   error: { icon: TriangleAlert, fg: "#ffffff", bg: "#3a1513" },
 };

@@ -11,7 +11,7 @@ const GOALS = [50, 100, 150, 250, 400];
 
 export const shareInvite = (crew) =>
   Share.share({
-    message: `Join ${crew.name} on OutHere. Open the Crew tab and drop in the code ${crew.inviteCode}.`,
+    message: `Join ${crew.name} on Outhere. Open the Crew tab and drop in the code ${crew.inviteCode}.`,
   }).catch(() => {});
 
 /**

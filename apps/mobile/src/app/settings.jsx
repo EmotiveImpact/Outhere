@@ -54,7 +54,7 @@ export default function SettingsScreen() {
   const resetEverything = (title) =>
     Alert.alert(
       title,
-      "Your OutHere data lives only on this phone for now. This wipes your profile, steps, streak, XP and OUT for good.",
+      "Your Outhere data lives only on this phone for now. This wipes your profile, steps, streak, XP and OUT for good.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
         <SettingRow title="Log out" danger onPress={() => resetEverything("Log out?")} />
       </Group>
 
-      <Text style={styles.version}>OutHere build 0.1</Text>
+      <Text style={styles.version}>Outhere build 0.1</Text>
     </Screen>
   );
 }

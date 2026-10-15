@@ -13,6 +13,7 @@ const { AnimatedNumber, C, F, LiveDot, PressableScale, R, S } = UI as any;
 
 const SUB_TABS = [
   { key: "arena", label: "Arena", href: "/outside/arena" },
+  { key: "challenges", label: "Challenges", href: "/outside/challenges" },
   { key: "events", label: "Events", href: "/outside/events" },
   { key: "drops", label: "Drops", href: "/outside/drops" },
   { key: "news", label: "News", href: "/outside/news" },
@@ -103,6 +104,7 @@ export default function OutsideLayout() {
         </View>
 
         <View style={styles.tabs}>
+          {measured ? <Animated.View style={[styles.underline, { left: underlineX, width: underlineW }]} pointerEvents="none" /> : null}
           {SUB_TABS.map((tab, index) => {
             const active = tab.key === activeTab;
             return (
@@ -119,7 +121,6 @@ export default function OutsideLayout() {
               </Pressable>
             );
           })}
-          {measured ? <Animated.View style={[styles.underline, { left: underlineX, width: underlineW }]} /> : null}
         </View>
       </View>
 
@@ -135,21 +136,26 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: S.gutter, backgroundColor: C.bg },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: S.lg },
   eyebrow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 4 },
-  eyebrowText: { color: C.textDim, fontSize: 13 },
-  title: { color: C.text, fontFamily: F.display, fontSize: 34, letterSpacing: -1, lineHeight: 40 },
+  eyebrowText: { color: C.textDim, fontSize: 13, fontFamily: F.body },
+  title: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 42, textTransform: "uppercase" },
   balances: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
   balance: { flexDirection: "row", alignItems: "center", gap: 5, height: 32, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: C.surface },
-  balanceText: { color: C.text, fontFamily: F.display, fontSize: 14, letterSpacing: -0.2 },
-  balanceUnit: { color: C.textMute, fontSize: 11, fontWeight: "600" },
-  tabs: { flexDirection: "row", gap: S.xl + 2, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.border },
-  tab: { paddingBottom: S.md, paddingTop: 4, paddingHorizontal: 2, minHeight: 36, justifyContent: "flex-end" },
-  tabText: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 16, letterSpacing: 0.1 },
-  tabTextActive: { color: C.text },
+  balanceText: { color: C.text, fontFamily: F.display, fontSize: 16 },
+  balanceUnit: { color: C.textDim, fontSize: 11, fontFamily: F.bodySemi },
+  // Pill row: the active section sits in a blue pill that springs across.
+  tabs: { flexDirection: "row", justifyContent: "space-between", backgroundColor: C.surface, borderRadius: R.full, padding: 4, marginBottom: S.md },
+  tab: { height: 34, paddingHorizontal: 9, justifyContent: "center", zIndex: 1 },
+  tabText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 13 },
+  tabTextActive: { color: C.accentText },
   underline: {
     position: "absolute",
-    bottom: -1,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: C.text,
+    top: 4,
+    height: 34,
+    borderRadius: R.full,
+    backgroundColor: C.accent,
+    shadowColor: C.accent,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

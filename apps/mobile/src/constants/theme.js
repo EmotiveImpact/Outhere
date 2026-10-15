@@ -1,19 +1,19 @@
 import { Platform } from "react-native";
 
 // ── OUT HERE Theme ─────────────────────────────────────────────────────────────
-// Single dark theme with neon green accent, matching the premium design language.
+// Legacy theme for the few screens not yet on components/ui. Midnight colours.
 
 export const COLORS = {
   // Primary palette
-  background: "#0a0a0a",
-  backgroundSecondary: "#161618",
-  backgroundTertiary: "#1a1a1a",
+  background: "#07090c",
+  backgroundSecondary: "#12151a",
+  backgroundTertiary: "#1b1f26",
 
   // Accent colors
-  primary: "#00ff7f",
-  primaryLight: "#33ff99",
-  primaryDark: "#00cc66",
-  ghost: "rgba(0, 255, 127, 0.1)",
+  primary: "#3d8bff",
+  primaryLight: "#82b4ff",
+  primaryDark: "#2a6af0",
+  ghost: "rgba(61, 139, 255, 0.12)",
 
   // Text colors
   textPrimary: "#ffffff",
@@ -21,9 +21,9 @@ export const COLORS = {
   textMuted: "#666666",
 
   // Status colors
-  success: "#00ff7f",
+  success: "#4f9bff",
   warning: "#FFC107",
-  error: "#FF453A",
+  error: "#ff4d55",
 
   // Streak colors
   streakFire: "#FF6B35",
@@ -31,12 +31,12 @@ export const COLORS = {
   streakPlatinum: "#E5E4E2",
 
   // Borders
-  border: "#2a2a2a",
-  borderLight: "#333333",
+  border: "#222731",
+  borderLight: "#323846",
 
   // Cards
-  cardBackground: "#161618",
-  cardBackgroundElevated: "#1a1a1a",
+  cardBackground: "#12151a",
+  cardBackgroundElevated: "#1b1f26",
 };
 
 // ── Typography ─────────────────────────────────────────────────────────────────

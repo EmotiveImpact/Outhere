@@ -54,7 +54,7 @@ export default function NewsArticleScreen() {
             <Text style={styles.markText}>O</Text>
           </View>
           <View>
-            <Text style={styles.bylineName}>OutHere Editorial</Text>
+            <Text style={styles.bylineName}>Outhere Editorial</Text>
             <Text style={styles.meta}>{`${dateLabel(story.publishedAt)}, ${timeAgo(story.publishedAt)}`}</Text>
           </View>
         </Row>

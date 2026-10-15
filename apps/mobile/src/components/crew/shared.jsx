@@ -6,7 +6,7 @@ import { Image } from "expo-image";
 import Svg, { Path } from "react-native-svg";
 import { Check, Globe, Lock } from "lucide-react-native";
 import { create } from "zustand";
-import { Avatar, C, Cover, F, LiveDot, Pill, PressableScale } from "@/components/ui";
+import { Avatar, C, Cover, F, Pill, PressableScale } from "@/components/ui";
 
 // Which crew the Crew tab shows. Other screens set it before sending the
 // player to the tab (after creating or joining a crew, or "Open in Crew tab").
@@ -141,32 +141,10 @@ export function CrewLogo({ crew, size = 52, radius, ring = true }) {
   );
 }
 
-/**
- * Player avatar for crew screens: coloured initials in the player's colour,
- * the photo on top only once it has loaded, and an optional live dot.
- */
-export function PlayerAvatar({ player, size = 40, ring, outside = false, style }) {
-  const [failed, setFailed] = useState(false);
-  const uri = player?.avatar && !failed ? player.avatar : null;
-  const inset = ring ? 2 : 0;
+/** Player avatar for crew screens: membership ring and the out-now dot. */
+export function PlayerAvatar({ player, size = 40, outside = false, style }) {
   return (
-    <View style={[{ width: size, height: size }, style]}>
-      <Avatar name={player?.name || player?.username || ""} colour={player?.color} size={size} ring={ring} />
-      {uri ? (
-        <Image
-          source={typeof uri === "string" ? { uri } : uri}
-          onError={() => setFailed(true)}
-          contentFit="cover"
-          transition={200}
-          style={{ position: "absolute", top: inset, left: inset, width: size - inset * 2, height: size - inset * 2, borderRadius: size }}
-        />
-      ) : null}
-      {outside ? (
-        <View style={{ position: "absolute", right: -1, bottom: -1, padding: 2, borderRadius: 99, backgroundColor: C.bg }}>
-          <LiveDot size={Math.max(8, size * 0.22)} />
-        </View>
-      ) : null}
-    </View>
+    <Avatar uri={player?.avatar} name={player?.name || player?.username || ""} tier={player?.tier} dot={outside || player?.isOutside ? "out" : null} size={size} style={style} />
   );
 }
 

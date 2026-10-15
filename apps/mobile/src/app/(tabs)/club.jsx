@@ -5,7 +5,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Compass, MessageCircle, Newspaper, Plus, Settings2, Share2, Trophy, Users, X } from "lucide-react-native";
-import { C, EmptyState, F, FadeIn, IconButton, PressableScale, Row, S, Screen, Sheet, Skeleton, TAB_BAR_SPACE, Title } from "@/components/ui";
+import { PHOTOS } from "@/constants/photos";
+import { C, EmptyState, F, FadeIn, Hero, IconButton, PressableScale, Row, S, Screen, Sheet, Skeleton, TAB_BAR_SPACE, Title } from "@/components/ui";
 import { useCrew, useCrewLimits, useMyCrews, useUpgradePrompt } from "@/data/hooks";
 import { tierLabel } from "@/utils/format";
 import ActionSheet from "@/components/crew/ActionSheet";
@@ -103,7 +104,7 @@ export default function CrewTab() {
 
   const titleRow = (right) => (
     <Row style={styles.top}>
-      <Title size={32} style={{ flex: 1, letterSpacing: -0.8 }}>Crew</Title>
+      <Title size={34} style={{ flex: 1 }}>Crew</Title>
       {right}
     </Row>
   );
@@ -118,9 +119,17 @@ export default function CrewTab() {
 
   if (!crews.length) {
     return (
-      <Screen tab onRefresh={refresh} refreshing={refreshing} padded={false} header={titleRow(null)}>
-        <View style={{ paddingHorizontal: S.gutter }}>
-          <CrewDiscover intro />
+      <Screen tab onRefresh={refresh} refreshing={refreshing} padded={false} style={{ paddingTop: 0 }}>
+        <Hero
+          photo={PHOTOS.clubfind}
+          height={330}
+          kicker="Run clubs"
+          top="Find your"
+          bottom="run club"
+          sub="Every crew on Outhere is a real run club. Join one near you, or start a founding club with your people."
+        />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
+          <CrewDiscover />
         </View>
       </Screen>
     );
@@ -220,5 +229,5 @@ const styles = StyleSheet.create({
   top: { paddingHorizontal: S.gutter, paddingTop: S.md, paddingBottom: S.md, gap: S.sm },
   chip: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 44, paddingLeft: 7, paddingRight: 14, borderRadius: 99, backgroundColor: C.surface, maxWidth: 220 },
   chipActive: { backgroundColor: C.surfaceHigh },
-  chipText: { color: C.textDim, fontSize: 13, fontFamily: F.displayMedium, flexShrink: 1 },
+  chipText: { color: C.textDim, fontSize: 13, fontFamily: F.bodySemi, flexShrink: 1 },
 });

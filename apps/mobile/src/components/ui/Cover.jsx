@@ -12,7 +12,7 @@ import { seededRandom } from "@/data/random";
 /** Accepts a remote URL string or a bundled require() number. */
 export const imageSource = (src) => (src == null ? null : typeof src === "number" ? src : typeof src === "string" ? { uri: src } : src);
 
-const ACCENTS = ["#00ff7f", "#3DA9FC", "#9B5CFF", "#FF6B35", "#FFD700", "#00d4aa"];
+const ACCENTS = ["#3d8bff", "#3DA9FC", "#9B5CFF", "#FF6B35", "#FFD700", "#00d4aa"];
 
 export const accentFor = (seed = "") => {
   let h = 0;

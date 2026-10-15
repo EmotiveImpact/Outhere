@@ -1,4 +1,4 @@
-// OutHere local engine.
+// Outhere local engine.
 //
 // Until the server stack is chosen, the whole product runs on the phone: this
 // module owns the data (persisted in AsyncStorage), simulates the other players
@@ -439,7 +439,7 @@ export const createProfile = async ({ username, city = "London", crewCode }) =>
       isOutside: false,
       createdAt: Date.now(),
     };
-    award(s, { xp: 100, out: 20, label: "Welcome to OutHere", reason: "welcome" });
+    award(s, { xp: 100, out: 20, label: "Welcome to Outhere", reason: "welcome" });
     // Start with a few people nearby to follow, so Home isn't empty.
     const local = PLAYERS.filter((p) => p.city === city);
     s.following = (local.length >= 3 ? local : PLAYERS.filter((p) => p.city === "London")).slice(0, 5).map((p) => p.id);
@@ -454,7 +454,7 @@ export const createProfile = async ({ username, city = "London", crewCode }) =>
       status: "pending",
       createdAt: Date.now(),
     });
-    notify(s, { type: "rewards", title: "Welcome to OutHere", body: "You've got 100 XP and 20 OUT to start. Check in daily to build your streak.", link: "/(tabs)" });
+    notify(s, { type: "rewards", title: "Welcome to Outhere", body: "You've got 100 XP and 20 OUT to start. Check in daily to build your streak.", link: "/(tabs)" });
     notify(s, { type: "battles", title: `${challenger.name} challenged you`, body: "24 hour step battle. Accept it in the Arena.", link: "/(tabs)/outside/arena" });
     if (crewCode) {
       const crew = Object.values(s.crews).find((c) => c.inviteCode.toLowerCase() === crewCode.trim().toLowerCase());
@@ -496,7 +496,13 @@ const profileView = (s) => {
     streak,
     longestStreak: Math.max(streak, computeLongestStreak(s)),
     checkedInToday: !!today.checkedIn,
-    today: { steps: today.steps, distance: today.distance, activeMinutes: today.activeMinutes },
+    today: {
+      steps: today.steps,
+      distance: today.distance,
+      activeMinutes: today.activeMinutes,
+      xp: earnedSince(s, "xp", startOfToday()),
+      out: earnedSince(s, "out", startOfToday()),
+    },
     totals: { steps: totalSteps, distance: Math.round(totalDistance * 10) / 10, runs: s.runs.length },
     week: { distanceKm: Math.round(weekStepsKm * 10) / 10, runsKm: Math.round(weekRunsKm * 10) / 10 },
     outsideScore: Math.round(totalSteps / 100 + streak * 50 + record.wins * 100 + events * 150),
@@ -509,10 +515,19 @@ const profileView = (s) => {
   };
 };
 
+const startOfToday = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const earnedSince = (s, type, from) =>
+  s.ledger.filter((t) => t.type === type && t.amount > 0 && t.at >= from).reduce((sum, t) => sum + t.amount, 0);
+
 const badgesFor = (s, { streak, record, events }) => {
   const longest = Math.max(streak, computeLongestStreak(s));
   const list = [
-    { id: "founder", title: "Founder", description: "Joined OutHere in the first season.", earned: true, icon: "star" },
+    { id: "founder", title: "Founder", description: "Joined Outhere in the first season.", earned: true, icon: "star" },
     { id: "streak7", title: "7 Day Streak", description: "Active 7 days in a row.", earned: longest >= 7, icon: "flame" },
     { id: "streak30", title: "30 Day Streak", description: "Active 30 days in a row.", earned: longest >= 30, icon: "flame" },
     { id: "battle1", title: "First Win", description: "Win a battle.", earned: record.wins >= 1, icon: "swords" },
@@ -1056,7 +1071,7 @@ export const getCrewLimits = async () =>
     return { tier: me.tier, owned, joined, maxOwned: rules.maxCrewsOwned, maxJoined: rules.maxCrewsJoined, canCreate: owned < rules.maxCrewsOwned, canJoin: joined < rules.maxCrewsJoined };
   });
 
-export const createCrew = async ({ name, tagline = "", city, accent = "#00ff7f", privacy = "public", logo = null }) =>
+export const createCrew = async ({ name, tagline = "", city, accent = "#3d8bff", privacy = "public", logo = null }) =>
   write((s) => {
     const me = requireMe(s);
     const rules = TIER_RULES[me.tier];

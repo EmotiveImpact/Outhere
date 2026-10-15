@@ -18,7 +18,7 @@ const RunMap = forwardRef(function RunMap({ segments = [], plannedPath = [], fit
       ) : (
         <View style={styles.note}>
           <MapPin size={20} color={C.textMute} />
-          <Text style={styles.noteText}>The live map runs in the OutHere app on your phone.</Text>
+          <Text style={styles.noteText}>The live map runs in the Outhere app on your phone.</Text>
         </View>
       )}
     </View>

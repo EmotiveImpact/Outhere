@@ -11,7 +11,7 @@ const stepsFor = (web, canAskAgain) =>
     ? ["Tap the lock or site icon in your address bar", "Set Location to Allow", "Come back and hit Try again"]
     : canAskAgain
       ? ["Tap Allow location below", "Pick While using the app", "Hit Start and get moving"]
-      : ["Open Settings for OutHere", "Tap Location, then While using the app", "Come back here, you're set"];
+      : ["Open Settings for Outhere", "Tap Location, then While using the app", "Come back here, you're set"];
 
 export default function LocationDenied({ onRetry, onHistory, canAskAgain }) {
   const web = Platform.OS === "web";

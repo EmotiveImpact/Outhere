@@ -2,6 +2,8 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
+import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from "@expo-google-fonts/barlow-condensed";
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -31,8 +33,11 @@ function StepSync() {
 
 function RootStack() {
   const [fontsLoaded] = useFonts({
-    "ClashGrotesk-Bold": require("../../assets/fonts/ClashGrotesk-Bold.ttf"),
-    "ClashGrotesk-Medium": require("../../assets/fonts/ClashGrotesk-Medium.ttf"),
+    BarlowCondensed_600SemiBold,
+    BarlowCondensed_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
   });
   // Wait for the stored profile too, so app/index.jsx routes correctly first time.
   const { isPending } = useProfile();
@@ -47,7 +52,7 @@ function RootStack() {
   return (
     <>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0a0a0a" }, animation: "slide_from_right" }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#07090c" }, animation: "slide_from_right" }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ animation: "fade" }} />
         <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
@@ -63,7 +68,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#07090c" }}>
           <EngineBridge />
           <RootStack />
         </GestureHandlerRootView>

@@ -1,11 +1,12 @@
 // Your profile: a player card up top, then how you're doing and what you've earned.
 
 import React, { useState } from "react";
+import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { Settings } from "lucide-react-native";
 import { useProfile, useRuns, useSettings, useWallet } from "@/data/hooks";
 import { FadeIn, IconButton, Row, S, Screen, SectionHeader, Title } from "@/components/ui";
-import PlayerCard from "@/components/profile/PlayerCard";
+import PlayerCard, { ProfileHero } from "@/components/profile/PlayerCard";
 import StatsBlock from "@/components/profile/StatsBlock";
 import Badges from "@/components/profile/Badges";
 import WalletCard from "@/components/profile/WalletCard";
@@ -31,7 +32,7 @@ export default function ProfileScreen() {
 
   const header = (
     <Row style={{ paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.md, justifyContent: "space-between" }}>
-      <Title size={30} style={{ letterSpacing: -0.8 }}>
+      <Title size={34}>
         Profile
       </Title>
       <IconButton icon={Settings} label="Settings" onPress={() => router.push("/settings")} style={{ width: 44, height: 44, borderRadius: 22 }} />
@@ -50,7 +51,17 @@ export default function ProfileScreen() {
   const goRun = () => router.push("/(tabs)/move");
 
   return (
-    <Screen tab header={header} onRefresh={refresh} refreshing={profileQ.isRefetching}>
+    <Screen
+      tab
+      style={{ paddingTop: 0 }}
+      header={null}
+      onRefresh={refresh}
+      refreshing={profileQ.isRefetching}
+      padded={false}
+      contentStyle={{ paddingHorizontal: 0 }}
+    >
+      <ProfileHero profile={p} right={<IconButton icon={Settings} label="Settings" onPress={() => router.push("/settings")} />} />
+      <View style={{ paddingHorizontal: S.gutter }}>
       <PlayerCard profile={p} onEdit={() => setEditing(true)} />
 
       <SectionHeader title="Stats" />
@@ -72,6 +83,7 @@ export default function ProfileScreen() {
 
       <SectionHeader title="Membership" />
       <MembershipCard tier={p.tier} blackEligible={p.blackEligible} onPress={() => router.push("/membership")} />
+      </View>
 
       <EditProfileSheet visible={editing} profile={p} onClose={() => setEditing(false)} />
     </Screen>

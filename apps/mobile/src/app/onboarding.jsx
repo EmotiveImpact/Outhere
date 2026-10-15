@@ -245,12 +245,12 @@ function CrewStep({ n, value, onChange }) {
 function MotionStep({ n, status, onAsk }) {
   const granted = status === "granted";
   const note = {
-    denied: "No worries. You can turn on Motion & Fitness for OutHere in your phone's settings later.",
+    denied: "No worries. You can turn on Motion & Fitness for Outhere in your phone's settings later.",
     unavailable: "This device doesn't have a step counter we can read. You can still log runs from the Move tab.",
   }[status];
   return (
     <>
-      <StepTitle n={n} title="Your steps do the work." body="OutHere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
+      <StepTitle n={n} title="Your steps do the work." body="Outhere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
       <View style={{ gap: S.lg, marginBottom: S.xxl }}>
         {[
           { title: "5 XP for every 1,000 steps", text: "Plus bonuses for active days and hitting your goal." },
@@ -323,7 +323,7 @@ function Success({ profile, onDone }) {
         </Row>
       </View>
       <Button title="Into the app" size="lg" full onPress={onDone} />
-      <ConfettiCannon count={120} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={380} fallSpeed={2800} colors={[C.accent, "#ffffff", "#7dffbe", C.gold]} />
+      <ConfettiCannon count={120} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={380} fallSpeed={2800} colors={[C.accent, "#ffffff", C.accentHi, C.gold]} />
     </View>
   );
 }

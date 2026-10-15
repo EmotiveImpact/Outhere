@@ -130,7 +130,7 @@ export function AnimatedNumber({ value = 0, format, duration = 650, style, numbe
 }
 
 /** Progress bar whose fill eases to its value. */
-export function AnimatedBar({ value = 0, height = 8, colour = "#00ff7f", track = "#1c1c1f", style }) {
+export function AnimatedBar({ value = 0, height = 8, colour = "#3d8bff", track = "#1b1f26", style }) {
   const w = useSharedValue(0);
   useEffect(() => {
     w.value = withTiming(Math.max(0, Math.min(1, value)), { duration: 700, easing: Easing.out(Easing.cubic) });
@@ -144,7 +144,7 @@ export function AnimatedBar({ value = 0, height = 8, colour = "#00ff7f", track =
 }
 
 /** Soft pulsing dot, for "live" and "outside now" indicators. */
-export function LiveDot({ size = 8, colour = "#00ff7f", style }) {
+export function LiveDot({ size = 8, colour = "#4f9bff", style }) {
   const s = useSharedValue(1);
   useEffect(() => {
     s.value = withRepeat(withTiming(2.2, { duration: 1200, easing: Easing.out(Easing.quad) }), -1, false);

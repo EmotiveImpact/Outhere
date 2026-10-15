@@ -34,7 +34,7 @@ function Particle({ angle, dist, size, colour, delay, spin, round, originY }) {
   );
 }
 
-export default function Celebrate({ burst = 0, colours = ["#00ff7f", "#ffffff", "#7cc4ff", "#ffd700", "#e5e4e2"], originY = "38%" }) {
+export default function Celebrate({ burst = 0, colours = ["#3d8bff", "#ffffff", "#82b4ff", "#ffd700", "#e5e4e2"], originY = "38%" }) {
   const parts = useMemo(
     () =>
       Array.from({ length: COUNT }, (_, i) => ({

@@ -76,7 +76,7 @@ export function TierCard({ tier, rules, perks, current, locked, upgrade, primary
 
   if (tier === "black") {
     return (
-      <LinearGradient colors={["#1f1f22", "#121214"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={shell}>
+      <LinearGradient colors={["#1b1f26", "#12151a"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={shell}>
         {content}
       </LinearGradient>
     );

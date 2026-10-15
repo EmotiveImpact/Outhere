@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "OutHere",
+    "name": "Outhere",
     "slug": "outhere",
     "scheme": "outhere",
     "version": "1.0.0",
@@ -12,17 +12,17 @@
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSMotionUsageDescription": "OutHere counts your steps to track your daily movement, streaks and battles.",
-        "NSLocationWhenInUseUsageDescription": "OutHere uses your location to map your runs and walks and to check you in at events.",
-        "NSCameraUsageDescription": "OutHere uses your camera so you can take a photo for your crew logo.",
-        "NSPhotoLibraryUsageDescription": "OutHere uses your photos so you can choose a crew logo."
+        "NSMotionUsageDescription": "Outhere counts your steps to track your daily movement, streaks and battles.",
+        "NSLocationWhenInUseUsageDescription": "Outhere uses your location to map your runs and walks and to check you in at events.",
+        "NSCameraUsageDescription": "Outhere uses your camera so you can take a photo for your crew logo.",
+        "NSPhotoLibraryUsageDescription": "Outhere uses your photos so you can choose a crew logo."
       },
       "bundleIdentifier": "com.outhere.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0a0a0a"
+        "backgroundColor": "#07090c"
       },
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",

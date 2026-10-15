@@ -6,7 +6,7 @@ import { StyleSheet, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { seededRandom } from "@/data/random";
 
-const COLOURS = ["#00ff7f", "#FFD700", "#ffffff", "#3DA9FC", "#FF6FB5", "#9B5CFF"];
+const COLOURS = ["#3d8bff", "#FFD700", "#ffffff", "#3DA9FC", "#FF6FB5", "#9B5CFF"];
 
 function Piece({ x, delay, drift, spin, colour, w, h, fall }) {
   const p = useSharedValue(0);

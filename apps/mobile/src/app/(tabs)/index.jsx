@@ -1,60 +1,53 @@
-import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+// Home. Built to fit one screen: greeting with the membership mark, the
+// friends row (rings for membership, dots for who is out), the two-tone
+// headline, today's dial, three quick buttons and the outside now carousel.
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import ConfettiCannon from "react-native-confetti-cannon";
-import { Bell, CalendarDays, Gift, ShoppingBag, Swords } from "lucide-react-native";
-import {
-  engine,
-  useEngineMutation,
-  useFriends,
-  useLeaderboard,
-  useOutsideNow,
-  useProfile,
-  useSettings,
-  useStepHistory,
-  useUnreadCount,
-} from "@/data/hooks";
+import { Bell, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useChallenges, useDrops, useEvents, useFriends, useOutsideNow, useProfile, useUnreadCount } from "@/data/hooks";
 import { useStepStatus } from "@/hooks/useStepSync";
-import { Avatar, Body, C, FadeIn, IconButton, PressableScale, R, Row, S, Screen, Skeleton, Title, toast } from "@/components/ui";
-import StepHero from "@/components/home/StepHero";
-import StatChips from "@/components/home/StatChips";
-import OutsideStrip from "@/components/home/OutsideStrip";
-import WeekChart from "@/components/home/WeekChart";
-import QuickTiles from "@/components/home/QuickTiles";
-import MiniBoard from "@/components/home/MiniBoard";
+import { Avatar, C, F, FadeIn, IconButton, Kicker, LIT, PressableScale, R, Row, S, Screen, Skeleton, Title, toast } from "@/components/ui";
+import GoalDial from "@/components/home/GoalDial";
+import OutsideCarousel from "@/components/home/OutsideCarousel";
+import { PHOTOS } from "@/constants/photos";
 import { hapticSuccess } from "@/services/haptics";
-import { formatNumber, greeting } from "@/utils/format";
+import { dateLabel, formatNumber, greeting } from "@/utils/format";
+
+const QUICK = [
+  { key: "move", icon: Route, label: "Move", hint: "Track", href: "/(tabs)/move" },
+  { key: "battle", icon: Swords, label: "1v1", hint: "Battle", href: "/outside/arena" },
+  { key: "drops", icon: ShoppingBag, label: "Drops", hint: "Spend", href: "/outside/drops" },
+];
+
+function TierMark({ tier }) {
+  if (tier !== "pro" && tier !== "black") return null;
+  return (
+    <View style={[styles.mark, tier === "black" ? styles.markBlack : styles.markPro]}>
+      <Text style={[styles.markText, { color: tier === "black" ? "#e6eaef" : C.accentHi }]}>{tier === "black" ? "BLACK" : "PRO"}</Text>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const profileQ = useProfile();
-  const settingsQ = useSettings();
-  const unreadQ = useUnreadCount();
-  const historyQ = useStepHistory(7);
-  const friendsQ = useFriends();
   const profile = profileQ.data;
+  const unreadQ = useUnreadCount();
+  const friendsQ = useFriends();
   const outsideQ = useOutsideNow(profile?.city);
-  const boardQ = useLeaderboard({ scope: "city", period: "today" });
-  const { available, permission, liveSteps } = useStepStatus();
-
+  const eventsQ = useEvents(profile?.city);
+  const challengesQ = useChallenges();
+  const dropsQ = useDrops();
+  const { liveSteps } = useStepStatus();
   const [confetti, setConfetti] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const checkIn = useEngineMutation(engine.checkIn, {
-    onSuccess: (res) => {
-      if (res?.alreadyCheckedIn) return;
-      toast.success(`Checked in. ${res?.streak || 1} day streak`, `+${res?.xp ?? 20} XP   +${res?.out ?? 2} OUT`);
-      setConfetti((n) => n + 1);
-    },
-  });
-  const setOutside = useEngineMutation(engine.updateProfile, {
-    success: (p) => (p?.isOutside ? "You're out. Have a good one" : "Back in. Nice work"),
-  });
 
   const goal = profile?.dailyGoal || 10000;
   const steps = Math.max(profile?.today?.steps || 0, liveSteps || 0);
-  const units = settingsQ.data?.units || "km";
 
   // Celebrate the moment the goal is crossed while the app is open.
   const prevSteps = useRef(null);
@@ -68,161 +61,162 @@ export default function HomeScreen() {
     prevSteps.current = steps;
   }, [steps, goal, profile]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([profileQ.refetch(), historyQ.refetch(), friendsQ.refetch(), outsideQ.refetch(), boardQ.refetch(), unreadQ.refetch()]);
-    setRefreshing(false);
-  };
+  const slides = useMemo(() => {
+    if (!profile) return [];
+    const out = outsideQ.data;
+    const nextEvent = (eventsQ.data || []).find((e) => e.startAt > Date.now());
+    const chase = (challengesQ.data || []).find((c) => c.status === "joined" || c.status === "open");
+    const drop = (dropsQ.data || []).find((d) => d.status !== "soldout");
+    const friendsOut = (friendsQ.data || []).filter((f) => f.isOutside);
+    const list = [
+      {
+        key: "live",
+        live: true,
+        kicker: "Live now",
+        title: formatNumber(out?.count ?? 0),
+        body: friendsOut.length
+          ? `outside in ${profile.city}. ${friendsOut.slice(0, 2).map((f) => f.name).join(" and ")} ${friendsOut.length > 1 ? "are" : "is"} out near you.`
+          : `outside in ${profile.city} right now.`,
+        faces: (out?.people || []).slice(0, 4),
+        image: PHOTOS.navCity,
+        onPress: () => router.push("/(tabs)/move"),
+      },
+    ];
+    if (nextEvent)
+      list.push({ key: "event", kicker: dateLabel(nextEvent.startAt), title: nextEvent.title, body: `${nextEvent.location} · ${nextEvent.rsvpCount} going`, image: nextEvent.image || PHOTOS.event, onPress: () => router.push(`/events/${nextEvent.id}`) });
+    if (chase)
+      list.push({ key: "challenge", kicker: "Challenge", title: chase.title, body: `${chase.description} +${chase.rewardXp} XP`, image: PHOTOS.flame, onPress: () => router.push("/outside/challenges") });
+    if (drop)
+      list.push({ key: "drop", kicker: drop.status === "live" ? "Drop live" : "Next drop", title: drop.title, body: drop.subtitle || "Limited run. Spend your OUT.", image: drop.image || PHOTOS.tee, onPress: () => router.push(`/drops/${drop.id}`) });
+    return list;
+  }, [profile, outsideQ.data, eventsQ.data, challengesQ.data, dropsQ.data, friendsQ.data, router]);
 
   if (!profile) return <HomeSkeleton />;
 
-  const friendsOutside = (friendsQ.data || []).filter((f) => f.isOutside);
-  const outsideHidden = settingsQ.data?.privacy?.showOutsideStatus === false;
-  const history = historyQ.data;
-  const weekTotal = history ? history.slice(0, -1).reduce((sum, d) => sum + d.steps, 0) + steps : 0;
-  const activeDays = history ? history.filter((d, i) => d.active || (i === history.length - 1 && steps >= 5000)).length : 0;
-
-  const tiles = [
-    { key: "battles", icon: Swords, label: "Battles", hint: "Call someone out", onPress: () => router.push("/(tabs)/outside/arena") },
-    { key: "events", icon: CalendarDays, label: "Events", hint: "Runs and meet-ups", onPress: () => router.push("/(tabs)/outside/events") },
-    { key: "drops", icon: ShoppingBag, label: "Drops", hint: "Limited releases", onPress: () => router.push("/(tabs)/outside/drops") },
-    { key: "rewards", icon: Gift, label: "Rewards", hint: `${formatNumber(profile.out)} OUT to spend`, onPress: () => router.push("/rewards") },
-  ];
+  const name = (profile.name || profile.username || "").split(" ")[0];
+  const level = profile.level?.level ?? profile.level;
+  const line = [
+    profile.foundingNumber ? `Founding member #${profile.foundingNumber}` : null,
+    `Level ${level}`,
+    profile.area || profile.borough || profile.city,
+    !profile.foundingNumber && profile.streak ? `${profile.streak} day streak` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const friends = friendsQ.data || [];
+  const done = steps >= goal;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen tab onRefresh={onRefresh} refreshing={refreshing}>
+      <Screen tab padded>
         {/* Greeting */}
-        <Row style={{ justifyContent: "space-between", paddingTop: S.md }} gap={S.md}>
-          <PressableScale onPress={() => router.push("/(tabs)/profile")} scaleTo={0.94}>
-            <Avatar uri={profile.avatar} name={profile.name || profile.username} colour={profile.color} size={44} outside={profile.isOutside} />
-          </PressableScale>
+        <Row style={{ justifyContent: "space-between", alignItems: "flex-start", paddingTop: S.md }}>
           <View style={{ flex: 1 }}>
-            <Body dim size={13}>{greeting()}</Body>
-            <Title size={22} numberOfLines={1}>{profile.name || profile.username}</Title>
+            <Kicker colour={C.textDim}>{`Good ${greeting().toLowerCase().replace("late one", "evening")}`}</Kicker>
+            <Row gap={8} style={{ marginTop: 2 }}>
+              <Title size={38} numberOfLines={1} style={{ flexShrink: 1 }}>{name}</Title>
+              <TierMark tier={profile.tier} />
+            </Row>
+            <Text style={styles.line} numberOfLines={1}>{line}</Text>
           </View>
-          <IconButton icon={Bell} label="Notifications" badge={unreadQ.data || 0} onPress={() => router.push("/notifications")} style={{ width: 44, height: 44, borderRadius: 22 }} />
+          <IconButton icon={Bell} label="Notifications" badge={unreadQ.data || 0} onPress={() => router.push("/notifications")} />
         </Row>
 
-        <FadeIn index={0}>
-          <Heading title="Outside now" first />
-          <OutsideStrip
-            city={profile.city}
-            count={outsideQ.data?.count ?? 0}
-            people={outsideQ.data?.people || []}
-            friends={friendsOutside}
-            hasFriends={!!friendsQ.data?.length}
-            isOutside={!!profile.isOutside}
-            hidden={outsideHidden}
-            busy={setOutside.isPending}
-            onToggle={() => setOutside.mutate({ isOutside: !profile.isOutside })}
-            onPlayer={(id) => router.push(`/player/${id}`)}
-          />
-        </FadeIn>
-        <FadeIn index={1} style={{ marginTop: S.xxl }}>
-          <StepHero
-            steps={steps}
-            goal={goal}
-            today={profile.today}
-            units={units}
-            checkedIn={profile.checkedInToday}
-            checkingIn={checkIn.isPending}
-            onCheckIn={() => checkIn.mutate()}
-            onMove={() => router.push("/(tabs)/move")}
-            pedometer={{ available, permission }}
-            onDevTools={() => router.push("/settings")}
-          />
-        </FadeIn>
+        {/* Friends: rings show membership, dots show who's out */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: S.lg }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
+          <PressableScale onPress={() => router.push("/(tabs)/profile")} style={styles.friend}>
+            <View>
+              <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={56} />
+              <View style={styles.add}>
+                <Plus size={12} color="#fff" strokeWidth={3} />
+              </View>
+            </View>
+            <Text style={styles.friendName}>You</Text>
+          </PressableScale>
+          {friends.map((f) => (
+            <PressableScale key={f.id} onPress={() => router.push(`/player/${f.id}`)} style={styles.friend}>
+              <Avatar uri={f.avatar} name={f.name} tier={f.tier} dot={f.isOutside ? "out" : null} story={f.isOutside} size={56} />
+              <Text style={[styles.friendName, f.isOutside && { color: C.text }]} numberOfLines={1}>{f.name}</Text>
+            </PressableScale>
+          ))}
+          {!friends.length ? (
+            <PressableScale onPress={() => router.push("/(tabs)/club")} style={styles.friend}>
+              <View style={styles.findFriends}>
+                <Plus size={20} color={C.textDim} />
+              </View>
+              <Text style={styles.friendName}>Find people</Text>
+            </PressableScale>
+          ) : null}
+        </ScrollView>
 
-        <FadeIn index={2} style={{ marginTop: S.xxl }}>
-          <StatChips
-            streak={profile.streak}
-            level={profile.level}
-            out={profile.out}
-            onStreak={() => router.push("/(tabs)/profile")}
-            onLevel={() => router.push("/(tabs)/profile")}
-            onOut={() => router.push("/rewards")}
-          />
+        <FadeIn index={0} style={{ marginTop: S.lg }}>
+          <Title size={36}>{done ? "Goal smashed" : `${formatNumber(steps)} steps`}</Title>
+          <Title size={36} blue>{done ? `${formatNumber(steps)} and counting` : "and counting"}</Title>
         </FadeIn>
 
-
-        <FadeIn index={3}>
-          <Heading title="This week" meta={history ? `${formatNumber(weekTotal)} steps` : null} />
-          <View style={styles.card}>
-            {history ? <WeekChart days={history} goal={goal} todaySteps={steps} /> : <Skeleton height={140} radius={12} />}
-            {history ? (
-              <Row style={styles.chartFoot}>
-                <Text style={styles.footText}>
-                  <Text style={styles.footStrong}>{activeDays}</Text> of 7 active days
-                </Text>
-                <Text style={styles.footText}>
-                  avg <Text style={styles.footStrong}>{formatNumber(weekTotal / 7)}</Text> a day
-                </Text>
-              </Row>
-            ) : null}
-          </View>
+        <FadeIn index={1} style={{ marginTop: S.md }}>
+          <GoalDial steps={steps} goal={goal} xp={profile.today?.xp || 0} out={profile.today?.out || 0} streak={profile.streak || 0} size={width < 370 ? 96 : 112} />
         </FadeIn>
 
-        <FadeIn index={4}>
-          <Heading title="Get into it" />
-          <QuickTiles items={tiles} />
+        <FadeIn index={2} style={{ marginTop: S.md }}>
+          <Row gap={S.md}>
+            {QUICK.map(({ key, icon: Icon, label, hint, href }) => (
+              <PressableScale key={key} onPress={() => router.push(href)} scaleTo={0.95} style={styles.quick}>
+                <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
+                <View style={styles.quickIcon}>
+                  <Icon size={18} color={C.accentHi} />
+                </View>
+                <Text style={styles.quickLabel}>{label}</Text>
+                <Text style={styles.quickHint}>{hint}</Text>
+              </PressableScale>
+            ))}
+          </Row>
         </FadeIn>
 
-        <FadeIn index={5}>
-          <Heading title={`${profile.city} today`} action="See all" onAction={() => router.push("/(tabs)/outside/arena")} />
-          <MiniBoard
-            board={boardQ.data}
-            loading={boardQ.isPending}
-            onPlayer={(id) => router.push(id === "me" ? "/(tabs)/profile" : `/player/${id}`)}
-            onSettings={() => router.push("/settings")}
-            onMove={() => router.push("/(tabs)/move")}
-          />
+        <FadeIn index={3} style={{ marginTop: S.md }}>
+          <OutsideCarousel slides={slides} height={width < 370 ? 128 : 146} />
         </FadeIn>
       </Screen>
 
       {confetti ? (
-        <ConfettiCannon key={confetti} count={140} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={420} fallSpeed={2600} colors={[C.accent, "#ffffff", "#7dffbe", C.gold, C.fire]} />
+        <ConfettiCannon key={confetti} count={140} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={420} fallSpeed={2600} colors={[C.accent, "#ffffff", C.accentHi, C.out]} />
       ) : null}
     </View>
-  );
-}
-
-function Heading({ title, meta, action, onAction, first }) {
-  return (
-    <Row style={{ justifyContent: "space-between", marginTop: first ? S.xl : 32, marginBottom: S.md }}>
-      <Title size={20}>{title}</Title>
-      {action ? (
-        <PressableScale onPress={onAction} hitSlop={10} scaleTo={0.94}>
-          <Text style={{ color: C.textDim, fontSize: 14, fontWeight: "600" }}>{action}</Text>
-        </PressableScale>
-      ) : meta ? (
-        <Text style={{ color: C.textDim, fontSize: 13 }}>{meta}</Text>
-      ) : null}
-    </Row>
   );
 }
 
 function HomeSkeleton() {
   return (
     <Screen tab scroll={false}>
-      <Row style={{ paddingTop: S.md }} gap={S.md}>
-        <Skeleton width={44} height={44} radius={22} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <Skeleton width={70} height={12} />
-          <Skeleton width={160} height={22} />
-        </View>
+      <View style={{ paddingTop: S.md, gap: 8 }}>
+        <Skeleton width={110} height={12} />
+        <Skeleton width={180} height={38} />
+        <Skeleton width={240} height={12} />
+      </View>
+      <Row gap={14} style={{ marginTop: S.lg }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} width={56} height={56} radius={28} />
+        ))}
       </Row>
-      <Skeleton width={232} height={232} radius={116} style={{ marginTop: 52, alignSelf: "center" }} />
-      <Skeleton width={160} height={22} style={{ marginTop: S.xxl, alignSelf: "center" }} />
-      <Skeleton height={56} radius={28} style={{ marginTop: 84 }} />
-      <Skeleton height={92} radius={20} style={{ marginTop: S.xxl }} />
+      <Skeleton height={80} width={260} style={{ marginTop: S.lg }} />
+      <Skeleton height={150} radius={20} style={{ marginTop: S.md }} />
+      <Skeleton height={96} radius={20} style={{ marginTop: S.md }} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: R.lg, backgroundColor: C.surface, padding: S.lg },
-  chartFoot: { marginTop: S.lg, paddingTop: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, justifyContent: "space-between" },
-  footText: { color: C.textMute, fontSize: 13 },
-  footStrong: { color: C.text, fontWeight: "600" },
+  line: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },
+  mark: { height: 20, paddingHorizontal: 7, borderRadius: 5, justifyContent: "center", marginTop: 4 },
+  markPro: { backgroundColor: "rgba(61,139,255,0.16)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(130,180,255,0.6)" },
+  markBlack: { backgroundColor: "#2a3038", borderWidth: StyleSheet.hairlineWidth, borderColor: "#7d8691" },
+  markText: { fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 1.6 },
+  friend: { alignItems: "center", width: 60 },
+  friendName: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 6 },
+  add: { position: "absolute", right: -1, bottom: -1, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
+  findFriends: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  quick: { flex: 1, height: 96, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  quickLabel: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  quickHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 1 },
 });

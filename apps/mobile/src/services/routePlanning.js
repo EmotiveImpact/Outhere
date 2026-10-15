@@ -1,7 +1,7 @@
 // Walking route planning for the Move tab.
 // Uses Mapbox Directions when EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN is set, otherwise
 // the public OSRM demo server (no key). Both talk to third party routing
-// services, not the OutHere backend. Every failure resolves to null so the
+// services, not the Outhere backend. Every failure resolves to null so the
 // caller can keep its straight line preview.
 
 const MAPBOX_BASE_URL = "https://api.mapbox.com/directions/v5/mapbox/walking";

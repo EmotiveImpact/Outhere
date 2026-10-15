@@ -4,6 +4,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import { EyeOff } from "lucide-react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { PHOTOS } from "@/constants/photos";
 import { useBattleLimits, useBattles, useLeaderboard } from "@/data/hooks";
 import * as UI from "@/components/ui";
 import BattlesHubJs from "@/components/arena/BattlesHub";
@@ -106,6 +109,17 @@ export default function ArenaScreen() {
         contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: TAB_BAR_SPACE + insets.bottom + 72 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
       >
+        <PressableScale onPress={() => router.push("/battles/new" as any)} scaleTo={0.98} style={styles.slab}>
+          <Image source={PHOTOS.battle} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <LinearGradient colors={["rgba(7,9,12,0.05)", "rgba(7,9,12,0.4)", "rgba(7,9,12,0.95)"]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+          <View style={{ padding: S.lg }}>
+            <Text style={styles.kicker}>The Arena · 1v1</Text>
+            <Text style={styles.big}>Find a</Text>
+            <Text style={[styles.big, { color: C.accent }]}>rival</Text>
+            <Text style={styles.sub}>Six ways to battle. Most steps, live races, blind time trials and more.</Text>
+          </View>
+        </PressableScale>
+
         <BattlesHub />
 
         <View style={styles.rankHead}>
@@ -227,6 +241,10 @@ function BoardSkeleton() {
 }
 
 const styles = StyleSheet.create({
+  slab: { height: 230, borderRadius: 26, overflow: "hidden", justifyContent: "flex-end", backgroundColor: C.surface, marginBottom: S.lg },
+  kicker: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 6 },
+  big: { color: C.text, fontFamily: F.display, fontSize: 46, lineHeight: 46, textTransform: "uppercase" },
+  sub: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 18, marginTop: 6, maxWidth: 280 },
   rankHead: { flexDirection: "row", alignItems: "center", marginTop: S.xxl + 4, marginBottom: S.lg },
   periods: { flexDirection: "row", gap: S.lg, marginTop: S.lg, paddingHorizontal: 2 },
   period: { minHeight: 32, justifyContent: "center", borderBottomWidth: 2, borderColor: "transparent" },

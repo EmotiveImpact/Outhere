@@ -1,6 +1,6 @@
 # Data layer
 
-OutHere runs fully on the phone for now. There is no server call anywhere in the
+Outhere runs fully on the phone for now. There is no server call anywhere in the
 app; the server stack will be chosen later and slotted in behind this layer.
 
 | File | What it does |
