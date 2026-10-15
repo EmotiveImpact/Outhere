@@ -167,7 +167,7 @@ export const makeRuns = (h) => {
       clubName: clubName(s, r.clubId),
       visibility: r.visibility || (r.clubId ? "club" : "private"),
       hideEnds: !!r.hideEnds,
-      path: path.map(plain),
+      path: path.map(clean),
       waypoints: mine ? r.waypoints || [] : [],
       distanceKm: r.distanceKm,
       climbM: r.climbM ?? climbFor(r.path),
