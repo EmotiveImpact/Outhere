@@ -95,3 +95,11 @@ begin
   assert (select slug from clubs where id = cid) = 'parksiderunnersleeds3', 'and takes the next free link';
 end $$;
 reset role;
+
+-- New towns are reserved too
+do $$
+begin
+  assert public.is_reserved_slug('shrewsbury'), 'shrewsbury reserved';
+  assert public.is_reserved_slug('hebdenbridge'), 'hebden bridge reserved';
+  assert public.is_reserved_slug('margate'), 'margate reserved';
+end $$;
