@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { isValidClubSlug, type PaceGroup } from "@outhere/core";
 import { Icon, Toggle, useToast } from "@outhere/ui";
-import { config, getData } from "~/data.server";
+import { config, getData, usingExampleData } from "~/data.server";
 import { useAct } from "~/hooks";
 import { absolute, shareMeta } from "~/components/public";
 import type { Route } from "./+types/join";
@@ -13,7 +13,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const db = await getData(request);
   const page = await db.clubPage(slug);
   if (!page) throw new Response("Not found", { status: 404 });
-  return { club: page.club, run: page.runs[0] ?? null, publicUrl: config().publicUrl, origin: new URL(request.url).origin };
+  // Example data is always signed in as Kemi. Real visitors sign in by email link first.
+  const viewer = usingExampleData() ? null : await db.viewer().catch(() => null);
+  const signIn: "example" | "in" | "out" = usingExampleData() ? "example" : viewer ? "in" : "out";
+  // Back from the email link: carry on to picking a pace.
+  const resume = signIn === "in" && new URL(request.url).searchParams.get("signed") === "1";
+  return { club: page.club, run: page.runs[0] ?? null, signIn, resume, publicUrl: config().publicUrl, origin: new URL(request.url).origin };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
@@ -32,10 +37,10 @@ const PACES: [PaceGroup, string][] = [["Walk", "Walking group"], ["Easy", "7 min
 const DAYS: Record<string, string> = { MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday", FRI: "Friday", SAT: "Saturday", SUN: "Sunday" };
 
 export default function Join({ loaderData }: Route.ComponentProps) {
-  const { club: c, run } = loaderData;
+  const { club: c, run, signIn, resume } = loaderData;
   const toast = useToast();
   const { act, result } = useAct();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(resume ? 1 : 0);
   const [pace, setPace] = useState<PaceGroup>("Steady");
   const [come, setCome] = useState(true);
   const day = run ? (DAYS[run.day] ?? run.day) : "";
@@ -43,7 +48,7 @@ export default function Join({ loaderData }: Route.ComponentProps) {
   const where = `${c.nextRun.split(" · ")[1] ?? run?.place ?? ""}, ${c.nextRun.split(" ")[1] ?? run?.time ?? ""}`;
 
   // Opening another club's join link starts from the top.
-  useEffect(() => setStep(0), [c.slug]);
+  useEffect(() => setStep(resume ? 1 : 0), [c.slug, resume]);
 
   useEffect(() => {
     if (result && !result.ok) {
@@ -88,9 +93,17 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                     </div>
                   )}
                   <div className="sso" style={{ marginTop: 18 }}>
-                    <button type="button" className="btn btn-w" onClick={() => setStep(1)}>Continue with Apple</button>
-                    <button type="button" className="btn btn-q" onClick={() => setStep(1)}>Continue with Google</button>
-                    <button type="button" className="btn btn-q" onClick={() => setStep(1)}>Use my phone number</button>
+                    {signIn === "example" ? (
+                      <>
+                        <button type="button" className="btn btn-w" onClick={() => setStep(1)}>Continue with Apple</button>
+                        <button type="button" className="btn btn-q" onClick={() => setStep(1)}>Continue with Google</button>
+                        <button type="button" className="btn btn-q" onClick={() => setStep(1)}>Use my phone number</button>
+                      </>
+                    ) : signIn === "in" ? (
+                      <button type="button" className="btn btn-w" onClick={() => setStep(1)}>Continue</button>
+                    ) : (
+                      <Link className="btn btn-w" to={`/signin?next=${encodeURIComponent(`/join/${c.slug}?signed=1`)}`}>Continue with email</Link>
+                    )}
                   </div>
                 </div>
               </div>
