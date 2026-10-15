@@ -22,6 +22,7 @@ import CrewRace from "@/components/crew/CrewRace";
 import CrewStats from "@/components/crew/CrewStats";
 import UnderlineTabs from "@/components/crew/UnderlineTabs";
 import { shareInvite, useCrewFocus } from "@/components/crew/shared";
+import { Surface } from "@/components/ui/Surface";
 
 const TAB_KEYS = ["board", "feed", "chat", "challenges", "stats"];
 
@@ -39,20 +40,23 @@ function useStartCrew() {
   };
 }
 
+/** .card.eopt: a lit row, the icon in a blue tinted circle; the suggested one ringed in blue. */
 function WayIn({ icon: Icon, title, sub, onPress, highlight }) {
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98} style={[styles.way, highlight && styles.wayOn]} accessibilityLabel={title}>
+    <Surface onPress={onPress} radius={20} padding={null} style={highlight ? styles.wayOn : null} contentStyle={styles.way} accessibilityLabel={title}>
       <View style={styles.wayIcon}>
-        <Icon size={18} color={C.accentHi} />
+        <Icon size={16} color={C.accentHi} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.wayTitle}>{title}</Text>
-        <Body dim size={13} numberOfLines={1}>
+        <Text style={styles.waySub} numberOfLines={1}>
           {sub}
-        </Body>
+        </Text>
       </View>
-      <ChevronsRight size={18} color={C.textMute} />
-    </PressableScale>
+      <View>
+        <ChevronsRight size={16} color={C.textDim} />
+      </View>
+    </Surface>
   );
 }
 
@@ -73,7 +77,8 @@ function NoCrew({ refresh, refreshing }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
       >
-        <Hero object={PHOTOS.crest} kicker="Crew" top="Running solo" bottom="for now" sub="Crews share a weekly goal, a chat and the Area Cup." height={300} />
+        {/* .slab 300: the podium with its star, waiting for a crew to stand on it */}
+        <Hero object={PHOTOS.podium} objectSize={240} objectStyle={{ right: -34 }} kicker="Crew" top="Running solo" bottom="for now" sub="Crews share a weekly goal, a chat and the Area Cup." height={286} />
         <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
           <WayIn icon={Lock} title="Join with a code" sub="A friend sent you six letters" onPress={() => router.push("/crew/join")} />
           <WayIn
@@ -276,9 +281,10 @@ export default function CrewTab() {
 }
 
 const styles = StyleSheet.create({
-  way: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1.5, borderColor: "transparent", borderTopColor: C.hairlineTop },
-  wayOn: { borderColor: C.accent, borderTopColor: C.accent },
-  wayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  wayTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
+  way: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 13, paddingBottom: 13, paddingLeft: 14, paddingRight: 14 },
+  wayOn: { borderRadius: 20, boxShadow: "0 0 0 1.5px #3d8bff, 0 0 22px -8px rgba(61,139,255,0.8)" },
+  wayIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center" },
+  wayTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  waySub: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
   section: { color: C.text, fontFamily: F.display, fontSize: 24, textTransform: "uppercase", marginBottom: S.md },
 });
