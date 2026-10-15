@@ -17,8 +17,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const viewer = usingExampleData() ? null : await db.viewer().catch(() => null);
   const signIn: "example" | "in" | "out" = usingExampleData() ? "example" : viewer ? "in" : "out";
   // Back from the email link: carry on to picking a pace.
-  const resume = signIn === "in" && new URL(request.url).searchParams.get("signed") === "1";
-  return { club: page.club, run: page.runs[0] ?? null, signIn, resume, publicUrl: config().publicUrl, origin: new URL(request.url).origin };
+  const url = new URL(request.url);
+  const resume = signIn === "in" && url.searchParams.get("signed") === "1";
+  // ?c= is the poster or sticker code. Count the scan once, not again on the way back from signing in.
+  const code = /^[a-z0-9-]{2,24}$/i.test(url.searchParams.get("c") ?? "") ? url.searchParams.get("c")!.toLowerCase() : null;
+  if (code && !resume) await db.recordInviteScan(code).catch(() => undefined);
+  return { club: page.club, run: page.runs[0] ?? null, signIn, resume, code, publicUrl: config().publicUrl, origin: url.origin };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
@@ -37,7 +41,7 @@ const PACES: [PaceGroup, string][] = [["Walk", "Walking group"], ["Easy", "7 min
 const DAYS: Record<string, string> = { MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday", FRI: "Friday", SAT: "Saturday", SUN: "Sunday" };
 
 export default function Join({ loaderData }: Route.ComponentProps) {
-  const { club: c, run, signIn, resume } = loaderData;
+  const { club: c, run, signIn, resume, code } = loaderData;
   const toast = useToast();
   const { act, result } = useAct<{ joined: "joined" | "requested" }>();
   // Clubs that say yes first answer with "requested"; until the answer comes back, show you're in.
@@ -104,7 +108,7 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                     ) : signIn === "in" ? (
                       <button type="button" className="btn btn-w" onClick={() => setStep(1)}>Continue</button>
                     ) : (
-                      <Link className="btn btn-w" to={`/signin?next=${encodeURIComponent(`/join/${c.slug}?signed=1`)}`}>Continue with email</Link>
+                      <Link className="btn btn-w" to={`/signin?next=${encodeURIComponent(`/join/${c.slug}?signed=1${code ? `&c=${code}` : ""}`)}`}>Continue with email</Link>
                     )}
                   </div>
                 </div>
@@ -133,7 +137,7 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                     className="btn btn-p btn-l"
                     style={{ marginTop: "auto" }}
                     onClick={() => {
-                      act({ intent: "club-join", slug: c.slug, pace, runId: come && run ? run.id : null });
+                      act({ intent: "club-join", slug: c.slug, pace, runId: come && run ? run.id : null, ...(code ? { code } : {}) });
                       setStep(2);
                     }}
                   >

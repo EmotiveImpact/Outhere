@@ -52,7 +52,9 @@ export default function HqKit({ loaderData }: Route.ComponentProps) {
     if (result?.error === "SLUG_TAKEN" && lastSlug.current) setTaken(lastSlug.current);
   }, [result]);
 
-  const joinUrl = `${publicUrl}/join/${club.slug}`;
+  // The poster and sticker carry the club's first code, so their scans and joins are counted.
+  const firstCode = kit.codes[0]?.code.toLowerCase();
+  const joinUrl = `${publicUrl}/join/${club.slug}${firstCode ? `?c=${firstCode}` : ""}`;
   const clean = slugify(slug);
   const problem = slugProblem(slug, taken);
   const tagOrder = [...kit.allTags, ...tags.filter((t) => !kit.allTags.includes(t))];

@@ -1,5 +1,5 @@
 import { Link, redirect } from "react-router";
-import { canSeeClubHq, formatNumber, isValidClubSlug, ordinal, type FormLetter } from "@outhere/core";
+import { canSeeClubHq, formatNumber, isValidClubSlug, ordinal, type FormLetter, type Person } from "@outhere/core";
 import { Countdown, CountUp, Faces, Form, QR, Tick, usePerson } from "@outhere/ui";
 import { config, getData } from "~/data.server";
 import { ClubCard } from "~/components/club-card";
@@ -45,13 +45,14 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 
 const RESULT: Record<FormLetter, [string, string]> = { w: ["Won", "pill blue"], d: ["Drew", "pill"], l: ["Lost", "pill"] };
 
-function Leader({ personId, role, group }: { personId: string; role: string; group: string }) {
-  const p = usePerson(personId);
+function Leader({ personId, role, group, person }: { personId: string; role: string; group: string; person?: Person }) {
+  const known = usePerson(personId);
+  const p = known.id === personId || !person ? known : person;
   return (
     <div className="leader">
       <img src={p.photo} alt={p.name} />
       <b>{p.name.split(" ")[0]}</b>
-      <span>{role} · {group}</span>
+      <span>{[role, group].filter(Boolean).join(" · ")}</span>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import type {
   PublicProfile,
   BattlesView, BoroughMetric, BoroughStat, CalendarView, City, ChatView, Club, ClubFilter, ClubHqView,
   ClubPagePatch, ClubPageView, FairPlayView, JoinInput, FeedView, FundView, HomeView, KitView, LeagueView,
-  MembersView, NewBattle, NewPickup, MeView, Notification, Person, Pickup, PickupsView, Plan, Reaction, Role, RunsWeekView,
+  LatLng, MembersView, NewBattle, NewPickup, MeView, Notification, Person, Pickup, PickupsView, Plan, Reaction, Role, RunsWeekView,
   SearchItem, SeasonsView, AdminOverview, VerificationRequest, Viewer, AuditEntry,
 } from "./types";
 
@@ -54,7 +54,8 @@ export interface OuthereData {
   declineChallenge(id: string): Promise<void>;
   setSurpriseChallengers(on: boolean): Promise<void>;
 
-  pickups(): Promise<PickupsView>;
+  /** Pick-ups in the viewer's city, or within a few kilometres of `near` when given. */
+  pickups(near?: LatLng): Promise<PickupsView>;
   setPickupGoing(id: string, going: boolean): Promise<void>;
   postPickup(input: NewPickup): Promise<Pickup>;
   /** Club staff only. */
@@ -77,6 +78,8 @@ export interface OuthereData {
 
   notifications(): Promise<Notification[]>;
   markNotificationsRead(): Promise<void>;
+  /** Counts a scan of a club's poster or sticker code. Works signed out. */
+  recordInviteScan(code: string): Promise<void>;
   searchIndex(): Promise<SearchItem[]>;
 
   /* public */

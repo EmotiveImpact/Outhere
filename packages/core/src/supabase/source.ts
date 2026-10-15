@@ -2,11 +2,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { ClubQuery, OuthereData } from "../data-source";
 import { battleLengths, CLUB_TAG_SUGGESTIONS, firstName, formatNumber, isValidClubSlug, ordinal, slugify } from "../rules";
 import { nextReveal } from "../mock/source";
-// Product definitions (battle modes and plan prices), not example data. See SCHEMA_GAPS.md.
-import { BATTLE_MODES, PLANS } from "../mock/seed";
+// Battle modes are product definitions, not example data. See SCHEMA_GAPS.md.
+import { BATTLE_MODES } from "../mock/seed";
 import type {
   AdminOverview, AuditEntry, Battle, BattleModeKey, BattlesView, BoroughMetric, BoroughStat, CalendarEvent, City,
-  CalendarView, ChatChannel, ChatItem, ChatView, CheckinRun, Club, ClubFilter, FormLetter, JoinInput, MeView, PickupsView, PublicProfile, ClubHqView, ClubPagePatch, ClubPageView, ClubRun,
+  CalendarView, ChatChannel, ChatItem, ChatView, CheckinRun, Club, ClubFilter, FormLetter, JoinInput, LatLng, MeView, PickupsView, PublicProfile, ClubHqView, ClubPagePatch, ClubPageView, ClubRun,
   Derby, FairPlayFlag, FairPlayView, FeedComment, FeedPost, FeedScope, FeedView, FundView, HomeView, IconName,
   KitView, LeagueView, Member, MembersView, NeedsYou, NewBattle, NewPickup, NewRun, Notification, OutNowEntry,
   PaceGroup, Person, Pickup, PickupType, Plan, Reaction, ReactionCounts, RevealInfo, RevealResult, Role, RouteShape,
@@ -41,14 +41,14 @@ export interface SupabaseDataOptions {
 const PERSON = "id, display_name, avatar_path, tier";
 const PROFILE = "id, username, display_name, avatar_path, city_id, borough_id, home_club_id, tier, founding_number, trust, level, streak_days, best_streak, surprise_challengers, public_profile";
 const CLUB = "id, slug, name, tagline, city_id, borough_id, status, logo_path, cover_path, meeting_place, usual_times, member_count, created_by, created_at, founded_year, tags, filters, join_policy";
-const EVENT = "id, club_id, city_id, kind, activity, title, description, starts_at, ends_at, place_name, pace_label, capacity, cover_path, created_by";
+const EVENT = "id, club_id, city_id, kind, activity, title, description, starts_at, ends_at, place_name, pace_label, capacity, cover_path, created_by, data, locals_partner_id";
 const POST = "id, author_id, club_id, kind, body, media_paths, run_id, battle_id, event_id, data, reaction_count, comment_count, created_at";
 const BATTLE = "id, mode, status, challenger_id, opponent_id, is_surprise, distance_m, duration_h, stake_out, starts_at, ends_at, winner_id, challenger_result, opponent_result, created_at, finished_at, results_open";
 const FIXTURE = "id, division_id, week, home_id, away_id, is_derby, starts_on, ends_on, draw_seed, drawn_at, home_score, away_score, revealed_at";
 
 type ProfileRow = Pick<Tables<"profiles">, "id" | "username" | "display_name" | "avatar_path" | "city_id" | "borough_id" | "home_club_id" | "tier" | "founding_number" | "trust" | "level" | "streak_days" | "surprise_challengers" | "public_profile">;
 type ClubRow = Pick<Tables<"clubs">, "id" | "slug" | "name" | "tagline" | "city_id" | "borough_id" | "status" | "logo_path" | "cover_path" | "meeting_place" | "usual_times" | "member_count" | "created_by" | "created_at" | "founded_year" | "tags" | "filters" | "join_policy">;
-type EventRow = Pick<Tables<"events">, "id" | "club_id" | "city_id" | "kind" | "activity" | "title" | "description" | "starts_at" | "ends_at" | "place_name" | "pace_label" | "capacity" | "cover_path" | "created_by">;
+type EventRow = Pick<Tables<"events">, "id" | "club_id" | "city_id" | "kind" | "activity" | "title" | "description" | "starts_at" | "ends_at" | "place_name" | "pace_label" | "capacity" | "cover_path" | "created_by" | "data" | "locals_partner_id">;
 type PostRow = Pick<Tables<"posts">, "id" | "author_id" | "club_id" | "kind" | "body" | "media_paths" | "run_id" | "battle_id" | "event_id" | "data" | "reaction_count" | "comment_count" | "created_at">;
 type BattleRow = Pick<Database["public"]["Views"]["battle_board"]["Row"], "id" | "mode" | "status" | "challenger_id" | "opponent_id" | "is_surprise" | "distance_m" | "duration_h" | "stake_out" | "starts_at" | "ends_at" | "winner_id" | "challenger_result" | "opponent_result" | "created_at" | "finished_at" | "results_open">;
 type FixtureRow = Pick<Tables<"fixtures">, "id" | "division_id" | "week" | "home_id" | "away_id" | "is_derby" | "starts_on" | "ends_on" | "draw_seed" | "drawn_at" | "home_score" | "away_score" | "revealed_at">;
@@ -126,6 +126,26 @@ const TIME_MODES: Enums<"battle_mode">[] = ["live_race", "blind_time_trial", "gh
 /** Battle lengths the UI offers, as the database stores them. */
 const DURATIONS: Record<string, number> = { Today: 24, "3 days": 72, "5 days": 120, "A week": 168, "7 days": 168, "Until someone drops": 168 };
 const DISTANCES: Record<string, number> = { "3k": 3000, "5k": 5000, "10k": 10000, Half: 21097 };
+
+/** What staff check before verifying a club, as stored keys and the labels HQ shows. Order matters: HQ ticks by index. */
+const FOUNDING_CHECKS: [string, string][] = [
+  ["three_meetups", "3 meetups within 6 weeks"],
+  ["six_at_each", "6 or more people at each"],
+  ["ten_verified", "10 different verified people"],
+  ["public_meeting_point", "Public meeting point, no home addresses"],
+  ["organiser_id", "Organiser verified with ID"],
+];
+const CLAIM_CHECKS: [string, string][] = [
+  ["online_six_months", "Club exists online for 6+ months"],
+  ["organiser_named", "Organiser named on the club's own site or socials"],
+  ["code_word", "Code word posted on the club's Instagram"],
+  ["public_meeting_point", "Regular runs at a public meeting point"],
+  ["no_other_claim", "No other claim for this club"],
+];
+
+/** Pick-ups are events with no club; searching near someone looks this far. */
+const PICKUP_KINDS: Enums<"event_kind">[] = ["pickup", "open_run", "walk", "race"];
+const PICKUP_KM = 5;
 
 /** Post reactions are stored by name in post_reactions.emoji. */
 const REACTIONS: Reaction[] = ["fire", "pushed", "respect"];
@@ -726,6 +746,22 @@ export class SupabaseData implements OuthereData {
     return { entryId: entry.id, name, short: name.split(" ")[0] ?? name, crest, clubId: entry.club_id, cityId: entry.city_id, points: entry.points, score: Math.round(score) };
   }
 
+  /** XP earned so far in the current City League season, or null when the member's points can't be seen. */
+  private async seasonPoints(uid: string): Promise<number | null> {
+    const season = await this.currentSeason("city");
+    if (!season) return null;
+    const row = one(await this.client.from("member_season_points").select("points").eq("user_id", uid).eq("season_id", season.id).maybeSingle());
+    return row?.points ?? null;
+  }
+
+  /** A side's squad size, average steps, turnout and score in one fixture. */
+  private async sideStats(fixtureId: string, entryId: string) {
+    const r = await this.client.rpc("fixture_side_stats", { p_fixture: fixtureId, p_entry: entryId });
+    if (r.error) throw toDataError(r.error);
+    const row = r.data?.[0];
+    return row ? { squad: Number(row.squad), average: Number(row.average), turnout: Math.round(Number(row.turnout_pct)), score: Number(row.score) } : null;
+  }
+
   private toDerby(f: FixtureInfo, outIds: string[]): Derby {
     const home = f.usHome ? f.us : f.them;
     const away = f.usHome ? f.them : f.us;
@@ -858,16 +894,19 @@ export class SupabaseData implements OuthereData {
     const empty = { match: "", league: "", squadNumber: 0, average: 0 };
     const fixture = await this.currentFixture({ cityId: ctx.cityId });
     if (!fixture) return empty;
-    const squad = rows(await this.client.from("squad_members").select("user_id").eq("fixture_id", fixture.row.id).eq("entry_id", fixture.us.entryId));
-    if (!squad.some((s) => s.user_id === ctx.me)) return empty;
+    const [mine, stats] = await Promise.all([
+      this.client.from("squad_members").select("squad_number").eq("fixture_id", fixture.row.id).eq("entry_id", fixture.us.entryId).eq("user_id", ctx.me).maybeSingle().then(one),
+      this.sideStats(fixture.row.id, fixture.us.entryId),
+    ]);
+    if (!mine) return empty;
     const home = fixture.usHome ? fixture.us : fixture.them;
     const away = fixture.usHome ? fixture.them : fixture.us;
     return {
       match: `${home.name} v ${away.name}`,
       league: `City League · ${fixture.division} · ${fixture.squadSize} a side`,
-      squadNumber: 0,
-      // The side's live score: average counted steps with the turnout bonus.
-      average: fixture.us.score,
+      squadNumber: mine.squad_number ?? 0,
+      // The squad's average counted steps so far, before the turnout bonus.
+      average: Math.round(stats?.average ?? fixture.us.score),
     };
   }
 
@@ -915,8 +954,13 @@ export class SupabaseData implements OuthereData {
     if (standing) {
       const { area, place, city, move } = standing;
       const moved = move ? `, ${move} place${/ 1$/.test(move) ? "" : "s"} on last week` : "";
-      // Each member's own steps stay private, so the card names no leaders.
-      const card: FeedPost = { id: `borough-${area.id}`, kind: "borough", scopes: ["borough"], borough: area.name, place, line: `in ${city}${moved}. ${formatNumber(area.people)} ${area.people === 1 ? "person" : "people"} walking and running for ${area.name}.`, leaders: [] };
+      // The top three this week, from members with a public profile only.
+      const leaders = rows(await this.client.from("area_leaders").select("display_name, counted, rank").eq("borough_id", area.id).order("rank"));
+      const card: FeedPost = {
+        id: `borough-${area.id}`, kind: "borough", scopes: ["borough"], borough: area.name, place,
+        line: `in ${city}${moved}. ${formatNumber(area.people)} ${area.people === 1 ? "person" : "people"} walking and running for ${area.name}.`,
+        leaders: leaders.map((l) => ({ name: l.display_name ?? "", steps: l.counted ?? 0 })),
+      };
       posts.splice(Math.min(2, posts.length), 0, card);
     }
     const derbyPost: FeedPost[] = derby.fixture ? [{ id: `derby-${derby.derby.id}`, kind: "derby", scopes: ["club"], derby: derby.derby }] : [];
@@ -1111,10 +1155,10 @@ export class SupabaseData implements OuthereData {
   private async feedWeek(ctx: Ctx): Promise<FeedView["week"]> {
     const monday = mondayOf(ukTime(this.now()).date);
     const start = ukMidnight(monday);
-    const [steps, checkins, xp] = await Promise.all([
+    const [steps, checkins, points] = await Promise.all([
       this.weekSteps(ctx.me),
       this.client.from("event_rsvps").select("event_id").eq("user_id", ctx.me).eq("status", "checked_in").gte("checked_in_at", start).then(rows),
-      this.client.from("ledger").select("amount").eq("user_id", ctx.me).eq("currency", "xp").gte("created_at", start).then(rows),
+      this.client.from("member_week_points").select("points").eq("user_id", ctx.me).eq("week_start", monday).maybeSingle().then(one),
     ]);
     const clubRuns = checkins.length
       ? rows(await this.client.from("events").select("id").in("id", checkins.map((c) => c.event_id)).eq("kind", "club_run")).length
@@ -1122,7 +1166,7 @@ export class SupabaseData implements OuthereData {
     return {
       steps: steps.days.reduce((a, b) => a + b, 0),
       clubRuns,
-      points: xp.reduce((n, l) => n + l.amount, 0),
+      points: points?.points ?? 0,
       spark: steps.days.map((d) => Math.round(d / 1000)),
     };
   }
@@ -1144,10 +1188,9 @@ export class SupabaseData implements OuthereData {
 
   /** Unread messages per channel for the signed in member. */
   private async unreadByChannel(clubId: string): Promise<Map<string, number>> {
-    // club_unread() returns one row per channel: { channel_id, unread }.
     const r = await this.client.rpc("club_unread", { p_club: clubId });
     if (r.error) throw toDataError(r.error);
-    return new Map<string, number>((r.data ?? []).map((u) => [str(u, "channel_id") ?? "", Number(field(u, "unread") ?? 0)]));
+    return new Map<string, number>((r.data ?? []).map((u) => [u.channel_id, Number(u.unread)]));
   }
 
   async react(postId: string, reaction: Reaction): Promise<void> {
@@ -1192,7 +1235,7 @@ export class SupabaseData implements OuthereData {
     const ctx = await this.ctx();
     const [club, channels, messages, leaders, dots, upcoming] = await Promise.all([
       this.loadClub(clubId),
-      this.client.from("club_channels").select("id, name, description, staff_only_post, sort").eq("club_id", clubId).order("sort").then(rows),
+      this.client.from("club_channels").select("id, name, description, staff_only_post, staff_only_read, sort").eq("club_id", clubId).order("sort").then(rows),
       this.client.from("club_messages").select("id, channel_id, author_id, body, kind, data, created_at").eq("club_id", clubId)
         .is("hidden_at", null).order("created_at", { ascending: false }).limit(300).then(rows),
       this.client.from("club_members").select("user_id").eq("club_id", clubId).in("role", ["captain", "admin"]).then(rows),
@@ -1239,9 +1282,10 @@ export class SupabaseData implements OuthereData {
       onlineIds: dots.slice(0, 4).map((d) => d.user_id),
       channels: channels.map((c): ChatChannel => ({
         key: c.name,
-        description: c.description ?? (c.staff_only_post ? "Captains and admins post here" : ""),
+        description: c.description ?? (c.staff_only_read ? "Captains and admins only" : c.staff_only_post ? "Captains and admins post here" : ""),
         unread: unread.get(c.id) ?? 0,
-        leadersOnly: c.staff_only_post,
+        // Members never see these channels; the database hides them too.
+        leadersOnly: c.staff_only_read,
         items: toItems(c.id),
       })),
       nextRun: upcoming[0] ?? neutralRun(),
@@ -1551,12 +1595,16 @@ export class SupabaseData implements OuthereData {
   /* ---------- pick-ups ---------- */
 
   /** Open pick-ups in the member's city from an hour ago onwards. */
-  private async pickupRows(ctx: Ctx): Promise<{ events: EventRow[]; rsvps: RsvpRow[] }> {
+  private async pickupRows(ctx: Ctx, near?: LatLng): Promise<{ events: EventRow[]; rsvps: RsvpRow[] }> {
     const since = new Date(this.now().getTime() - 3_600_000).toISOString();
-    const events = rows(
-      await this.client.from("events").select(EVENT).is("club_id", null).in("kind", ["pickup", "open_run", "walk", "race"])
-        .eq("city_id", ctx.cityId).is("cancelled_at", null).gte("starts_at", since).order("starts_at").limit(30),
-    );
+    const events = near
+      ? rows(await this.client.rpc("pickups_near", { p_lat: near.lat, p_lng: near.lng, p_km: PICKUP_KM }))
+          .filter((e) => !e.club_id && PICKUP_KINDS.includes(e.kind) && !e.cancelled_at && e.starts_at >= since)
+          .slice(0, 30)
+      : rows(
+          await this.client.from("events").select(EVENT).is("club_id", null).in("kind", PICKUP_KINDS)
+            .eq("city_id", ctx.cityId).is("cancelled_at", null).gte("starts_at", since).order("starts_at").limit(30),
+        );
     return { events, rsvps: await this.rsvpsFor(events.map((e) => e.id)) };
   }
 
@@ -1569,6 +1617,8 @@ export class SupabaseData implements OuthereData {
       hostId: e.created_by,
       type,
       ...(type === "race" ? { openRace: true } : {}),
+      ...(field(e.data, "open_battle") ? { openBattle: true } : {}),
+      ...(e.locals_partner_id ? { locals: true } : {}),
       title: e.title,
       when: whenLabel(e.starts_at, this.now()),
       ...(mins > 0 && mins <= 120 ? { soon: `in ${mins} min` } : {}),
@@ -1580,26 +1630,24 @@ export class SupabaseData implements OuthereData {
     };
   }
 
-  async pickups(): Promise<PickupsView> {
+  async pickups(near?: LatLng): Promise<PickupsView> {
     const ctx = await this.ctx();
     const [{ events, rsvps }, out, boroughs, club] = await Promise.all([
-      this.pickupRows(ctx),
+      this.pickupRows(ctx, near),
       this.client.rpc("outside_now", { p_city: ctx.cityId }),
       this.boroughNames(),
       ctx.homeClubId ? this.client.from("clubs").select("name").eq("id", ctx.homeClubId).maybeSingle().then(one) : null,
     ]);
     if (out.error) throw toDataError(out.error);
-    // outside_now() returns one row per borough: { borough_id, out_now }.
-    const outIn = (out.data ?? []).reduce<number>((n, r) => {
-      const borough = str(r, "borough_id");
-      const count = Number(field(r, "out_now") ?? 0);
-      return !ctx.profile.borough_id || borough === ctx.profile.borough_id ? n + count : n;
-    }, 0);
+    const outIn = (out.data ?? []).reduce<number>(
+      (n, r) => (!ctx.profile.borough_id || r.borough_id === ctx.profile.borough_id ? n + Number(r.out_now) : n),
+      0,
+    );
     return {
       list: events.map((e) => this.toPickup(e, rsvps, ctx.me)),
       area: (ctx.profile.borough_id && boroughs.get(ctx.profile.borough_id)) || "",
-      // Pick-ups are not stored with a location yet, so the list covers the city; see SCHEMA_GAPS.md.
-      radiusKm: 0,
+      // Without the viewer's location the list covers their city.
+      radiusKm: near ? PICKUP_KM : 0,
       outNearby: outIn,
       clubName: club?.name ?? "",
     };
@@ -1612,7 +1660,8 @@ export class SupabaseData implements OuthereData {
   async postPickup(input: NewPickup): Promise<Pickup> {
     const ctx = await this.ctx();
     const title = input.title.trim().slice(0, 48) || "Easy 5k after work";
-    const at = input.at.trim().slice(0, 48) || "Peckham Rye, the bandstand";
+    const area = ctx.profile.borough_id ? (await this.boroughNames()).get(ctx.profile.borough_id) : undefined;
+    const at = input.at.trim().slice(0, 48) || area || (await this.cityOf(ctx.cityId)).name;
     const startsAt = parseWhen(input.when, this.now());
     if (!startsAt) throw new DataError("BAD_TIME");
     const created = one(
@@ -1620,6 +1669,8 @@ export class SupabaseData implements OuthereData {
         city_id: ctx.cityId,
         kind: "pickup",
         activity: input.type,
+        // About a kilometre is enough to find it nearby without pinning where anyone is.
+        ...(input.near ? { lat: Math.round(input.near.lat * 100) / 100, lng: Math.round(input.near.lng * 100) / 100 } : {}),
         title,
         starts_at: startsAt,
         place_name: at,
@@ -1697,6 +1748,9 @@ export class SupabaseData implements OuthereData {
     const away = cityFixture ? (cityFixture.usHome ? cityFixture.them : cityFixture.us) : null;
     const weeks = season ? Math.ceil(((Date.parse(season.ends_on) - Date.parse(season.starts_on)) / 86_400_000 + 1) / 7) : 0;
     const week = cityFixture?.row.week ?? 0;
+    const [homeStats, awayStats] = cityFixture && home && away
+      ? await Promise.all([this.sideStats(cityFixture.row.id, home.entryId), this.sideStats(cityFixture.row.id, away.entryId)])
+      : [null, null];
     return {
       season: season ? `${season.name}${week ? ` · week ${week} of ${weeks}` : ""}` : "",
       match: {
@@ -1704,9 +1758,8 @@ export class SupabaseData implements OuthereData {
         away: away?.name ?? "",
         homeScore: home?.score ?? 0,
         awayScore: away?.score ?? 0,
-        // Turnout per side needs the squad check-in rate; see SCHEMA_GAPS.md.
-        homeTurnout: 0,
-        awayTurnout: 0,
+        homeTurnout: homeStats?.turnout ?? 0,
+        awayTurnout: awayStats?.turnout ?? 0,
         division: cityFixture ? `City League ${cityFixture.division}` : "",
         dayOfWeek: cityFixture ? Math.max(0, Math.round((Date.parse(today) - Date.parse(cityFixture.row.starts_on)) / 86_400_000)) : 0,
       },
@@ -1804,12 +1857,13 @@ export class SupabaseData implements OuthereData {
     const monday = mondayOf(today);
     const from = addDays(monday, -7 * 11);
     const monthStart = `${today.slice(0, 7)}-01`;
-    const [club, steps, wallet, checkins] = await Promise.all([
+    const [club, steps, wallet, checkins, seasonPoints] = await Promise.all([
       ctx.homeClubId ? this.client.from("clubs").select("name").eq("id", ctx.homeClubId).maybeSingle().then(one) : null,
       this.client.from("daily_steps").select("day, counted").eq("user_id", ctx.me).gte("day", from).then(rows),
       this.client.from("wallets").select("xp, out_available, out_held").eq("user_id", ctx.me).maybeSingle().then(one),
       this.client.from("event_rsvps").select("event_id, checked_in_at").eq("user_id", ctx.me).eq("status", "checked_in")
         .gte("checked_in_at", ukMidnight(from < monthStart ? from : monthStart)).then(rows),
+      this.seasonPoints(ctx.me),
     ]);
     const runs = checkins.length
       ? rows(await this.client.from("events").select("id, starts_at").in("id", checkins.map((c) => c.event_id)).eq("kind", "club_run"))
@@ -1829,8 +1883,7 @@ export class SupabaseData implements OuthereData {
         { label: "Counted steps this week", value: thisWeek, delta: lastWeek ? `<b>${change >= 0 ? "+" : ""}${change}%</b> on last week` : "Your first week" },
         { label: "OUT available", value: wallet?.out_available ?? 0, delta: `<b>+${wallet?.out_held ?? 0}</b> pending release` },
         { label: "Club runs this month", value: runDays.filter((d) => d >= monthStart).length, delta: club?.name ? `With ${club.name}` : "Join a club to count them" },
-        // Season points per member are not stored yet; level and XP stand in. See SCHEMA_GAPS.md.
-        { label: "Level", value: ctx.profile.level, delta: `${formatNumber(wallet?.xp ?? 0)} XP` },
+        { label: "Season points", value: seasonPoints ?? 0, delta: `Level ${ctx.profile.level} · ${formatNumber(wallet?.xp ?? 0)} XP` },
       ],
       weeks: {
         labels: weekStarts.map((_, i) => (i % 2 === 0 ? `W${i + 1}` : "")),
@@ -1897,7 +1950,11 @@ export class SupabaseData implements OuthereData {
     };
     const where = club ? { club: { name: club.name, slug: club.slug, role: roleLabel(role?.role) } } : {};
     const streak = { label: "Day streak", value: p.streak_days, delta: `Best ${p.best_streak}` };
-    const levelKpi = { label: "Level", value: p.level, delta: "Out on the streets" };
+    const points = await this.seasonPoints(p.id);
+    // Season points show where the member's profile can be seen; level stands in otherwise.
+    const levelKpi = points === null
+      ? { label: "Level", value: p.level, delta: "Out on the streets" }
+      : { label: "Season points", value: points, delta: "This season" };
     // Steps and check-ins are only visible to signed in members.
     if (!me) return { ...base, ...where, stats: [levelKpi, streak] };
 
@@ -1973,8 +2030,23 @@ export class SupabaseData implements OuthereData {
     const at = table.findIndex((t) => t.id === ourEntryId);
     const ours = table[at];
     if (division && ours) {
-      // Where the club sat before the reveal is not kept, so this says where it is now.
-      cards.push({ kick: division.name, title: `Now ${ordinal(at + 1)}`, line: `${resultWord(ourScore, theirScore)} · ${ours.points} points from ${ours.played}` });
+      // The table as it stood after this fixture and after the one before, when settling recorded them.
+      const history = rows(await this.client.from("league_entry_history").select("fixture_id, position, points").eq("entry_id", ourEntryId).order("recorded_at", { ascending: false }).limit(10));
+      const now = history.findIndex((h) => h.fixture_id === fixture.id);
+      const after = history[now];
+      const before = now >= 0 ? history[now + 1] : undefined;
+      const place = after?.position ?? at + 1;
+      const title = !before || before.position === place
+        ? `${before ? "Stays" : "Now"} ${ordinal(place)}`
+        : `${place < before.position ? "Up" : "Down"} to ${ordinal(place)}`;
+      const gained = after && before ? after.points - before.points : null;
+      cards.push({
+        kick: division.name,
+        title,
+        line: gained === null
+          ? `${resultWord(ourScore, theirScore)} · ${ours.points} points from ${ours.played}`
+          : `${gained >= 0 ? "+" : ""}${gained} point${Math.abs(gained) === 1 ? "" : "s"} · ${ours.points} from ${ours.played}`,
+      });
     }
     const squad = await this.squadResult(ctx, fixture.starts_on, nowIso);
     if (squad) cards.push(squad);
@@ -2021,7 +2093,7 @@ export class SupabaseData implements OuthereData {
     const otherEntry = usHome ? f.away_id : f.home_id;
     const [other, inSquad] = await Promise.all([
       this.client.from("league_entries").select("city_id").eq("id", otherEntry).maybeSingle().then(one),
-      this.client.from("squad_members").select("user_id").eq("fixture_id", f.id).eq("entry_id", ourEntry).eq("user_id", ctx.me).maybeSingle().then(one),
+      this.client.from("squad_members").select("user_id, rank").eq("fixture_id", f.id).eq("entry_id", ourEntry).eq("user_id", ctx.me).maybeSingle().then(one),
     ]);
     const cityIds = unique([ctx.cityId, other?.city_id ?? ""].filter(Boolean));
     const cities = rows(await this.client.from("cities").select("id, name").in("id", cityIds));
@@ -2029,16 +2101,24 @@ export class SupabaseData implements OuthereData {
     const us = Math.round(Number((usHome ? f.home_score : f.away_score) ?? 0));
     const them = Math.round(Number((usHome ? f.away_score : f.home_score) ?? 0));
     const verb = us > them ? "beat" : us < them ? "lost to" : "drew with";
-    // Each walker's place in the squad is not stored; see SCHEMA_GAPS.md.
     return {
       kick: inSquad ? "Your squad" : "Your city",
       title: `${nameOf(ctx.cityId)} ${verb} ${nameOf(other?.city_id)}`,
-      line: `${formatNumber(us)} to ${formatNumber(them)}${inSquad ? " · you were in the squad" : ""}`,
+      line: `${formatNumber(us)} to ${formatNumber(them)}${inSquad ? (inSquad.rank ? ` · you were #${inSquad.rank}` : " · you were in the squad") : ""}`,
     };
   }
 
   async plans(): Promise<Plan[]> {
-    return PLANS.map((p) => ({ ...p, features: [...p.features] }));
+    const list = rows(await this.client.from("plans").select("tier, name, monthly_pence, yearly_pence, line, features, popular").order("sort"));
+    return list.map((p) => ({
+      tier: p.tier,
+      name: p.name,
+      monthly: p.monthly_pence / 100,
+      yearly: p.yearly_pence === null ? null : p.yearly_pence / 100,
+      line: p.line ?? "",
+      features: [...p.features],
+      ...(p.popular ? { popular: true } : {}),
+    }));
   }
 
   async setPublicProfile(on: boolean): Promise<void> {
@@ -2102,15 +2182,20 @@ export class SupabaseData implements OuthereData {
       this.upcomingClubRuns(club.id, 6, me),
       this.currentFixture({ clubId: club.id }),
       this.clubStandings([club.id]),
-      this.client.from("club_members").select("user_id, role, pace_group").eq("club_id", club.id).in("role", ["captain", "admin"]).then(rows),
+      // Public, so signed out visitors see who runs the club too.
+      this.client.from("club_leaders").select("user_id, role, treasurer, display_name, avatar_path, tier").eq("club_id", club.id).then(rows),
       this.client.from("locals_partners").select("business_name, category, perk").eq("club_id", club.id).then(rows),
       // Same borough or area first; a club without one gets others in its city.
       this.loadClubs(boroughId ? { boroughId, limit: 4 } : { cityId: club.cityId, limit: 4 }).then((all) => all.filter((c) => c.id !== club.id).slice(0, 3)),
-      this.client.from("posts").select("media_paths").eq("club_id", club.id).eq("kind", "photo").is("hidden_at", null).order("created_at", { ascending: false }).limit(5).then(rows),
-      this.turnoutSeries(club.id, club.members, 4),
+      this.client.from("club_gallery").select("path").eq("club_id", club.id).order("created_at", { ascending: false }).limit(5).then(rows),
+      this.turnoutSeries([club.id], 4).then((t) => t.get(club.id) ?? []),
       club.founding ? this.client.from("club_founding_progress").select("qualifying_meetups, meetups_needed").eq("club_id", club.id).maybeSingle().then(one) : null,
     ]);
-    const gallery = await this.signed("posts", photos.flatMap((p) => p.media_paths.slice(0, 1)));
+    // Pace groups are for signed in members to see.
+    const leaderIds = leaders.flatMap((l) => (l.user_id && (l.role === "captain" || l.role === "admin") ? [l.user_id] : []));
+    const paces = me && leaderIds.length
+      ? rows(await this.client.from("club_members").select("user_id, pace_group").eq("club_id", club.id).in("user_id", leaderIds))
+      : [];
     const s = standing.get(club.id);
     const results = s ? await this.results(s.entryId) : [];
     const fund = await this.fundTotal(club.id);
@@ -2121,16 +2206,32 @@ export class SupabaseData implements OuthereData {
       derby: fixture ? { opponent: fixture.them.short, us: fixture.us.score, them: fixture.them.score } : { opponent: "", us: 0, them: 0 },
       stats: {
         turnout: lastTurnout.length ? `${Math.round(lastTurnout.reduce((a, b) => a + b, 0) / lastTurnout.length)}%` : "",
-        raised: fund === null ? "" : pounds(fund),
+        raised: fund ? pounds(fund) : "",
       },
       season: { points: s?.points ?? 0, form: (s && (await this.forms([s.entryId])).get(s.entryId)) ?? "", results },
-      leaders: leaders.map((l) => ({ personId: l.user_id, role: l.role === "captain" ? "Captain" : "Run leader", group: fromDbPace(l.pace_group) ? `${fromDbPace(l.pace_group)} group` : "" })),
-      gallery: [...gallery.values()],
+      leaders: leaderIds.map((id) => {
+        const l = leaders.find((x) => x.user_id === id);
+        const pace = fromDbPace(paces.find((p) => p.user_id === id)?.pace_group ?? null);
+        const avatar = this.media("avatars", l?.avatar_path);
+        return {
+          personId: id,
+          role: l?.role === "captain" ? "Captain" : "Run leader",
+          group: pace ? `${pace} group` : "",
+          person: { id, name: l?.display_name ?? "", photo: avatar, avatar, tier: l?.tier ?? "free" },
+        };
+      }),
+      gallery: photos.map((p) => this.media("club-media", p.path)),
       locals: locals.map((l) => ({ name: l.business_name, kind: l.category, perk: l.perk ?? "" })),
       nearby,
       founding: club.founding ? { meetups: progress?.qualifying_meetups ?? 0, needed: progress?.meetups_needed ?? 3 } : null,
       reveal: this.reveal(shortSeed(fixture?.row.draw_seed ?? null)),
     };
+  }
+
+  async recordInviteScan(code: string): Promise<void> {
+    const r = await this.client.rpc("record_invite_scan", { p_code: code });
+    // An old or mistyped code still opens the club page; it just isn't counted.
+    if (r.error && toDataError(r.error).code !== "INVITE_INVALID") throw toDataError(r.error);
   }
 
   /**
@@ -2141,7 +2242,14 @@ export class SupabaseData implements OuthereData {
     await this.signedIn();
     const club = one(await this.client.from("clubs").select("id").eq("slug", slug.toLowerCase()).maybeSingle());
     if (!club) throw new DataError("NO_SUCH_CLUB");
-    const status = one(await this.client.rpc("join_club", { p_club: club.id, p_source: "web", p_pace_group: input.pace.toLowerCase(), p_found_via: "Club page" }));
+    const code = input.code?.trim().toLowerCase();
+    const status = one(await this.client.rpc("join_club", {
+      p_club: club.id,
+      p_source: code ? "qr" : "web",
+      ...(code ? { p_code: code } : {}),
+      p_pace_group: input.pace.toLowerCase(),
+      p_found_via: code ? "Poster or sticker" : "Club page",
+    }));
     this.changed();
     // Someone waiting for a yes can't say they're going to a members' run yet.
     if (status === "requested") return "requested";
@@ -2167,28 +2275,22 @@ export class SupabaseData implements OuthereData {
     });
   }
 
-  /** Total paid into a club's fund in pence, or null when the viewer may not see it. */
-  private async fundTotal(clubId: string): Promise<number | null> {
-    const months = rows(await this.client.from("club_fund_months").select("amount_pence").eq("club_id", clubId));
-    return months.length ? months.reduce((n, m) => n + (m.amount_pence ?? 0), 0) : null;
+  /** Everything paid into a club's fund in pence. Public, so signed out visitors see it too. */
+  private async fundTotal(clubId: string): Promise<number> {
+    const row = one(await this.client.from("club_fund_totals").select("total_pence").eq("club_id", clubId).maybeSingle());
+    return Number(row?.total_pence ?? 0);
   }
 
-  /** Club run turnout for the last n weeks, oldest first, as a percentage of members. */
-  private async turnoutSeries(clubId: string, members: number, weeks: number): Promise<number[]> {
-    const monday = mondayOf(ukTime(this.now()).date);
-    const from = addDays(monday, -7 * (weeks - 1));
-    const events = rows(
-      await this.client.from("events").select("id, starts_at").eq("club_id", clubId).eq("kind", "club_run").is("cancelled_at", null)
-        .gte("starts_at", ukMidnight(from)).lte("starts_at", this.now().toISOString()),
-    );
-    const checkins = (await this.rsvpsFor(events.map((e) => e.id))).filter((r) => r.status === "checked_in");
-    return Array.from({ length: weeks }, (_, i) => {
-      const start = addDays(from, i * 7);
-      const end = addDays(start, 7);
-      const ids = new Set(events.filter((e) => ukTime(e.starts_at).date >= start && ukTime(e.starts_at).date < end).map((e) => e.id));
-      const people = new Set(checkins.filter((c) => ids.has(c.event_id)).map((c) => c.user_id));
-      return members ? Math.round((people.size / members) * 100) : 0;
-    });
+  /** Club run turnout for the last n weeks, oldest first, as a percentage of members. Public. */
+  private async turnoutSeries(clubIds: string[], weeks: number): Promise<Map<string, number[]>> {
+    const from = addDays(mondayOf(ukTime(this.now()).date), -7 * (weeks - 1));
+    const found = clubIds.length
+      ? rows(await this.client.from("club_turnout_weeks").select("club_id, week_start, turnout_pct").in("club_id", clubIds).gte("week_start", from))
+      : [];
+    return new Map(clubIds.map((id) => [
+      id,
+      Array.from({ length: weeks }, (_, i) => Math.round(Number(found.find((f) => f.club_id === id && f.week_start === addDays(from, i * 7))?.turnout_pct ?? 0))),
+    ]));
   }
 
   /* ---------- club HQ ---------- */
@@ -2229,7 +2331,7 @@ export class SupabaseData implements OuthereData {
     const club = await this.loadClub(clubId);
     const monthStart = ukMidnight(`${ukTime(this.now()).date.slice(0, 7)}-01`);
     const [turnout, joins, invites, fund, checkin, fixture, progress, standings] = await Promise.all([
-      this.turnoutSeries(clubId, club.members, 12),
+      this.turnoutSeries([clubId], 12).then((t) => t.get(clubId) ?? []),
       this.client.from("club_members").select("source").eq("club_id", clubId).gte("joined_at", monthStart).then(rows),
       this.client.from("club_invites").select("uses").eq("club_id", clubId).then(rows),
       this.client.from("club_fund_months").select("month, amount_pence").eq("club_id", clubId).order("month").then(rows),
@@ -2271,10 +2373,11 @@ export class SupabaseData implements OuthereData {
     if (s) {
       const division = await this.entryDivision(s.entryId);
       const entries = division ? (await this.divisionTable(division)).slice(0, 8) : [];
-      const [clubs, forms] = await Promise.all([this.loadClubs({ ids: entries.flatMap((e) => (e.club_id ? [e.club_id] : [])) }), this.forms(entries.map((e) => e.id))]);
+      const ids = entries.flatMap((e) => (e.club_id ? [e.club_id] : []));
+      const [clubs, forms, turnouts] = await Promise.all([this.loadClubs({ ids }), this.forms(entries.map((e) => e.id)), this.turnoutSeries(ids, 1)]);
       table = entries.flatMap((e) => {
         const c = clubs.find((x) => x.id === e.club_id);
-        return c ? [{ club: c, turnout: c.id === clubId ? now : 0, points: e.points, form: forms.get(e.id) ?? "" }] : [];
+        return c ? [{ club: c, turnout: c.id === clubId ? now : (turnouts.get(c.id)?.[0] ?? 0), points: e.points, form: forms.get(e.id) ?? "" }] : [];
       });
     }
     return {
@@ -2401,17 +2504,28 @@ export class SupabaseData implements OuthereData {
       this.checkinRun(clubId),
     ]);
     const rsvps = await this.rsvpsFor([...week.map((e) => e.id), ...past.map((e) => e.id)]);
-    const names = await this.names(leaders.map((l) => l.user_id));
     const p = ukTime(monday);
     const focus = week.find((e) => e.starts_at >= this.now().toISOString());
-    const goingLeaders = focus ? leaders.filter((l) => rsvps.some((r) => r.event_id === focus.id && r.user_id === l.user_id)) : [];
-    // Who to ask to lead: leaders not yet going, then people already going to that run.
+    // The run's crew: who leads and who sweeps at the back.
+    const crew = focus ? rows(await this.client.from("event_crew").select("user_id, role").eq("event_id", focus.id)) : [];
+    const [names, paces] = await Promise.all([
+      this.names([...leaders.map((l) => l.user_id), ...crew.map((c) => c.user_id)]),
+      crew.length ? this.client.from("club_members").select("user_id, pace_group").eq("club_id", clubId).in("user_id", crew.map((c) => c.user_id)).then(rows) : [],
+    ]);
+    const crewIds = new Set(crew.map((c) => c.user_id));
+    // Who to ask to fill a gap: leaders not on the crew, then people already going to that run.
     const askIds = focus
       ? unique([
-          ...leaders.map((l) => l.user_id).filter((id) => !goingLeaders.some((g) => g.user_id === id)),
-          ...rsvps.filter((r) => r.event_id === focus.id && !goingLeaders.some((g) => g.user_id === r.user_id)).map((r) => r.user_id),
-        ]).slice(0, 3)
+          ...leaders.map((l) => l.user_id),
+          ...rsvps.filter((r) => r.event_id === focus.id).map((r) => r.user_id),
+        ]).filter((id) => !crewIds.has(id)).slice(0, 3)
       : [];
+    const leadCrew = crew.filter((c) => c.role === "leader");
+    const sweep = crew.find((c) => c.role === "back_marker");
+    const crewLine = (uid: string, what: string) => {
+      const pace = fromDbPace(paces.find((x) => x.user_id === uid)?.pace_group ?? null);
+      return pace ? `${what} · ${pace.toLowerCase()} group` : what;
+    };
     return {
       club,
       weekOf: `week of ${p.day} ${MONTHS[p.month - 1] ?? ""}`,
@@ -2434,8 +2548,13 @@ export class SupabaseData implements OuthereData {
       focus: focus
         ? {
             title: focus.title,
-            badge: goingLeaders.length ? "" : "No run leader yet",
-            crew: goingLeaders.map((l) => ({ personId: l.user_id, title: names.get(l.user_id) ?? "", line: l.role === "captain" ? "Captain" : "Run leader", confirmed: true })),
+            badge: !leadCrew.length ? "No run leader yet" : !sweep ? "Needs a back marker" : "",
+            crew: [
+              ...leadCrew.map((c) => ({ personId: c.user_id, title: names.get(c.user_id) ?? "", line: crewLine(c.user_id, "Run leader"), confirmed: true })),
+              sweep
+                ? { personId: sweep.user_id, title: names.get(sweep.user_id) ?? "", line: crewLine(sweep.user_id, "Back marker"), confirmed: true }
+                : { title: "Back marker", line: "Stays with the last runner, carries the first aid kit", confirmed: false },
+            ],
             askIds,
           }
         : { title: "", badge: "", crew: [], askIds: [] },
@@ -2447,21 +2566,27 @@ export class SupabaseData implements OuthereData {
   }
 
   async kit(clubId: string): Promise<KitView> {
-    const [club, invites, row, fixture] = await Promise.all([
+    const [club, invites, row, fixture, covers] = await Promise.all([
       this.loadClub(clubId),
-      this.client.from("club_invites").select("code, label, uses, created_at").eq("club_id", clubId).order("created_at").then(rows),
+      // Club staff only: joins, poster scans and who went on to come to a run, per code.
+      this.client.from("club_invite_stats").select("code, label, uses, scans, came_to_run").eq("club_id", clubId).then(rows),
       this.client.from("clubs").select("meeting_place, usual_times").eq("id", clubId).maybeSingle().then(one),
       this.currentFixture({ clubId }),
+      this.coverPaths(clubId),
     ]);
     return {
       club,
-      covers: club.cover ? [club.cover] : [],
+      covers: unique([club.cover, ...covers.map((c) => this.media("club-media", c))].filter(Boolean)),
       allTags: unique([...club.tags, ...CLUB_TAG_SUGGESTIONS]),
-      // Invites count joins only; scans and who came to a run are not recorded. See SCHEMA_GAPS.md.
-      codes: invites.map((i) => ({ code: i.code.toUpperCase(), placed: i.label ?? "", scans: 0, cameToRun: 0, joined: i.uses })),
+      codes: invites.map((i) => ({ code: (i.code ?? "").toUpperCase(), placed: i.label ?? "", scans: Number(i.scans ?? 0), cameToRun: Number(i.came_to_run ?? 0), joined: Number(i.uses ?? 0) })),
       poster: { when: row?.usual_times ?? club.nextRun, where: row?.meeting_place ?? "", who: club.tags[0] ?? "" },
       derby: fixture ? { opponent: fixture.them.short, lead: fixture.us.score - fixture.them.score } : { opponent: "", lead: 0 },
     };
+  }
+
+  /** The club's cover library in club-media, newest first. */
+  private async coverPaths(clubId: string): Promise<string[]> {
+    return rows(await this.client.from("club_covers").select("path").eq("club_id", clubId).order("created_at", { ascending: false }).limit(24)).map((c) => c.path);
   }
 
   async updateClubPage(clubId: string, patch: ClubPagePatch): Promise<Club> {
@@ -2474,20 +2599,28 @@ export class SupabaseData implements OuthereData {
     }
     const update: Database["public"]["Tables"]["clubs"]["Update"] = {};
     if (patch.tagline !== undefined) update.tagline = patch.tagline.trim().slice(0, 120);
-    if (patch.cover !== undefined) update.cover_path = patch.cover;
+    if (patch.cover !== undefined && patch.cover !== current.cover) {
+      // The kit offers covers as links; store the path of the one picked.
+      const picked = (await this.coverPaths(clubId)).find((c) => this.media("club-media", c) === patch.cover);
+      update.cover_path = picked ?? patch.cover;
+    }
     if (patch.tags !== undefined) update.tags = unique(patch.tags.map((t) => t.trim()).filter(Boolean)).slice(0, 12);
     if (Object.keys(update).length) done(await this.client.from("clubs").update(update).eq("id", clubId));
     return this.loadClub(clubId);
   }
 
   async fund(clubId: string): Promise<FundView> {
-    const [club, entries, partners, captains, drop] = await Promise.all([
+    const [club, entries, partners, captains, treasurer, spend, drop] = await Promise.all([
       this.loadClub(clubId),
       this.client.from("club_fund_entries").select("month, source, amount_pence, note").eq("club_id", clubId).order("month").then(rows),
-      this.client.from("locals_partners").select("id, business_name, category, tier, monthly_pence, perk, approved_by").eq("club_id", clubId).then(rows),
+      this.client.from("locals_partners").select("id, business_name, category, tier, monthly_pence, perk, approved_by, club_response").eq("club_id", clubId).then(rows),
       this.client.from("club_members").select("user_id").eq("club_id", clubId).eq("role", "captain").order("joined_at").limit(1).then(rows),
-      this.client.from("drops").select("price_pence").eq("club_id", clubId).order("opens_at", { ascending: false }).limit(1).maybeSingle().then(one),
+      this.client.from("clubs").select("treasurer_id").eq("id", clubId).maybeSingle().then(one),
+      this.client.from("club_fund_spend").select("title, amount_pence, approved_at").eq("club_id", clubId).order("spent_on", { ascending: false }).limit(20).then(rows),
+      this.client.from("drop_sales").select("sold, price_pence, making_cost_pence").eq("club_id", clubId).limit(20).then(rows),
     ]);
+    // The latest drop with a price, for the kit numbers.
+    const latestDrop = drop.find((d) => d.price_pence);
     const sponsor = [...partners].sort((a, b) => b.monthly_pence - a.monthly_pence)[0];
     const latest = entries[entries.length - 1]?.month;
     const thisMonth = entries.filter((e) => e.month === latest);
@@ -2518,30 +2651,32 @@ export class SupabaseData implements OuthereData {
         line: `${s.lines} payment${s.lines === 1 ? "" : "s"}`,
         amount: pounds(s.pence),
       })),
-      // Spending is not recorded yet; see SCHEMA_GAPS.md.
-      spend: [],
+      // Approved spending only; a spend waits for a second person before it counts.
+      spend: spend.filter((x) => x.approved_at).map((x) => ({ title: x.title, amount: pounds(x.amount_pence) })),
       offers: partners.map((o) => ({
         id: o.id,
         business: o.business_name,
         kind: o.category,
         tier: `${o.tier[0]?.toUpperCase() ?? ""}${o.tier.slice(1)} · ${pounds(o.monthly_pence)} a month`,
         line: o.perk ?? "",
-        status: o.approved_by.length >= 2 ? "accepted" : "open",
+        status: o.club_response === "accepted" || o.club_response === "declined" ? o.club_response : "open",
       })),
-      // There is no treasurer role yet, so the first captain approves payouts; see SCHEMA_GAPS.md.
-      treasurerId: captains[0]?.user_id ?? "",
+      // With no treasurer named, the first captain approves payouts.
+      treasurerId: treasurer?.treasurer_id ?? captains[0]?.user_id ?? "",
       split: {
-        proPrice: PLANS.find((p) => p.tier === "pro")?.monthly ?? 0,
+        proPrice: (await this.plans()).find((p) => p.tier === "pro")?.monthly ?? 0,
         sponsor: sponsor ? { name: sponsor.business_name, monthly: sponsor.monthly_pence / 100 } : { name: "", monthly: 0 },
-        // Making cost and kit sales are not readable by clubs yet; see SCHEMA_GAPS.md.
-        kit: { teePrice: (drop?.price_pence ?? 0) / 100, makingShare: 0, sold: 0 },
+        kit: {
+          teePrice: (latestDrop?.price_pence ?? 0) / 100,
+          makingShare: latestDrop?.price_pence && latestDrop.making_cost_pence ? latestDrop.making_cost_pence / latestDrop.price_pence : 0,
+          sold: drop.reduce((n, d) => n + (d.sold ?? 0), 0),
+        },
       },
     };
   }
 
-  async respondToOffer(): Promise<void> {
-    // Clubs cannot answer Locals offers in the schema yet; see SCHEMA_GAPS.md.
-    throw new DataError("NOT_SUPPORTED");
+  async respondToOffer(_clubId: string, offerId: string, accept: boolean): Promise<void> {
+    done(await this.client.rpc("respond_to_offer", { p_partner: offerId, p_accept: accept }));
   }
 
   /* ---------- staff ---------- */
@@ -2551,16 +2686,17 @@ export class SupabaseData implements OuthereData {
     const now = this.now();
     const today = ukTime(now).date;
     const monthStart = `${today.slice(0, 7)}-01`;
-    const [moving, verified, founding, flags, reports, paid, requests, auditRows, cityFixture] = await Promise.all([
+    const [moving, verified, founding, flags, reports, paid, requests, auditRows, cityFixture, active] = await Promise.all([
       this.client.from("daily_steps").select("user_id", { count: "exact", head: true }).eq("day", today).gte("steps", 3000).then(counted),
       this.client.from("clubs").select("id", { count: "exact", head: true }).eq("status", "verified").then(counted),
       this.client.from("clubs").select("id", { count: "exact", head: true }).eq("status", "founding").then(counted),
-      this.client.from("daily_steps").select("user_id", { count: "exact", head: true }).eq("flagged", true).gte("day", addDays(today, -14)).then(counted),
+      this.client.from("daily_steps").select("user_id", { count: "exact", head: true }).eq("flagged", true).is("reviewed_at", null).gte("day", addDays(today, -14)).then(counted),
       this.client.from("reports").select("id", { count: "exact", head: true }).eq("status", "open").then(counted),
       this.client.from("club_fund_months").select("amount_pence, club_id").eq("month", monthStart).then(rows),
       this.verifications(),
       this.audit(6),
       this.cityWeek(today),
+      this.client.rpc("admin_daily_active", { p_days: 30 }).then(rows),
     ]);
     const ready = requests.filter((r) => r.checks.filter((c) => c.auto).every((c) => c.done)).length;
     const n = cityFixture.length;
@@ -2575,9 +2711,9 @@ export class SupabaseData implements OuthereData {
         { label: "Fair play flags", value: flags, delta: `${reports} open report${reports === 1 ? "" : "s"}` },
         { label: "Paid to clubs", value: pounds(paid.reduce((n, m) => n + (m.amount_pence ?? 0), 0)), delta: `This month, ${unique(paid.map((m) => m.club_id)).length} clubs` },
       ],
-      // A daily movers series needs a server side aggregate; see SCHEMA_GAPS.md.
-      daily: [],
-      dailyLabels: [],
+      daily: active.map((d) => d.active),
+      // A label at the start of each week, as "16 Sep".
+      dailyLabels: active.map((d, i) => (i % 7 === 0 ? `${Number(d.day.slice(8, 10))} ${(MONTHS[Number(d.day.slice(5, 7)) - 1] ?? "").slice(0, 3)}` : "")),
       // Every City League match this week, across the UK.
       weekend: n
         ? [
@@ -2597,50 +2733,81 @@ export class SupabaseData implements OuthereData {
     };
   }
 
-  /** Founding clubs and how far they are through the automatic checks. */
+  /**
+   * Founding clubs and pending claims, with the evidence sent in and the
+   * checks. Automatic checks come from the club's progress until a moderator
+   * ticks or unticks them; manual checks are stored on the verification.
+   */
   async verifications(): Promise<VerificationRequest[]> {
     await this.requireStaff();
-    const clubs = rows(await this.client.from("clubs").select(CLUB).eq("status", "founding").order("created_at").limit(200));
+    const [founding, pending] = await Promise.all([
+      this.client.from("clubs").select(CLUB).eq("status", "founding").order("created_at").limit(200).then(rows),
+      this.client.from("club_verifications").select("id, club_id, kind, evidence_paths, checks, created_by, created_at").eq("status", "pending").order("created_at").limit(200).then(rows),
+    ]);
+    const claimed = unique(pending.filter((v) => v.kind === "claim").map((v) => v.club_id)).filter((id) => !founding.some((c) => c.id === id));
+    const clubs = [...founding, ...(claimed.length ? rows(await this.client.from("clubs").select(CLUB).in("id", claimed)) : [])];
     if (!clubs.length) return [];
     const ids = clubs.map((c) => c.id);
+    const pendingFor = (clubId: string) => pending.find((v) => v.club_id === clubId && v.kind === "claim") ?? pending.find((v) => v.club_id === clubId);
     const [progress, organisers] = await Promise.all([
       this.client.from("club_founding_progress").select("club_id, qualifying_meetups, verified_people, meetups_needed, people_needed").in("club_id", ids).then(rows),
-      this.client.from("profiles").select("id, display_name, trust").in("id", unique(clubs.map((c) => c.created_by))).then(rows),
+      this.client.from("profiles").select("id, display_name, trust").in("id", unique(clubs.map((c) => pendingFor(c.id)?.created_by ?? c.created_by))).then(rows),
     ]);
     return clubs.map((c) => {
+      const v = pendingFor(c.id);
+      const claim = v?.kind === "claim";
       const p = progress.find((x) => x.club_id === c.id);
-      const o = organisers.find((x) => x.id === c.created_by);
+      const o = organisers.find((x) => x.id === (v?.created_by ?? c.created_by));
       const meetups = (p?.qualifying_meetups ?? 0) >= (p?.meetups_needed ?? 3);
+      const auto: Record<string, boolean> = {
+        three_meetups: meetups,
+        six_at_each: meetups,
+        ten_verified: (p?.verified_people ?? 0) >= (p?.people_needed ?? 10),
+        organiser_id: o?.trust === "verified" || o?.trust === "established",
+      };
+      const ticked = (key: string) => {
+        const t = v ? field(v.checks, key) : undefined;
+        return typeof t === "boolean" ? t : (auto[key] ?? false);
+      };
       const [first, last] = (o?.display_name ?? "").split(" ");
       return {
         id: c.id,
         clubId: c.id,
         organiser: `${first ?? ""}${last ? ` ${last[0]}.` : ""}`,
-        age: ago(c.created_at, this.now()),
-        // Evidence photos are not stored yet; see SCHEMA_GAPS.md.
-        evidence: [],
-        claim: false,
-        checks: [
-          { label: "3 meetups within 6 weeks", auto: true, done: meetups },
-          { label: "6 or more people at each", auto: true, done: meetups },
-          { label: "10 different verified people", auto: true, done: (p?.verified_people ?? 0) >= (p?.people_needed ?? 10) },
-          { label: "Public meeting point, no home addresses", auto: false, done: false },
-          { label: "Organiser verified with ID", auto: false, done: o?.trust === "verified" || o?.trust === "established" },
-        ],
+        age: ago(v?.created_at ?? c.created_at, this.now()),
+        evidence: (v?.evidence_paths ?? []).map((path) => this.media("club-media", path)),
+        claim,
+        checks: (claim ? CLAIM_CHECKS : FOUNDING_CHECKS).map(([key, label]) => ({ label, auto: key in auto, done: ticked(key) })),
         verified: false,
       };
     });
   }
 
-  async setVerificationCheck(): Promise<void> {
-    await this.requireStaff();
-    // Manual checks are not stored yet; see SCHEMA_GAPS.md.
-    throw new DataError("NOT_SUPPORTED");
+  /** The pending verification for a club, a claim first. */
+  private async pendingVerification(clubId: string) {
+    const list = rows(await this.client.from("club_verifications").select("id, kind").eq("club_id", clubId).eq("status", "pending"));
+    return list.find((v) => v.kind === "claim") ?? list[0] ?? null;
   }
 
+  async setVerificationCheck(id: string, index: number, ok: boolean): Promise<void> {
+    await this.requireStaff();
+    // A founding club with no evidence sent yet gets a request so the tick has somewhere to live.
+    const v = (await this.pendingVerification(id)) ?? one(await this.client.rpc("request_club_verification", { p_club: id, p_kind: "founding" }));
+    if (!v) throw new DataError("NOT_FOUND");
+    const key = (v.kind === "claim" ? CLAIM_CHECKS : FOUNDING_CHECKS)[index]?.[0];
+    if (!key) throw new DataError("BAD_CHECK");
+    done(await this.client.rpc("set_verification_check", { p_verification: v.id, p_check: key, p_ok: ok }));
+  }
+
+  /** Approves the pending request when there is one (which verifies the club), or verifies it directly. */
   async verifyClub(id: string): Promise<void> {
     await this.requireStaff();
-    done(await this.client.rpc("verify_club", { p_club: id }));
+    const v = await this.pendingVerification(id);
+    done(
+      v
+        ? await this.client.rpc("decide_club_verification", { p_verification: v.id, p_approve: true })
+        : await this.client.rpc("verify_club", { p_club: id }),
+    );
   }
 
   async fairPlay(): Promise<FairPlayView> {

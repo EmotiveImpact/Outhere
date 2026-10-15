@@ -241,6 +241,43 @@ describe("Supabase data source", () => {
     expect((await data.league()).rising).toEqual({ city: "Harrogate", cityId: "harrogate", region: "Yorkshire", eligible: 71, needed: 100 });
   });
 
+  it("reads plans from the database, with no yearly price where none is set", async () => {
+    const { data } = fake((q) => (q.table === "plans" ? { data: [
+      { tier: "free", name: "Free", monthly_pence: 0, yearly_pence: 0, line: "Play for your area", features: ["Walk"], popular: false },
+      { tier: "pro", name: "Pro", monthly_pence: 599, yearly_pence: null, line: null, features: ["Stories"], popular: true },
+    ] } : undefined));
+    const plans = await data.plans();
+    expect(plans[1]).toEqual({ tier: "pro", name: "Pro", monthly: 5.99, yearly: null, line: "", features: ["Stories"], popular: true });
+  });
+
+  it("looks for pick-ups near a point when the viewer shares one, and keeps a posted spot to about a kilometre", async () => {
+    const { data, queries } = fake((q) => {
+      if (q.table === "profiles") return { data: profile() };
+      if (q.table === "rpc:pickups_near") return { data: [] };
+      if (q.table === "events" && q.has("insert")) return { data: { id: "e1", club_id: null, city_id: "london", kind: "pickup", activity: "walk", title: "Walk", description: null, starts_at: "2026-10-15T18:00:00Z", ends_at: null, place_name: "Park gate", pace_label: null, capacity: 8, cover_path: null, created_by: ME, data: {}, locals_partner_id: null } };
+      return undefined;
+    });
+    expect((await data.pickups({ lat: 51.47, lng: -0.07 })).radiusKm).toBe(5);
+    expect(queries.find((q) => q.table === "rpc:pickups_near")?.calls[0]?.args[0]).toEqual({ p_lat: 51.47, p_lng: -0.07, p_km: 5 });
+    await data.postPickup({ type: "walk", title: "Walk", at: "Park gate", when: "Tonight 18:00", visibility: "Anyone nearby", near: { lat: 51.4712, lng: -0.0689 } });
+    const insert = queries.find((q) => q.table === "events" && q.has("insert"))?.calls.find((c) => c.method === "insert")?.args[0];
+    expect(insert).toMatchObject({ activity: "walk", lat: 51.47, lng: -0.07 });
+  });
+
+  it("approves a club's pending verification rather than verifying it around the request", async () => {
+    const { data, queries } = fake((q) => {
+      if (q.table === "profiles") return { data: profile() };
+      if (q.table === "staff") return { data: [{ role: "moderator" }] };
+      if (q.table === "club_verifications") return { data: [{ id: "v1", kind: "founding" }] };
+      return undefined;
+    });
+    await data.verifyClub("club-1");
+    await data.setVerificationCheck("club-1", 3, true);
+    expect(queries.find((q) => q.table === "rpc:decide_club_verification")?.calls[0]?.args[0]).toEqual({ p_verification: "v1", p_approve: true });
+    expect(queries.some((q) => q.table === "rpc:verify_club")).toBe(false);
+    expect(queries.find((q) => q.table === "rpc:set_verification_check")?.calls[0]?.args[0]).toEqual({ p_verification: "v1", p_check: "public_meeting_point", p_ok: true });
+  });
+
   it("refuses to read the viewer when nobody is signed in, but has no people to show", async () => {
     const { data } = fake(() => undefined, null);
     await expect(data.viewer()).rejects.toThrow("NOT_SIGNED_IN");
@@ -304,5 +341,19 @@ describe("lastReveal", () => {
     expect(result?.cards).toEqual([{ kick: "Club Premier", title: "Now 2nd", line: "Won · 13 points from 5" }]);
     const fixture = queries.find((q) => q.table === "fixtures");
     expect(fixture?.calls.find((c) => c.method === "lte")?.args).toEqual(["revealed_at", "2026-10-15T12:00:00.000Z"]);
+  });
+  it("says how far the club moved and the points it gained, from the table history", async () => {
+    const { data } = fake((q) => {
+      if (q.table === "profiles") return { data: profile({ home_club_id: CLUB }) };
+      if (q.table === "league_entries" && q.eq("club_id") === CLUB) return { data: [{ id: "e1" }] };
+      if (q.table === "league_entries" && q.eq("division_id")) return { data: [{ id: "e1", points: 13, played: 5 }, { id: "e2", points: 12, played: 5 }] };
+      if (q.table === "league_entry_history") return { data: [{ fixture_id: "f1", position: 1, points: 13 }, { fixture_id: "f0", position: 3, points: 10 }] };
+      if (q.table === "fixtures" && !q.eq("starts_on")) {
+        return { data: { id: "f1", division_id: "d1", week: 5, home_id: "e1", away_id: "e2", is_derby: false, starts_on: "2026-10-05", ends_on: "2026-10-11", draw_seed: null, drawn_at: null, home_score: 9000, away_score: 8000, revealed_at: "2026-10-12T19:00:00Z" } };
+      }
+      if (q.table === "divisions") return { data: { name: "Club Premier" } };
+      return undefined;
+    });
+    expect((await data.lastReveal())?.cards[0]).toEqual({ kick: "Club Premier", title: "Up to 1st", line: "+3 points · 13 from 5" });
   });
 });

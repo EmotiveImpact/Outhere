@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { firstName, type Pickup, type PickupType } from "@outhere/core";
+import { useSearchParams } from "react-router";
+import { firstName, type LatLng, type Pickup, type PickupType } from "@outhere/core";
 import { Avatar, ChipPick, Icon, Seg, usePeople, usePerson, useReducedMotion, useToast } from "@outhere/ui";
 import { getData } from "~/data.server";
 import { useAct } from "~/hooks";
@@ -7,13 +8,21 @@ import type { Route } from "./+types/pickups";
 
 export const meta: Route.MetaFunction = () => [{ title: "Pick-ups · Outhere" }];
 
+/** ?near=51.47,-0.07 once the viewer shares where they are; anything else is ignored. */
+function parseNear(v: string | null): LatLng | undefined {
+  const [lat, lng] = (v ?? "").split(",").map(Number);
+  return lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && v ? { lat, lng } : undefined;
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
+  const near = parseNear(new URL(request.url).searchParams.get("near"));
   const db = await getData(request);
-  const [pickups, viewer] = await Promise.all([db.pickups(), db.viewer()]);
-  return { pickups, viewerId: viewer.id };
+  const [pickups, viewer] = await Promise.all([db.pickups(near), db.viewer()]);
+  return { pickups, near, viewerId: viewer.id };
 }
 
 type Filter = "all" | PickupType;
+const PIN_SPOTS: [number, number][] = [[78, 62], [214, 134], [120, 160]];
 const WHEN = ["In 30 min", "Tonight", "Tomorrow", "Weekend"];
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
@@ -82,7 +91,8 @@ function PickupCard({ p, viewerId }: { p: Pickup; viewerId: string }) {
 }
 
 export default function Pickups({ loaderData }: Route.ComponentProps) {
-  const { pickups, viewerId } = loaderData;
+  const { pickups, near, viewerId } = loaderData;
+  const [, setParams] = useSearchParams();
   const toast = useToast();
   const reduce = useReducedMotion();
   const { act } = useAct();
@@ -93,6 +103,7 @@ export default function Pickups({ loaderData }: Route.ComponentProps) {
   const [when, setWhen] = useState(WHEN[0]!);
   const [vis, setVis] = useState("Anyone nearby");
   const shown = pickups.list.filter((p) => filter === "all" || p.type === filter);
+  const pins = pickups.list.slice(0, PIN_SPOTS.length);
 
   return (
     <>
@@ -108,7 +119,24 @@ export default function Pickups({ loaderData }: Route.ComponentProps) {
         <div>
           <div className="pkbar">
             <Seg id="pkseg" options={[["all", "All"], ["run", "Runs"], ["walk", "Walks"], ["race", "Races"]] as const} value={filter} onChange={setFilter} />
-            <span className="muted" style={{ fontSize: 12.5 }}><Icon name="pin" />Near {pickups.area} · {pickups.radiusKm}km</span>
+            {pickups.radiusKm ? (
+              <span className="muted" style={{ fontSize: 12.5 }}><Icon name="pin" />Within {pickups.radiusKm}km of you</span>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-q btn-s"
+                onClick={() => {
+                  if (!navigator.geolocation) return toast("Your browser can't share where you are");
+                  navigator.geolocation.getCurrentPosition(
+                    // Two decimal places is about a kilometre, which is all the search needs.
+                    (p) => setParams({ near: `${p.coords.latitude.toFixed(2)},${p.coords.longitude.toFixed(2)}` }, { replace: true, preventScrollReset: true }),
+                    () => toast("Location is off, so you're seeing pick-ups across your city"),
+                  );
+                }}
+              >
+                <Icon name="pin" />Show what's near me
+              </button>
+            )}
           </div>
           <div className="g" id="pklist">
             {shown.length ? shown.map((p) => <PickupCard key={p.id} p={p} viewerId={viewerId} />) : <p className="muted">Nothing like that nearby yet. Post one.</p>}
@@ -123,9 +151,13 @@ export default function Pickups({ loaderData }: Route.ComponentProps) {
               <path className="pk-rd" d="M0 120C70 110 120 130 170 100S260 60 300 70" />
               <path className="pk-rd" d="M140 0c-6 50 4 100-10 200" />
               <path className="pk-rd t" d="M0 70c60 10 110-4 160 10s90 40 140 36" />
-              <g className="pk-pin"><circle cx="78" cy="62" r="7" /><text x="78" y="44">Burgess Park</text></g>
-              <g className="pk-pin r"><circle cx="214" cy="134" r="7" /><text x="214" y="116">Peckham Rye</text></g>
-              <g className="pk-pin"><circle cx="120" cy="160" r="7" /><text x="120" y="186">Rye Lane</text></g>
+              {/* Pins for the next few meeting points; the street sketch underneath is decoration. */}
+              {pins.map((p, i) => (
+                <g key={p.id} className={`pk-pin${p.openRace || p.openBattle ? " r" : ""}`}>
+                  <circle cx={PIN_SPOTS[i]![0]} cy={PIN_SPOTS[i]![1]} r="7" />
+                  <text x={PIN_SPOTS[i]![0]} y={PIN_SPOTS[i]![1] + (i === 2 ? 26 : -18)}>{p.at.split(",")[0]!.slice(0, 18)}</text>
+                </g>
+              ))}
               <circle className="pk-me" cx="150" cy="104" r="5" />
             </svg>
             <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Pick-ups only ever meet at public places. Nobody sees where you live or where your runs start and end.</p>
@@ -135,7 +167,7 @@ export default function Pickups({ loaderData }: Route.ComponentProps) {
             id="pkpost"
             onSubmit={(e) => {
               e.preventDefault();
-              act({ intent: "pickup-post", type, title, at, when: whenLine(when), visibility: vis });
+              act({ intent: "pickup-post", type, title, at, when: whenLine(when), visibility: vis, ...(near ? { near } : {}) });
               setTitle("");
               setAt("");
               setFilter("all");

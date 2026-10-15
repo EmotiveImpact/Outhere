@@ -1,5 +1,5 @@
 import { data } from "react-router";
-import type { BattleModeKey, NewRun, PaceGroup, PickupType, Reaction, Role, Tier } from "@outhere/core";
+import type { BattleModeKey, LatLng, NewRun, PaceGroup, PickupType, Reaction, Role, Tier } from "@outhere/core";
 import { startCheckout } from "~/checkout.server";
 import { siteUrl } from "~/supabase.server";
 import { getData, PREVIEW_COOKIE, usingExampleData } from "~/data.server";
@@ -24,12 +24,12 @@ export type Act =
   | { intent: "challenge-decline"; id: string }
   | { intent: "surprise"; on: boolean }
   | { intent: "pickup-going"; id: string; going: boolean }
-  | { intent: "pickup-post"; type: PickupType; title: string; at: string; when: string; visibility: string }
+  | { intent: "pickup-post"; type: PickupType; title: string; at: string; when: string; visibility: string; near?: LatLng }
   | { intent: "run-create"; run: NewRun }
   | { intent: "public-profile"; on: boolean }
   | { intent: "notes-read" }
   | { intent: "join-decide"; clubId: string; requestId: string; approve: boolean }
-  | { intent: "club-join"; slug: string; pace: PaceGroup; runId: string | null }
+  | { intent: "club-join"; slug: string; pace: PaceGroup; runId: string | null; code?: string }
   | { intent: "club-page"; clubId: string; tagline?: string; cover?: string; tags?: string[]; slug?: string }
   | { intent: "offer"; clubId: string; offerId: string; accept: boolean }
   | { intent: "checkout"; tier: Tier; yearly: boolean; clubId: string }
@@ -59,7 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
       case "public-profile": await db.setPublicProfile(act.on); break;
       case "notes-read": await db.markNotificationsRead(); break;
       case "join-decide": await db.decideJoinRequest(act.clubId, act.requestId, act.approve); break;
-      case "club-join": return { ok: true, joined: await db.joinClub(act.slug, { pace: act.pace, runId: act.runId }) };
+      case "club-join": return { ok: true, joined: await db.joinClub(act.slug, { pace: act.pace, runId: act.runId, ...(act.code ? { code: act.code } : {}) }) };
       case "club-page": {
         const { intent: _i, clubId, ...patch } = act;
         return { ok: true, club: await db.updateClubPage(clubId, patch) };

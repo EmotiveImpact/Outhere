@@ -475,7 +475,8 @@ export interface Plan {
   tier: Tier;
   name: string;
   monthly: number;
-  yearly: number;
+  /** Null while there is no yearly price, so the plan is monthly only. */
+  yearly: number | null;
   line: string;
   features: string[];
   popular?: boolean;
@@ -576,6 +577,14 @@ export interface NewPickup {
   at: string;
   when: string;
   visibility: string;
+  /** Roughly where it meets, when the poster shared their location. Kept to about a kilometre. */
+  near?: LatLng;
+}
+
+/** A point on the map, in degrees. */
+export interface LatLng {
+  lat: number;
+  lng: number;
 }
 
 /* ---------- club HQ ---------- */
@@ -742,7 +751,8 @@ export interface ClubPageView {
   derby: { opponent: string; us: number; them: number };
   stats: { turnout: string; raised: string };
   season: { points: number; form: string; results: { opponent: string; result: FormLetter; us: string; them: string }[] };
-  leaders: { personId: string; role: string; group: string }[];
+  /** `person` comes with the page so signed out visitors see leaders' names and faces too. */
+  leaders: { personId: string; role: string; group: string; person?: Person }[];
   gallery: string[];
   locals: { name: string; kind: string; perk: string }[];
   nearby: Club[];
@@ -756,6 +766,8 @@ export interface JoinInput {
   pace: PaceGroup;
   /** The run they said they'll come to, if any. */
   runId: string | null;
+  /** The poster or sticker code they scanned to get here, if any. */
+  code?: string;
 }
 
 /* ---------- admin ---------- */
