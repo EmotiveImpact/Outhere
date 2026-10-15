@@ -2,7 +2,7 @@
 // person at the same time if you want. Crew admins and Outhere see reports.
 
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { Platform, StyleSheet, Switch, Text, View } from "react-native";
 import { Lock } from "lucide-react-native";
 import { Body, Button, C, F, PressableScale, Row, S, Sheet } from "@/components/ui";
 import { engine, useEngineMutation } from "@/data/hooks";
@@ -82,6 +82,7 @@ export default function ReportSheet({ target, onClose }) {
                 onValueChange={setBlock}
                 trackColor={{ false: C.surfaceHigh, true: C.accent }}
                 thumbColor="#fff"
+                {...(Platform.OS === "web" ? { activeThumbColor: "#fff" } : null)}
                 ios_backgroundColor={C.surfaceHigh}
                 accessibilityLabel={`Block ${first}`}
               />

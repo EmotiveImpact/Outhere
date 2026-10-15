@@ -2,7 +2,7 @@
 // pace groups and who's going. Check in at the start with the run leader's
 // code; your check-in lifts the club's turnout for this week's fixture.
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Linking, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -14,6 +14,8 @@ import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";
 import { engine, useClubRun, useEngineMutation } from "@/data/hooks";
 import { Chip, Faces, clock, kmLabel, whenLabel } from "@/components/clubs/parts";
+import RoutePreview from "@/components/move/RoutePreview";
+import { loopAround } from "@/data/runMath";
 
 export default function ClubRun() {
   const { runId } = useLocalSearchParams();
@@ -23,6 +25,8 @@ export default function ClubRun() {
   const { data: run, isPending, isError } = useClubRun(id);
   const [codeOpen, setCodeOpen] = useState(false);
   const [code, setCode] = useState("");
+  // The run's line from the meet spot, drawn over the photo like the map in the demo.
+  const line = useMemo(() => (run?.lat != null && run?.lng != null && run?.km ? loopAround({ latitude: run.lat, longitude: run.lng }, run.km, run.id || id) : []), [run?.lat, run?.lng, run?.km, run?.id, id]);
 
   const rsvp = useEngineMutation(engine.rsvpClubRun, { success: (r) => (r.isGoing ? "You're on the list" : "Taken off the list") });
   const checkIn = useEngineMutation(engine.checkInClubRun, {
@@ -72,10 +76,14 @@ export default function ClubRun() {
               </Text>
             </View>
           </Row>
-          <View style={styles.pin}>
-            <View style={styles.pinHalo} />
-            <View style={styles.pinDot} />
-          </View>
+          {line.length > 1 ? (
+            <RoutePreview route={line} height={240} strokeWidth={5} radius={0} style={[styles.line, { top: insets.top + 60 }]} />
+          ) : (
+            <View style={styles.pin}>
+              <View style={styles.pinHalo} />
+              <View style={styles.pinDot} />
+            </View>
+          )}
         </View>
 
         <View style={styles.sheet}>
@@ -165,6 +173,7 @@ const styles = StyleSheet.create({
   top: { position: "absolute", left: S.gutter, right: S.gutter, gap: S.sm },
   meet: { flexDirection: "row", alignItems: "center", gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 99, backgroundColor: "rgba(10,14,20,0.7)", flexShrink: 1 },
   meetText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13, flexShrink: 1 },
+  line: { position: "absolute", left: S.xl, right: S.xl, backgroundColor: "transparent" },
   pin: { position: "absolute", left: "50%", top: "52%", marginLeft: -40, width: 80, height: 80, alignItems: "center", justifyContent: "center" },
   pinHalo: { position: "absolute", width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(79,155,255,0.18)" },
   pinDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.bg, borderWidth: 5, borderColor: C.accentHi },

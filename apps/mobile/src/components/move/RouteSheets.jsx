@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   controls: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 2 },
   square: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
   input: { flexDirection: "row", alignItems: "center", height: 60, borderRadius: 18, borderWidth: 1.5, borderColor: C.accent, backgroundColor: C.surface, paddingHorizontal: S.lg },
-  inputText: { flex: 1, color: C.text, fontFamily: F.bodySemi, fontSize: 22, height: 58 },
+  inputText: { flex: 1, minWidth: 0, color: C.text, fontFamily: F.bodySemi, fontSize: 22, height: 58, outlineStyle: "none" },
   count: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   idea: { height: 34, paddingHorizontal: 14, borderRadius: R.full, backgroundColor: C.surfaceHigh, justifyContent: "center" },
   ideaText: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 13 },

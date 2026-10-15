@@ -264,7 +264,7 @@ function LiveBattle({ battle }) {
                 const art = BATTLE_EMOTES.find((x) => x.code === e.code)?.image;
                 return (
                   <View key={e.id} style={[styles.bubble, e.mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                    {art ? <Image source={art} style={{ width: 22, height: 22 }} contentFit="contain" /> : <Avatar uri={e.mine ? b.me.player?.avatar : opp?.avatar} name={e.mine ? "You" : oppName} size={22} />}
+                    {art ? <Image source={art} style={{ width: 22, height: 22 }} contentFit="contain" /> : <Avatar uri={e.mine ? b.me.player?.avatar : opp?.avatar} name={e.mine ? b.me.player?.name || "You" : oppName} size={22} />}
                     <Text style={styles.bubbleText}>{emoteLabel(e.code)}</Text>
                   </View>
                 );
@@ -356,7 +356,7 @@ function Result({ battle }) {
         </GlowHero>
         <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.md }}>
           <View style={styles.strip}>
-            <Avatar uri={battle.me.player?.avatar} name="You" size={40} style={won ? styles.ringBlueThin : null} />
+            <Avatar uri={battle.me.player?.avatar} name={battle.me.player?.name || "You"} size={40} style={won ? styles.ringBlueThin : null} />
             <View style={{ flex: 1 }}>
               <Text style={styles.stripScore}>{formatScore(metric, mine)}</Text>
               <Text style={styles.small}>You</Text>

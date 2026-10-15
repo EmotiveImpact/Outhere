@@ -155,6 +155,7 @@ export function ToggleRow({ icon: Icon, title, sub, value, onChange, first }) {
         }}
         trackColor={{ false: C.surfaceHigh, true: C.accent }}
         thumbColor="#fff"
+        {...(Platform.OS === "web" ? { activeThumbColor: "#fff" } : null)}
         ios_backgroundColor={C.surfaceHigh}
         accessibilityLabel={title}
       />

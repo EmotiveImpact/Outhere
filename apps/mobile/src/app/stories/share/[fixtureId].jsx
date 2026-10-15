@@ -116,8 +116,8 @@ export default function FixtureShareCard() {
         </View>
       </View>
       <Row gap={S.md} style={{ paddingHorizontal: S.gutter, marginTop: S.lg }}>
-        <Button title="Save" icon={Bookmark} variant="secondary" size="lg" onPress={save} style={{ flex: 1 }} />
-        <Button title="Share to story" icon={ShareIcon} size="lg" onPress={share} style={{ flex: 1.6 }} />
+        <Button title="Save" icon={Bookmark} variant="secondary" onPress={save} style={{ flex: 1, height: 56 }} />
+        <Button title="Share to story" icon={ShareIcon} onPress={share} style={{ flex: 1.6, height: 56 }} />
       </Row>
     </View>
   );
