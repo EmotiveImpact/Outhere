@@ -135,16 +135,17 @@ begin
   perform pg_temp.raises(format($s$update clubs set slug = 'sneaky' where id = %L$s$, c.id), '42501');
   perform pg_temp.raises(format($s$select rename_club(%L, 'admin')$s$, c.id), 'SLUG_RESERVED');
   perform pg_temp.raises(format($s$select rename_club(%L, 'Bad Slug!')$s$, c.id), 'BAD_SLUG');
-  perform pg_temp.raises(format($s$select rename_club(%L, 'cat-club')$s$, c.id), 'SLUG_TAKEN');
-  c := rename_club(c.id, 'Night-Owls');
-  assert c.slug = 'night-owls', 'renamed';
+  perform pg_temp.raises(format($s$select rename_club(%L, 'night-owls')$s$, c.id), 'BAD_SLUG');
+  perform pg_temp.raises(format($s$select rename_club(%L, 'catclub')$s$, c.id), 'SLUG_TAKEN');
+  c := rename_club(c.id, 'NightOwls');
+  assert c.slug = 'nightowls', 'renamed';
   update club_channels set description = 'Everything else' where club_id = c.id and name = 'general';
   assert (select description from club_channels where club_id = c.id and name = 'general') = 'Everything else', 'channel description';
 end $$;
 reset role;
 do $$ begin
-  assert exists (select 1 from audit_log where action = 'rename_club' and detail->>'from' = 'night-shift'), 'rename logged with the old slug';
-  assert is_reserved_slug('HQ') and not is_reserved_slug('peckham-pacers'), 'reserved list';
+  assert exists (select 1 from audit_log where action = 'rename_club' and detail->>'from' = 'nightshift'), 'rename logged with the old slug';
+  assert is_reserved_slug('HQ') and not is_reserved_slug('peckhampacers'), 'reserved list';
 end $$;
 
 -- ── Join requests ────────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ end $$;
 select pg_temp.act('00000000-0000-0000-0000-0000000000d2');
 set role authenticated;
 do $$
-declare cid uuid := (select id from clubs where slug = 'cat-club');
+declare cid uuid := (select id from clubs where slug = 'catclub');
 begin
   assert join_club(cid, 'app', null, 'fast') = 'joined', 'open club joins at once';
   assert (select pace_group from club_members where club_id = cid and user_id = auth.uid()) = 'fast', 'pace group set on join';
@@ -282,7 +283,7 @@ begin
   insert into seasons (kind, number, name, starts_on, ends_on) values ('club', 1, 'Season 1', '2025-01-06', '2025-02-16') returning id into s;
   insert into divisions (season_id, name, squad_size) values (s, 'Division 1', 10) returning id into d;
   insert into league_entries (division_id, club_id) values (d, (select v::uuid from ids where k = 'club')) returning id into h;
-  insert into league_entries (division_id, club_id) values (d, (select id from clubs where slug = 'cat-club')) returning id into a;
+  insert into league_entries (division_id, club_id) values (d, (select id from clubs where slug = 'catclub')) returning id into a;
   insert into fixtures (division_id, week, home_id, away_id, starts_on, ends_on, drawn_at)
   values (d, 1, h, a, '2025-01-06', '2025-01-12', now()) returning id into f;
   insert into squad_members (fixture_id, entry_id, user_id) values (f, h, '00000000-0000-0000-0000-0000000000d2');

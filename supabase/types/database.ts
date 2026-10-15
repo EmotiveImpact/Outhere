@@ -1638,6 +1638,18 @@ export type Database = {
         };
         Relationships: [];
       };
+      reserved_slugs: {
+        Row: {
+          slug: string;
+        };
+        Insert: {
+          slug: string;
+        };
+        Update: {
+          slug?: string;
+        };
+        Relationships: [];
+      };
       rival_passes: {
         Row: {
           user_id: string;
@@ -2044,6 +2056,7 @@ export type Database = {
       claim_my_club: { Args: { p_name: string; p_meeting_place: string; p_usual_times: string; p_founded?: number; p_proof_method?: string; p_proof_handle?: string; p_call_at?: string; p_club?: string; }; Returns: Json };
       club_battles_for: { Args: { p_club: string; }; Returns: Json[] };
       club_role_of: { Args: { cid: string; uid?: string; }; Returns: Database["public"]["Enums"]["club_role"] };
+      club_slug_free: { Args: { p_slug: string; p_club?: string; }; Returns: boolean };
       club_streak: { Args: { p_club: string; p_user?: string; }; Returns: number };
       club_unread: { Args: { p_club: string; }; Returns: Json[] };
       counted_steps: { Args: { raw: number; }; Returns: number };
@@ -2088,7 +2101,9 @@ export type Database = {
       set_club_role: { Args: { p_club: string; p_user: string; p_role: Database["public"]["Enums"]["club_role"]; }; Returns: undefined };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       set_reveal_held: { Args: { p_season: string; p_held: boolean; }; Returns: Database["public"]["Tables"]["seasons"]["Row"] };
+      slug_part: { Args: { p_text: string; }; Returns: string };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
+      suggest_club_slug: { Args: { p_name: string; p_city?: string; p_club?: string; }; Returns: string };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
       verify_club: { Args: { p_club: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       vote_club_battle: { Args: { p_battle: string; p_yes: boolean; }; Returns: undefined };
