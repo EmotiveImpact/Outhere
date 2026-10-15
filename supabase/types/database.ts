@@ -329,6 +329,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      club_battle_votes: {
+        Row: {
+          battle_id: string;
+          user_id: string;
+          yes: boolean;
+          created_at: string;
+        };
+        Insert: {
+          battle_id: string;
+          user_id: string;
+          yes: boolean;
+          created_at?: string;
+        };
+        Update: {
+          battle_id?: string;
+          user_id?: string;
+          yes?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      club_battles: {
+        Row: {
+          id: string;
+          challenger_club: string;
+          opponent_club: string;
+          mode: Database["public"]["Enums"]["club_battle_mode"];
+          mystery: boolean;
+          status: Database["public"]["Enums"]["club_battle_status"];
+          starts_at: string;
+          ends_at: string;
+          challenger_score: number | null;
+          opponent_score: number | null;
+          winner_club: string | null;
+          created_by: string;
+          responded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenger_club: string;
+          opponent_club: string;
+          mode?: Database["public"]["Enums"]["club_battle_mode"];
+          mystery?: boolean;
+          status?: Database["public"]["Enums"]["club_battle_status"];
+          starts_at: string;
+          ends_at: string;
+          challenger_score?: number | null;
+          opponent_score?: number | null;
+          winner_club?: string | null;
+          created_by: string;
+          responded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenger_club?: string;
+          opponent_club?: string;
+          mode?: Database["public"]["Enums"]["club_battle_mode"];
+          mystery?: boolean;
+          status?: Database["public"]["Enums"]["club_battle_status"];
+          starts_at?: string;
+          ends_at?: string;
+          challenger_score?: number | null;
+          opponent_score?: number | null;
+          winner_club?: string | null;
+          created_by?: string;
+          responded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       club_channels: {
         Row: {
           id: string;
@@ -357,35 +429,68 @@ export type Database = {
         Row: {
           id: number;
           club_name: string;
-          borough_id: string;
-          size: string;
-          role: string;
-          email: unknown;
+          borough_id: string | null;
+          size: string | null;
+          role: string | null;
+          email: unknown | null;
           social: string | null;
           status: string;
           created_at: string;
+          user_id: string | null;
+          club_id: string | null;
+          meeting_place: string | null;
+          usual_times: string | null;
+          founded_year: number | null;
+          proof_method: string | null;
+          proof_handle: string | null;
+          proof_code: string | null;
+          call_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
         };
         Insert: {
           id?: number;
           club_name: string;
-          borough_id: string;
-          size: string;
-          role: string;
-          email: unknown;
+          borough_id?: string | null;
+          size?: string | null;
+          role?: string | null;
+          email?: unknown | null;
           social?: string | null;
           status?: string;
           created_at?: string;
+          user_id?: string | null;
+          club_id?: string | null;
+          meeting_place?: string | null;
+          usual_times?: string | null;
+          founded_year?: number | null;
+          proof_method?: string | null;
+          proof_handle?: string | null;
+          proof_code?: string | null;
+          call_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
         };
         Update: {
           id?: number;
           club_name?: string;
-          borough_id?: string;
-          size?: string;
-          role?: string;
-          email?: unknown;
+          borough_id?: string | null;
+          size?: string | null;
+          role?: string | null;
+          email?: unknown | null;
           social?: string | null;
           status?: string;
           created_at?: string;
+          user_id?: string | null;
+          club_id?: string | null;
+          meeting_place?: string | null;
+          usual_times?: string | null;
+          founded_year?: number | null;
+          proof_method?: string | null;
+          proof_handle?: string | null;
+          proof_code?: string | null;
+          call_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
         };
         Relationships: [];
       };
@@ -541,6 +646,11 @@ export type Database = {
           created_by: string;
           created_at: string;
           updated_at: string;
+          founded_year: number | null;
+          strava: string | null;
+          paces: string | null;
+          distances: string | null;
+          beginners: boolean;
         };
         Insert: {
           id?: string;
@@ -564,6 +674,11 @@ export type Database = {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          founded_year?: number | null;
+          strava?: string | null;
+          paces?: string | null;
+          distances?: string | null;
+          beginners?: boolean;
         };
         Update: {
           id?: string;
@@ -587,6 +702,11 @@ export type Database = {
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+          founded_year?: number | null;
+          strava?: string | null;
+          paces?: string | null;
+          distances?: string | null;
+          beginners?: boolean;
         };
         Relationships: [];
       };
@@ -805,6 +925,7 @@ export type Database = {
           created_by: string;
           cancelled_at: string | null;
           created_at: string;
+          pace_groups: string[] | null;
         };
         Insert: {
           id?: string;
@@ -827,6 +948,7 @@ export type Database = {
           created_by: string;
           cancelled_at?: string | null;
           created_at?: string;
+          pace_groups?: string[] | null;
         };
         Update: {
           id?: string;
@@ -849,6 +971,7 @@ export type Database = {
           created_by?: string;
           cancelled_at?: string | null;
           created_at?: string;
+          pace_groups?: string[] | null;
         };
         Relationships: [];
       };
@@ -1734,16 +1857,22 @@ export type Database = {
       battle_entry_count: { Args: { p_battle: string; }; Returns: number };
       can_see_post: { Args: { p: Database["public"]["Tables"]["posts"]["Row"]; }; Returns: boolean };
       cancel_battle: { Args: { p_battle: string; }; Returns: undefined };
+      cancel_club_battle: { Args: { p_battle: string; }; Returns: undefined };
+      challenge_club: { Args: { p_my_club: string; p_opponent?: string; p_mode?: Database["public"]["Enums"]["club_battle_mode"]; p_starts_at?: string; p_hours?: number; }; Returns: Database["public"]["Tables"]["club_battles"]["Row"] };
       challenge_value: { Args: { p_user: string; c: Database["public"]["Tables"]["challenges"]["Row"]; }; Returns: number };
       check_in_event: { Args: { p_event: string; p_code: string; }; Returns: undefined };
       claim_challenge: { Args: { p_challenge: string; }; Returns: undefined };
       claim_club: { Args: { p_club: string; p_borough: string; p_size: string; p_role: string; p_email: string; p_social?: string; }; Returns: Json };
+      claim_my_club: { Args: { p_name: string; p_meeting_place: string; p_usual_times: string; p_founded?: number; p_proof_method?: string; p_proof_handle?: string; p_call_at?: string; p_club?: string; }; Returns: Json };
+      club_battles_for: { Args: { p_club: string; }; Returns: Json[] };
       club_role_of: { Args: { cid: string; uid?: string; }; Returns: Database["public"]["Enums"]["club_role"] };
+      club_streak: { Args: { p_club: string; p_user?: string; }; Returns: number };
       counted_steps: { Args: { raw: number; }; Returns: number };
       create_battle: { Args: { p_opponent: string; p_mode?: Database["public"]["Enums"]["battle_mode"]; p_duration_h?: number; p_distance_m?: number; p_stake_out?: number; p_route_run?: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       create_club: { Args: { p_name: string; p_slug: string; p_city: string; p_borough?: string; p_tagline?: string; p_meeting_place?: string; p_usual_times?: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       finish_onboarding: { Args: { p_username: string; p_display_name?: string; p_city?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       fixture_side_score: { Args: { p_fixture: string; p_entry: string; }; Returns: number };
+      fixture_view: { Args: { p_fixture: string; }; Returns: Json };
       haversine_m: { Args: { lat1: number; lng1: number; lat2: number; lng2: number; }; Returns: number };
       ingest_steps: { Args: { p_day: string; p_steps: number; p_distance_m?: number; p_active_minutes?: number; p_source?: string; }; Returns: Database["public"]["Tables"]["daily_steps"]["Row"] };
       is_blocked: { Args: { a: string; b: string; }; Returns: boolean };
@@ -1765,6 +1894,8 @@ export type Database = {
       request_black: { Args: { p_name: string; p_email: string; p_borough: string; p_code?: string; p_why?: string; }; Returns: Json };
       reserve_drop: { Args: { p_drop: string; p_size?: string; }; Returns: Database["public"]["Tables"]["drop_orders"]["Row"] };
       respond_battle: { Args: { p_battle: string; p_accept: boolean; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
+      respond_club_battle: { Args: { p_battle: string; p_accept: boolean; }; Returns: Database["public"]["Tables"]["club_battles"]["Row"] };
+      review_club_claim: { Args: { p_claim: number; p_approve: boolean; }; Returns: string };
       rival_deck: { Args: { p_limit?: number; }; Returns: Database["public"]["Tables"]["profiles"]["Row"][] };
       rsvp_event: { Args: { p_event: string; p_going?: boolean; }; Returns: undefined };
       save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
@@ -1772,6 +1903,7 @@ export type Database = {
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
+      vote_club_battle: { Args: { p_battle: string; p_yes: boolean; }; Returns: undefined };
       website_stats: { Args: {  }; Returns: Json };
     };
     Enums: {
@@ -1791,6 +1923,8 @@ export type Database = {
       post_kind: "text" | "photo" | "run_recap" | "club_run_recap" | "battle" | "welcome" | "milestone" | "reveal" | "memory";
       sub_source: "app_store" | "play" | "web";
       sub_status: "trialing" | "active" | "past_due" | "cancelled" | "expired";
+      club_battle_mode: "steps" | "live_race" | "relay" | "blind_time_trial" | "turnout_night" | "turf_war";
+      club_battle_status: "pending" | "accepted" | "live" | "finished" | "declined" | "cancelled";
     };
     CompositeTypes: Record<string, never>;
   };
