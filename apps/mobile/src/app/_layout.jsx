@@ -12,6 +12,7 @@ import { EngineBridge, useProfile } from "@/data/hooks";
 import { useStepSync } from "@/hooks/useStepSync";
 import UpgradeSheet from "@/components/ui/UpgradeSheet";
 import { ToastHost } from "@/components/ui/Toast";
+import LaunchScreen from "@/components/ui/LaunchScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -66,6 +67,7 @@ function RootStack() {
       <StepSync />
       <UpgradeSheet />
       <ToastHost />
+      <LaunchScreen />
     </>
   );
 }
