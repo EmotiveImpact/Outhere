@@ -109,6 +109,8 @@ for f in supabase/migrations/*.sql; do psql -d oh_types -f "$f"; done
 python3 supabase/scripts/gen_types.py oh_types supabase/types/database.ts
 ```
 
+To rebuild the hosted database from nothing without the CLI, `python3 supabase/scripts/build_setup_sql.py setup.sql` writes one file for the SQL Editor: `scripts/wipe.sql` first (it drops everything in public, the sign-in accounts, the schedules, the storage rules and the migration history), then every migration, the seed and the history rows, all in one transaction. It wipes real data, so only use it before launch.
+
 Once the hosted project exists, `supabase link --project-ref <ref>` then `supabase db push` applies the migrations, and `supabase gen types typescript --linked` replaces the script.
 
 ## Client set up
