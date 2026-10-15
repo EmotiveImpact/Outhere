@@ -60,6 +60,19 @@ describe("mock data source", () => {
     expect(p.imIn).toBe(true);
   });
 
+  it("joins a club from its QR code and says yes to the run", async () => {
+    await data.joinClub("brixtonsunrise", { pace: "Easy", runId: "run-tue" });
+    const run = (await data.clubPage("brixtonsunrise"))!.runs.find((r) => r.id === "run-tue")!;
+    expect(run.imGoing).toBe(true);
+    expect(run.going).toBe(35);
+    await expect(data.joinClub("nosuchclub", { pace: "Easy", runId: null })).rejects.toThrow("NO_SUCH_CLUB");
+  });
+
+  it("shows founding progress only while a club is founding", async () => {
+    expect((await data.clubPage("peckhampacers"))!.founding).toBeNull();
+    expect((await data.clubPage("deptforddocks"))!.founding).toEqual({ meetups: 2, needed: 3 });
+  });
+
   it("finds clubs by borough and filter", async () => {
     const walks = await data.clubs({ filters: ["walk"], borough: "Lewisham" });
     expect(walks.map((c) => c.id)).toEqual(["lewisham-buggy"]);

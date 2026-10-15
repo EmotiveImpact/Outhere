@@ -1,14 +1,19 @@
 import type {
+  PublicProfile,
   BattlesView, BoroughMetric, BoroughStat, CalendarView, ChatView, Club, ClubFilter, ClubHqView,
-  ClubPagePatch, ClubPageView, FairPlayView, FeedView, FundView, HomeView, KitView, LeagueView,
-  MembersView, NewBattle, NewPickup, Notification, Person, Pickup, Plan, Reaction, Role, RunsWeekView,
+  ClubPagePatch, ClubPageView, FairPlayView, JoinInput, FeedView, FundView, HomeView, KitView, LeagueView,
+  MembersView, NewBattle, NewPickup, MeView, Notification, Person, Pickup, PickupsView, Plan, Reaction, Role, RunsWeekView,
   SearchItem, SeasonsView, AdminOverview, VerificationRequest, Viewer, AuditEntry,
 } from "./types";
+
+export type ClubSort = "closest" | "biggest" | "newest";
 
 export interface ClubQuery {
   q?: string;
   borough?: string | null;
   filters?: ClubFilter[];
+  /** Closest is measured from the viewer's borough. */
+  sort?: ClubSort;
 }
 
 /**
@@ -40,15 +45,20 @@ export interface OuthereData {
   battles(): Promise<BattlesView>;
   createBattle(input: NewBattle): Promise<{ id: string }>;
   acceptChallenge(id: string): Promise<void>;
+  /** "Not this week": the challenger is told, nobody loses points. */
+  declineChallenge(id: string): Promise<void>;
   setSurpriseChallengers(on: boolean): Promise<void>;
 
-  pickups(): Promise<Pickup[]>;
+  pickups(): Promise<PickupsView>;
   setPickupGoing(id: string, going: boolean): Promise<void>;
   postPickup(input: NewPickup): Promise<Pickup>;
 
   league(): Promise<LeagueView>;
   boroughs(metric: BoroughMetric): Promise<BoroughStat[]>;
   clubs(query?: ClubQuery): Promise<Club[]>;
+  me(): Promise<MeView>;
+  /** weouthere.app/@handle. Null when nobody has that handle. */
+  profile(handle: string): Promise<PublicProfile | null>;
   plans(): Promise<Plan[]>;
   setPublicProfile(on: boolean): Promise<void>;
 
@@ -59,6 +69,8 @@ export interface OuthereData {
   /* public */
   clubBySlug(slug: string): Promise<Club | null>;
   clubPage(slug: string): Promise<ClubPageView | null>;
+  /** Join a club from its public page or QR code, with a pace and maybe a first run. */
+  joinClub(slug: string, input: JoinInput): Promise<void>;
 
   /* club HQ */
   clubHq(clubId: string): Promise<ClubHqView>;

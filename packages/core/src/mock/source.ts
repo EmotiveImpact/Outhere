@@ -1,9 +1,9 @@
 import type { ClubQuery, OuthereData } from "../data-source";
-import { battleLengths, firstName, rolesFor, isValidClubSlug, slugify } from "../rules";
+import { battleLengths, firstName, ordinal, rolesFor, isValidClubSlug, slugify } from "../rules";
 import type {
   AdminOverview, AuditEntry, BattlesView, BoroughMetric, BoroughStat, CalendarView, ChatItem, ChatView,
-  Club, ClubHqView, ClubPagePatch, ClubPageView, FairPlayView, FeedPost, FeedView, FundView, HomeView,
-  KitView, LeagueView, MembersView, NewBattle, NewPickup, Notification, Person, Pickup, Plan, Reaction,
+  CheckinRun, Club, ClubHqView, ClubPagePatch, ClubPageView, FairPlayView, FeedPost, FeedView, FundView, HomeView,
+  JoinInput, KitView, LeagueView, MembersView, NewBattle, NewPickup, Notification, MeView, Person, Pickup, PickupsView, Plan, PublicProfile, Reaction,
   Role, RunsWeekView, SearchItem, SeasonsView, VerificationRequest, Viewer,
 } from "../types";
 import * as seed from "./seed";
@@ -29,7 +29,9 @@ type State = {
   audit: AuditEntry[];
   revealHeld: boolean;
   derby: typeof seed.DERBY;
+  joins: { clubId: string; personId: string; pace: JoinInput["pace"]; runId: string | null }[];
   nextId: number;
+  zainReplied: boolean;
 };
 
 const clone = <T>(v: T): T => structuredClone(v);
@@ -58,7 +60,9 @@ function freshState(): State {
     audit: clone(seed.AUDIT),
     revealHeld: false,
     derby: clone(seed.DERBY),
-    nextId: 1,
+    joins: [],
+    nextId: 1000, // well clear of the ids in the seed
+    zainReplied: false,
   };
 }
 
@@ -80,6 +84,12 @@ const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.g
 
 function postHasReactions(p: FeedPost): p is Extract<FeedPost, { reactions: unknown }> {
   return "reactions" in p;
+}
+
+/** Average steps a day per person in each borough, highest first. One source for the map and the tables. */
+const TOP_BOROUGHS: Record<string, number> = { Hackney: 8912, Lambeth: 8840, Southwark: 8790, "Tower Hamlets": 8611, Haringey: 8590 };
+function boroughSteps(): { name: string; value: number }[] {
+  return seed.BOROUGHS.map((b) => ({ name: b.name, value: TOP_BOROUGHS[b.name] ?? 7100 + (seed.hashN(b.name) % 1400) })).sort((a, b) => b.value - a.value);
 }
 
 export class MockData implements OuthereData {
@@ -132,14 +142,8 @@ export class MockData implements OuthereData {
       week,
       weekCounted: 78265,
       nextRun: clone(this.run("run-tue")),
-      boroughTable: [
-        { name: "Hackney", steps: 8912 },
-        { name: "Lambeth", steps: 8840 },
-        { name: "Southwark", steps: 8790, me: true },
-        { name: "Tower Hamlets", steps: 8611 },
-        { name: "Haringey", steps: 8590 },
-      ],
-      boroughLine: "Southwark is 3rd in London, up 2",
+      boroughTable: boroughSteps().slice(0, 5).map((b) => ({ name: b.name, steps: b.value, me: b.name === this.s.viewer.borough || undefined })),
+      boroughLine: `${this.s.viewer.borough} is ${ordinal(boroughSteps().findIndex((b) => b.name === this.s.viewer.borough) + 1)} in London, up 2`,
       clubActivity: [
         { personId: "tobi", html: "<strong>Tobi</strong> checked in to Thursday intervals", ago: "2h" },
         { personId: "mei", html: "<strong>Mei</strong> joined after scanning the Rye Lane poster", ago: "5h" },
@@ -209,6 +213,7 @@ export class MockData implements OuthereData {
     return {
       club: clone(this.club(clubId)),
       online: 38,
+      onlineIds: ["dami", "zain", "mei", "kemi"],
       channels: clone(this.s.chat).map((c) => (c.leadersOnly && !leader ? { ...c, items: [] } : c)),
       nextRun: clone(this.run("run-tue")),
       onRun: ["tobi", "jordan"],
@@ -226,7 +231,18 @@ export class MockData implements OuthereData {
   async sendChat(_clubId: string, channel: string, text: string) {
     const clean = text.trim().slice(0, 1000);
     if (!clean) return;
-    this.channel(channel).items.push({ kind: "message", id: `m${this.s.nextId++}`, personId: this.s.viewer.id, time: hhmm(new Date()), text: clean });
+    const c = this.channel(channel);
+    c.items.push({ kind: "message", id: `m${this.s.nextId++}`, personId: this.s.viewer.id, time: hhmm(new Date()), text: clean });
+    // Example data only: the first message in #general gets a reply, so the
+    // chat feels alive in a demo. Real replies come from real people.
+    if (channel === "general" && !this.s.zainReplied) {
+      this.s.zainReplied = true;
+      setTimeout(() => { c.typing = ["zain"]; }, 700);
+      setTimeout(() => {
+        c.typing = [];
+        c.items.push({ kind: "message", id: `m${this.s.nextId++}`, personId: "zain", time: hhmm(new Date()), text: "Say less 🙌 see you all Tuesday", reactions: [{ emoji: "🔥", count: 3, mine: false }] });
+      }, 2600);
+    }
   }
 
   private message(channel: string, id: string) {
@@ -314,12 +330,17 @@ export class MockData implements OuthereData {
     if (c) c.accepted = true;
   }
 
+  async declineChallenge(id: string) {
+    this.s.challenges = this.s.challenges.filter((x) => x.id !== id);
+  }
+
   async setSurpriseChallengers(on: boolean) {
     this.s.surprise = on;
   }
 
-  async pickups() {
-    return clone(this.s.pickups);
+  async pickups(): Promise<PickupsView> {
+    const club = this.s.clubs.find((c) => c.id === this.s.viewer.homeClubId);
+    return { list: clone(this.s.pickups), area: "Peckham", radiusKm: 2, outNearby: 37, clubName: club?.name ?? "Your club" };
   }
 
   async setPickupGoing(id: string, going: boolean) {
@@ -350,14 +371,24 @@ export class MockData implements OuthereData {
   }
 
   async league(): Promise<LeagueView> {
-    const verified = this.s.clubs.filter((c) => c.verified).sort((a, b) => a.position - b.position).slice(0, 5);
-    const forms = ["wwdww", "wwlww", "wdwlw", "lwdwl", "ldwwl"];
+    const verified = this.s.clubs.filter((c) => c.verified).sort((a, b) => a.position - b.position);
+    const forms = ["wwdww", "wwlww", "wdwlw", "lwdwl", "ldwwl", "dlwlw", "lldwl", "llwdl", "ldlwl", "llldl"];
     return {
       season: "Season 1 · week 4 of 6",
       match: { home: "London", away: "Manchester", homeScore: 8240, awayScore: 8610, homeTurnout: 41, awayTurnout: 52, division: "City League Premier", dayOfWeek: 4 },
-      table: clone(seed.CITY_TABLE),
+      divisions: [
+        { name: "Premier", rows: clone(seed.CITY_TABLE) },
+        { name: "Championship", rows: clone(seed.CITY_CHAMPIONSHIP) },
+        { name: "League One", rows: clone(seed.CITY_LEAGUE_ONE) },
+      ],
       rising: { city: "Birmingham", eligible: 46, needed: 100 },
-      clubTable: verified.map((club, i) => ({ club: clone(club), form: forms[i] ?? "" })),
+      clubTable: verified.map((club, i) => ({
+        club: clone(club),
+        form: forms[i] ?? "",
+        points: Math.max(1, 14 - i * 2),
+        me: club.id === this.s.viewer.homeClubId,
+      })),
+      derby: clone(seed.DERBY),
       reveal: this.reveal(),
     };
   }
@@ -365,21 +396,93 @@ export class MockData implements OuthereData {
   async boroughs(metric: BoroughMetric): Promise<BoroughStat[]> {
     return seed.BOROUGHS.map((b) => {
       const real = this.s.clubs.filter((c) => c.borough === b.name).length;
-      const value = metric === "clubs" ? real * 3 + 2 + (seed.hashN(b.name) % 9) : 7100 + (seed.hashN(b.name) % 1900) + (b.name === "Southwark" ? 650 : 0);
+      const value = metric === "clubs" ? real * 3 + 2 + (seed.hashN(b.name) % 9) : (boroughSteps().find((x) => x.name === b.name)?.value ?? 0);
       return { ...b, value };
     });
   }
 
   async clubs(query: ClubQuery = {}) {
     const q = (query.q ?? "").trim().toLowerCase();
-    return clone(
-      this.s.clubs.filter(
-        (c) =>
-          (!query.borough || c.borough === query.borough) &&
-          (query.filters ?? []).every((f) => c.filters.includes(f)) &&
-          (!q || `${c.name} ${c.borough} ${c.nextRun}`.toLowerCase().includes(q)),
-      ),
+    const tile = (name: string) => seed.BOROUGHS.find((b) => b.name === name);
+    const me = tile(this.s.viewer.borough);
+    const away = (c: Club) => {
+      const t = tile(c.borough);
+      return me && t ? Math.hypot(t.col - me.col, t.row - me.row) : 99;
+    };
+    const list = this.s.clubs.filter(
+      (c) =>
+        (!query.borough || c.borough === query.borough) &&
+        (query.filters ?? []).every((f) => c.filters.includes(f)) &&
+        (!q || `${c.name} ${c.borough} ${c.nextRun}`.toLowerCase().includes(q)),
     );
+    if (query.sort === "biggest") list.sort((a, b) => b.members - a.members);
+    else if (query.sort === "newest") list.sort((a, b) => b.since - a.since);
+    else if (query.sort === "closest") list.sort((a, b) => away(a) - away(b));
+    return clone(list);
+  }
+
+  async me(): Promise<MeView> {
+    const v = this.s.viewer;
+    return {
+      clubName: this.club(v.homeClubId).name,
+      clubRole: v.roles.includes("captain") ? "Captain" : "Member",
+      kpis: [
+        { label: "Counted steps this week", value: 78265, delta: "<b>+9%</b> on last week" },
+        { label: "OUT available", value: 2140, delta: "<b>+250</b> pending release" },
+        { label: "Club runs this month", value: 9, delta: "Top 10% at Peckham Pacers" },
+        { label: "Season points", value: 41, delta: "For London and for Peckham" },
+      ],
+      weeks: {
+        labels: ["W1", "", "W3", "", "W5", "", "W7", "", "W9", "", "W11", ""],
+        steps: [61, 66, 59, 70, 72, 68, 75, 71, 77, 74, 72, 78],
+        runs: [2, 3, 2, 3, 3, 2, 4, 3, 4, 3, 3, 4],
+      },
+      badges: clone(seed.PROFILE_BADGES),
+      badgesEarned: 7,
+      badgesTotal: 40,
+    };
+  }
+
+  async profile(handle: string): Promise<PublicProfile | null> {
+    const h = handle.toLowerCase();
+    const v = this.s.viewer;
+    const home = this.club(v.homeClubId);
+    if (h === v.handle) {
+      if (!v.publicProfile) return { handle: h, visible: false };
+      const me = await this.me();
+      const { handle: _h, borough, roles: _r, homeClubId: _c, level, streakDays, foundingNumber, trust, publicProfile: _p, ...person } = v;
+      return {
+        handle: h, visible: true, person, borough, trust, foundingNumber, level, streakDays,
+        club: { name: home.name, slug: home.slug, role: me.clubRole },
+        stats: [
+          me.kpis[0]!,
+          me.kpis[2]!,
+          me.kpis[3]!,
+          { label: "Day streak", value: streakDays, delta: "Days out in a row" },
+        ],
+        badges: me.badges, badgesEarned: me.badgesEarned, badgesTotal: me.badgesTotal,
+        isMe: true,
+      };
+    }
+    const i = seed.PEOPLE.findIndex((p) => p.id === h);
+    if (i < 0) return null;
+    // Example data: Hannah keeps her profile private.
+    if (h === "hannah") return { handle: h, visible: false };
+    const person = clone(seed.PEOPLE[i]!);
+    const steps = 52000 + ((i * 7919) % 30000);
+    return {
+      handle: h, visible: true, person, borough: home.borough, trust: i % 3 === 0 ? "Established" : "Verified",
+      level: 6 + (i % 9), streakDays: 3 + ((i * 5) % 40),
+      club: { name: home.name, slug: home.slug, role: h === "dami" ? "Run leader" : "Member" },
+      stats: [
+        { label: "Counted steps this week", value: steps, delta: `For ${home.borough}` },
+        { label: "Club runs this month", value: 2 + (i % 8), delta: `At ${home.name}` },
+        { label: "Season points", value: 12 + ((i * 11) % 40), delta: "For London" },
+        { label: "Day streak", value: 3 + ((i * 5) % 40), delta: "Days out in a row" },
+      ],
+      badges: seed.PROFILE_BADGES.slice(0, 1 + (i % 4)), badgesEarned: 1 + (i % 9), badgesTotal: 40,
+      isMe: false,
+    };
   }
 
   async plans(): Promise<Plan[]> {
@@ -426,9 +529,9 @@ export class MockData implements OuthereData {
         points: pp ? 10 : 7,
         form: "wdwww",
         results: [
-          { opponent: "Southbank Social", won: true, us: "13,224", them: "12,826" },
-          { opponent: "Tottenham Night", won: true, us: "12,904", them: "12,450" },
-          { opponent: "Thames Bridges", won: false, us: "11,880", them: "11,860" },
+          { opponent: "Southbank Social", result: "w", us: "13,224", them: "12,826" },
+          { opponent: "Tottenham Night", result: "w", us: "12,904", them: "12,450" },
+          { opponent: "Thames Bridges", result: "d", us: "11,880", them: "11,860" },
         ],
       },
       leaders: [
@@ -444,11 +547,36 @@ export class MockData implements OuthereData {
         { name: "Khan & Sons", kind: "Pharmacy", perk: "First aid kits for every run leader." },
       ],
       nearby: clone(this.s.clubs.filter((x) => x.id !== club.id).slice(0, 3)),
+      founding: club.founding ? { meetups: 2, needed: 3 } : null,
       reveal: this.reveal(),
     };
   }
 
+  async joinClub(slug: string, input: JoinInput) {
+    const club = this.s.clubs.find((x) => x.slug === slug.toLowerCase());
+    if (!club) throw new Error(`NO_SUCH_CLUB: ${slug}`);
+    const personId = this.s.viewer.id;
+    const existing = this.s.joins.find((j) => j.clubId === club.id && j.personId === personId);
+    if (existing) Object.assign(existing, input);
+    else this.s.joins.push({ clubId: club.id, personId, ...input });
+    if (input.runId) await this.setRsvp(input.runId, true);
+  }
+
   /* ---------- club HQ ---------- */
+
+  /** The next run with a live check-in: Thursday intervals in the example week. */
+  private checkinRun(): CheckinRun {
+    const r = this.run("run-thu");
+    return {
+      runId: r.id,
+      title: "Thursday intervals",
+      place: "Burgess Park",
+      line: `Burgess Park, ${r.time}. The code changes every 30 seconds, so it only works at the run.`,
+      opens: "Opens 18:45",
+      going: r.going,
+      goingIds: ["tobi", "mei", "zain", "hannah", "dami", "priya", "jordan", "lena"],
+    };
+  }
 
   async clubHq(clubId: string): Promise<ClubHqView> {
     const club = clone(this.club(clubId));
@@ -468,13 +596,15 @@ export class MockData implements OuthereData {
         { label: "Club fund", value: "£858", delta: "Since September", spark: [120, 210, 300, 420, 520, 640, 750, 858] },
       ],
       turnout: [41, 44, 39, 47, 50, 48, 52, 55, 51, 58, 62, 68],
-      checkin: { title: "Thursday intervals", line: "Burgess Park, 18:30. The code changes every 30 seconds, so it only works at the run.", opens: "Opens 18:45" },
+      turnoutLabels: ["A", "", "S", "", "S", "", "O", "", "O", "", "O", ""],
+      checkin: this.checkinRun(),
       needs: [
         { icon: "people", title: `${this.s.requests.length} people want to join`, line: this.s.requests.length ? `${this.s.requests.map((r) => firstName(this.s.people[r.personId]?.name ?? "")).join(", ").replace(/, ([^,]*)$/, " and $1")} came as guests twice` : "Nobody waiting", action: "Review", href: "/hq/members" },
         { icon: "walk", tone: "warn", title: "Saturday has no back marker", line: "Long run, Rye to Southbank, 14k", action: "Ask", toast: "Asked Zain, Hannah and Tobi" },
         { icon: "pound", title: "Rye Lane Coffee wants to sponsor you", line: "£150 a month and free coffee after Saturday runs", action: "See offer", href: "/hq/fund" },
         { icon: "flag", tone: "alert", title: "Derby v Brixton ends Sunday", line: "You lead by 334. Turnout is your edge.", action: "Nudge", toast: "Nudge sent to 41 members who haven't run this week" },
       ],
+      league: `${club.division}, London south`,
       table: table.map(([id, turnout, points, form]) => ({ club: clone(this.club(id)), turnout, points, form })),
     };
   }
@@ -488,7 +618,7 @@ export class MockData implements OuthereData {
     if (i < 0) return;
     const [r] = this.s.requests.splice(i, 1);
     if (approve && r) {
-      this.s.members.push({ personId: r.personId, role: "Member", pace: r.pace, runsThisMonth: r.runs, trust: "New" });
+      this.s.members.push({ personId: r.personId, role: "Member", pace: r.pace, runsThisMonth: r.runs, trust: "New", weekly: [0, 0, 0, 0, 0, 0, 1, 1], daysSinceRun: 2 });
       this.club(clubId).members += 1;
     }
   }
@@ -514,6 +644,7 @@ export class MockData implements OuthereData {
           { personId: "zain", title: "Zain Hussain", line: "Run leader · steady group", confirmed: true },
           { title: "Back marker", line: "Stays with the last runner, carries the first aid kit", confirmed: false },
         ],
+        askIds: ["hannah", "tobi", "priya"],
       },
       lastRuns: [
         { label: "Tue", checkedIn: 31 },
@@ -521,6 +652,7 @@ export class MockData implements OuthereData {
         { label: "Sat", checkedIn: 38 },
         { label: "Tue", checkedIn: 41 },
       ],
+      checkin: this.checkinRun(),
     };
   }
 
@@ -535,6 +667,8 @@ export class MockData implements OuthereData {
         { code: "LVL-02", placed: "Sticker, Peckham Levels", scans: 41, cameToRun: 12, joined: 9 },
         { code: "GYM-01", placed: "Poster, Pulse Gym", scans: 22, cameToRun: 4, joined: 0 },
       ],
+      poster: { when: "Tuesdays 19:00", where: "Rye Lane station", who: "All paces" },
+      derby: { opponent: this.s.derby.away.short, lead: this.s.derby.home.score - this.s.derby.away.score },
     };
   }
 
@@ -572,6 +706,12 @@ export class MockData implements OuthereData {
         { title: "Park permit, Peckham Rye", amount: "£60" },
       ],
       offers: clone(this.s.offers),
+      treasurerId: "dami",
+      split: {
+        proPrice: 5.99,
+        sponsor: { name: "Peckham Physio", monthly: 150 },
+        kit: { teePrice: 22, makingShare: 0.41, sold: 140 },
+      },
     };
   }
 

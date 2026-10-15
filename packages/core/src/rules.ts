@@ -32,6 +32,10 @@ export function storyRing(seen: boolean): { ring: "t-story"; state: "new" | "see
   return { ring: "t-story", state: seen ? "seen" : "new" };
 }
 
+/** Label for the dot at the bottom right of a face. Blue while out, red once stopped. */
+export const outLabel = (state: OutState | undefined): string | null =>
+  state === "out" ? "Out now" : state === "stopped" ? "Just stopped" : null;
+
 /* ---------- counted steps ---------- */
 
 export const FULL_RATE_STEPS = 10_000;
@@ -61,6 +65,11 @@ export function clubShare(tier: Tier, channel: Channel): number {
   const base = channel === "web" ? 1 : 0.5;
   return tier === "black" ? base * 3 : base;
 }
+
+/** A local sponsor's monthly payment: the club keeps 80%. */
+export const SPONSOR_CLUB_SHARE = 0.8;
+/** Club kit, made to order: the club gets 15% of every sale. */
+export const KIT_CLUB_SHARE = 0.15;
 
 export interface PriceSplit {
   vat: number;
@@ -94,7 +103,7 @@ export function battleLengths(mode: BattleMode): { question: string; options: st
     const options = ["5 days", "7 days", "Until someone drops"];
     return { question: "How long?", options, fallback: "Until someone drops" };
   }
-  return { question: "How long?", options: ["Today", "3 days", "A week"], fallback: "Today" };
+  return { question: "How long?", options: ["Today", "3 days", "A week"], fallback: "A week" };
 }
 
 /* ---------- clubs and URLs ---------- */
@@ -106,7 +115,7 @@ export function battleLengths(mode: BattleMode): { question: string; options: st
 export const RESERVED_SLUGS = new Set([
   "home", "feed", "battles", "pickups", "chat", "calendar", "league", "clubs", "me", "locals",
   "membership", "hq", "join", "admin", "api", "app", "login", "logout", "settings", "help",
-  "about", "privacy", "terms", "search", "assets", "img",
+  "about", "privacy", "terms", "search", "assets", "img", "signin", "signout", "auth", "act", "webhooks",
 ]);
 
 export function slugify(input: string): string {

@@ -158,9 +158,13 @@ export interface CityRow {
 export interface LeagueView {
   season: string;
   match: CityMatch;
-  table: CityRow[];
+  /** City League tables, top division first. */
+  divisions: { name: string; rows: CityRow[] }[];
   rising: { city: string; eligible: number; needed: number };
-  clubTable: { club: Club; form: string }[];
+  /** London club league, in table order. */
+  clubTable: { club: Club; form: string; points: number; me?: boolean }[];
+  /** The viewer's club derby this week. */
+  derby: Derby;
   reveal: RevealInfo;
 }
 
@@ -316,11 +320,15 @@ export interface ChatChannel {
   /** Locked to run leaders and captains. */
   leadersOnly: boolean;
   items: ChatItem[];
+  /** People typing in this channel right now. */
+  typing?: string[];
 }
 
 export interface ChatView {
   club: Club;
   online: number;
+  /** A few of the people online, for the faces in the header. */
+  onlineIds: string[];
   channels: ChatChannel[];
   nextRun: ClubRun;
   onRun: string[];
@@ -380,6 +388,44 @@ export interface SearchItem {
 }
 
 /* ---------- membership ---------- */
+
+export interface MeView {
+  clubName: string;
+  /** How the viewer is known at their home club: Captain, Run leader, Member. */
+  clubRole: string;
+  kpis: Kpi[];
+  /** The last 12 weeks, oldest first: counted steps in thousands, and club runs. */
+  weeks: { labels: string[]; steps: number[]; runs: number[] };
+  badges: { image: string; label: string }[];
+  badgesEarned: number;
+  badgesTotal: number;
+}
+
+/**
+ * Someone's public page at weouthere.app/@handle. Private profiles show
+ * nothing but the fact that they are private.
+ */
+export type PublicProfile =
+  | { handle: string; visible: false }
+  | {
+      handle: string;
+      visible: true;
+      person: Person;
+      borough: string;
+      trust: Trust;
+      foundingNumber?: number;
+      level: number;
+      streakDays: number;
+      /** Their home club, if they have one. */
+      club?: { name: string; slug: string; role: string };
+      /** Public numbers only: nothing about OUT balances or money. */
+      stats: Kpi[];
+      badges: { image: string; label: string }[];
+      badgesEarned: number;
+      badgesTotal: number;
+      /** The signed-in viewer is looking at their own page. */
+      isMe: boolean;
+    };
 
 export interface Plan {
   tier: Tier;
@@ -469,6 +515,17 @@ export interface Pickup {
   imIn: boolean;
 }
 
+export interface PickupsView {
+  list: Pickup[];
+  /** The neighbourhood pick-ups are drawn from, e.g. "Peckham". */
+  area: string;
+  radiusKm: number;
+  /** People sharing a live run or walk within the radius right now. */
+  outNearby: number;
+  /** The viewer's home club, offered as "Who can see it". */
+  clubName: string;
+}
+
 export interface NewPickup {
   type: PickupType;
   title: string;
@@ -504,12 +561,32 @@ export interface NeedsYou {
   toast?: string;
 }
 
+/** The run whose live check-in code HQ shows next. */
+export interface CheckinRun {
+  runId: string;
+  /** "Thursday intervals" */
+  title: string;
+  /** "Burgess Park" */
+  place: string;
+  line: string;
+  /** "Opens 18:45" */
+  opens: string;
+  going: number;
+  /** Who said they're going. Example data plays these back as arrivals. */
+  goingIds: string[];
+}
+
 export interface ClubHqView {
   club: Club;
   kpis: Kpi[];
+  /** Share of active members at a club run, last 12 weeks, oldest first. */
   turnout: number[];
-  checkin: { title: string; line: string; opens: string };
+  /** One label per turnout week; blank where the chart leaves a gap. */
+  turnoutLabels: string[];
+  checkin: CheckinRun;
   needs: NeedsYou[];
+  /** "Club Premier, London south" */
+  league: string;
   table: ClubTableRow[];
 }
 
@@ -519,6 +596,10 @@ export interface Member {
   pace: PaceGroup;
   runsThisMonth: number;
   trust: Trust;
+  /** Activity each of the last 8 weeks, oldest first: a club run counts 1, a walk half. */
+  weekly: number[];
+  /** Days since their last club run or walk. */
+  daysSinceRun: number;
 }
 
 export interface JoinRequest {
@@ -539,8 +620,15 @@ export interface RunsWeekView {
   club: Club;
   weekOf: string;
   days: { day: string; date: number; today: boolean; runs: { time: string; title: string; line: string; walk?: boolean }[] }[];
-  focus: { title: string; badge: string; crew: { personId?: string; title: string; line: string; confirmed: boolean }[] };
+  focus: {
+    title: string;
+    badge: string;
+    crew: { personId?: string; title: string; line: string; confirmed: boolean }[];
+    /** Who to ask to fill the open spot. */
+    askIds: string[];
+  };
   lastRuns: { label: string; checkedIn: number }[];
+  checkin: CheckinRun;
 }
 
 export interface KitView {
@@ -548,6 +636,10 @@ export interface KitView {
   covers: string[];
   allTags: string[];
   codes: { code: string; placed: string; scans: number; cameToRun: number; joined: number }[];
+  /** The three short lines on the A4 poster. */
+  poster: { when: string; where: string; who: string };
+  /** For the story card: the current derby and the margin (negative when behind). */
+  derby: { opponent: string; lead: number };
 }
 
 export interface ClubPagePatch {
@@ -575,6 +667,14 @@ export interface FundView {
   income: { icon: IconName; title: string; line: string; amount: string; pending?: boolean }[];
   spend: { title: string; amount: string }[];
   offers: LocalOffer[];
+  /** The officer who approves payouts first. */
+  treasurerId: string;
+  /** The numbers behind "How the fund fills up". */
+  split: {
+    proPrice: number;
+    sponsor: { name: string; monthly: number };
+    kit: { teePrice: number; makingShare: number; sold: number };
+  };
 }
 
 /* ---------- public pages ---------- */
@@ -584,12 +684,21 @@ export interface ClubPageView {
   runs: ClubRun[];
   derby: { opponent: string; us: number; them: number };
   stats: { turnout: string; raised: string };
-  season: { points: number; form: string; results: { opponent: string; won: boolean; us: string; them: string }[] };
+  season: { points: number; form: string; results: { opponent: string; result: FormLetter; us: string; them: string }[] };
   leaders: { personId: string; role: string; group: string }[];
   gallery: string[];
   locals: { name: string; kind: string; perk: string }[];
   nearby: Club[];
+  /** Meetups done towards going official, while the club is founding. */
+  founding: { meetups: number; needed: number } | null;
   reveal: RevealInfo;
+}
+
+/** What someone picks in the join flow a club's QR code opens. */
+export interface JoinInput {
+  pace: PaceGroup;
+  /** The run they said they'll come to, if any. */
+  runId: string | null;
 }
 
 /* ---------- admin ---------- */

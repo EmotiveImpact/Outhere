@@ -271,6 +271,7 @@ svg.chart text{fill:var(--ink-dim);font:500 10.5px var(--text)}
 .chero .wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:end;padding-bottom:64px;padding-top:120px}
 .chero h1{font-size:clamp(64px,10vw,150px);margin-top:16px}
 .chero .tl{font-size:clamp(17px,1.6vw,21px);color:#e3e8ef;margin-top:16px;max-width:36ch}
+.chero .avr.pf{width:96px;height:96px;padding:3.5px}
 .chero .crestbig{width:84px;height:84px;border-radius:22px;object-fit:cover;box-shadow:0 20px 40px -10px #000}
 .chero .facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
 .chero .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
@@ -1105,3 +1106,8 @@ em.ld.stop{background:var(--alert);box-shadow:0 0 10px rgba(255,77,85,.8)}
  .pk{grid-template-columns:minmax(0,1fr);gap:12px}.pk-when{flex-direction:row;align-items:center;gap:10px;border-right:0;padding:0 0 10px;border-bottom:1px solid var(--line)}.pk-when b{font-size:26px}.pk-when em{margin:0 0 0 auto}
  .vs-side{width:100%;height:56%}.vs-side.us{top:0;bottom:auto;clip-path:polygon(0 0,100% 0,100% 78%,0 100%)}.vs-side.them{top:auto;bottom:0;clip-path:polygon(0 22%,100% 0,100% 100%,0 100%)}
  .us .vs-nm{left:20px;bottom:auto;top:24px}.them .vs-nm{right:20px;bottom:24px}.bhero .brec{gap:18px}}
+
+/* ---------- added for the built app ---------- */
+.qrt svg.qr{width:100%;height:auto;display:block}
+@keyframes tilein{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+.preview-note{font-size:11px;color:var(--ink-dim);text-align:center;margin-top:6px}

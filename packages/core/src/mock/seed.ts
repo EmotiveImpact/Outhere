@@ -129,7 +129,7 @@ export const FEED: FeedPost[] = [
   { id: "p-hannah", kind: "photo", scopes: ["follow"], personId: "hannah", meta: "Walk group · Peckham Rye Park · 3 hours ago", text: "Couldn't see the end of the path this morning. Went anyway. Thursday walk group meets at 7 if you fancy the next one.", image: img("dawn"), alt: "A runner on a misty riverside path at dawn", reactions: rx(41, 6, 22), comments: [], commentCount: 7 },
   { id: "p-borough", kind: "borough", scopes: ["borough"], borough: "Southwark", place: "3rd", line: "in London, up two places since Monday. 4,812 people walking and running for Southwark.", leaders: [{ name: "Kemi Adeyemi", steps: 78265 }, { name: "Zain Hussain", steps: 74910 }, { name: "Mei Chen", steps: 71002 }] },
   { id: "p-memory", kind: "memory", scopes: ["follow"], then: "31:40", now: "24:12", line: "7 minutes faster, 212 runs later. Peckham Rye was there for every one." },
-  { id: "p-reveal", kind: "reveal", scopes: ["club"], match: "London v Manchester", line: "Who walked further this week? Find out live on Sunday at 18:00.", image: img("event") },
+  { id: "p-reveal", kind: "reveal", scopes: ["club"], match: "London v Manchester", line: "Who walked further this week? Find out live on Sunday at 20:00.", image: img("event") },
   { id: "p-kemi", kind: "run", scopes: ["follow", "borough"], personId: "kemi", meta: "Long run · Peckham to Southbank · Saturday", title: "Long Saturday along the river", km: "14.1", pace: "6:02", time: "1:25:07", boroughPoints: 61, route: "river", withIds: ["dami", "priya", "zain", "lena"], withLine: "with Dami, Priya, Zain and Lena", reactions: rx(37, 12, 8), comments: [], commentCount: 4 },
   { id: "p-fund", kind: "club-post", scopes: ["club"], personId: "kemi", meta: "Captain · Peckham Pacers · 2 days ago", text: "Club fund update. This month it paid for a first aid course for four run leaders and head torches for the night group. Every penny is on the fund page.", fund: { raised: "£858 raised since September", line: "From Pro members, Peckham Physio and the autumn kit drop" }, reactions: rx(29, 4, 18), comments: [], commentCount: 2 },
 ];
@@ -178,7 +178,7 @@ const WEEK: Omit<CalendarEvent, "id" | "date">[][] = [
   [{ time: "18:30", title: "Intervals", where: "Burgess Park lake gate", scope: "club" }, { time: "19:00", title: "Walk group", where: "Peckham Rye Park cafe", scope: "club" }],
   [{ time: "12:00", title: "Black winter jacket drop", where: "In the app", scope: "london" }, { time: "23:59", title: "Your battle with Tobi ends", where: "You lead by 2,140 steps", scope: "mine", kind: "battle" }],
   [{ time: "08:00", title: "Long run, 14k", where: "Peckham Rye to Southbank", scope: "mine", kind: "going" }, { time: "11:00", title: "Burgess Park clean-up", where: "Bring gloves, coffee after", scope: "london" }],
-  [{ time: "18:00", title: "Peckham v Brixton ends", where: "Club derby final whistle", scope: "mine", kind: "battle" }, { time: "18:00", title: "London v Manchester reveal", where: "Watch it live in the app", scope: "london", global: true }],
+  [{ time: "18:00", title: "Peckham v Brixton ends", where: "Club derby final whistle", scope: "mine", kind: "battle" }, { time: "20:00", title: "London v Manchester reveal", where: "Watch it live in the app", scope: "london", global: true }],
 ];
 
 export const TODAY = 20;
@@ -198,7 +198,8 @@ export function calendarEvents(): CalendarEvent[] {
   add(19, { time: "18:00", title: "Peckham v Camberwell ends", where: "Peckham won the derby", scope: "mine", kind: "battle" });
   add(29, { time: "09:00", title: "Winter Night Run sign-ups", where: "3,000 places, Pro gets early access", scope: "london" });
   add(31, { time: "19:00", title: "Halloween night run", where: "Fancy dress, Peckham Rye", scope: "club" });
-  return out.sort((a, b) => a.date - b.date || (a.time < b.time ? -1 : 1));
+  const key = (t: string) => (/^\d/.test(t) ? t : "00:00"); // "All week" goes first
+  return out.sort((a, b) => a.date - b.date || (key(a.time) < key(b.time) ? -1 : 1));
 }
 
 export const NOTIFICATIONS: Notification[] = [
@@ -207,13 +208,13 @@ export const NOTIFICATIONS: Notification[] = [
   { id: "n3", icon: "chat", personId: "zain", html: "<b>Zain</b> in #tuesday-5k: who's bringing the spare head torch?", ago: "18m", href: "/chat", unread: true },
   { id: "n4", icon: "people", personId: "jordan", html: "<b>3 people</b> asked to join Peckham Pacers", ago: "1h", href: "/hq/members", unread: false },
   { id: "n5", icon: "arrow", html: "Your run put <b>Southwark past Lambeth</b>. 3rd in London.", ago: "3h", href: "/league", unread: false },
-  { id: "n6", icon: "spark", html: "<b>Sunday reveal</b>: London v Manchester at 18:00", ago: "1d", href: "/calendar", unread: false },
+  { id: "n6", icon: "spark", html: "<b>Sunday reveal</b>: London v Manchester at 20:00", ago: "1d", href: "/calendar", unread: false },
   { id: "n7", icon: "pound", html: "<b>£120</b> from Peckham Physio landed in the club fund", ago: "2d", href: "/hq/fund", unread: false },
 ];
 
 export const PLANS: Plan[] = [
-  { tier: "free", name: "Free", monthly: 0, yearly: 0, line: "Everything you need to play for your borough.", features: ["Walk and run for your borough", "Join any club, always free", "Club chat, feed and calendar", "Battles with friends"] },
-  { tier: "pro", name: "Pro", monthly: 5.99, yearly: 59.99, line: "For people who are out most days.", features: ["Outhere Locals perks at the till", "Early access to club kit drops", "Your full stats and history", "Your name on the Sunday reveal", "£1 a month to your club when you join here"], popular: true },
+  { tier: "free", name: "Free", monthly: 0, yearly: 0, line: "Everything you need to play for your borough.", features: ["Walk and run for your borough", "Join any club, always free", "Club chat, feed and calendar", "Watch everyone's stories", "Battles with friends"] },
+  { tier: "pro", name: "Pro", monthly: 5.99, yearly: 59.99, line: "For people who are out most days.", features: ["Post stories from your runs", "Outhere Locals perks at the till", "Early access to club kit drops", "Your full stats and history", "Your name on the Sunday reveal", "£1 a month to your club when you join here"], popular: true },
   { tier: "black", name: "Black", monthly: 17.99, yearly: 179.99, line: "The full thing, and the most for your club.", features: ["Everything in Pro", "Members-only Black drops and events", "First places at big city events", "£3 a month to your club when you join here"] },
 ];
 
@@ -240,12 +241,12 @@ export const PICKUPS: Pickup[] = [
 ];
 
 export const MEMBERS: Member[] = [
-  { personId: "kemi", role: "Captain", pace: "Steady", runsThisMonth: 14, trust: "Established" },
-  { personId: "dami", role: "Run leader", pace: "Fast", runsThisMonth: 12, trust: "Established" },
-  { personId: "zain", role: "Run leader", pace: "Steady", runsThisMonth: 11, trust: "Established" },
-  { personId: "tobi", role: "Member", pace: "Fast", runsThisMonth: 10, trust: "Verified" },
-  { personId: "hannah", role: "Member", pace: "Easy", runsThisMonth: 9, trust: "Established" },
-  { personId: "priya", role: "Member", pace: "Easy", runsThisMonth: 6, trust: "Verified" },
+  { personId: "kemi", role: "Captain", pace: "Steady", runsThisMonth: 14, trust: "Established", weekly: [3, 4, 3, 5, 4, 6, 5, 8], daysSinceRun: 1 },
+  { personId: "dami", role: "Run leader", pace: "Fast", runsThisMonth: 12, trust: "Established", weekly: [4, 5, 4, 6, 5, 7, 6, 8], daysSinceRun: 1 },
+  { personId: "zain", role: "Run leader", pace: "Steady", runsThisMonth: 11, trust: "Established", weekly: [5, 6, 5, 7, 6, 8, 7, 8.5], daysSinceRun: 2 },
+  { personId: "tobi", role: "Member", pace: "Fast", runsThisMonth: 10, trust: "Verified", weekly: [3, 4, 3, 5, 4, 6, 5, 6], daysSinceRun: 2 },
+  { personId: "hannah", role: "Member", pace: "Easy", runsThisMonth: 9, trust: "Established", weekly: [4, 5, 4, 6, 5, 7, 6, 6.5], daysSinceRun: 3 },
+  { personId: "priya", role: "Member", pace: "Easy", runsThisMonth: 6, trust: "Verified", weekly: [5, 6, 5, 7, 6, 8, 7, 6], daysSinceRun: 5 },
 ];
 
 export const JOIN_REQUESTS: JoinRequest[] = [
@@ -296,4 +297,34 @@ export const CITY_TABLE = [
   { city: "Sheffield", image: img("bridge"), points: 1, form: "llldl", eligible: 502 },
 ];
 
+export const CITY_CHAMPIONSHIP = [
+  { city: "Cardiff", image: img("bridge"), points: 12, form: "wwwdl", eligible: 480 },
+  { city: "Edinburgh", image: img("heath"), points: 11, form: "wdwww", eligible: 466 },
+  { city: "Nottingham", image: img("streaks"), points: 9, form: "lwwwl", eligible: 431 },
+  { city: "Brighton", image: img("sun"), points: 7, form: "wlwdl", eligible: 409 },
+  { city: "Leicester", image: img("dawn"), points: 6, form: "dlwwl", eligible: 377 },
+  { city: "Southampton", image: img("roof"), points: 4, form: "lldww", eligible: 352 },
+  { city: "Belfast", image: img("manc"), points: 3, form: "ldlwl", eligible: 330 },
+  { city: "Oxford", image: img("hill"), points: 2, form: "lldld", eligible: 301 },
+];
+
+export const CITY_LEAGUE_ONE = [
+  { city: "Bath", image: img("sun"), points: 13, form: "wwwlw", eligible: 260 },
+  { city: "York", image: img("heath"), points: 10, form: "wdwwl", eligible: 244 },
+  { city: "Cambridge", image: img("bridge"), points: 9, form: "wwlwl", eligible: 231 },
+  { city: "Norwich", image: img("dawn"), points: 7, form: "lwdww", eligible: 214 },
+  { city: "Exeter", image: img("roof"), points: 5, form: "dlwlw", eligible: 190 },
+  { city: "Reading", image: img("streaks"), points: 4, form: "lwldw", eligible: 176 },
+  { city: "Plymouth", image: img("manc"), points: 3, form: "lldwl", eligible: 158 },
+  { city: "Derby", image: img("hill"), points: 1, form: "llldl", eligible: 131 },
+];
+
 export const SEED = "7f3a…c91e";
+
+/** Badges shown on profiles, newest first. */
+export const PROFILE_BADGES: { image: string; label: string }[] = [
+  { image: "/img/3d-laurel.jpg", label: "Founding" },
+  { image: "/img/3d-flame.jpg", label: "30 day" },
+  { image: "/img/3d-badge.jpg", label: "Club run" },
+  { image: "/img/3d-podium.jpg", label: "Derby win" },
+];
