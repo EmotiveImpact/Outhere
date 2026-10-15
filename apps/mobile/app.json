@@ -15,7 +15,8 @@
         "NSMotionUsageDescription": "Outhere counts your steps to track your daily movement, streaks and battles.",
         "NSLocationWhenInUseUsageDescription": "Outhere uses your location to map your runs and walks and to check you in at events.",
         "NSCameraUsageDescription": "Outhere uses your camera so you can take a photo for your crew logo.",
-        "NSPhotoLibraryUsageDescription": "Outhere uses your photos so you can choose a crew logo."
+        "NSPhotoLibraryUsageDescription": "Outhere uses your photos so you can choose a crew logo.",
+        "NSContactsUsageDescription": "Outhere checks which of your contacts are already on Outhere so you can add them. Nothing is stored."
       },
       "bundleIdentifier": "com.outhere.app"
     },
@@ -27,7 +28,8 @@
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_CONTACTS"
       ],
       "package": "com.outhere.app"
     },
