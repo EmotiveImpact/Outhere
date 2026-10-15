@@ -2,7 +2,7 @@
 // table. Every membership screen, the wallet and the engines read from here.
 //
 // Prices (Edem, latest): Pro £5.99 a month or £59.99 a year; Black £12.99 a
-// month or £129.99 a year (the yearly Black price is not confirmed yet).
+// month or £129.99 a year (both yearly prices confirmed 15 October 2026).
 //
 // In-app purchases aren't set up. On the local engine checkout simulates the
 // purchase; on Supabase "Go Pro" and "Go Black" open the web checkout, whose
@@ -39,7 +39,6 @@ export const PLANS = {
     name: "Black",
     monthly: 12.99,
     yearly: 129.99,
-    yearlyConfirmed: false,
     outMultiplier: 2,
     freezesPerMonth: 3,
     tagline: "Double OUT on every km, first pick of drops and private events.",

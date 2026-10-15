@@ -513,7 +513,7 @@ do $$ begin
   assert (select monthly_pence from plans where tier = 'pro') = 599, 'Pro £5.99';
   assert (select monthly_pence from plans where tier = 'black') = 1299, 'Black £12.99';
   assert (select yearly_pence from plans where tier = 'black') = 12999, 'Black £129.99 a year';
-  assert (select yearly_pence from plans where tier = 'pro') is null, 'no Pro yearly price yet';
+  assert (select yearly_pence from plans where tier = 'pro') = 5999, 'Pro £59.99 a year';
   assert (select monthly_pence from plans where tier = 'free') = 0, 'Free is free';
   perform pg_temp.raises($s$insert into plans (tier, name, monthly_pence) values ('free', 'Cheap', 1)$s$, '42501');
 end $$;
@@ -705,3 +705,4 @@ end $$;
 
 \o
 \echo 'web gaps two ok'
+
