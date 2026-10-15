@@ -5,9 +5,8 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { BadgeCheck, ChevronRight, Search, X } from "lucide-react-native";
-import { Body, C, Card, EmptyState, F, FadeIn, PressableScale, R, Row, S, Segment, SkeletonList } from "@/components/ui";
+import { ChevronsRight, Search, X } from "lucide-react-native";
+import { BlendImage, C, EmptyState, F, FadeIn, PressableScale, R, Row, S, Segment, SkeletonList, Surface } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { engine, useEngineMutation, useFindClubs } from "@/data/hooks";
 import { joinedToast, useCrewFocus } from "@/components/crew/shared";
@@ -65,7 +64,7 @@ export default function ClubFinder({ onJoined, searchOpen = false, onCloseSearch
           </PressableScale>
         </Row>
       ) : null}
-      <Segment options={FILTERS} value={filter} onChange={setFilter} style={{ marginBottom: S.md }} />
+      <Segment options={FILTERS} value={filter} onChange={setFilter} style={{ marginBottom: 12 }} />
       {isPending ? (
         <SkeletonList count={3} height={96} />
       ) : official.length ? (
@@ -87,25 +86,24 @@ export default function ClubFinder({ onJoined, searchOpen = false, onCloseSearch
         </>
       ) : null}
 
-      <PressableScale onPress={() => router.push("/crew/create")} scaleTo={0.98} style={styles.found}>
-        <Image source={PHOTOS.founding} style={styles.foundImg} contentFit="cover" />
+      {/* .r11found: the founding badge set into the card, no box */}
+      <Surface onPress={() => router.push("/crew/create")} radius={20} padding={null} style={{ marginTop: 2 }} contentStyle={styles.found}>
+        <BlendImage source={PHOTOS.founding} size={46} mask="tight" />
         <View style={{ flex: 1 }}>
           <Text style={styles.foundTitle}>No club where you live?</Text>
-          <Body dim size={13}>Start one. It goes official after 3 meetups.</Body>
+          <Text style={styles.foundSub}>Start one. It goes official after 3 meetups.</Text>
         </View>
-        <ChevronRight size={16} color={C.textMute} />
-      </PressableScale>
+        <ChevronsRight size={16} color={C.textMute} />
+      </Surface>
 
-      <Card onPress={() => router.push("/clubs/claim")} padding={S.lg} style={{ marginTop: S.sm }}>
-        <Row gap={S.md}>
-          <BadgeCheck size={22} color="#fff" fill={C.accent} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.foundTitle}>Run a club already?</Text>
-            <Body dim size={13}>Claim it, get verified, and organisers get Pro free.</Body>
-          </View>
-          <ChevronRight size={16} color={C.textMute} />
-        </Row>
-      </Card>
+      <Surface onPress={() => router.push("/clubs/claim")} radius={20} padding={null} style={{ marginTop: 10 }} contentStyle={styles.found}>
+        <BlendImage source={PHOTOS.verified} size={46} mask="tight" />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.foundTitle}>Run a club already?</Text>
+          <Text style={styles.foundSub}>Claim it, get verified, and organisers get Pro free.</Text>
+        </View>
+        <ChevronsRight size={16} color={C.textMute} />
+      </Surface>
     </View>
   );
 }
@@ -113,8 +111,8 @@ export default function ClubFinder({ onJoined, searchOpen = false, onCloseSearch
 const styles = StyleSheet.create({
   search: { height: 46, borderRadius: R.full, backgroundColor: C.surface, paddingHorizontal: S.lg, marginBottom: S.md, borderWidth: 1, borderColor: C.border },
   input: { flex: 1, color: C.text, fontFamily: F.body, fontSize: 15, height: 46 },
-  section: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase", marginTop: S.lg, marginBottom: S.sm },
-  found: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.md, marginTop: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
-  foundImg: { width: 54, height: 54, borderRadius: R.md },
-  foundTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  section: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.8, textTransform: "uppercase", marginTop: S.md, marginBottom: 10 },
+  found: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 8, paddingRight: 14 },
+  foundTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  foundSub: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, marginTop: 2 },
 });

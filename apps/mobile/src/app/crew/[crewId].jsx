@@ -2,10 +2,13 @@
 // and leaderboard, with Join / Leave / Open in Crew tab.
 
 import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowRight, ChevronRight, DoorOpen, Share2, Users } from "lucide-react-native";
-import { AnimatedNumber, Body, Button, C, Card, EmptyState, F, FadeIn, Header, IconButton, LiveDot, PressableScale, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
+import { ArrowRight, ChevronLeft, ChevronRight, DoorOpen, Share2, Users } from "lucide-react-native";
+import { AnimatedNumber, Body, Button, C, Card, EmptyState, F, FadeIn, Header, LiveDot, PhotoBackground, PressableScale, Row, S, Screen, SectionHeader, Skeleton, useScreenTop } from "@/components/ui";
+import { imageSource } from "@/components/ui/Cover";
+import { PHOTOS } from "@/constants/photos";
 import { engine, useCrew, useEngineMutation } from "@/data/hooks";
 import { compactNumber } from "@/utils/format";
 import CrewHero, { useCountUp } from "@/components/crew/CrewHero";
@@ -45,10 +48,26 @@ function DetailSkeleton() {
   );
 }
 
+// .r11ph::after
+const PAGE_FADE = [[0, 0.45], [0.22, 0], [0.48, 0], [0.78, 0.7], [1, 1]];
+
+/** .round.glass: a frosted round button over a photo. */
+function GlassRound({ icon: Icon, label, onPress }) {
+  return (
+    <PressableScale onPress={onPress} scaleTo={0.9} hitSlop={8} style={styles.round} accessibilityLabel={label}>
+      <View>
+        <Icon size={20} color="#fff" />
+      </View>
+    </PressableScale>
+  );
+}
+
 export default function CrewDetail() {
   const { crewId } = useLocalSearchParams();
   const id = String(crewId || "");
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const top = useScreenTop();
   const focus = useCrewFocus((s) => s.focus);
   const { data: crew, isPending, isError, refetch, isRefetching } = useCrew(id);
   const [code, setCode] = useState("");
@@ -119,11 +138,17 @@ export default function CrewDetail() {
   const ranked = [...members].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]);
 
   return (
-    <Screen
-      onRefresh={refetch}
-      refreshing={isRefetching}
-      header={<Header back title={crew.verified ? "Run club" : "Founding club"} right={crew.isMember && crew.inviteCode ? <IconButton icon={Share2} onPress={() => shareInvite(crew)} label="Share invite code" /> : null} />}
-    >
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} />}
+      >
+        {/* clubPage: the club's photo behind the top of the page (.r11ph) */}
+        <View pointerEvents="none" style={[styles.photo, { height: 380 + insets.top }]}>
+          <PhotoBackground source={imageSource(crew.cover || crew.image) || PHOTOS.clubhero2} fade={PAGE_FADE} focus={{ x: 0.5, y: 0.3 }} glow={false} grain={0.05} />
+        </View>
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: top + 38 + 150 }}>
       <FadeIn>
         <CrewHero crew={crew} />
         <ClubPanel club={crew} onRunAction={(r) => r && !r.checkedIn && rsvp.mutate([r.id, !r.isGoing])} />
@@ -207,13 +232,23 @@ export default function CrewDetail() {
 
       <SectionHeader title="Leaderboard" style={{ marginTop: S.xxl + 4 }} />
       <CrewLeaderboard crew={crew} limit={10} embedded />
-    </Screen>
+        </View>
+      </ScrollView>
+      {/* .r10nav: glass rounds over the photo */}
+      <Row style={[styles.nav, { top }]}>
+        <GlassRound icon={ChevronLeft} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/club"))} />
+        {crew.isMember && crew.inviteCode ? <GlassRound icon={Share2} label="Share invite code" onPress={() => shareInvite(crew)} /> : null}
+      </Row>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   cardTitle: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
   input: { flex: 1, minWidth: 0, height: 56, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.surface, color: C.text, paddingHorizontal: S.lg, fontSize: 17, fontFamily: F.display, letterSpacing: 4 },
+  photo: { position: "absolute", top: 0, left: 0, right: 0 },
+  nav: { position: "absolute", left: S.gutter, right: S.gutter, justifyContent: "space-between" },
+  round: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10,14,20,0.45)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
   statValue: { color: C.text, fontFamily: F.display, fontSize: 28, letterSpacing: -0.5 },
   row: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
