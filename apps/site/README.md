@@ -29,9 +29,9 @@ is labelled as an example. That is also how a preview without a database behaves
 
 ## Going live
 
-1. Apply `db/website.sql` to the Outhere Supabase project after the app schema
-   (it references `public.boroughs`). It is safe to run more than once.
-   `db/test.sh` checks it against a throwaway Postgres.
+1. Apply the app's Supabase migrations, which include the website's tables and
+   functions (`supabase/migrations/20261015100900_website.sql`, tested by
+   `supabase/tests/test_website.sql`).
 2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project settings > API)
    and `VITE_SITE_URL=https://weouthere.app` in the host's environment, then build.
    With them set, the figures are real and the "example" labels disappear.
@@ -48,4 +48,4 @@ Other hosts work too: serve `dist` with clean URLs (`/crews` serves
 - `src/content`: words and settings that change most (FAQ, feature table, reel cut list, prices, social links, app demo link)
 - `src/styles/site.css`: the prototype's stylesheet, kept as is, plus a small Radix block at the end
 - `public/img`: the Higgsfield photography and 3D objects from the prototype
-- `db/website.sql`: waitlist, club claims and Black requests, reachable only through four functions
+- The database side (waitlist, club claims and Black requests, reachable only through four functions) lives in `supabase/migrations/20261015100900_website.sql`

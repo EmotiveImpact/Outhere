@@ -1,4 +1,4 @@
-/** The choices the forms offer. db/website.sql accepts the same values. */
+/** The choices the forms offer. The website migration in supabase/ accepts the same values. */
 import { type Borough } from './boroughs';
 
 export const MOVES = ['Walk', 'Run', 'Both'] as const;

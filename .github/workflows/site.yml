@@ -2,10 +2,10 @@ name: Website
 
 on:
   pull_request:
-    paths: ['apps/site/**', '.github/workflows/site.yml', 'supabase/**']
+    paths: ['apps/site/**', '.github/workflows/site.yml']
   push:
     branches: [main]
-    paths: ['apps/site/**', '.github/workflows/site.yml', 'supabase/**']
+    paths: ['apps/site/**', '.github/workflows/site.yml']
 
 concurrency:
   group: site-${{ github.ref }}
@@ -36,26 +36,3 @@ jobs:
           test "$(ls dist/boroughs | grep -v index.html | wc -l)" -eq 32
           grep -q 'Every step' dist/index.html
 
-  database:
-    name: Website database functions
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports: ['5432:5432']
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      PGHOST: localhost
-      PGUSER: postgres
-      PGPASSWORD: postgres
-    steps:
-      - uses: actions/checkout@v4
-      - name: Apply the app schema, then the website functions, and test them
-        run: |
-          if [ ! -d supabase/migrations ]; then
-            echo "No app schema on this branch yet (it arrives with the mobile build), so there is nothing to test against."
-            exit 0
-          fi
-          bash apps/site/db/test.sh

@@ -1,5 +1,6 @@
 /**
- * Talks to Outhere's Supabase project through the public functions in db/website.sql,
+ * Talks to Outhere's Supabase project through the public functions in the website
+ * migration (supabase/migrations/20261015100900_website.sql),
  * using the anon key (safe to ship: the tables have row level security and no policies).
  * When the site is built without VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, every call
  * is simulated in the browser so the forms still work end to end, and figures are
