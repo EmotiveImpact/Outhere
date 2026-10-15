@@ -16,6 +16,7 @@ import { CLUB_MODE, clubModeOf } from "@/constants/clubModes";
 import { meetsLabel } from "./clubs";
 import { makeRemoteProfile } from "./remoteProfile";
 import { makeRemoteCrew } from "./remoteCrew";
+import { makeRemoteAccount } from "./remoteAccount";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -81,6 +82,12 @@ const MESSAGES = {
   INVITE_INVALID: "No crew has that code.",
   CLUB_UNAVAILABLE: "You can't join this crew.",
   ALREADY_DECIDED: "That request has already been answered.",
+  // Account and under 18 mode (20261015101710_account.sql)
+  UNDER_18: "In under 18 mode you play with friends and your club.",
+  TOO_YOUNG: "Outhere is for 13 and over.",
+  BAD_DATE: "That date doesn't look right.",
+  ALREADY_SET: "Your date of birth is set. Support can correct it.",
+  BAD_GUARDIAN: "Add their name and a phone number or email.",
 };
 
 const fail = (error) => {
@@ -414,6 +421,8 @@ export const getProfile = async () => {
     name: p.display_name,
     city: cityName(p.city_id),
     area: cityName(p.borough_id),
+    cityId: p.city_id || null,
+    areaId: p.borough_id || null,
     bio: p.bio || "",
     avatar: publicUrl("avatars", p.avatar_path),
     tier: p.tier,
@@ -470,12 +479,12 @@ export const updateProfile = async (patch) => {
   return getProfile();
 };
 
-export const createProfile = async ({ username, city = "London", crewCode, dailyGoal }) => {
+export const createProfile = async ({ username, city = "London", cityId: placeId, crewCode, dailyGoal }) => {
   const me = await requireUid();
   const name = username.trim().toLowerCase();
   const check = await checkUsername(name);
   if (!check.available) throw new EngineError("BAD_USERNAME", check.reason);
-  await rpc("finish_onboarding", { p_username: name, p_display_name: username.trim(), p_city: cityId(city) });
+  await rpc("finish_onboarding", { p_username: name, p_display_name: username.trim(), p_city: placeId || cityId(city) });
   if (dailyGoal) await run(supabase.from("profiles").update({ daily_goal: Math.min(50000, Math.max(1000, Math.round(dailyGoal))) }).eq("id", me));
   if (crewCode) await joinCrewByCode(crewCode).catch(() => null);
   changed();
@@ -484,7 +493,7 @@ export const createProfile = async ({ username, city = "London", crewCode, daily
 
 // Signs out of this phone. The account itself is deleted from Settings > Account.
 export const resetAll = async () => {
-  await AsyncStorage.removeItem(SETTINGS_KEY);
+  await account.clearSettingsCache();
   await signOut();
 };
 
@@ -1705,33 +1714,27 @@ export const clearNotifications = async () => {
   changed();
 };
 
-// ── Settings (on this phone) ──────────────────────────────────────────────────
+// ── Settings, privacy, under 18 mode, your patch and your week (see remoteAccount.js)
 
-const SETTINGS_KEY = "outhere.settings.v1";
-const DEFAULT_SETTINGS = {
-  units: "km",
-  haptics: true,
-  notifications: { battles: true, crews: true, drops: true, events: true, rewards: true },
-  privacy: { showOnLeaderboards: true, showOutsideStatus: true },
-};
-
-export const getSettings = async () => {
-  try {
-    const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-    const saved = raw ? JSON.parse(raw) : {};
-    return { ...DEFAULT_SETTINGS, ...saved, notifications: { ...DEFAULT_SETTINGS.notifications, ...saved.notifications }, privacy: { ...DEFAULT_SETTINGS.privacy, ...saved.privacy } };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-};
-
-export const updateSettings = async (patch) => {
-  const current = await getSettings();
-  const next = { ...current, ...patch, notifications: { ...current.notifications, ...patch.notifications }, privacy: { ...current.privacy, ...patch.privacy } };
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-  changed();
-  return next;
-};
+const account = makeRemoteAccount({ supabase, run, rpc, uid, requireUid, changed, publicUrl, signOut });
+export const {
+  getSettings,
+  updateSettings,
+  getAccount,
+  setBirthDate,
+  linkGuardian,
+  unlinkGuardian,
+  // listBlocked, blockPlayer and unblockPlayer come from remoteCrew
+  exportMyData,
+  deleteAccount,
+  listPatchPlaces,
+  listPatchAreas,
+  setPatch,
+  getWeekSummary,
+  setAvatar,
+  signInWithProvider,
+  getOutsideCount,
+} = account;
 
 // Keep queries fresh when the session or our rows change elsewhere.
 if (supabase) {

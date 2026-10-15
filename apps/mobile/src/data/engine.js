@@ -28,6 +28,7 @@ import { makeProfile } from "./profile";
 import { memberBonus } from "@/constants/plans";
 import { makeCrew } from "./crew";
 import { photoFor } from "./seedCrew";
+import { makeAccount } from "./account";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -885,7 +886,7 @@ export const unfollow = async (pid) =>
 export const getOutsideNow = async (city) =>
   read((s) => {
     const people = PLAYERS.filter((p) => (!city || p.city === city) && playerIsOutside(p.id)).map((p) => personView(s, p.id));
-    if (s.me?.isOutside && s.settings?.privacy?.showOutsideStatus !== false && (!city || s.me.city === city)) people.unshift(personView(s, ME));
+    if (s.me?.isOutside && s.settings?.privacy?.showOutsideStatus !== false && !s.settings?.privacy?.ghost && (!city || s.me.city === city)) people.unshift(personView(s, ME));
     return { count: people.length, people };
   });
 
@@ -1209,6 +1210,7 @@ export const createBattle = async ({ opponentId, mode = "most_steps", durationHo
     if (!def) throw new EngineError("BAD_MODE", "Pick a way to battle.");
     if (!playerById[opponentId]) throw new EngineError("NOT_FOUND", "Pick an opponent.");
     if (isRosterHidden(s, opponentId)) throw new EngineError("NOT_ALLOWED", "You took them off your list. Add them back first.");
+    account.guardMinor(s, "battle", opponentId);
     const rules = TIER_RULES[me.tier];
     const weekAgo = Date.now() - 7 * DAY_MS;
     if (s.battles.filter((b) => b.creatorId === ME && b.createdAt >= weekAgo).length >= rules.battlesPerWeek) {
@@ -1901,6 +1903,7 @@ export const toggleDropReminder = async (id) =>
 export const reserveDrop = async (id, size) =>
   write((s) => {
     requireMe(s);
+    account.guardMinor(s, "drop");
     const d = DROPS.find((x) => x.id === id);
     if (!d) throw new EngineError("NOT_FOUND", "Drop not found.");
     const v = dropView(s, d);
@@ -1993,20 +1996,27 @@ export const clearNotifications = async () =>
     s.notifications = [];
   });
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── Settings, privacy, under 18 mode, your patch and your week (see account.js)
 
-export const getSettings = async () => read((s) => s.settings);
-
-export const updateSettings = async (patch) =>
-  write((s) => {
-    s.settings = {
-      ...s.settings,
-      ...patch,
-      notifications: { ...s.settings.notifications, ...(patch.notifications || {}) },
-      privacy: { ...s.settings.privacy, ...(patch.privacy || {}) },
-    };
-    return s.settings;
-  });
+const account = makeAccount({ read, write, requireMe, EngineError, ME, players: PLAYERS, resetAll, myStepsBetween, getOutsideNow });
+export const {
+  getSettings,
+  updateSettings,
+  getAccount,
+  setBirthDate,
+  linkGuardian,
+  unlinkGuardian,
+  // listBlocked, blockPlayer and unblockPlayer come from the crew area
+  exportMyData,
+  deleteAccount,
+  listPatchPlaces,
+  listPatchAreas,
+  setPatch,
+  getWeekSummary,
+  setAvatar,
+  signInWithProvider,
+  getOutsideCount,
+} = account;
 
 // Test hook: lets tests start from a clean in-memory state.
 export const __resetForTests = () => {

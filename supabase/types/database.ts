@@ -5,6 +5,32 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      account_deletions: {
+        Row: {
+          user_id: string;
+          requested_at: string;
+          purge_after: string;
+        };
+        Insert: {
+          user_id: string;
+          requested_at?: string;
+          purge_after?: string;
+        };
+        Update: {
+          user_id?: string;
+          requested_at?: string;
+          purge_after?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "account_deletions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -2187,6 +2213,38 @@ export type Database = {
           },
         ];
       };
+      guardian_links: {
+        Row: {
+          child_id: string;
+          name: string;
+          contact: string;
+          live_sharing: boolean;
+          created_at: string;
+        };
+        Insert: {
+          child_id: string;
+          name: string;
+          contact: string;
+          live_sharing?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          child_id?: string;
+          name?: string;
+          contact?: string;
+          live_sharing?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "guardian_links_child_id_fkey";
+            columns: ["child_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       league_entries: {
         Row: {
           id: string;
@@ -2467,6 +2525,74 @@ export type Database = {
             foreignKeyName: "member_emotes_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_settings: {
+        Row: {
+          user_id: string;
+          units: string;
+          haptics: boolean;
+          voice_cues: boolean;
+          text_scale: number;
+          sound: Json;
+          pings: Json;
+          quiet_hours: Json;
+          ghost_mode: boolean;
+          spot_as: string;
+          hide_route_ends: boolean;
+          map_visibility: string;
+          show_on_leaderboards: boolean;
+          show_outside_status: boolean;
+          step_source: string;
+          source_requests: Json;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          units?: string;
+          haptics?: boolean;
+          voice_cues?: boolean;
+          text_scale?: number;
+          sound?: Json;
+          pings?: Json;
+          quiet_hours?: Json;
+          ghost_mode?: boolean;
+          spot_as?: string;
+          hide_route_ends?: boolean;
+          map_visibility?: string;
+          show_on_leaderboards?: boolean;
+          show_outside_status?: boolean;
+          step_source?: string;
+          source_requests?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          units?: string;
+          haptics?: boolean;
+          voice_cues?: boolean;
+          text_scale?: number;
+          sound?: Json;
+          pings?: Json;
+          quiet_hours?: Json;
+          ghost_mode?: boolean;
+          spot_as?: string;
+          hide_route_ends?: boolean;
+          map_visibility?: string;
+          show_on_leaderboards?: boolean;
+          show_outside_status?: boolean;
+          step_source?: string;
+          source_requests?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_settings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -2818,6 +2944,7 @@ export type Database = {
           marketing_opt_in: boolean;
           notification_prefs: Json;
           updated_at: string;
+          birth_date: string | null;
         };
         Insert: {
           id: string;
@@ -2828,6 +2955,7 @@ export type Database = {
           marketing_opt_in?: boolean;
           notification_prefs?: Json;
           updated_at?: string;
+          birth_date?: string | null;
         };
         Update: {
           id?: string;
@@ -2838,6 +2966,7 @@ export type Database = {
           marketing_opt_in?: boolean;
           notification_prefs?: Json;
           updated_at?: string;
+          birth_date?: string | null;
         };
         Relationships: [
           {
@@ -3989,6 +4118,7 @@ export type Database = {
     Functions: {
       add_fund_spend: { Args: { p_club: string; p_title: string; p_amount_pence: number; p_spent_on?: string; p_receipt_path?: string; }; Returns: Database["public"]["Tables"]["club_fund_spend"]["Row"] };
       admin_daily_active: { Args: { p_days?: number; }; Returns: { day: string; active: number; }[] };
+      am_i_minor: { Args: {  }; Returns: boolean };
       approve_fund_spend: { Args: { p_spend: string; }; Returns: Database["public"]["Tables"]["club_fund_spend"]["Row"] };
       are_friends: { Args: { a: string; b: string; }; Returns: boolean };
       area_board: { Args: { p_city: string; }; Returns: Json };
@@ -3996,6 +4126,7 @@ export type Database = {
       can_organise_event: { Args: { p_event: string; }; Returns: boolean };
       can_post_stories: { Args: { p_user?: string; }; Returns: boolean };
       can_read_channel: { Args: { p_channel: string; p_user?: string; }; Returns: boolean };
+      can_see_member: { Args: { p_owner: string; }; Returns: boolean };
       can_see_post: { Args: { p: Database["public"]["Tables"]["posts"]["Row"]; }; Returns: boolean };
       can_see_profile: { Args: { p_user: string; }; Returns: boolean };
       cancel_battle: { Args: { p_battle: string; }; Returns: undefined };
@@ -4024,7 +4155,9 @@ export type Database = {
       crew_stats: { Args: { p_club: string; }; Returns: Json };
       decide_club_verification: { Args: { p_verification: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_verifications"]["Row"] };
       decide_join_request: { Args: { p_request: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_join_requests"]["Row"] };
+      delete_my_account: { Args: {  }; Returns: undefined };
       emote_counts: { Args: {  }; Returns: { emote_id: string; holders: number; members: number; }[] };
+      export_my_data: { Args: {  }; Returns: Json };
       finish_onboarding: { Args: { p_username: string; p_display_name?: string; p_city?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       fixture_side_score: { Args: { p_fixture: string; p_entry: string; }; Returns: number };
       fixture_side_stats: { Args: { p_fixture: string; p_entry: string; }; Returns: { squad: number; average: number; turnout_pct: number; score: number; }[] };
@@ -4046,13 +4179,17 @@ export type Database = {
       join_waitlist: { Args: { p_email: string; p_city?: string; p_borough?: string; p_town?: string; p_region?: string; p_moves?: string; p_club?: string; p_ref?: string; p_black?: boolean; }; Returns: Json };
       leave_club: { Args: { p_club: string; }; Returns: undefined };
       level_for_xp: { Args: { p_xp: number; }; Returns: number };
+      link_guardian: { Args: { p_name: string; p_contact: string; p_live?: boolean; }; Returns: Database["public"]["Tables"]["guardian_links"]["Row"] };
       london_today: { Args: {  }; Returns: string };
       london_week_start: { Args: {  }; Returns: string };
       mark_emote_seen: { Args: { p_emote: string; }; Returns: undefined };
       match_contacts: { Args: { p_emails: string[]; }; Returns: { id: string; }[] };
       out_available: { Args: { p_user: string; }; Returns: number };
       out_multiplier: { Args: { p_tier: Database["public"]["Enums"]["tier"]; }; Returns: number };
+      outside_count: { Args: { p_city?: string; }; Returns: number };
       outside_now: { Args: { p_city?: string; }; Returns: { borough_id: string; out_now: number; }[] };
+      patch_areas: { Args: { p_city: string; }; Returns: { id: string; name: string; out_now: number; week_steps: number; week_rank: number; }[] };
+      patch_places: { Args: { p_query?: string; p_lat?: number; p_lng?: number; }; Returns: { id: string; name: string; region: string; is_live: boolean; plays_for: string; members: number; distance_km: number; }[] };
       period_start: { Args: { p: string; }; Returns: string };
       pickups_near: { Args: { p_lat: number; p_lng: number; p_km?: number; }; Returns: Database["public"]["Tables"]["events"]["Row"][] };
       read_channel: { Args: { p_channel: string; }; Returns: undefined };
@@ -4073,20 +4210,24 @@ export type Database = {
       rival_deck: { Args: { p_limit?: number; }; Returns: Database["public"]["Tables"]["profiles"]["Row"][] };
       rsvp_event: { Args: { p_event: string; p_going?: boolean; }; Returns: undefined };
       save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
+      set_birth_date: { Args: { p_date: string; }; Returns: boolean };
       set_club_role: { Args: { p_club: string; p_user: string; p_role: Database["public"]["Enums"]["club_role"]; }; Returns: undefined };
       set_club_treasurer: { Args: { p_club: string; p_user: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       set_crew_settings: { Args: { p_club: string; p_join_policy?: string; p_weekly_goal_km?: number; p_chat_admins_only?: boolean; }; Returns: undefined };
       set_emote_tray: { Args: { p_emotes: string[]; }; Returns: Json };
+      set_patch: { Args: { p_city: string; p_area?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       set_reveal_held: { Args: { p_season: string; p_held: boolean; }; Returns: Database["public"]["Tables"]["seasons"]["Row"] };
       set_verification_check: { Args: { p_verification: string; p_check: string; p_ok: boolean; }; Returns: Database["public"]["Tables"]["club_verifications"]["Row"] };
       share_battle_to_crew: { Args: { p_club: string; p_battle: string; }; Returns: string };
+      share_club: { Args: { a: string; b: string; }; Returns: boolean };
       slug_part: { Args: { p_text: string; }; Returns: string };
       streak_freeze_status: { Args: {  }; Returns: Json };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
       suggest_club_slug: { Args: { p_name: string; p_city?: string; p_club?: string; }; Returns: string };
       toggle_chat_run: { Args: { p_message: string; }; Returns: boolean };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
+      unlink_guardian: { Args: {  }; Returns: undefined };
       use_streak_freeze: { Args: {  }; Returns: Json };
       verify_club: { Args: { p_club: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       vote_club_battle: { Args: { p_battle: string; p_yes: boolean; }; Returns: undefined };
