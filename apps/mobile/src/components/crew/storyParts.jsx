@@ -4,9 +4,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
 import { MotiView } from "moti";
-import { C, F, PressableScale, Row, S } from "@/components/ui";
+import { BlendImage, C, F, LiveDot, PressableScale, Row, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { formatDuration, formatPace } from "@/utils/format";
 import { hapticSelection } from "@/services/haptics";
@@ -78,7 +77,8 @@ export function ReplyRow({ name, picked, onReply, onEmote, onFocus, onBlur }) {
     setText("");
   };
   return (
-    <Row gap={S.sm} style={{ marginTop: S.md }}>
+    // .svrep: a slim outlined reply pill and the emotes blended straight onto the photo
+    <Row gap={7} style={{ marginTop: S.md }}>
       <TextInput
         value={text}
         onChangeText={setText}
@@ -102,7 +102,7 @@ export function ReplyRow({ name, picked, onReply, onEmote, onFocus, onBlur }) {
           accessibilityLabel={`React: ${e.label}`}
           style={[styles.emote, picked === e.key && styles.emoteOn]}
         >
-          <Image source={e.image} style={{ width: 36, height: 36 }} contentFit="cover" />
+          <BlendImage source={e.image} size={40} mask="tight" />
         </PressableScale>
       ))}
     </Row>
@@ -121,7 +121,7 @@ export function EmoteBurst({ burst, onDone }) {
       style={styles.burst}
       pointerEvents="none"
     >
-      <Image source={burst.image} style={{ width: 120, height: 120, borderRadius: 30 }} contentFit="cover" />
+      <BlendImage source={burst.image} size={140} mask="burst" glow={150} />
     </MotiView>
   );
 }
@@ -148,7 +148,7 @@ export const LiveChips = ({ live }) =>
   live ? (
     <View style={{ marginTop: S.md, gap: S.sm }}>
       <View style={styles.outNow}>
-        <View style={styles.outDot} />
+        <LiveDot size={7} />
         <Text style={styles.outText}>Out now</Text>
       </View>
       <Row gap={S.sm}>
@@ -173,29 +173,29 @@ export const storyStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#000" },
   shade: { position: "absolute", left: 0, right: 0 },
   top: { position: "absolute", left: 0, right: 0, top: 0, paddingHorizontal: S.md },
-  name: { color: "#fff", fontFamily: F.bodySemi, fontSize: 15 },
-  when: { color: "rgba(255,255,255,0.75)", fontFamily: F.body, fontSize: 12, marginTop: 1 },
-  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(10,14,20,0.45)", alignItems: "center", justifyContent: "center" },
+  name: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13.5 },
+  when: { color: "#d6deea", fontFamily: F.body, fontSize: 11, marginTop: 1 },
+  round: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter },
-  caption: { color: "#fff", fontFamily: F.bodySemi, fontSize: 22, lineHeight: 28 },
+  caption: { color: "#fff", fontFamily: F.bodySemi, fontSize: 20, lineHeight: 25, textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 14, textShadowOffset: { width: 0, height: 2 } },
   note: { color: "rgba(255,255,255,0.75)", fontFamily: F.body, fontSize: 13, marginTop: S.sm },
 });
 
 const styles = StyleSheet.create({
-  track: { flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden" },
+  track: { flex: 1, height: 3, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden" },
   fill: { height: 3, backgroundColor: "#fff" },
-  reply: { flex: 1, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)", color: "#fff", paddingHorizontal: S.lg, fontFamily: F.body, fontSize: 15, outlineStyle: "none" },
-  emote: { width: 48, height: 48, borderRadius: 14, overflow: "hidden", backgroundColor: "rgba(10,14,20,0.5)", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.14)" },
-  emoteOn: { borderColor: C.accentHi },
+  reply: { flex: 1, minWidth: 0, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.25)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.45)", color: "#fff", paddingHorizontal: 16, fontFamily: F.body, fontSize: 13, outlineStyle: "none" },
+  emote: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  emoteOn: { backgroundColor: "rgba(61,139,255,0.22)", boxShadow: "0 0 0 1.5px rgba(130,180,255,0.7), 0 0 16px rgba(79,155,255,0.5)" },
   burst: { position: "absolute", alignSelf: "center", top: "42%" },
   sticker: { flexDirection: "row", alignItems: "center", gap: S.md, alignSelf: "center", paddingVertical: S.md, paddingHorizontal: S.lg, borderRadius: 18, backgroundColor: "rgba(10,13,18,0.86)", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)" },
   stickerRing: { width: 34, height: 34, borderRadius: 17, borderWidth: 4, borderColor: "#fff", borderRightColor: "transparent", alignItems: "flex-end", justifyContent: "flex-end" },
   stickerDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.accent, marginRight: -2, marginBottom: -2 },
   stickerKm: { color: "#fff", fontFamily: F.display, fontSize: 32, lineHeight: 34 },
   stickerSub: { color: "rgba(255,255,255,0.8)", fontFamily: F.body, fontSize: 12, maxWidth: 220 },
-  outNow: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "rgba(20,26,36,0.8)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
+  outNow: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.1)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.12)" },
   outDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.out },
-  outText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13 },
-  stat: { height: 32, paddingHorizontal: 12, borderRadius: 10, backgroundColor: "rgba(20,26,36,0.8)", justifyContent: "center" },
-  statText: { color: "#fff", fontFamily: F.display, fontSize: 16 },
+  outText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 12.5 },
+  stat: { height: 30, paddingHorizontal: 10, borderRadius: 10, backgroundColor: "rgba(10,14,20,0.55)", justifyContent: "center" },
+  statText: { color: "#fff", fontFamily: F.display, fontSize: 15 },
 });

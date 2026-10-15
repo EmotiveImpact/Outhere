@@ -18,7 +18,7 @@ import * as Notifications from "expo-notifications";
 import { Bell, Camera, Check, Footprints, Lock, LocateFixed, Mail, Minus, Plus, User, X } from "lucide-react-native";
 import { engine, isRemote, showEngineError, useOutsideCount } from "@/data/hooks";
 import { birthDateProblem, isMinorDate } from "@/data/account";
-import { Body, Button, C, F, LiveDot, PressableScale, R, Row, S, Wordmark, toast } from "@/components/ui";
+import { BlendImage, Body, Button, C, F, GlowBackdrop, Grain, LiveDot, PressableScale, R, Row, S, Wordmark, toast } from "@/components/ui";
 import { GlowHero, Group, Note, OnboardingBar, Row as SettingRow, Toggle, accountStyles } from "@/components/account/parts";
 import PatchPicker, { areaWord } from "@/components/account/PatchPicker";
 import { PHOTOS } from "@/constants/photos";
@@ -555,11 +555,14 @@ function GoalStep({ value, onChange }) {
         kicker="Step 2 of 4"
         top="Set your"
         bottom="daily goal"
-        height={360}
+        height={372}
         background={
           <>
-            <Image source={PHOTOS.goal11} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "50%", top: "35%" }} transition={250} accessibilityLabel="A runner at sunrise, blurred with speed" />
-            <LinearGradient colors={["rgba(7,9,12,0.35)", "rgba(7,9,12,0.1)", "rgba(7,9,12,0.92)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
+            <Image source={PHOTOS.goal11} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "50%", top: "6%" }} transition={250} accessibilityLabel="A runner at sunrise, blurred with speed" />
+            {/* .r11slab::after */}
+            <LinearGradient colors={["rgba(3,5,10,0.35)", "rgba(3,5,10,0)", "rgba(3,5,10,0.15)", "rgba(3,5,10,0.86)"]} locations={[0, 0.26, 0.52, 1]} style={StyleSheet.absoluteFill} />
+            <StepObject source={PHOTOS.dial} size={136} top={30} centre />
+            <Grain amount={0.06} />
           </>
         }
       />
@@ -593,6 +596,24 @@ function GoalStep({ value, onChange }) {
   );
 }
 
+// The 3D object on a step's slab (.slab .obj): black dropped out, round soft
+// edge, the slow float.
+function StepObject({ source, size, top, right, centre = false }) {
+  const insets = useSafeAreaInsets();
+  return <BlendImage source={source} size={size} float style={[{ position: "absolute", top: insets.top + top }, centre ? { left: "50%", marginLeft: -size / 2 } : { right }]} />;
+}
+
+/** .slab: the blue light from the upper right, the object, grain. */
+function SlabLight({ object, size, top, right }) {
+  return (
+    <>
+      <GlowBackdrop preset="slab" />
+      <StepObject source={object} size={size} top={top} right={right} />
+      <Grain amount={0.06} />
+    </>
+  );
+}
+
 // ── Patch ─────────────────────────────────────────────────────────────────────
 
 function PatchStep({ place, onPlace, area, onArea, at, locating, onLocate }) {
@@ -606,7 +627,7 @@ function PatchStep({ place, onPlace, area, onArea, at, locating, onLocate }) {
   );
   return (
     <View>
-      <GlowHero kicker="Step 3 of 4" top="Where's" bottom="your patch?" height={260} />
+      <GlowHero kicker="Step 3 of 4" top="Where's" bottom="your patch?" height={296} background={<SlabLight object={PHOTOS.crest} size={196} top={30} right={-22} />} />
       <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.md }}>
         <Body dim size={14} style={{ lineHeight: 20 }}>
           {place ? `Your ${word} is your team. Every step you take counts towards it.` : "Pick your city or town, then the area you move in. It's your team."}
@@ -632,7 +653,7 @@ function PermsStep({ value, onChange, minor, place }) {
   const set = (k) => (v) => onChange({ ...value, [k]: v });
   return (
     <View>
-      <GlowHero kicker="Step 4 of 4" top="Let us come" bottom="with you" height={290} />
+      <GlowHero kicker="Step 4 of 4" top="Let us come" bottom="with you" height={296} background={<SlabLight object={PHOTOS.phone} size={226} top={14} right={-30} />} />
       <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.lg }}>
         <Group>
           <SettingRow icon={LocateFixed} iconColour={C.accent} title="Location" hint={minor ? "Routes only. No live spot in under 18 mode" : "Routes, and who's out near you"} right={<Toggle value={value.location} onChange={set("location")} label="Location" />} />

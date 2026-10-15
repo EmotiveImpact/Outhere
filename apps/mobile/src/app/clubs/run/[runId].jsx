@@ -3,18 +3,15 @@
 // code; your check-in lifts the club's turnout for this week's fixture.
 
 import React, { useMemo, useState } from "react";
-import { Linking, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { Linking, Platform, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, MapPin, Navigation, QrCode } from "lucide-react-native";
-import { Body, Button, C, EmptyState, F, IconButton, R, Row, S, Screen, Segment, Sheet, Skeleton, Title } from "@/components/ui";
-import { imageSource } from "@/components/ui/Cover";
-import { PHOTOS } from "@/constants/photos";
+import { ChevronLeft, MapPin, Navigation, QrCode, Share2 } from "lucide-react-native";
+import { Body, Button, C, EmptyState, F, R, Row, S, Screen, Segment, Sheet, Skeleton, Surface, Title, useScreenTop } from "@/components/ui";
 import { engine, useClubRun, useEngineMutation } from "@/data/hooks";
-import { Chip, Faces, clock, kmLabel, whenLabel } from "@/components/clubs/parts";
-import RoutePreview from "@/components/move/RoutePreview";
+import { Chip, Faces, GlassRound, clock, kmLabel, whenLabel } from "@/components/clubs/parts";
+import RunMap from "@/components/move/RunMap";
 import { loopAround } from "@/data/runMath";
 
 export default function ClubRun() {
@@ -24,6 +21,8 @@ export default function ClubRun() {
   const insets = useSafeAreaInsets();
   const { data: run, isPending, isError } = useClubRun(id);
   const [codeOpen, setCodeOpen] = useState(false);
+  const [sheetH, setSheetH] = useState(380);
+  const top = useScreenTop();
   const [code, setCode] = useState("");
   // The run's line from the meet spot, drawn over the photo like the map in the demo.
   const line = useMemo(() => (run?.lat != null && run?.lng != null && run?.km ? loopAround({ latitude: run.lat, longitude: run.lng }, run.km, run.id || id) : []), [run?.lat, run?.lng, run?.km, run?.id, id]);
@@ -57,93 +56,89 @@ export default function ClubRun() {
     Linking.openURL(Platform.OS === "ios" ? `http://maps.apple.com/?daddr=${q}` : `https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
   };
   const pickPace = (pace) => rsvp.mutate([id, true, pace]);
+  const share = () => Share.share({ message: `${run.club?.name}: ${run.title}, ${whenLabel(run.startAt)}. Meet at ${run.place}. Come and run with us on Outhere.` }).catch(() => {});
   const startCheckIn = () => (run.needsCode ? setCodeOpen(true) : checkIn.mutate(id));
   const today = new Date(run.startAt).toDateString() === new Date().toDateString();
   const fixtureLine = run.fixture ? `Every check-in lifts ${run.club.short}'s run turnout for this week's ${run.fixture.isDerby ? "derby" : "fixture"} against ${run.fixture.opponent?.name}.` : null;
 
+  // Club mates waiting at the meet spot, as faces on the map.
+  const start = line[0] || (run.lat != null ? { latitude: run.lat, longitude: run.lng } : null);
+  const people = start
+    ? (run.faces || []).slice(0, 3).map((p, i) => ({ id: p.id || `f${i}`, avatar: p.avatar, crew: true, latitude: start.latitude + [0.00042, 0.00018, -0.0003][i], longitude: start.longitude + [0.0005, -0.00058, 0.00008][i] }))
+    : [];
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen padded={false} style={{ paddingTop: 0 }}>
-        <View style={[styles.slab, { height: 330 + insets.top }]}>
-          <Image source={imageSource(run.club?.cover) || PHOTOS.clubrun} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <LinearGradient colors={["rgba(7,9,12,0.5)", "rgba(7,9,12,0.1)", "rgba(7,9,12,0.95)"]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
-          <Row style={[styles.top, { top: insets.top + S.sm }]}>
-            <IconButton icon={ChevronLeft} onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/club"))} label="Back" />
-            <View style={styles.meet}>
-              <MapPin size={14} color="#fff" />
-              <Text style={styles.meetText} numberOfLines={1}>
-                Meet at {run.place}
-              </Text>
-            </View>
-          </Row>
-          {line.length > 1 ? (
-            <RoutePreview route={line} height={240} strokeWidth={5} radius={0} style={[styles.line, { top: insets.top + 60 }]} />
-          ) : (
-            <View style={styles.pin}>
-              <View style={styles.pinHalo} />
-              <View style={styles.pinDot} />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.sheet}>
-          <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.kick}>
-                {run.club?.name} · {today ? (new Date(run.startAt).getHours() >= 17 ? "tonight" : "today") : whenLabel(run.startAt).split(" · ")[0].toLowerCase()}
-              </Text>
-              <Title size={32} style={{ marginTop: 6 }}>
-                {run.title}
-              </Title>
-            </View>
-            <Chip label={`${run.going} going`} tone="blue" />
-          </Row>
-
-          <View style={styles.trio}>
-            <View style={styles.trioCell}>
-              <Text style={styles.trioBig}>{clock(run.meetAt)}</Text>
-              <Body dim size={12}>Meet</Body>
-            </View>
-            <View style={[styles.trioCell, styles.trioMid]}>
-              <Text style={styles.trioBig}>{kmLabel(run.km)}</Text>
-              <Body dim size={12}>Route</Body>
-            </View>
-            <View style={styles.trioCell}>
-              <Text style={styles.trioBig}>{clock(run.startAt)}</Text>
-              <Body dim size={12}>Set off</Body>
-            </View>
+      {/* clubRun: the route on the map, the meet spot and who's there */}
+      <View style={[StyleSheet.absoluteFill, { bottom: sheetH - 30 }]}>
+        <RunMap style={StyleSheet.absoluteFill} fitTo={line.length > 1 ? line : undefined} plannedPath={line} plannedStyle="solid" waypoints={start ? [start] : []} people={people} showsUser={false} interactive={false} padding={{ top: top + 70, right: 40, bottom: 70, left: 40 }} />
+        <LinearGradient colors={["rgba(7,9,12,0.55)", "rgba(7,9,12,0)"]} style={[styles.topShade, { height: top + 80 }]} pointerEvents="none" />
+        <LinearGradient colors={["rgba(7,9,12,0)", C.bg]} style={styles.bottomShade} pointerEvents="none" />
+      </View>
+      <Row style={[styles.top, { top }]}>
+        <GlassRound icon={ChevronLeft} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/club"))} />
+        <View style={styles.meet}>
+          <View>
+            <MapPin size={14} color="#fff" />
           </View>
-
-          {run.paceGroups?.length > 1 ? (
-            <Segment options={run.paceGroups} value={run.pace || run.paceGroups[Math.min(1, run.paceGroups.length - 1)]} onChange={pickPace} style={{ marginTop: S.lg }} />
-          ) : null}
-
-          <Faces people={run.faces} label={run.checkedIn ? `You and ${run.here - 1} others are here` : run.status === "live" ? `${run.here} here now` : `${run.going} going · ${run.lastTurnout} last week`} />
-          {fixtureLine ? (
-            <Body dim size={13} style={{ marginTop: S.md }}>
-              {fixtureLine}
-            </Body>
-          ) : null}
-
-          <Row gap={S.sm} style={{ marginTop: S.xl }}>
-            <Button title="" icon={Navigation} variant="secondary" size="lg" onPress={directions} accessibilityLabel="Directions" style={{ width: 58, paddingHorizontal: 0 }} />
-            <View style={{ flex: 1 }}>
-              {run.checkedIn ? (
-                <Button title="You're checked in" variant="outline" size="lg" full onPress={() => router.push(`/clubs/checkin/${id}`)} />
-              ) : run.checkInOpen ? (
-                <Button title="Check in at the start" icon={run.needsCode ? QrCode : null} size="lg" full onPress={startCheckIn} loading={checkIn.isPending} />
-              ) : (
-                <Button title={run.isGoing ? "You're going" : "I'm going"} variant={run.isGoing ? "outline" : "primary"} size="lg" full onPress={() => rsvp.mutate([id, !run.isGoing])} loading={rsvp.isPending} />
-              )}
-            </View>
-          </Row>
-          {!run.checkInOpen && !run.checkedIn ? (
-            <Body mute size={12} style={{ textAlign: "center", marginTop: S.sm }}>
-              Check-in opens 30 minutes before the start.
-            </Body>
-          ) : null}
+          <Text style={styles.meetText} numberOfLines={1}>
+            Meet at {run.place?.split(",")[0]}
+          </Text>
         </View>
-      </Screen>
+        <GlassRound icon={Share2} label="Share the run" onPress={share} />
+      </Row>
+
+      {/* .sheet: pinned to the floor, lit along its top edge */}
+      <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]} onLayout={(e) => setSheetH(e.nativeEvent.layout.height)}>
+        <LinearGradient colors={["#14171d", "#0c0e12"]} style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 30, borderTopRightRadius: 30 }]} />
+        <View style={styles.handle} />
+        <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kick}>
+              {run.club?.name} · {today ? (new Date(run.startAt).getHours() >= 17 ? "tonight" : "today") : whenLabel(run.startAt).split(" · ")[0].toLowerCase()}
+            </Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {run.title}
+            </Text>
+          </View>
+          <Chip label={`${run.going} going`} tone="blue" />
+        </Row>
+
+        {/* .trio */}
+        <Surface tone="sunk" radius={18} padding={null} style={{ marginTop: 14 }} contentStyle={styles.trio}>
+          <View style={styles.trioCell}>
+            <Text style={styles.trioBig}>{clock(run.meetAt)}</Text>
+            <Text style={styles.trioSmall}>Meet</Text>
+          </View>
+          <View style={[styles.trioCell, styles.trioMid]}>
+            <Text style={styles.trioBig}>{kmLabel(run.km)}</Text>
+            <Text style={styles.trioSmall}>Route</Text>
+          </View>
+          <View style={styles.trioCell}>
+            <Text style={styles.trioBig}>{clock(run.startAt)}</Text>
+            <Text style={styles.trioSmall}>Set off</Text>
+          </View>
+        </Surface>
+
+        {run.paceGroups?.length > 1 ? <Segment options={run.paceGroups} value={run.pace || run.paceGroups[Math.min(1, run.paceGroups.length - 1)]} onChange={pickPace} style={{ marginTop: 12 }} /> : null}
+
+        <Faces people={run.faces} size={32} ring="#11141a" label={run.checkedIn ? `You and ${run.here - 1} others are here` : run.status === "live" ? `${run.here} here now` : `${run.going} going · ${run.lastTurnout} last week`} />
+        {fixtureLine ? <Text style={styles.fixture}>{fixtureLine}</Text> : null}
+
+        <Row gap={10} style={{ marginTop: 16 }}>
+          <Button title="" icon={Navigation} variant="secondary" size="md" onPress={directions} accessibilityLabel="Directions" style={{ width: 54, paddingHorizontal: 0 }} />
+          <View style={{ flex: 1 }}>
+            {run.checkedIn ? (
+              <Button title="You're checked in" variant="outline" size="md" full onPress={() => router.push(`/clubs/checkin/${id}`)} />
+            ) : run.checkInOpen ? (
+              <Button title="Check in at the start" icon={run.needsCode ? QrCode : null} size="md" full onPress={startCheckIn} loading={checkIn.isPending} />
+            ) : (
+              <Button title={run.isGoing ? "You're going" : "I'm going"} variant={run.isGoing ? "outline" : "primary"} size="md" full onPress={() => rsvp.mutate([id, !run.isGoing])} loading={rsvp.isPending} />
+            )}
+          </View>
+        </Row>
+        {!run.checkInOpen && !run.checkedIn ? <Text style={[styles.trioSmall, { textAlign: "center", marginTop: 8 }]}>Check-in opens 30 minutes before the start.</Text> : null}
+      </View>
 
       <Sheet visible={codeOpen} onClose={() => setCodeOpen(false)}>
         <Title size={24}>Tonight's code</Title>
@@ -169,19 +164,21 @@ export default function ClubRun() {
 }
 
 const styles = StyleSheet.create({
-  slab: { overflow: "hidden", backgroundColor: C.surface },
-  top: { position: "absolute", left: S.gutter, right: S.gutter, gap: S.sm },
-  meet: { flexDirection: "row", alignItems: "center", gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 99, backgroundColor: "rgba(10,14,20,0.7)", flexShrink: 1 },
-  meetText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13, flexShrink: 1 },
-  line: { position: "absolute", left: S.xl, right: S.xl, backgroundColor: "transparent" },
-  pin: { position: "absolute", left: "50%", top: "52%", marginLeft: -40, width: 80, height: 80, alignItems: "center", justifyContent: "center" },
-  pinHalo: { position: "absolute", width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(79,155,255,0.18)" },
-  pinDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.bg, borderWidth: 5, borderColor: C.accentHi },
-  sheet: { marginTop: -28, marginHorizontal: S.md, padding: S.xl, borderRadius: 26, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
-  kick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
-  trio: { flexDirection: "row", marginTop: S.lg, borderRadius: R.md, backgroundColor: C.bg, paddingVertical: S.md },
+  top: { position: "absolute", left: 18, right: 18, gap: 8, justifyContent: "space-between" },
+  topShade: { position: "absolute", top: 0, left: 0, right: 0 },
+  bottomShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 90 },
+  // .rec: a glass pill with the meet spot
+  meet: { flexDirection: "row", alignItems: "center", gap: 7, height: 34, paddingHorizontal: 14, borderRadius: 99, backgroundColor: "rgba(10,14,20,0.55)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)", flexShrink: 1 },
+  meetText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 12.5, flexShrink: 1 },
+  sheet: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 18, paddingTop: 10, borderTopLeftRadius: 30, borderTopRightRadius: 30, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 -20px 40px -10px rgba(0,0,0,0.7)" },
+  handle: { alignSelf: "center", width: 38, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.18)", marginBottom: 12 },
+  kick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.7, textTransform: "uppercase" },
+  title: { color: C.text, fontFamily: F.display, fontSize: 32, textTransform: "uppercase", marginTop: 6 },
+  trio: { flexDirection: "row", paddingVertical: 12 },
   trioCell: { flex: 1, alignItems: "center", gap: 2 },
-  trioMid: { borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth, borderColor: C.border },
-  trioBig: { color: C.text, fontFamily: F.display, fontSize: 24 },
+  trioMid: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: "rgba(255,255,255,0.07)" },
+  trioBig: { color: C.text, fontFamily: F.display, fontSize: 21 },
+  trioSmall: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
+  fixture: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 17, marginTop: 10 },
   code: { marginTop: S.lg, height: 64, borderRadius: R.md, backgroundColor: C.bg, borderWidth: 1, borderColor: C.borderStrong, color: C.text, fontFamily: F.display, fontSize: 34, letterSpacing: 10, textAlign: "center" },
 });

@@ -1,39 +1,22 @@
-// Your club is official: the verified seal and what it unlocks.
+// Your club is official (clubVerified): the verified seal floating in the
+// slab's light, then what it unlocks as a plain list (.r11un), not cards.
 
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Calendar, Swords, Users, X, Zap } from "lucide-react-native";
-import {
-  Body,
-  Button,
-  C,
-  F,
-  IconButton,
-  R,
-  Row,
-  S,
-  Screen,
-  Skeleton,
-} from "@/components/ui";
+import { LinearGradient } from "expo-linear-gradient";
+import { Calendar, Share2, Swords, Users, X, Zap } from "lucide-react-native";
+import { Button, C, F, Row, S, Screen, Skeleton } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { useCrew } from "@/data/hooks";
 import { shareInvite } from "@/components/crew/CrewSettings";
 import { useCrewFocus } from "@/components/crew/shared";
+import { GlassRound, ObjectSlab } from "@/components/clubs/parts";
 
 const UNLOCKS = [
-  [
-    Users,
-    "Your crew is live",
-    "Members join from your page or your invite link",
-  ],
-  [
-    Calendar,
-    "Club runs with check-in",
-    "Your weekly runs become events people can join",
-  ],
+  [Users, "Your crew is live", "Members join from your page or your invite link"],
+  [Calendar, "Club runs with check-in", "Your weekly runs become events people can join"],
   [Swords, "Club v club", "Friendlies now, the Club League from next season"],
   [Zap, "Free Pro for organisers", "Plus club kit once you hit 25 members"],
 ];
@@ -54,107 +37,62 @@ export default function ClubVerified() {
     );
   }
 
-  const date = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-  });
+  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long" });
   const open = () => {
     focus(id);
     router.dismissTo("/(tabs)/club");
   };
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }}>
-      <View style={[styles.slab, { paddingTop: insets.top }]}>
-        <Image
-          source={PHOTOS.verified}
-          style={[styles.seal, { marginTop: insets.top + S.lg }]}
-          contentFit="contain"
-        />
-        <Row style={[styles.top, { top: insets.top + S.sm }]}>
-          <IconButton icon={X} onPress={open} label="Close" />
-        </Row>
-        <View style={{ padding: S.gutter }}>
-          <Text style={styles.kick}>Verified · {date}</Text>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }}>
+        <ObjectSlab
+          height={330}
+          object={PHOTOS.verified}
+          objectSize={240}
+          objectTop={20}
+          size={40}
+          left={<GlassRound icon={X} label="Close" onPress={open} />}
+          right={<GlassRound icon={Share2} label="Share your club" onPress={() => shareInvite(crew)} />}
+          kicker={`Verified · ${date}`}
+        >
           <Text style={styles.big} numberOfLines={2} adjustsFontSizeToFit>
             {crew.name}
           </Text>
           <Text style={styles.big}>
-            is <Text style={{ color: C.accent }}>official</Text>
+            is <Text style={styles.blue}>official</Text>
           </Text>
+        </ObjectSlab>
+
+        <View style={{ paddingHorizontal: 18, marginTop: 16, gap: 10, flex: 1 }}>
+          {UNLOCKS.map(([Icon, title, line]) => (
+            <Row key={title} gap={12} style={{ paddingVertical: 4 }}>
+              {/* .lic: a round blue-tinted icon */}
+              <View style={styles.lic}>
+                <LinearGradient colors={["rgba(61,139,255,0.2)", "rgba(61,139,255,0.08)"]} style={[StyleSheet.absoluteFill, { borderRadius: 17 }]} />
+                <View>
+                  <Icon size={16} color={C.accentHi} />
+                </View>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{title}</Text>
+                <Text style={styles.line}>{line}</Text>
+              </View>
+            </Row>
+          ))}
+          <View style={{ flex: 1, minHeight: 24 }} />
+          <Button title="Invite your members" size="md" full onPress={() => shareInvite(crew)} />
+          <Button title="Open your club" variant="ghost" size="sm" full onPress={open} />
         </View>
-      </View>
-      <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.sm }}>
-        {UNLOCKS.map(([Icon, title, line]) => (
-          <Row key={title} gap={S.md} style={styles.unlock}>
-            <View style={styles.icon}>
-              <Icon size={18} color={C.accentHi} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{title}</Text>
-              <Body dim size={13}>
-                {line}
-              </Body>
-            </View>
-          </Row>
-        ))}
-        <Button
-          title="Invite your members"
-          size="lg"
-          full
-          onPress={() => shareInvite(crew)}
-          style={{ marginTop: S.lg }}
-        />
-        <Button
-          title="Open your club"
-          variant="secondary"
-          full
-          onPress={open}
-        />
-      </View>
-    </Screen>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // The seal art sits on pure black, so the slab is pure black too.
-  slab: {
-    overflow: "hidden",
-    backgroundColor: "#000",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  seal: { width: 200, height: 200, alignSelf: "center" },
-  top: { position: "absolute", right: S.gutter },
-  kick: {
-    color: C.accentHi,
-    fontFamily: F.bodySemi,
-    fontSize: 11,
-    letterSpacing: 1.8,
-    textTransform: "uppercase",
-    marginBottom: 6,
-  },
-  big: {
-    color: C.text,
-    fontFamily: F.display,
-    fontSize: 40,
-    lineHeight: 42,
-    textTransform: "uppercase",
-  },
-  unlock: {
-    padding: S.md,
-    borderRadius: R.lg,
-    backgroundColor: C.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-  },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: R.md,
-    backgroundColor: C.accentDim,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  big: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 39, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  blue: { color: "#4b93ff" },
+  lic: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(130,180,255,0.3), inset 0 0 0 1px rgba(61,139,255,0.15)" },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  line: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, marginTop: 2 },
 });

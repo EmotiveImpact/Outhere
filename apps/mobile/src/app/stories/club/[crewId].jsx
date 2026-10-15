@@ -2,14 +2,14 @@
 // you're coming. Replies go to the crew chat.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Users, X } from "lucide-react-native";
 import { engine, showEngineError, useClubStories, useCrew, useEngineMutation } from "@/data/hooks";
-import { Avatar, Button, PressableScale, Row, S } from "@/components/ui";
+import { Button, PressableScale, Row, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { hapticSuccess } from "@/services/haptics";
 import { timeAgo } from "@/utils/format";
@@ -69,38 +69,41 @@ export default function ClubStory() {
   return (
     <View style={styles.screen}>
       {story ? <Image source={story.image} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" transition={180} /> : null}
-      <LinearGradient colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0)"]} style={[styles.shade, { height: 180 + insets.top }]} />
-      <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.8)"]} style={[styles.shade, { bottom: 0, height: 340 }]} />
+      <LinearGradient colors={["rgba(0,0,0,0.55)", "rgba(0,0,0,0)"]} style={[styles.shade, { height: 190 + insets.top }]} />
+      <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.85)"]} style={[styles.shade, { bottom: 0, height: 380 }]} />
       <TapZones onPrev={prev} onNext={next} onHold={() => setPaused(true)} onRelease={() => setPaused(false)} />
 
-      <View style={[styles.top, { paddingTop: insets.top + S.sm }]} pointerEvents="box-none">
+      <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
         <ProgressBars count={Math.max(1, list.length)} index={index} progress={progress} />
-        <Row style={{ marginTop: S.md, justifyContent: "space-between" }} pointerEvents="box-none">
+        <Row style={{ marginTop: 11, justifyContent: "space-between" }} pointerEvents="box-none">
           <PressableScale onPress={() => router.push(`/crew/${id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Avatar source={logo} name={crew?.name || ""} square ring="#3d8bff" size={40} />
+            {/* .r11cr: the crest in a blue frame, so a club's story reads as a club */}
+            <View style={cr.frame}>
+              <LinearGradient colors={["#82b4ff", "#2a6af0"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 12 }]} />
+              <Image source={logo} style={cr.img} contentFit="cover" />
+            </View>
             <View>
               <Text style={styles.name}>{crew?.name || " "}</Text>
               {story ? <Text style={styles.when}>{timeAgo(story.postedAt).replace(" ago", "")}</Text> : null}
             </View>
           </PressableScale>
           <PressableScale onPress={close} accessibilityLabel="Close" style={styles.round}>
-            <X size={20} color="#fff" />
+            <X size={22} color="#fff" strokeWidth={2.2} />
           </PressableScale>
         </Row>
       </View>
 
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + S.lg }]} pointerEvents="box-none">
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 20 }]} pointerEvents="box-none">
         {story?.caption ? <Text style={styles.caption}>{story.caption}</Text> : null}
         {story?.clubRun ? (
           <Button
             title={going ? "You're coming tonight" : "I'm coming tonight"}
             icon={going ? Check : Users}
             variant={going ? "secondary" : "primary"}
-            size="lg"
             full
             loading={rsvp.isPending}
             onPress={() => rsvp.mutate([story.clubRun.id, !going])}
-            style={{ marginTop: S.lg }}
+            style={{ marginTop: 12, height: 46 }}
           />
         ) : null}
         {story ? (
@@ -118,3 +121,8 @@ export default function ClubStory() {
     </View>
   );
 }
+
+const cr = StyleSheet.create({
+  frame: { width: 36, height: 36, borderRadius: 12, padding: 2, boxShadow: "0 0 12px rgba(79,155,255,0.5)" },
+  img: { flex: 1, borderRadius: 10, borderWidth: 2, borderColor: "#07090c", backgroundColor: "#000" },
+});

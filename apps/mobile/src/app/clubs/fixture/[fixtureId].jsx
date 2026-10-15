@@ -3,67 +3,35 @@
 // red is them. While it's on: who's out now and what your steps add. At the
 // reveal, Sunday 20:00: who took it.
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowUp, ChevronLeft, Share2 } from "lucide-react-native";
-import {
-  AnimatedNumber,
-  Body,
-  Button,
-  C,
-  Card,
-  EmptyState,
-  F,
-  IconButton,
-  R,
-  Row,
-  S,
-  Screen,
-  Skeleton,
-} from "@/components/ui";
+import { ChevronLeft, Image as ImageIcon, Layers, Share2 } from "lucide-react-native";
+import { AnimatedNumber, Body, Button, C, EmptyState, F, LIT, Meter, PhotoBackground, R, Row, S, Screen, Skeleton, Surface, TugBar as KitTug, useScreenTop } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
-import { useFixture } from "@/data/hooks";
-import { TugBar } from "@/components/arena/TugBar";
-import { Chip, RED, clock } from "@/components/clubs/parts";
+import { useCrew, useFixture } from "@/data/hooks";
+import { loopAround } from "@/data/runMath";
+import RunMap from "@/components/move/RunMap";
+import { Chip, GlassRound, PillButton, RED, clock } from "@/components/clubs/parts";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const fmt = (n) => (n == null ? "–" : Math.round(n).toLocaleString("en-GB"));
 
+/** .oh-score .row: your value and bar, the label, theirs. */
 function CompareRow({ label, a, b, aShare, bShare }) {
   return (
     <Row style={styles.cmp}>
       <View style={{ flex: 1 }}>
         <Text style={styles.cmpVal}>{a}</Text>
-        <View style={styles.vb}>
-          <View
-            style={[
-              styles.vbFill,
-              {
-                width: `${Math.round(aShare * 100)}%`,
-                backgroundColor: C.accent,
-              },
-            ]}
-          />
-        </View>
+        <Meter value={aShare} size={5} flow={false} style={{ marginTop: 6 }} />
       </View>
       <Text style={styles.cmpLabel}>{label}</Text>
       <View style={{ flex: 1, alignItems: "flex-end" }}>
         <Text style={styles.cmpVal}>{b}</Text>
-        <View style={styles.vb}>
-          <View
-            style={[
-              styles.vbFill,
-              {
-                width: `${Math.round(bShare * 100)}%`,
-                backgroundColor: RED,
-                alignSelf: "flex-end",
-              },
-            ]}
-          />
+        <View style={{ alignSelf: "stretch", transform: [{ scaleX: -1 }] }}>
+          <Meter value={bShare} size={5} tone="red" flow={false} style={{ marginTop: 6 }} />
         </View>
       </View>
     </Row>
@@ -76,9 +44,27 @@ function OutDots({ n, on, colour }) {
       {Array.from({ length: n }, (_, i) => (
         <View
           key={i}
-          style={[styles.dot, i < on && { backgroundColor: colour }]}
+          style={[styles.dot, i < on && { backgroundColor: colour, boxShadow: `0 0 6px ${colour}` }]}
         />
       ))}
+    </View>
+  );
+}
+
+/** cvcLive: your squad out now, as faces on the map round the club's patch. */
+function LiveMap({ crew, height, top }) {
+  const centre = crew?.lat != null ? { latitude: crew.lat, longitude: crew.lng } : { latitude: 51.5045, longitude: -0.1102 };
+  const line = useMemo(() => loopAround(centre, 4.2, `fixture:${crew?.id || "x"}`), [centre.latitude, centre.longitude, crew?.id]);
+  const out = (crew?.members || []).filter((m) => m.isOutside && m.player && !m.player.isMe).slice(0, 5);
+  const people = out.map((m, i) => {
+    const at = line[Math.floor(((i + 1) / (out.length + 1)) * (line.length - 1))] || centre;
+    return { id: m.player.id, avatar: m.player.avatar, crew: true, latitude: at.latitude, longitude: at.longitude };
+  });
+  return (
+    <View style={{ height }}>
+      <RunMap style={StyleSheet.absoluteFill} fitTo={line} plannedPath={line} plannedStyle="solid" people={people} showsUser={false} interactive={false} padding={{ top: top + 60, right: 50, bottom: 60, left: 50 }} />
+      <LinearGradient colors={["rgba(7,9,12,0.6)", "rgba(7,9,12,0)"]} style={{ position: "absolute", top: 0, left: 0, right: 0, height: top + 70 }} pointerEvents="none" />
+      <LinearGradient colors={["rgba(7,9,12,0)", C.bg]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 110 }} pointerEvents="none" />
     </View>
   );
 }
@@ -88,7 +74,11 @@ export default function Fixture() {
   const id = String(fixtureId || "");
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const top = useScreenTop();
+  const [view, setView] = useState("photo");
   const { data: f, isPending, isError, refetch, isRefetching } = useFixture(id);
+  const mineId = f ? (f.mySide !== "away" ? f.home : f.away).club?.id : null;
+  const myCrew = useCrew(view === "map" ? mineId : null).data;
 
   if (isPending) {
     return (
@@ -134,150 +124,66 @@ export default function Fixture() {
   const lost = f.revealed && f.result !== "draw" && !won;
 
   return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
     <Screen
       padded={false}
       style={{ paddingTop: 0 }}
       onRefresh={refetch}
       refreshing={isRefetching}
     >
-      <View style={[styles.vs, { height: 300 + insets.top }]}>
-        <Image
-          source={PHOTOS.derby}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-        />
-        <LinearGradient
-          colors={[
-            "rgba(7,9,12,0.55)",
-            "rgba(7,9,12,0.15)",
-            "rgba(7,9,12,0.96)",
-          ]}
-          locations={[0, 0.45, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <Row style={[styles.top, { top: insets.top + S.sm }]}>
-          <IconButton
-            icon={ChevronLeft}
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace("/(tabs)/club")
-            }
-            label="Back"
-          />
-          <Chip
-            label={f.revealed ? "Full time" : chip}
-            tone={f.revealed ? "neutral" : "live"}
-          />
-        </Row>
-        <Row style={styles.names}>
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                styles.club,
-                { color: C.accentHi, fontSize: nameSize, lineHeight: nameSize },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-            >
-              {meA}
-            </Text>
-            <Text style={styles.clubSub}>{meB}</Text>
-          </View>
-          <Text style={styles.vsText}>VS</Text>
-          <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <Text
-              style={[
-                styles.club,
-                { color: RED, fontSize: nameSize, lineHeight: nameSize },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-            >
-              {themA}
-            </Text>
-            <Text style={styles.clubSub}>{themB}</Text>
-          </View>
-        </Row>
-      </View>
-
-      <View style={{ paddingHorizontal: S.gutter }}>
-        <Card padding={S.lg} style={{ marginTop: -26 }}>
-          {f.revealed ? (
-            <Text
-              style={[
-                styles.result,
-                { color: won ? C.accentHi : lost ? RED : C.text },
-              ]}
-            >
-              {won
-                ? `${me.club?.short} take it`
-                : lost
-                  ? `${them.club?.short} take it`
-                  : "Honours even"}
-            </Text>
-          ) : null}
-          <Row
-            style={{ justifyContent: "space-between", alignItems: "flex-end" }}
-          >
-            <View>
-              <Body dim size={12}>
-                Club score
-              </Body>
-              <AnimatedNumber
-                value={me.score || 0}
-                format={fmt}
-                style={[styles.score, { color: C.accentHi }]}
-              />
+      {view === "map" ? (
+        <LiveMap crew={myCrew} height={400 + insets.top} top={top} />
+      ) : (
+        <View style={[styles.vs, { height: 300 + insets.top }]}>
+          {/* .r11vs: the derby photo, each side lit in its colour */}
+          <PhotoBackground source={PHOTOS.derby} fade={[[0, 0.55], [0.3, 0.1], [0.62, 0.35], [1, 1]]} glow={false} grain={0.05} />
+          <LinearGradient colors={["rgba(61,139,255,0.28)", "rgba(61,139,255,0)", "rgba(255,77,85,0)", "rgba(255,77,85,0.24)"]} locations={[0, 0.38, 0.62, 1]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={["rgba(7,9,12,0)", C.bg]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 120 }} pointerEvents="none" />
+          <Row style={styles.names}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.club, styles.clubBlue, { fontSize: nameSize, lineHeight: nameSize }]} numberOfLines={1} adjustsFontSizeToFit>
+                {meA}
+              </Text>
+              <Text style={styles.clubSub}>{meB}</Text>
             </View>
-            <Text style={styles.smallVs}>VS</Text>
-            <View style={{ alignItems: "flex-end" }}>
-              <Body dim size={12}>
-                Club score
-              </Body>
-              <AnimatedNumber
-                value={them.score || 0}
-                format={fmt}
-                style={[styles.score, { color: RED }]}
-              />
+            <Text style={styles.vsText}>VS</Text>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <Text style={[styles.club, styles.clubRed, { fontSize: nameSize, lineHeight: nameSize }]} numberOfLines={1} adjustsFontSizeToFit>
+                {themA}
+              </Text>
+              <Text style={styles.clubSub}>{themB}</Text>
             </View>
           </Row>
-          <TugBar
-            mine={me.score || 0}
-            theirs={them.score || 0}
-            height={8}
-            knot
-            style={{ marginTop: S.md, marginBottom: S.sm }}
-          />
-          {me.daily != null ? (
-            <CompareRow
-              label="Squad average steps"
-              a={fmt(me.daily)}
-              b={fmt(them.daily)}
-              aShare={me.daily / max}
-              bShare={them.daily / max}
-            />
-          ) : null}
-          {me.turnout != null ? (
-            <CompareRow
-              label="Run turnout"
-              a={`${me.turnout}%`}
-              b={`${them.turnout}%`}
-              aShare={me.turnout / turnMax}
-              bShare={them.turnout / turnMax}
-            />
-          ) : null}
-          <CompareRow
-            label="Squad size"
-            a={String(me.squad)}
-            b={String(them.squad)}
-            aShare={1}
-            bShare={1}
-          />
-        </Card>
+        </View>
+      )}
+
+      <View style={{ paddingHorizontal: S.gutter }}>
+        {/* .oh-score */}
+        <Surface radius={24} padding={null} style={{ marginTop: -26, zIndex: 3 }} contentStyle={{ paddingTop: 14, paddingHorizontal: 15, paddingBottom: 12 }}>
+          {f.revealed ? <Text style={[styles.result, { color: won ? C.accentHi : lost ? "#ff8b92" : C.text }]}>{won ? `${me.club?.short} take it` : lost ? `${them.club?.short} take it` : "Honours even"}</Text> : null}
+          <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+            <View>
+              <Text style={styles.scoreKick}>Club score</Text>
+              <AnimatedNumber value={me.score || 0} format={fmt} style={[styles.score, styles.scoreBlue]} />
+            </View>
+            <View style={styles.smallVs}>
+              <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: 19 }]} />
+              <Text style={styles.smallVsText}>VS</Text>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.scoreKick}>Club score</Text>
+              <AnimatedNumber value={them.score || 0} format={fmt} style={[styles.score, styles.scoreRed]} />
+            </View>
+          </Row>
+          {/* .oh-tug: blue from the left, red from the right, the white spark between */}
+          <KitTug share={(me.score || 0) + (them.score || 0) ? (me.score || 0) / ((me.score || 0) + (them.score || 0)) : 0.5} height={10} style={{ marginTop: 14, marginBottom: 4 }} />
+          {me.daily != null ? <CompareRow label="Squad average steps" a={fmt(me.daily)} b={fmt(them.daily)} aShare={me.daily / max} bShare={them.daily / max} /> : null}
+          {me.turnout != null ? <CompareRow label="Run turnout" a={`${me.turnout}%`} b={`${them.turnout}%`} aShare={me.turnout / turnMax} bShare={them.turnout / turnMax} /> : null}
+          <CompareRow label="Squad size" a={String(me.squad)} b={String(them.squad)} aShare={1} bShare={1} />
+        </Surface>
 
         {f.live ? (
-          <Card padding={S.lg} style={{ marginTop: S.md }}>
+          <Surface radius={22} padding={16} style={{ marginTop: 12 }}>
             <Row style={{ justifyContent: "space-between" }}>
               <Text style={styles.cardTitle}>Out now</Text>
               <Body size={13}>
@@ -304,35 +210,24 @@ export default function Fixture() {
               </Body>
             </Row>
             <OutDots n={them.squad} on={them.out} colour={RED} />
-          </Card>
+          </Surface>
         ) : null}
 
         {f.inSquad ? (
-          <Card padding={S.lg} style={{ marginTop: S.md }}>
-            <Row gap={S.md}>
-              <View style={styles.up}>
-                <ArrowUp size={18} color="#fff" />
-              </View>
+          // .r11next: you're in the squad
+          <Surface radius={22} padding={null} style={{ marginTop: 12 }} contentStyle={{ paddingVertical: 14, paddingHorizontal: 15 }}>
+            <Row gap={12}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.kick}>You're in the squad</Text>
-                <Text style={styles.cardTitle}>
-                  {fmt(f.myDaily)} steps a day
+                <Text style={styles.nextBig}>{fmt(f.myDaily)} steps a day</Text>
+                <Text style={styles.small}>
+                  {f.myLift > 0 ? `That lifts the squad average by ${fmt(f.myLift)}` : f.myLift < 0 ? `The squad needs ${fmt(-f.myLift)} more a day from you to stay level` : "Right on the squad average"}
+                  {f.live ? ". Come to a club run: turnout is worth up to 20%" : ""}
                 </Text>
-                <Body dim size={13}>
-                  {f.myLift > 0
-                    ? `That lifts the squad average by ${fmt(f.myLift)}`
-                    : f.myLift < 0
-                      ? `The squad needs ${fmt(-f.myLift)} more a day from you to stay level`
-                      : "Right on the squad average"}
-                </Body>
               </View>
+              {f.live ? <PillButton title="Run" onPress={() => router.push("/(tabs)/move")} /> : null}
             </Row>
-            {f.live ? (
-              <Body dim size={13} style={{ marginTop: S.md }}>
-                Come to a club run: turnout is worth up to 20%.
-              </Body>
-            ) : null}
-          </Card>
+          </Surface>
         ) : f.mySide ? (
           <Body dim size={13} style={{ marginTop: S.md }}>
             Not called up this week. Be active on three days out of seven to
@@ -360,6 +255,12 @@ export default function Fixture() {
         </Body>
       </View>
     </Screen>
+    <Row style={[styles.top, { top }]}>
+      <GlassRound icon={ChevronLeft} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/club"))} />
+      <Chip label={f.revealed ? "Full time" : view === "map" ? `${f.isDerby ? "Derby" : "Fixture"} live · ${me.out} out` : chip} tone={f.revealed ? "glass" : "live"} style={styles.topChip} />
+      {f.revealed ? <View style={{ width: 38 }} /> : <GlassRound icon={view === "map" ? ImageIcon : Layers} label={view === "map" ? "Show the derby photo" : "Show who's out on the map"} onPress={() => setView((v) => (v === "map" ? "photo" : "map"))} />}
+    </Row>
+    </View>
   );
 }
 
@@ -376,10 +277,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   names: {
-    paddingHorizontal: S.gutter,
-    paddingBottom: 44,
+    paddingHorizontal: 18,
+    paddingBottom: 46,
     alignItems: "flex-end",
   },
+  topChip: { flexShrink: 1, backgroundColor: "rgba(10,14,20,0.45)" },
+  clubBlue: { color: "#82b4ff", textShadowColor: "rgba(61,139,255,0.6)", textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } },
+  clubRed: { color: "#ff8b92", textShadowColor: "rgba(255,77,85,0.55)", textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } },
+  scoreKick: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 9.5, letterSpacing: 1.5, textTransform: "uppercase" },
+  scoreBlue: { color: "#82b4ff", textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 } },
+  scoreRed: { color: "#ff8b92", textShadowColor: "rgba(255,77,85,0.45)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 } },
+  smallVsText: { color: C.textSoft, fontFamily: F.display, fontSize: 13 },
+  nextBig: { color: C.text, fontFamily: F.display, fontSize: 21, textTransform: "uppercase", marginTop: 5 },
+  small: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, lineHeight: 16, marginTop: 3 },
   club: {
     fontFamily: F.display,
     fontSize: 40,
@@ -400,6 +310,9 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginHorizontal: S.md,
     marginBottom: 6,
+    textShadowColor: "rgba(255,255,255,0.45)",
+    textShadowRadius: 20,
+    textShadowOffset: { width: 0, height: 0 },
   },
   result: {
     fontFamily: F.display,
@@ -407,13 +320,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: S.sm,
   },
-  score: { fontFamily: F.display, fontSize: 38 },
-  smallVs: {
-    color: C.textMute,
-    fontFamily: F.display,
-    fontSize: 16,
-    marginBottom: 10,
-  },
+  score: { fontFamily: F.display, fontSize: 40, lineHeight: 42, marginTop: 4 },
+  smallVs: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.08), 0 10px 20px -8px #000" },
   cmp: { marginTop: S.md, gap: S.md },
   cmpVal: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   cmpLabel: {
@@ -444,8 +352,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     textTransform: "uppercase",
   },
-  dots: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: S.sm },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.surfaceHigh },
+  dots: { flexDirection: "row", flexWrap: "wrap", gap: 3, marginTop: S.sm },
+  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.08)" },
   up: {
     width: 40,
     height: 40,

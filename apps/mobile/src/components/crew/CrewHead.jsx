@@ -18,9 +18,9 @@ export const twoTone = (name = "") => {
   return [words[0], words.slice(1).join(" ")];
 };
 
-export function CrewSlab({ kicker, top, bottom, sub, object, photo, height = 236, right, children }) {
+export function CrewSlab({ kicker, top, bottom, sub, object, objectSize, objectStyle, photo, height = 236, right, children }) {
   return (
-    <Hero object={object} photo={photo} kicker={kicker} top={top} bottom={bottom} sub={sub} height={height} right={right}>
+    <Hero object={object} objectSize={objectSize} objectStyle={objectStyle} photo={photo} kicker={kicker} top={top} bottom={bottom} sub={sub} height={height} right={right}>
       {children}
     </Hero>
   );
@@ -84,7 +84,7 @@ export function FeedHead({ crew, right }) {
           {crew.name}
         </Text>
         <Text style={styles.feedTitle}>
-          Club <Text style={{ color: C.accent }}>feed</Text>
+          Club <Text style={styles.blue}>feed</Text>
         </Text>
       </PressableScale>
       {right}
@@ -98,5 +98,6 @@ const styles = StyleSheet.create({
   sub: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
   feedHead: { paddingHorizontal: S.gutter, paddingTop: S.md, gap: S.sm },
   kicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" },
+  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.4)", textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } },
   feedTitle: { color: C.text, fontFamily: F.display, fontSize: 36, lineHeight: 40, textTransform: "uppercase", marginTop: 2 },
 });

@@ -6,9 +6,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { BadgeCheck, ChevronsRight, Compass, Inbox, Lock, Plus, Settings2, Share2, Trophy, UserPlus, Users } from "lucide-react-native";
+import { BadgeCheck, ChevronsRight, Compass, Inbox, Lock, Plus, Search, Settings2, Share2, Trophy, UserPlus, Users } from "lucide-react-native";
 import { PHOTOS } from "@/constants/photos";
-import { Body, C, EmptyState, F, Hero, IconButton, PressableScale, Row, S, Screen, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { Body, C, EmptyState, F, Hero, IconButton, PhotoBackground, PressableScale, Row, S, Screen, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { useCrew, useCrewGoal, useCrewHeader, useCrewLimits, useCrewStats, useCrewUnread, useCrewsNear, useJoinRequests, useMyCrews, useUpgradePrompt } from "@/data/hooks";
 import { CREW_PHOTOS } from "@/data/seedCrew";
 import { tierLabel } from "@/utils/format";
@@ -24,6 +24,8 @@ import UnderlineTabs from "@/components/crew/UnderlineTabs";
 import { shareInvite, useCrewFocus } from "@/components/crew/shared";
 
 const TAB_KEYS = ["board", "feed", "chat", "challenges", "stats"];
+// .r11ph::after: dark at the top, clear, then into the floor
+const FIND_FADE = [[0, 0.45], [0.22, 0], [0.48, 0], [0.78, 0.7], [1, 1]];
 
 function useStartCrew() {
   const router = useRouter();
@@ -63,6 +65,7 @@ function NoCrew({ refresh, refreshing }) {
   const start = useStartCrew();
   const scroll = useRef(null);
   const [finderY, setFinderY] = useState(0);
+  const [searching, setSearching] = useState(false);
   const count = near.data?.length || 0;
   const closest = near.data?.length ? Math.max(...near.data.map((c) => c.awayKm || 0)) : 0;
   return (
@@ -85,9 +88,22 @@ function NoCrew({ refresh, refreshing }) {
           />
           <WayIn icon={Plus} title="Start your own" sub="Invite friends, set a goal" onPress={start} />
         </View>
-        <View onLayout={(e) => setFinderY(e.nativeEvent.layout.y - S.md)} style={{ paddingHorizontal: S.gutter, paddingTop: S.xxl }}>
-          <Text style={styles.section}>Run clubs near you</Text>
-          <ClubFinder />
+        {/* clubFind: the photo band, then the clubs */}
+        <View onLayout={(e) => setFinderY(e.nativeEvent.layout.y)} style={{ marginTop: S.xl }}>
+          <View style={styles.findBand}>
+            <PhotoBackground source={PHOTOS.clubfind} fade={FIND_FADE} focus={{ x: 0.5, y: 0.4 }} glow={false} grain={0.05} />
+            <PressableScale onPress={() => setSearching((v) => !v)} scaleTo={0.9} hitSlop={8} style={styles.findSearch} accessibilityLabel="Search clubs">
+              <View>
+                <Search size={18} color="#fff" />
+              </View>
+            </PressableScale>
+            <Text style={styles.findKick}>Real clubs, near you</Text>
+            <Text style={styles.findTitle}>Find your</Text>
+            <Text style={[styles.findTitle, styles.findBlue]}>run club</Text>
+          </View>
+          <View style={{ paddingHorizontal: S.gutter, marginTop: -4 }}>
+            <ClubFinder searchOpen={searching} onCloseSearch={() => setSearching(false)} />
+          </View>
         </View>
       </ScrollView>
     </Screen>
@@ -212,12 +228,14 @@ export default function CrewTab() {
         bottom={bottom}
         sub={h ? `${h.memberCount} members · ${h.outNow} out right now` : " "}
         object={PHOTOS.podium}
+        objectSize={186}
+        objectStyle={{ right: -18 }}
         right={more}
       />
     );
   } else if (tab === "challenges") {
     const g = goal.data;
-    head = <CrewSlab kicker={g ? `Crew goal · ${g.daysLeft} ${g.daysLeft === 1 ? "day" : "days"} left` : "Crew goal"} top={`${(g?.goalKm ?? crew.weeklyGoalKm ?? 100).toLocaleString("en-GB")} km`} bottom="together" object={PHOTOS.dial} height={220} right={more} />;
+    head = <CrewSlab kicker={g ? `Crew goal · ${g.daysLeft} ${g.daysLeft === 1 ? "day" : "days"} left` : "Crew goal"} top={`${(g?.goalKm ?? crew.weeklyGoalKm ?? 100).toLocaleString("en-GB")} km`} bottom="together" photo={PHOTOS.crew} height={210} right={more} />;
   } else if (tab === "stats") {
     const st = stats.data;
     const share = () =>
@@ -281,4 +299,9 @@ const styles = StyleSheet.create({
   wayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
   wayTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
   section: { color: C.text, fontFamily: F.display, fontSize: 24, textTransform: "uppercase", marginBottom: S.md },
+  findBand: { height: 300, justifyContent: "flex-end", paddingHorizontal: S.gutter, paddingBottom: 22 },
+  findSearch: { position: "absolute", top: 14, right: S.gutter, width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10,14,20,0.45)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
+  findKick: { color: "#9cc4ff", fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.7, textTransform: "uppercase", marginBottom: 8 },
+  findTitle: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 42, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  findBlue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
 });
