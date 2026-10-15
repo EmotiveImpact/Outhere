@@ -21,9 +21,14 @@ run "$shim"; rm -f "$shim"
 
 for f in "$root"/migrations/*.sql; do echo "migrate $(basename "$f")"; run "$f"; done
 echo "seed"; run "$root/seed.sql"
+# Each test file gets its own copy of the migrated database, so they can't
+# see each other's people.
 for f in "$here"/test_*.sql; do
   [ -e "$f" ] || continue
   echo "test $(basename "$f")"
-  psql -d "$db" -v ON_ERROR_STOP=1 -q -f "$f"
+  copy="${db}_t"
+  psql -d postgres -qc "create database $copy template $db"
+  psql -d "$copy" -v ON_ERROR_STOP=1 -q -f "$f" || { psql -d postgres -qc "drop database $copy" >/dev/null; exit 1; }
+  psql -d postgres -qc "drop database $copy" >/dev/null
 done
 echo "all good"

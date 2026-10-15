@@ -79,6 +79,8 @@ export type Database = {
           created_at: string;
           responded_at: string | null;
           finished_at: string | null;
+          challenger_ready_at: string | null;
+          opponent_ready_at: string | null;
         };
         Insert: {
           id?: string;
@@ -99,6 +101,8 @@ export type Database = {
           created_at?: string;
           responded_at?: string | null;
           finished_at?: string | null;
+          challenger_ready_at?: string | null;
+          opponent_ready_at?: string | null;
         };
         Update: {
           id?: string;
@@ -119,6 +123,8 @@ export type Database = {
           created_at?: string;
           responded_at?: string | null;
           finished_at?: string | null;
+          challenger_ready_at?: string | null;
+          opponent_ready_at?: string | null;
         };
         Relationships: [];
       };
@@ -1678,6 +1684,8 @@ export type Database = {
           created_at: string | null;
           responded_at: string | null;
           finished_at: string | null;
+          challenger_ready_at: string | null;
+          opponent_ready_at: string | null;
           results_open: boolean | null;
         };
         Relationships: [];
@@ -1723,6 +1731,7 @@ export type Database = {
     };
     Functions: {
       are_friends: { Args: { a: string; b: string; }; Returns: boolean };
+      battle_entry_count: { Args: { p_battle: string; }; Returns: number };
       can_see_post: { Args: { p: Database["public"]["Tables"]["posts"]["Row"]; }; Returns: boolean };
       cancel_battle: { Args: { p_battle: string; }; Returns: undefined };
       challenge_value: { Args: { p_user: string; c: Database["public"]["Tables"]["challenges"]["Row"]; }; Returns: number };
@@ -1751,6 +1760,7 @@ export type Database = {
       out_available: { Args: { p_user: string; }; Returns: number };
       outside_now: { Args: { p_city?: string; }; Returns: Json[] };
       period_start: { Args: { p: string; }; Returns: string };
+      ready_battle: { Args: { p_battle: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       remove_club_member: { Args: { p_club: string; p_user: string; p_ban?: boolean; }; Returns: undefined };
       request_black: { Args: { p_name: string; p_email: string; p_borough: string; p_code?: string; p_why?: string; }; Returns: Json };
       reserve_drop: { Args: { p_drop: string; p_size?: string; }; Returns: Database["public"]["Tables"]["drop_orders"]["Row"] };
@@ -1760,7 +1770,7 @@ export type Database = {
       save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
       set_club_role: { Args: { p_club: string; p_user: string; p_role: Database["public"]["Enums"]["club_role"]; }; Returns: undefined };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
-      submit_battle_result: { Args: { p_battle: string; p_run: string; p_result: number; }; Returns: undefined };
+      submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
       website_stats: { Args: {  }; Returns: Json };
     };

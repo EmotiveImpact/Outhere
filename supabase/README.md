@@ -25,7 +25,7 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 | Movement | `daily_steps` (raw and counted), `runs` (trimmed public route), `run_routes` (owner only) | `ingest_steps`, `save_run` |
 | The dot | `presence`, `member_dots` view, `outside_now()` | `set_presence('out' or 'stopped')` |
 | Ledger | `ledger` (XP and OUT, unique keys, 24h OUT hold), `wallets` view | server only |
-| Battles | `battles` (six modes), `battle_entries` (sealed blind results), `battle_board` view, `blocks`, `rival_passes`, `rival_deck()` | `create_battle`, `respond_battle`, `cancel_battle`, `submit_battle_result` |
+| Battles | `battles` (six modes), `battle_entries` (sealed blind results), `battle_board` view, `blocks`, `rival_passes`, `rival_deck()` | `create_battle`, `respond_battle`, `ready_battle`, `cancel_battle`, `submit_battle_result(battle, run)` |
 | Challenges | `challenges`, `challenge_progress` | `join_challenge`, `claim_challenge` |
 | Leagues | `seasons`, `divisions`, `league_entries`, `fixtures`, `squad_members` | scheduler: `draw_fixture`, `fixture_side_score` |
 | Social | `follows`, `posts`, `post_reactions`, `post_comments`, `stories`, `story_views` | direct insert under RLS |
@@ -42,6 +42,7 @@ Rules the database enforces, so no client can cheat them:
 - Steps only for today or yesterday (London time), never backwards, capped at 100k raw, above 60k flagged for review. Counted steps: everything to 10k, half from 10k to 20k, at most 15k a day (proposed rule).
 - Every payout has a unique key, so a retry cannot pay twice. OUT is held for 24 hours.
 - Battle limits by tier (Free 1 a week and 1 active, Pro 5 active, Black 10). Blocked people cannot battle, message or see each other's posts. Under 18s only meet under 18s in the rival deck, and nobody can see who is under 18.
+- Battle modes. Most steps and last one standing score from counted steps (last one standing needs 8k on day one, 1k more each day, and ends the morning after someone misses). Live race, blind time trial and ghost race take your first run of at least the distance after the start, timed pro rata on the server; lower wins. A live race starts 10 seconds after both press ready (`ready_battle`). Blind times stay sealed until both are in. Hold the route keeps your best time on the saved route; a run must cover 95% of it.
 - Routes shown to others have the first and last 200 m removed.
 - Club chat is for members only; announcements are for captains and admins.
 - Error codes are raised as the exception message (`TIER_REQUIRED`, `NOT_ENOUGH_OUT`, `EVENT_FULL`, `FUTURE_DAY` ...), so clients can switch on them.

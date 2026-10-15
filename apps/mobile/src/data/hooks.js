@@ -111,6 +111,7 @@ export const useChallenges = () => useQuery(q(["challenges"], engine.listChallen
 export const useBattles = (status = "all") => useQuery(q(["battles", status], () => engine.listBattles(status)));
 export const useBattle = (id) => useQuery(q(["battle", id], () => engine.getBattle(id), { enabled: !!id }));
 export const useBattleLimits = () => useQuery(q(["battleLimits"], engine.getBattleLimits));
+export const useRivalRoster = () => useQuery(q(["rivalRoster"], engine.getRivalRoster));
 
 export const useMyCrews = () => useQuery(q(["myCrews"], engine.listMyCrews));
 export const useDiscoverCrews = (query = "") => useQuery(q(["discoverCrews", query], () => engine.discoverCrews(query)));

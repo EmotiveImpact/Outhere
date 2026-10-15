@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { prepareStoryPhoto, storyFiles } from "@/services/media";
 import { EngineError, TIER_RULES, crewBadgeTier, levelFromXp, tierAtLeast } from "./engine";
 import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
+import { lowerWins, modeOf, standingTarget } from "@/constants/battleModes";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -30,6 +31,11 @@ const MESSAGES = {
   TIER_REQUIRED: "That needs a higher membership.",
   NOT_ENOUGH_OUT: "Not enough OUT for that yet.",
   NOT_ALLOWED: "You can't do that.",
+  DISTANCE_REQUIRED: "Pick a distance.",
+  RUN_TOO_SHORT: "That run was shorter than the battle's distance.",
+  RUN_INVALID: "That run doesn't count for this battle.",
+  ALREADY_IN: "Your time is already in.",
+  BATTLE_CLOSED: "This battle isn't taking runs right now.",
   NOT_FOUND: "We couldn't find that.",
   FUTURE_DAY: "That day hasn't happened yet.",
   TOO_OLD: "Steps can only be added for today or yesterday.",
@@ -589,24 +595,82 @@ export const claimChallenge = async (id) => {
 export const BATTLE_DURATIONS = [2, 6, 24, 168];
 const STATUS = { pending: "pending", accepted: "active", live: "active", finished: "complete", declined: "declined", cancelled: "cancelled", expired: "expired", forfeit: "complete" };
 
+const londonDay = (ms) => dayKey(new Date(ms));
+const daysBetween = (fromKey, toKey) => {
+  const out = [];
+  for (let d = startOfDay(fromKey); dayKey(d) <= toKey; d = addDays(d, 1)) out.push(dayKey(d));
+  return out;
+};
+
 const battleViews = async (rows, me) => {
   const ids = [...new Set(rows.flatMap((b) => [b.challenger_id, b.opponent_id]))];
-  const people = ids.length ? await run(supabase.from("profiles").select(PERSON).in("id", ids)) : [];
+  const live = rows.filter((b) => ["accepted", "live"].includes(b.status));
+  const stepRows = live.filter((b) => ["most_steps", "last_one_standing"].includes(b.mode) && b.starts_at);
+  const entryIds = rows.filter((b) => !["most_steps", "last_one_standing"].includes(b.mode)).map((b) => b.id);
+  const from = stepRows.length ? londonDay(Math.min(...stepRows.map((b) => new Date(b.starts_at).getTime()))) : null;
+  const routeIds = rows.map((b) => b.route_run_id).filter(Boolean);
+  const [people, routes, entries, steps] = await Promise.all([
+    ids.length ? run(supabase.from("profiles").select(PERSON).in("id", ids)) : [],
+    routeIds.length ? run(supabase.from("runs").select("id, distance_m, title").in("id", routeIds)) : [],
+    entryIds.length ? run(supabase.from("battle_entries").select("battle_id, user_id, result").in("battle_id", entryIds)) : [],
+    from ? run(supabase.from("daily_steps").select("user_id, day, steps, counted").in("user_id", ids).gte("day", from)) : [],
+  ]);
   const byId = Object.fromEntries((people || []).map((p) => [p.id, playerView(p, me)]));
+  const routeOf = Object.fromEntries((routes || []).map((r) => [r.id, r]));
+  const entry = (bid, pid) => (entries || []).find((e) => e.battle_id === bid && e.user_id === pid)?.result ?? null;
+  const day = (pid, key) => (steps || []).find((r) => r.user_id === pid && r.day === key);
+
+  const liveValue = (b, pid) => {
+    const def = modeOf(b.mode);
+    if (def.unit === "time") return entry(b.id, pid);
+    if (!b.starts_at) return 0;
+    const first = londonDay(new Date(b.starts_at).getTime());
+    const last = londonDay(Math.min(Date.now(), new Date(b.ends_at).getTime()));
+    if (b.mode === "most_steps") return daysBetween(first, last).reduce((sum, k) => sum + (day(pid, k)?.counted || 0), 0);
+    let n = 0;
+    for (const k of daysBetween(first, londonDay(Date.now() - DAY_MS))) {
+      if ((day(pid, k)?.steps || 0) < standingTarget(n)) break;
+      n += 1;
+    }
+    return n;
+  };
+
   return rows.map((b) => {
+    const def = modeOf(b.mode);
     const mineIsChallenger = b.challenger_id === me;
     const oppId = mineIsChallenger ? b.opponent_id : b.challenger_id;
-    const mine = (mineIsChallenger ? b.challenger_result : b.opponent_result) || 0;
-    const theirs = (mineIsChallenger ? b.opponent_result : b.challenger_result) || 0;
     const status = STATUS[b.status] || b.status;
+    const done = status === "complete";
+    const mine = done ? (mineIsChallenger ? b.challenger_result : b.opponent_result) : liveValue(b, me);
+    let theirs = done ? (mineIsChallenger ? b.opponent_result : b.challenger_result) : liveValue(b, oppId);
+    const sealed = b.mode === "blind_time_trial" && !done && !(mine != null && theirs != null);
+    if (sealed) theirs = null;
     const endAt = b.ends_at ? new Date(b.ends_at).getTime() : null;
+    const side = mine == null && theirs == null ? null : mine == null ? "them" : theirs == null ? "me" : mine === theirs ? null : (mine < theirs) === lowerWins(b.mode) ? "me" : "them";
+    const readyMe = !!(mineIsChallenger ? b.challenger_ready_at : b.opponent_ready_at);
+    const readyThem = !!(mineIsChallenger ? b.opponent_ready_at : b.challenger_ready_at);
     return {
       id: b.id,
       mode: b.mode,
-      metric: "steps",
+      modeName: def.name,
+      metric: b.mode === "most_steps" ? "steps" : def.unit,
       durationHours: b.duration_h,
+      distanceM: b.mode === "hold_the_route" ? routeOf[b.route_run_id]?.distance_m || 2000 : b.distance_m,
+      routeKm: b.mode === "hold_the_route" ? (routeOf[b.route_run_id]?.distance_m || 2000) / 1000 : null,
+      routeName: routeOf[b.route_run_id]?.title || null,
       stakeOut: b.stake_out,
       status,
+      phase: b.mode === "live_race" && b.status === "accepted" ? "lobby" : status === "active" ? "live" : status,
+      readyMe,
+      readyThem,
+      sealed,
+      timed: def.unit === "time",
+      myTimeIn: def.unit === "time" && mine != null,
+      theirTimeIn: def.unit === "time" && !sealed && theirs != null,
+      ghostSec: null,
+      rivalPaceSec: null,
+      target: b.mode === "last_one_standing" && b.starts_at ? standingTarget(Math.max(0, daysBetween(londonDay(new Date(b.starts_at).getTime()), dayKey()).length - 1)) : null,
+      todaySteps: b.mode === "last_one_standing" ? { me: day(me, dayKey())?.steps || 0, them: day(oppId, dayKey())?.steps || 0 } : null,
       incoming: b.status === "pending" && b.opponent_id === me,
       isChallenger: mineIsChallenger,
       isSurprise: b.is_surprise,
@@ -617,9 +681,10 @@ const battleViews = async (rows, me) => {
       remainingMs: status === "active" && endAt ? Math.max(0, endAt - Date.now()) : 0,
       me: { player: byId[me], value: mine },
       opponent: { player: byId[oppId], value: theirs },
-      leader: mine === theirs ? null : mine > theirs ? me : oppId,
+      leader: side === "me" ? "me" : side === "them" ? oppId : null,
       winnerId: b.winner_id,
-      result: status === "complete" ? (b.winner_id === me ? "won" : b.winner_id ? "lost" : "draw") : null,
+      forfeit: b.status === "forfeit",
+      result: done ? (b.winner_id === me ? "won" : b.winner_id ? "lost" : "draw") : null,
     };
   });
 };
@@ -633,7 +698,7 @@ export const listBattles = async (status = "all") => {
 };
 
 export const getBattle = async (id) => {
-  const me = await uid();
+  const me = await requireUid();
   const b = await run(supabase.from("battles").select("*").eq("id", id).maybeSingle());
   if (!b) throw new EngineError("NOT_FOUND", "Battle not found.");
   return (await battleViews([b], me))[0];
@@ -649,10 +714,25 @@ export const getBattleLimits = async () => {
   return { tier: p.tier, createdThisWeek, active, battlesPerWeek: rules.battlesPerWeek, maxActive: rules.maxActiveBattles, canCreate: createdThisWeek < rules.battlesPerWeek && active < rules.maxActiveBattles };
 };
 
-export const createBattle = async ({ opponentId, durationHours = 24, mode = "most_steps", stakeOut = 0 }) => {
-  const b = await rpc("create_battle", { p_opponent: opponentId, p_mode: mode, p_duration_h: durationHours, p_stake_out: stakeOut });
+export const createBattle = async ({ opponentId, mode = "most_steps", durationHours, distanceM, stakeOut = 0, routeRunId = null }) => {
+  const def = modeOf(mode);
+  if ((await rosterHidden()).includes(opponentId)) throw new EngineError("NOT_ALLOWED", "You took them off your list. Add them back first.");
+  const b = await rpc("create_battle", {
+    p_opponent: opponentId,
+    p_mode: mode,
+    p_duration_h: def.kind === "window" ? durationHours || def.defaultDuration : null,
+    p_distance_m: def.kind === "distance" ? distanceM || def.defaultDistance : null,
+    p_stake_out: stakeOut,
+    p_route_run: mode === "hold_the_route" ? routeRunId : null,
+  });
   changed();
   return getBattle(b.id);
+};
+
+export const readyBattle = async (id) => {
+  await rpc("ready_battle", { p_battle: id });
+  changed();
+  return getBattle(id);
 };
 
 export const respondToBattle = async (id, accept) => {
@@ -666,8 +746,115 @@ export const cancelBattle = async (id) => {
   changed();
 };
 
+// After a run is saved, offer it to every open battle it could count for. The
+// database decides what counts and works out the time.
+const applyRunToBattles = async (saved) => {
+  const me = await uid();
+  if (!me) return [];
+  const open = await run(supabase.from("battles").select("id, mode, distance_m").in("status", ["accepted", "live"]).in("mode", ["live_race", "blind_time_trial", "ghost_race", "hold_the_route"]).or(`challenger_id.eq.${me},opponent_id.eq.${me}`));
+  // Hold the route can take every go; the others want the distance.
+  const used = [];
+  for (const b of open || []) {
+    if (b.distance_m && saved.distance_m < b.distance_m) continue;
+    try {
+      await rpc("submit_battle_result", { p_battle: b.id, p_run: saved.id });
+      used.push(b.id);
+    } catch {
+      // Didn't count for this one (already in, too early, half a lap).
+    }
+  }
+  return used;
+};
+
 // Settlement runs on a schedule in the database.
 export const settleBattles = async () => [];
+
+// ── Character select ──────────────────────────────────────────────────────────
+// Who's crossed off is kept on this phone; they are never told.
+
+const ROSTER_KEY = "outhere.roster.hidden";
+const rosterHidden = async () => {
+  try {
+    return JSON.parse((await AsyncStorage.getItem(ROSTER_KEY)) || "[]");
+  } catch {
+    return [];
+  }
+};
+const setRosterHidden = async (ids) => {
+  await AsyncStorage.setItem(ROSTER_KEY, JSON.stringify([...new Set(ids)]));
+  changed();
+};
+
+const rosterStats = (p, days, pace) => {
+  const list = days.length ? days : [0];
+  const avg = list.reduce((a, b) => a + b, 0) / list.length;
+  const best = Math.max(...list);
+  const clamp = (v) => Math.max(0.08, Math.min(1, v));
+  return {
+    bestDay: best,
+    avgSteps: Math.round(avg),
+    paceSec: pace,
+    bars: [
+      { key: "speed", label: "Speed", value: clamp((480 - (pace || 420)) / 220) },
+      { key: "stamina", label: "Stamina", value: clamp(avg / 18000) },
+      { key: "streak", label: "Streak", value: clamp((p.streak_days || 0) / 30) },
+      { key: "peak", label: "Peak", value: clamp(best / 25000) },
+    ],
+  };
+};
+
+export const getRivalRoster = async () => {
+  const me = await requireUid();
+  const hidden = await rosterHidden();
+  const [battles, follows] = await Promise.all([
+    run(supabase.from("battles").select("challenger_id, opponent_id, winner_id, status, created_at").or(`challenger_id.eq.${me},opponent_id.eq.${me}`).order("created_at", { ascending: false }).limit(200)),
+    run(supabase.from("follows").select("followee_id").eq("follower_id", me).limit(50)),
+  ]);
+  const record = {};
+  for (const b of battles || []) {
+    const pid = b.challenger_id === me ? b.opponent_id : b.challenger_id;
+    const r = (record[pid] ||= { played: 0, wins: 0, losses: 0 });
+    r.played += 1;
+    if (b.status === "finished" || b.status === "forfeit") {
+      if (b.winner_id === me) r.wins += 1;
+      else if (b.winner_id) r.losses += 1;
+    }
+  }
+  const regulars = Object.keys(record).sort((a, b) => record[b].played - record[a].played);
+  const ids = [...new Set([...regulars, ...(follows || []).map((f) => f.followee_id)])].filter((id) => !hidden.includes(id)).slice(0, 11);
+  const all = [me, ...ids, ...hidden];
+  const since = dayKey(addDays(new Date(), -14));
+  const [people, steps, runs] = await Promise.all([
+    run(supabase.from("profiles").select(PERSON).in("id", all)),
+    run(supabase.from("daily_steps").select("user_id, steps").in("user_id", [me, ...ids]).gte("day", since)),
+    run(supabase.from("runs").select("user_id, avg_pace_s_per_km").in("user_id", [me, ...ids]).not("avg_pace_s_per_km", "is", null).order("started_at", { ascending: false }).limit(200)),
+  ]);
+  const views = await peopleViews((people || []).filter((p) => ids.includes(p.id)), me);
+  const raw = Object.fromEntries((people || []).map((p) => [p.id, p]));
+  const statsFor = (pid) =>
+    rosterStats(
+      raw[pid] || {},
+      (steps || []).filter((r) => r.user_id === pid).map((r) => r.steps),
+      (runs || []).find((r) => r.user_id === pid)?.avg_pace_s_per_km || null
+    );
+  return {
+    me: { player: playerView(raw[me], me), ...statsFor(me) },
+    roster: ids.map((pid) => views.find((v) => v.id === pid)).filter(Boolean).map((player) => ({ player, record: record[player.id] || { played: 0, wins: 0, losses: 0 }, regular: !!record[player.id], ...statsFor(player.id) })),
+    hidden: hidden.map((pid) => playerView(raw[pid], me)).filter(Boolean),
+  };
+};
+
+export const hideFromRoster = async (pid) => setRosterHidden([...(await rosterHidden()), pid]);
+export const showInRoster = async (pid) => setRosterHidden((await rosterHidden()).filter((x) => x !== pid));
+
+export const randomRival = async () => {
+  const me = await requireUid();
+  const hidden = await rosterHidden();
+  const deck = (await rpc("rival_deck", { p_limit: 20 })) || [];
+  const pool = deck.filter((p) => p.id !== me && !hidden.includes(p.id));
+  if (!pool.length) return null;
+  return (await peopleViews([pool[Math.floor(Math.random() * pool.length)]], me))[0];
+};
 
 // ── Crews (clubs) ─────────────────────────────────────────────────────────────
 
@@ -877,8 +1064,9 @@ export const saveRun = async (r) => {
     p_kind: r.type === "walk" ? "walk" : "run",
     p_title: r.title || null,
   });
+  const battles = await applyRunToBattles(saved);
   changed();
-  return runView(saved);
+  return { ...runView(saved), battles };
 };
 
 export const listRuns = async ({ limit = 50 } = {}) => {

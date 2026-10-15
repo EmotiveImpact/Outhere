@@ -1,564 +1,355 @@
-import React, { useState } from "react";
+// New battle in three steps: character select (who), pick a mode (how), then
+// set it up (how long or how far, the stake, the route) and send it.
+
+import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  Check,
-  Footprints,
-  Route,
-  Search,
-  X,
-} from "lucide-react-native";
-import {
-  engine,
-  useBattleLimits,
-  useEngineMutation,
-  useFriends,
-  usePlayer,
-  useSearchPlayers,
-} from "@/data/hooks";
-import { BATTLE_DURATIONS } from "@/data/engine";
-import {
-  Avatar,
-  Body,
-  Button,
-  C,
-  Card,
-  Divider,
-  F,
-  FadeIn,
-  Header,
-  PressableScale,
-  R,
-  Row,
-  S,
-  Screen,
-  Skeleton,
-  TierBadge,
-} from "@/components/ui";
+import { Check, Coins, MapPin, Search, X } from "lucide-react-native";
+import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useRuns, useSearchPlayers, useWallet } from "@/data/hooks";
+import { Avatar, Body, Button, C, Card, Divider, F, FadeIn, Header, PressableScale, R, Row, S, Screen, Skeleton, TierBadge } from "@/components/ui";
+import { CharacterSelect } from "@/components/arena/CharacterSelect";
+import { ModePicker } from "@/components/arena/ModePicker";
 import { limitsText } from "@/components/arena/ArenaHero";
 import { BATTLE_PRIZES, durationLabel } from "@/components/arena/shared";
-import { compactNumber } from "@/utils/format";
+import { BLIND_FINISH_HOURS, BLIND_START_HOURS, LIVE_RACE_HOURS, distanceLabel, modeOf, standingTarget } from "@/constants/battleModes";
+import { compactNumber, formatNumber } from "@/utils/format";
 
-const DURATION_HINTS = {
-  2: "Quick fire",
-  6: "Half a day",
-  24: "Full day",
-  168: "Long game",
+const STEPS = ["select", "mode", "setup"];
+const STAKES = [0, 10, 25, 50];
+
+const RULES = {
+  most_steps: () => ["Counted steps from the moment they accept.", "Most steps when the clock runs out wins."],
+  live_race: () => ["You both press ready, wherever you are.", "The start lands on both phones at the same moment.", `First to the distance wins. The race stays open for ${LIVE_RACE_HOURS} hours.`],
+  blind_time_trial: () => ["Run it whenever, wherever. One go each.", "Nobody sees a time until both are in.", `${BLIND_START_HOURS} hours to start, ${BLIND_FINISH_HOURS} to finish. A no show loses.`],
+  ghost_race: () => ["Their best time over the distance runs beside you as a ghost.", "Your first run of the distance counts. Faster wins."],
+  last_one_standing: () => [`Day one is ${formatNumber(standingTarget(0))} steps, then 1,000 more each day.`, "Miss a day and you're out. Last one standing wins."],
+  hold_the_route: () => ["Both of you run the same saved route.", "Run it as often as you like. Your best time counts.", "Fastest time when the clock runs out owns it."],
 };
 
-const METRIC_OPTIONS = [
-  {
-    value: "steps",
-    label: "Steps",
-    hint: "Every step counts",
-    icon: Footprints,
-  },
-  {
-    value: "distance",
-    label: "Distance",
-    hint: "Km from steps and runs",
-    icon: Route,
-  },
-];
-
-const personLine = (p) =>
-  [`@${p.username}`, p.area || p.city].filter(Boolean).join(" · ");
+const personLine = (p) => [`@${p.username}`, p.area || p.city].filter(Boolean).join(" · ");
 
 export default function NewBattleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const initial = Array.isArray(params.opponent)
-    ? params.opponent[0]
-    : params.opponent;
-  const [opponentId, setOpponentId] = useState(
-    initial && initial !== "me" ? initial : null,
-  );
+  const initial = Array.isArray(params.opponent) ? params.opponent[0] : params.opponent;
+  const [step, setStep] = useState("select");
+  const [opponentId, setOpponentId] = useState(initial && initial !== "me" ? initial : null);
+  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
-  const [duration, setDuration] = useState(24);
-  const [metric, setMetric] = useState("steps");
+  const [mode, setMode] = useState(typeof params.mode === "string" ? params.mode : "most_steps");
+  const def = modeOf(mode);
+  const [duration, setDuration] = useState(null);
+  const [distance, setDistance] = useState(null);
+  const [stake, setStake] = useState(0);
+  const [routeRunId, setRouteRunId] = useState(null);
 
-  const friends = useFriends();
+  const roster = useRivalRoster();
   const search = useSearchPlayers(query.trim());
   const limits = useBattleLimits();
+  const wallet = useWallet();
+  const runs = useRuns(20);
   const opponent = usePlayer(opponentId);
 
+  const hide = useEngineMutation(engine.hideFromRoster, { success: "Taken off your list" });
+  const show = useEngineMutation(engine.showInRoster, { success: "Back on your list" });
+  const random = useEngineMutation(engine.randomRival, {
+    onSuccess: (p) => p && setOpponentId(p.id),
+  });
   const create = useEngineMutation(engine.createBattle, {
-    success: (b) => `Battle on vs ${b?.opponent?.player?.name || "your rival"}`,
+    success: (b) => `Challenge sent to ${b?.opponent?.player?.name || "your rival"}`,
     onSuccess: (battle) => router.replace(`/battles/${battle.id}`),
   });
 
-  const friendIds = new Set((friends.data || []).map((p) => p.id));
-  const searching = query.trim().length > 0;
-  const results = search.data || [];
-  const suggested = results.filter((p) => !friendIds.has(p.id)).slice(0, 8);
+  // A rival picked from search or a player page joins the roster for now.
+  const rosterData = useMemo(() => {
+    const data = roster.data;
+    if (!data || !opponent.data || data.roster.some((r) => r.player.id === opponent.data.id)) return data;
+    return { ...data, roster: [{ player: opponent.data, record: { played: 0, wins: 0, losses: 0 }, regular: false, bars: null, bestDay: 0 }, ...data.roster] };
+  }, [roster.data, opponent.data]);
+
   const lim = limits.data;
   const blocked = lim && !lim.canCreate;
+  const hours = duration ?? def.defaultDuration;
+  const metres = distance ?? def.defaultDistance;
+  const myRoutes = (runs.data || []).filter((r) => r.distanceKm >= 1);
+  const route = myRoutes.find((r) => r.id === routeRunId) || null;
+  const out = wallet.data?.out ?? 0;
+  const oppName = opponent.data?.name || "your rival";
 
-  const pick = (p) => {
-    setOpponentId(p.id);
-    setQuery("");
+  const back = () => {
+    if (searching) return setSearching(false);
+    const i = STEPS.indexOf(step);
+    if (i > 0) setStep(STEPS[i - 1]);
+    else if (router.canGoBack()) router.back();
+    else router.replace("/outside/arena");
   };
+
+  const next = () => {
+    if (step === "select") return setStep("mode");
+    if (step === "mode") return setStep("setup");
+    create.mutate({ opponentId, mode, durationHours: hours, distanceM: metres, stakeOut: stake, routeRunId: mode === "hold_the_route" ? routeRunId : null });
+  };
+
+  const cta =
+    step === "select"
+      ? opponent.data
+        ? `Lock in ${opponent.data.name}`
+        : "Pick a rival"
+      : step === "mode"
+        ? `${def.name} it is`
+        : blocked
+          ? "Over your limit"
+          : `Send to ${oppName}`;
+  const ctaDisabled = step === "select" ? !opponent.data : step === "setup" ? blocked || (stake > out) : false;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Screen
-        header={
-          <Header back title="New battle" />
-        }
+        header={<Header back onBack={back} title={step === "select" ? "Character select" : step === "mode" ? "Pick a mode" : "Set it up"} subtitle={opponent.data && step !== "select" ? `vs ${opponent.data.name}` : undefined} right={<StepDots step={step} />} />}
         contentStyle={{ paddingBottom: 150 + insets.bottom }}
       >
-        <Step n="01" title="Opponent" first />
-        {opponentId ? (
-          opponent.isPending ? (
-            <Skeleton height={92} radius={20} />
-          ) : opponent.data ? (
+        {step === "select" ? (
+          searching ? (
+            <FindSomeone query={query} setQuery={setQuery} results={search.data || []} loading={search.isPending} onPick={(p) => { setOpponentId(p.id); setSearching(false); setQuery(""); }} />
+          ) : roster.isPending ? (
+            <Skeleton height={520} radius={20} />
+          ) : (
             <FadeIn>
-              <SelectedRival
-                player={opponent.data}
-                onClear={() => setOpponentId(null)}
+              <CharacterSelect
+                roster={rosterData}
+                picked={opponentId}
+                onPick={setOpponentId}
+                onRandom={() => random.mutate()}
+                randomBusy={random.isPending}
+                onSearch={() => setSearching(true)}
+                onHide={(pid) => {
+                  if (pid === opponentId) setOpponentId(null);
+                  hide.mutate(pid);
+                }}
+                onShow={(pid) => show.mutate(pid)}
               />
             </FadeIn>
-          ) : (
-            <Body dim>That player could not be found. Pick someone else.</Body>
           )
-        ) : (
-          <>
-            <View style={styles.search}>
-              <Search size={18} color={C.textMute} />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search by name, username or city"
-                placeholderTextColor={C.textMute}
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
-              {searching ? (
-                <PressableScale
-                  onPress={() => setQuery("")}
-                  hitSlop={10}
-                  accessibilityLabel="Clear search"
-                >
-                  <X size={16} color={C.textMute} />
-                </PressableScale>
-              ) : null}
-            </View>
+        ) : null}
 
-            {searching ? (
-              <PeopleList
-                title="Results"
-                people={results}
-                loading={search.isPending}
-                onPick={pick}
-                emptyQuery={query.trim()}
-              />
+        {step === "mode" ? (
+          <FadeIn>
+            <Text style={styles.kick}>Choose your battle</Text>
+            <Text style={styles.big}>
+              Pick a <Text style={{ color: C.accent }}>mode</Text>
+            </Text>
+            <View style={{ marginTop: S.lg }}>
+              <ModePicker value={mode} onChange={(m) => { setMode(m); setDuration(null); setDistance(null); }} />
+            </View>
+          </FadeIn>
+        ) : null}
+
+        {step === "setup" ? (
+          <FadeIn>
+            <Row gap={S.md} style={styles.summary}>
+              {opponent.data ? <Avatar uri={opponent.data.avatar} name={opponent.data.name} tier={opponent.data.tier} dot={opponent.data.dot} size={48} /> : null}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.summaryKick}>{def.name}</Text>
+                <Text style={styles.summaryName}>vs {oppName}</Text>
+              </View>
+            </Row>
+
+            {def.kind === "window" ? (
+              <>
+                <StepTitle title="How long" />
+                <Chips options={def.durations.map((h) => ({ value: h, label: durationLabel(h) }))} value={hours} onChange={setDuration} />
+              </>
             ) : (
               <>
-                {friends.isPending ? (
-                  <PeopleList
-                    title="People you follow"
-                    people={[]}
-                    loading
-                    onPick={pick}
-                  />
-                ) : null}
-                {friends.data?.length ? (
-                  <PeopleList
-                    title="People you follow"
-                    people={friends.data}
-                    onPick={pick}
-                  />
-                ) : null}
-                <PeopleList
-                  title={
-                    friends.data?.length ? "More rivals" : "Suggested rivals"
-                  }
-                  people={suggested}
-                  loading={search.isPending}
-                  onPick={pick}
-                />
+                <StepTitle title="How far" />
+                <Chips options={def.distances.map((m) => ({ value: m, label: distanceLabel(m) }))} value={metres} onChange={setDistance} />
               </>
             )}
-          </>
-        )}
 
-        <Step n="02" title="How long" />
-        <View style={styles.grid}>
-          {BATTLE_DURATIONS.map((h) => {
-            const active = h === duration;
-            return (
-              <View key={h} style={styles.cell}>
-                <PressableScale
-                  onPress={() => setDuration(h)}
-                  scaleTo={0.95}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <Row
-                    style={{
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <Text style={styles.chipValue}>
-                      {durationLabel(h)}
-                    </Text>
-                    <Tick on={active} />
-                  </Row>
-                  <Text style={styles.chipHint}>{DURATION_HINTS[h] || ""}</Text>
-                </PressableScale>
-              </View>
-            );
-          })}
-        </View>
+            {mode === "hold_the_route" ? (
+              <>
+                <StepTitle title="Which route" />
+                <View style={styles.list}>
+                  <RouteRow title="Any 2 km loop" sub="Fastest 2 km wins" on={!routeRunId} onPress={() => setRouteRunId(null)} />
+                  {myRoutes.slice(0, 6).map((r) => (
+                    <RouteRow key={r.id} title={r.title} sub={`${r.distanceKm.toFixed(1)} km · your best ${Math.floor(r.durationSec / 60)} min`} on={routeRunId === r.id} onPress={() => setRouteRunId(r.id)} />
+                  ))}
+                </View>
+                {route ? <Body dim size={12} style={{ marginTop: S.sm }}>Runs that cover 95% of the route count as a go.</Body> : null}
+              </>
+            ) : null}
 
-        <Step n="03" title="What counts" />
-        <View style={styles.grid}>
-          {METRIC_OPTIONS.map((m) => {
-            const active = m.value === metric;
-            const Icon = m.icon;
-            return (
-              <View key={m.value} style={styles.cell}>
-                <PressableScale
-                  onPress={() => setMetric(m.value)}
-                  scaleTo={0.95}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <Row
-                    style={{
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <Icon size={20} color={active ? C.text : C.textDim} />
-                    <Tick on={active} />
-                  </Row>
-                  <Text style={styles.metricLabel}>
-                    {m.label}
-                  </Text>
-                  <Text style={styles.chipHint}>{m.hint}</Text>
-                </PressableScale>
-              </View>
-            );
-          })}
-        </View>
-
-        <Card style={{ marginTop: S.xxl, borderWidth: 0 }} padding={S.lg}>
-          <Row style={{ justifyContent: "space-between" }}>
-            <Text style={styles.limitsTitle}>Your limits</Text>
-            {lim ? <TierBadge tier={lim.tier} /> : null}
-          </Row>
-          <Body dim size={14} style={{ marginTop: S.sm }}>
-            {lim ? limitsText(lim) : "Checking..."}
-          </Body>
-          {blocked ? (
-            <Body dim size={13} style={{ marginTop: S.sm }}>
-              {lim.active >= lim.maxActive
-                ? "Finish a live battle first, or go up a tier for more at once."
-                : "You've used this week's battle. Pro gets unlimited."}
+            <StepTitle title="Stake" right={<Text style={styles.wallet}>{formatNumber(out)} OUT to spend</Text>} />
+            <Chips options={STAKES.map((v) => ({ value: v, label: v ? `${v} OUT` : "No stake", disabled: v > out }))} value={stake} onChange={setStake} />
+            <Body dim size={12} style={{ marginTop: S.sm }}>
+              {stake ? `You both put in ${stake} OUT. The winner takes ${stake * 2}, a draw hands it back.` : "Just the win, the XP and the bragging rights."}
             </Body>
-          ) : null}
-          {lim?.tier !== "black" && blocked ? (
-            <Button
-              title="See membership"
-              variant="secondary"
-              size="sm"
-              onPress={() => router.push("/membership")}
-              style={{ marginTop: S.md, alignSelf: "flex-start" }}
-            />
-          ) : null}
-        </Card>
+
+            <Card style={{ marginTop: S.xl, borderWidth: 0 }} padding={S.lg}>
+              {RULES[mode]().map((line, i) => (
+                <Row key={i} gap={S.sm} style={{ alignItems: "flex-start", marginTop: i ? S.sm : 0 }}>
+                  <View style={styles.tick}>
+                    <Check size={11} color="#fff" strokeWidth={3} />
+                  </View>
+                  <Body size={13.5} style={{ flex: 1 }}>{line}</Body>
+                </Row>
+              ))}
+            </Card>
+
+            <Card style={{ marginTop: S.md, borderWidth: 0 }} padding={S.lg}>
+              <Row style={{ justifyContent: "space-between" }}>
+                <Text style={styles.limitsTitle}>Your limits</Text>
+                {lim ? <TierBadge tier={lim.tier} /> : null}
+              </Row>
+              <Body dim size={13} style={{ marginTop: S.sm }}>
+                {lim ? limitsText(lim) : "Checking..."}
+              </Body>
+              {blocked && lim?.tier !== "black" ? <Button title="See membership" variant="secondary" size="sm" onPress={() => router.push("/membership")} style={{ marginTop: S.md, alignSelf: "flex-start" }} /> : null}
+            </Card>
+          </FadeIn>
+        ) : null}
       </Screen>
 
-      <View
-        style={[styles.footer, { paddingBottom: insets.bottom + S.md }]}
-        pointerEvents="box-none"
-      >
-        <LinearGradient
-          colors={["rgba(10,10,10,0)", "rgba(10,10,10,0.92)", C.bg]}
-          locations={[0, 0.35, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View style={styles.ctaBase}>
-          <Button
-            title={
-              opponent.data
-                ? `Battle ${opponent.data.name}`
-                : "Pick an opponent"
-            }
-            size="lg"
-            full
-            disabled={!opponent.data}
-            loading={create.isPending}
-            onPress={() =>
-              create.mutate({ opponentId, durationHours: duration, metric })
-            }
-          />
-        </View>
-        <Text style={styles.footNote}>
-          {opponent.data
-            ? `${durationLabel(duration)} of ${metric === "distance" ? "distance" : "steps"}. Starts now. Winner takes ${BATTLE_PRIZES.win.xp} XP + ${BATTLE_PRIZES.win.out} OUT.`
-            : `Winner takes ${BATTLE_PRIZES.win.xp} XP and ${BATTLE_PRIZES.win.out} OUT.`}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function Step({ n, title, first = false }) {
-  return (
-    <Row
-      gap={S.sm}
-      style={{ marginTop: first ? S.md : S.xxl, marginBottom: S.md }}
-    >
-      <Text style={styles.stepNum}>{n}</Text>
-      <Text style={styles.stepTitle}>{title}</Text>
-    </Row>
-  );
-}
-
-function Tick({ on }) {
-  return (
-    <View style={[styles.tick, on && styles.tickOn]}>
-      {on ? <Check size={12} color={C.bg} strokeWidth={3} /> : null}
-    </View>
-  );
-}
-
-function SelectedRival({ player, onClear }) {
-  const colour = player.color || C.textDim;
-  return (
-    <View style={styles.selected}>
-      <Row gap={S.md}>
-        <Avatar
-          uri={player.avatar}
-          name={player.name}
-          colour={colour}
-          size={60}
-          ring={colour}
-          outside={player.isOutside}
-        />
-        <View style={{ flex: 1 }}>
-          <Row gap={6}>
-            <Text style={styles.selectedName} numberOfLines={1}>
-              {player.name}
-            </Text>
-            <TierBadge tier={player.tier} />
-          </Row>
-          <Text style={styles.selectedSub} numberOfLines={1}>
-            {personLine(player)} · {compactNumber(player.todaySteps)} today
+      {!searching ? (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + S.md }]} pointerEvents="box-none">
+          <LinearGradient colors={["rgba(7,9,12,0)", "rgba(7,9,12,0.92)", C.bg]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+          <Button title={cta} size="lg" full disabled={ctaDisabled} loading={create.isPending} onPress={next} />
+          <Text style={styles.footNote}>
+            {step === "setup" ? `Winner takes ${BATTLE_PRIZES.win.xp} XP and ${BATTLE_PRIZES.win.out + stake * 2} OUT.` : step === "mode" ? modeOf(mode).line : "Your record, their best day and their numbers, side by side."}
           </Text>
-        </View>
-        <PressableScale
-          onPress={onClear}
-          hitSlop={8}
-          style={styles.change}
-          accessibilityLabel="Change opponent"
-        >
-          <Text style={styles.changeText}>Change</Text>
-        </PressableScale>
-      </Row>
-    </View>
-  );
-}
-
-function PeopleList({
-  title,
-  people,
-  loading = false,
-  onPick,
-  emptyQuery = null,
-}) {
-  return (
-    <View style={{ marginTop: S.lg }}>
-      <Text style={styles.listTitle}>{title}</Text>
-      {loading ? (
-        <View style={{ gap: S.sm }}>
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} height={64} radius={16} />
-          ))}
-        </View>
-      ) : people.length ? (
-        <View>
-          {people.map((p, i) => (
-            <FadeIn key={p.id} index={i}>
-              {i > 0 ? <Divider style={{ marginLeft: 56 }} /> : null}
-              <PersonRow person={p} onPress={() => onPick(p)} />
-            </FadeIn>
-          ))}
-        </View>
-      ) : emptyQuery ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No one called "{emptyQuery}"</Text>
-          <Body dim size={13} style={{ textAlign: "center" }}>
-            Try a first name or a city like London.
-          </Body>
         </View>
       ) : null}
     </View>
   );
 }
 
-function PersonRow({ person: p, onPress }) {
+function StepDots({ step }) {
+  const at = STEPS.indexOf(step);
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98} style={styles.person}>
-      <Avatar
-        uri={p.avatar}
-        name={p.name}
-        colour={p.color}
-        size={44}
-        outside={p.isOutside}
-      />
+    <Row gap={5}>
+      {STEPS.map((s, i) => (
+        <View key={s} style={[styles.dot, i === at && styles.dotOn, i < at && { backgroundColor: C.accentHi }]} />
+      ))}
+    </Row>
+  );
+}
+
+function StepTitle({ title, right }) {
+  return (
+    <Row style={{ marginTop: S.xl, marginBottom: S.md, justifyContent: "space-between" }}>
+      <Text style={styles.stepTitle}>{title}</Text>
+      {right}
+    </Row>
+  );
+}
+
+function Chips({ options, value, onChange }) {
+  return (
+    <Row gap={S.sm} style={{ flexWrap: "wrap" }}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <PressableScale key={String(o.value)} disabled={o.disabled} onPress={() => onChange(o.value)} scaleTo={0.95} style={[styles.chip, on && styles.chipOn, o.disabled && { opacity: 0.4 }]}>
+            {o.label.includes("OUT") ? <Coins size={14} color={on ? "#fff" : C.textDim} /> : null}
+            <Text style={[styles.chipText, on && { color: "#fff" }]}>{o.label}</Text>
+          </PressableScale>
+        );
+      })}
+    </Row>
+  );
+}
+
+function RouteRow({ title, sub, on, onPress }) {
+  return (
+    <PressableScale onPress={onPress} scaleTo={0.98} style={[styles.route, on && { borderColor: C.accent }]}>
+      <View style={styles.routeIcon}>
+        <MapPin size={16} color={C.accent} />
+      </View>
       <View style={{ flex: 1 }}>
-        <Row gap={6}>
-          <Text style={styles.personName} numberOfLines={1}>
-            {p.name}
-          </Text>
-          <TierBadge tier={p.tier} />
-        </Row>
-        <Text style={styles.personSub} numberOfLines={1}>
-          {personLine(p)}
-        </Text>
+        <Text style={styles.routeTitle} numberOfLines={1}>{title}</Text>
+        <Text style={styles.routeSub}>{sub}</Text>
       </View>
-      <View style={{ alignItems: "flex-end" }}>
-        <Text style={styles.personSteps}>{compactNumber(p.todaySteps)}</Text>
-        <Text style={styles.personStepsLabel}>today</Text>
-      </View>
-      <View style={styles.radio} />
+      <View style={[styles.radio, on && styles.radioOn]}>{on ? <Check size={12} color="#fff" strokeWidth={3} /> : null}</View>
     </PressableScale>
   );
 }
 
+function FindSomeone({ query, setQuery, results, loading, onPick }) {
+  const searching = query.trim().length > 0;
+  return (
+    <View>
+      <View style={styles.search}>
+        <Search size={18} color={C.textMute} />
+        <TextInput value={query} onChangeText={setQuery} autoFocus placeholder="Search by name, username or area" placeholderTextColor={C.textMute} autoCapitalize="none" autoCorrect={false} style={styles.input} />
+        {searching ? (
+          <PressableScale onPress={() => setQuery("")} hitSlop={10} accessibilityLabel="Clear search">
+            <X size={16} color={C.textMute} />
+          </PressableScale>
+        ) : null}
+      </View>
+      {loading ? (
+        <View style={{ gap: S.sm, marginTop: S.lg }}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={64} radius={16} />
+          ))}
+        </View>
+      ) : results.length ? (
+        <View style={{ marginTop: S.md }}>
+          {results.slice(0, 20).map((p, i) => (
+            <FadeIn key={p.id} index={i}>
+              {i > 0 ? <Divider style={{ marginLeft: 56 }} /> : null}
+              <PressableScale onPress={() => onPick(p)} scaleTo={0.98} style={styles.person}>
+                <Avatar uri={p.avatar} name={p.name} tier={p.tier} dot={p.dot} outside={p.isOutside} size={44} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.personName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.personSub} numberOfLines={1}>{personLine(p)}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.personSteps}>{compactNumber(p.todaySteps)}</Text>
+                  <Text style={styles.personSub}>today</Text>
+                </View>
+              </PressableScale>
+            </FadeIn>
+          ))}
+        </View>
+      ) : searching ? (
+        <Body dim style={{ textAlign: "center", marginTop: S.xl }}>No one called "{query.trim()}". Try a first name or an area.</Body>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  stepNum: {
-    color: C.textMute,
-    fontFamily: F.display,
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  stepTitle: {
-    color: C.text,
-    fontFamily: F.display,
-    fontSize: 20,
-    letterSpacing: -0.3,
-  },
-  search: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: S.sm,
-    height: 50,
-    paddingHorizontal: S.lg,
-    borderRadius: R.full,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  input: { flex: 1, color: C.text, fontSize: 15, height: "100%" },
-  listTitle: {
-    color: C.textDim,
-    fontSize: 13,
-    marginBottom: S.xs,
-  },
-  person: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: S.md,
-    minHeight: 64,
-    paddingVertical: S.md,
-  },
-  personName: { color: C.text, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-  personSub: { color: C.textDim, fontSize: 13, marginTop: 2 },
-  personSteps: { color: C.text, fontFamily: F.display, fontSize: 15 },
-  personStepsLabel: { color: C.textMute, fontSize: 12 },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: C.borderStrong,
-    marginLeft: 4,
-  },
-  selected: {
-    padding: S.lg,
-    borderRadius: R.lg,
-    backgroundColor: C.surface,
-  },
-  selectedName: {
-    color: C.text,
-    fontFamily: F.display,
-    fontSize: 22,
-    letterSpacing: -0.3,
-    flexShrink: 1,
-  },
-  selectedSub: { color: C.textDim, fontSize: 13, marginTop: 2 },
-  change: {
-    height: 36,
-    paddingHorizontal: 14,
-    borderRadius: R.full,
-    backgroundColor: C.surfaceHigh,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  changeText: { color: C.text, fontSize: 13, fontWeight: "600" },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
-  cell: { flexBasis: "47%", flexGrow: 1 },
-  chip: {
-    minHeight: 88,
-    padding: S.lg,
-    borderRadius: R.lg,
-    backgroundColor: C.surface,
-    borderWidth: 1.5,
-    borderColor: "transparent",
-  },
-  chipActive: { borderColor: C.text },
-  chipValue: {
-    color: C.text,
-    fontFamily: F.display,
-    fontSize: 30,
-    letterSpacing: -0.8,
-    lineHeight: 34,
-  },
-  chipHint: { color: C.textMute, fontSize: 12, marginTop: 4 },
-  metricLabel: {
-    color: C.text,
-    fontFamily: F.display,
-    fontSize: 20,
-    marginTop: S.md,
-  },
-  tick: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: C.borderStrong,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tickOn: { backgroundColor: C.text, borderColor: C.text },
-  empty: {
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: S.xl,
-  },
-  limitsTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
-  emptyTitle: { color: C.text, fontFamily: F.displayMedium, fontSize: 16 },
-  footer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: S.gutter,
-    paddingTop: S.xxl,
-  },
-  ctaBase: { borderRadius: R.full, backgroundColor: C.bg },
-  footNote: {
-    color: C.textMute,
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: S.sm,
-  },
+  kick: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginTop: S.sm },
+  big: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 40, textTransform: "uppercase", marginTop: 6 },
+  summary: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, marginTop: S.sm },
+  summaryKick: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
+  summaryName: { color: C.text, fontFamily: F.display, fontSize: 26, textTransform: "uppercase", marginTop: 2 },
+  stepTitle: { color: C.text, fontFamily: F.display, fontSize: 20, textTransform: "uppercase", letterSpacing: 0.3 },
+  wallet: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.surface },
+  chipOn: { backgroundColor: C.accent },
+  chipText: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 14 },
+  list: { gap: S.sm },
+  route: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderWidth: 1.5, borderColor: "transparent" },
+  routeIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
+  routeTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  routeSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 1 },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" },
+  radioOn: { backgroundColor: C.accent, borderColor: C.accent },
+  tick: { width: 18, height: 18, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  limitsTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  dot: { width: 14, height: 4, borderRadius: 2, backgroundColor: C.surfaceHigh },
+  dotOn: { width: 26, backgroundColor: C.accent },
+  footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingTop: S.xxl },
+  footNote: { color: C.textDim, fontFamily: F.body, fontSize: 12, textAlign: "center", marginTop: S.sm },
+  search: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 50, paddingHorizontal: S.lg, borderRadius: R.full, backgroundColor: C.surface, marginTop: S.sm },
+  input: { flex: 1, color: C.text, fontSize: 15, height: "100%", outlineStyle: "none" },
+  person: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 64, paddingVertical: S.md },
+  personName: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  personSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
+  personSteps: { color: C.text, fontFamily: F.display, fontSize: 16 },
 });

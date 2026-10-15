@@ -22,6 +22,7 @@ import SummarySheet from "@/components/move/SummarySheet";
 import HistorySheet from "@/components/move/HistorySheet";
 import LocationDenied from "@/components/move/LocationDenied";
 import Countdown from "@/components/move/Countdown";
+import BattleBanner from "@/components/move/BattleBanner";
 
 // expo-location's web build throws from remove() after it has already stopped
 // the watch, so swallow that rather than crash the tab.
@@ -215,6 +216,8 @@ export default function MoveScreen() {
           </Row>
         )}
       </View>
+
+      {!isPlanning ? <BattleBanner top={insets.top + (recording ? 64 : 104)} /> : null}
 
       {/* Bottom panels */}
       <View style={styles.bottom} pointerEvents="box-none">

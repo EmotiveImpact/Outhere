@@ -49,7 +49,11 @@ export default function SummarySheet() {
 
   const save = useEngineMutation(engine.saveRun, {
     onSuccess: (run) => {
-      toast.success(`${activity.label} saved`, earned.xp > 0 ? `+${earned.xp} XP${earned.out ? `, +${earned.out} OUT` : ""} in the bag` : undefined);
+      const counted = run?.battles?.length || 0;
+      toast.success(
+        `${activity.label} saved`,
+        counted ? `Counted for ${counted === 1 ? "your battle" : `${counted} battles`}.` : earned.xp > 0 ? `+${earned.xp} XP${earned.out ? `, +${earned.out} OUT` : ""} in the bag` : undefined
+      );
       setSaved(run);
     },
   });

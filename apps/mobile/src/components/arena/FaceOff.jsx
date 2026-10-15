@@ -32,7 +32,7 @@ export function Countdown({ ms }) {
   );
 }
 
-export function Fighter({ player, value, metric, lead, colour, onPress }) {
+export function Fighter({ player, value, metric, lead, colour, onPress, sealed = false }) {
   const body = (
     <View style={{ alignItems: "center" }}>
       <View style={[styles.avatarRing, { borderColor: lead ? colour : "transparent" }]}>
@@ -41,14 +41,22 @@ export function Fighter({ player, value, metric, lead, colour, onPress }) {
       <Text style={styles.name} numberOfLines={1}>
         {playerName(player)}
       </Text>
-      <AnimatedNumber
-        value={value}
-        duration={900}
-        format={(v) => formatScore(metric, v)}
-        adjustsFontSizeToFit
-        style={[styles.score, lead && { color: C.text }]}
-      />
-      <Text style={styles.unit}>{metricUnit(metric)}</Text>
+      {sealed ? (
+        <Text style={styles.score}>SEALED</Text>
+      ) : metric === "time" ? (
+        <Text style={[styles.score, lead && { color: C.text }]} adjustsFontSizeToFit numberOfLines={1}>
+          {formatScore(metric, value)}
+        </Text>
+      ) : (
+        <AnimatedNumber
+          value={value || 0}
+          duration={900}
+          format={(v) => formatScore(metric, v)}
+          adjustsFontSizeToFit
+          style={[styles.score, lead && { color: C.text }]}
+        />
+      )}
+      <Text style={styles.unit}>{sealed ? "until you've both run" : metricUnit(metric)}</Text>
     </View>
   );
   if (!onPress) return <View style={{ flex: 1 }}>{body}</View>;
@@ -68,9 +76,17 @@ export function FaceOffRow({ battle, rival, onOpponent }) {
       <Row style={{ alignItems: "flex-start" }}>
         <Fighter player={me.player} value={me.value} metric={metric} lead={iLead} colour={ME} />
         <VsBadge size={40} style={{ marginTop: 22 }} />
-        <Fighter player={opponent.player} value={opponent.value} metric={metric} lead={theyLead} colour={rival} onPress={onOpponent} />
+        <Fighter player={opponent.player} value={opponent.value} metric={metric} lead={theyLead} colour={rival} onPress={onOpponent} sealed={battle.sealed} />
       </Row>
-      {battle.status !== "pending" ? <TugBar mine={me.value} theirs={opponent.value} rival={rival} height={12} style={{ marginTop: S.xl }} /> : null}
+      {battle.status !== "pending" && !battle.sealed && battle.phase !== "lobby" ? (
+        <TugBar
+          mine={metric === "time" ? (opponent.value == null ? 0 : opponent.value) : me.value || 0}
+          theirs={metric === "time" ? (me.value == null ? 0 : me.value) : opponent.value || 0}
+          rival={rival}
+          height={12}
+          style={{ marginTop: S.xl }}
+        />
+      ) : null}
     </>
   );
 }

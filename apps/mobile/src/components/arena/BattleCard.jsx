@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Avatar, Button, C, F, LiveDot, Pill, PressableScale, R, Row, S } from "@/components/ui";
 import { countdown, timeAgo } from "@/utils/format";
-import { durationLabel, formatScore, ME, metricUnit, playerName, rivalColour } from "./shared";
+import { battleFormat, formatScore, ME, metricUnit, playerName, rivalColour, standingLine } from "./shared";
 import { TugBar } from "./TugBar";
 
 export { TugBar };
@@ -46,9 +46,7 @@ function InviteCard({ battle, onPress, onAccept, onDecline, busy, primary, style
     <PressableScale onPress={onPress} scaleTo={0.985} style={[styles.card, style]}>
       <Row style={{ justifyContent: "space-between" }}>
         {statusPill(battle)}
-        <Text style={styles.meta}>
-          {durationLabel(battle.durationHours)} · {metricName(metric)}
-        </Text>
+        <Text style={styles.meta}>{battleFormat(battle)}</Text>
       </Row>
 
       <Row style={{ marginTop: S.lg, alignItems: "flex-start" }}>
@@ -59,7 +57,7 @@ function InviteCard({ battle, onPress, onAccept, onDecline, busy, primary, style
 
       <Text style={styles.inviteLine}>
         {battle.incoming
-          ? `${playerName(opponent.player)} wants a ${durationLabel(battle.durationHours)} ${metric === "distance" ? "distance" : "step"} battle.`
+          ? `${playerName(opponent.player)} wants a battle: ${battleFormat(battle).toLowerCase()}.`
           : `Waiting on ${playerName(opponent.player)} to accept.`}
       </Text>
 
@@ -99,12 +97,7 @@ function LiveCard({ battle, now, onPress, style }) {
   const rival = rivalColour(opponent.player);
   const iLead = battle.leader === "me" || battle.result === "won";
   const theyLead = (battle.leader && battle.leader !== "me") || battle.result === "lost";
-  const gap = Math.abs(me.value - opponent.value);
-  const standing = iLead
-    ? `You lead by ${formatScore(metric, gap)} ${metricUnit(metric)}`
-    : theyLead
-      ? `${playerName(opponent.player)} leads by ${formatScore(metric, gap)} ${metricUnit(metric)}`
-      : "Dead level. First to move takes it.";
+  const standing = live ? standingLine(battle, playerName(opponent.player)) : battleFormat(battle);
 
   return (
     <PressableScale onPress={onPress} scaleTo={0.985} style={[styles.card, style]}>
@@ -117,16 +110,18 @@ function LiveCard({ battle, now, onPress, style }) {
         ) : (
           statusPill(battle)
         )}
-        <Text style={styles.meta}>{live ? `${countdown(battle.endAt, now)} left` : timeAgo(battle.endAt || battle.createdAt)}</Text>
+        <Text style={styles.meta}>{live ? (battle.endAt ? `${countdown(battle.endAt, now)} left` : "At the start line") : timeAgo(battle.endAt || battle.createdAt)}</Text>
       </Row>
 
       <Row style={{ marginTop: S.lg }}>
         <Side player={me.player} value={me.value} metric={metric} lead={iLead} colour={ME} />
         <VsBadge size={32} />
-        <Side player={opponent.player} value={opponent.value} metric={metric} lead={theyLead} colour={rival} right />
+        <Side player={opponent.player} value={battle.sealed ? null : opponent.value} metric={metric} lead={theyLead} colour={rival} right />
       </Row>
 
-      <TugBar mine={me.value} theirs={opponent.value} rival={rival} height={8} style={{ marginTop: S.lg }} />
+      {battle.sealed || battle.phase === "lobby" ? null : (
+        <TugBar mine={metric === "time" ? opponent.value || 0 : me.value || 0} theirs={metric === "time" ? me.value || 0 : opponent.value || 0} rival={rival} height={8} style={{ marginTop: S.lg }} />
+      )}
       <Text style={[styles.standing, iLead && { color: C.text }]}>{standing}</Text>
     </PressableScale>
   );

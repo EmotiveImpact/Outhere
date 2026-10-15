@@ -22,6 +22,7 @@ import {
 import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { noise, randomCode, randomId } from "./random";
 import { PHOTOS } from "@/constants/photos";
+import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
 const ME = "me";
@@ -916,36 +917,132 @@ export const claimChallenge = async (id) =>
   });
 
 // ── Battles ───────────────────────────────────────────────────────────────────
+// Six modes (constants/battleModes.js). Window modes count steps, days at goal
+// or laps until the clock runs out. Timed modes take your first run of at least
+// the distance after the start; the faster time wins. Simulated rivals accept
+// straight away and run at a pace of their own.
 
 export const BATTLE_DURATIONS = [2, 6, 24, 168];
+export { BATTLE_MODES } from "@/constants/battleModes";
 
+const RIVAL_READY_MS = 4000;
+
+const legacyMode = (b) => b.mode || "most_steps";
+const rivalOf = (b) => (b.creatorId === ME ? b.opponentId : b.creatorId);
+const battleKm = (b) => (b.distanceM || 0) / 1000;
+
+// Seconds per km a simulated player runs at: 4:30 to 7:00.
+const rivalPace = (pid) => Math.round(270 + noise(`${pid}:pace`) * 150);
+const rivalTime = (b) => Math.round(rivalPace(rivalOf(b)) * battleKm(b) * (0.94 + noise(`${b.id}:t`) * 0.12));
+
+// When the rival's time lands, or null if it never will in this battle.
+const rivalFinishAt = (b) => {
+  const mode = legacyMode(b);
+  if (!b.startAt) return null;
+  if (mode === "ghost_race") return b.startAt;
+  if (mode === "blind_time_trial") return b.startAt + (1 + noise(`${b.id}:go`) * 9) * HOUR_MS + rivalTime(b) * 1000;
+  if (mode === "live_race") return b.phase === "live" ? b.startAt + rivalTime(b) * 1000 : null;
+  return null;
+};
+
+const rivalEntry = (b) => {
+  const at = rivalFinishAt(b);
+  return at != null && Date.now() >= at && at <= b.endAt ? { sec: rivalTime(b), at } : null;
+};
+
+const stepsOnDay = (s, pid, key) => (pid === ME ? myDay(s, key).steps : playerDayTotal(pid, key));
+
+// Days in a row at the rising target since the start, finished days only.
+const standing = (s, b, pid) => {
+  let days = 0;
+  let cursor = startOfDay(b.startAt).getTime();
+  const stop = Math.min(Date.now(), b.endAt);
+  while (cursor < stop) {
+    const dayEnd = addDays(new Date(cursor), 1).getTime();
+    if (dayEnd > Date.now()) break;
+    if (stepsOnDay(s, pid, dayKey(new Date(cursor))) < standingTarget(days)) return { days, missedAt: dayEnd };
+    days += 1;
+    cursor = dayEnd;
+  }
+  return { days, missedAt: null };
+};
+
+// Hold the route: your best time over the route from any run that covers it.
+const routeKm = (b) => b.routeKm || 2;
+const myRouteBest = (s, b) => {
+  const km = routeKm(b);
+  const times = s.runs
+    .filter((r) => r.startedAt >= b.startAt && r.startedAt <= b.endAt && r.distanceKm >= km * ROUTE_SHARE && r.durationSec > 0)
+    .map((r) => Math.round(r.durationSec * (km / r.distanceKm)));
+  return times.length ? Math.min(...times) : null;
+};
+const rivalRouteBest = (b) => {
+  const at = b.startAt + noise(`${b.id}:route`) * 0.6 * (b.endAt - b.startAt);
+  return Date.now() >= at ? Math.round(rivalPace(rivalOf(b)) * routeKm(b) * (0.94 + noise(`${b.id}:rt`) * 0.12)) : null;
+};
+
+// A side's score: steps, seconds, days or laps. Null means no time yet.
 const battleValue = (s, b, pid) => {
-  if (!b.startAt) return 0;
+  if (!b.startAt) return MODE[legacyMode(b)].unit === "time" ? null : 0;
   const to = Math.min(Date.now(), b.endAt);
-  const steps = pid === ME ? myStepsBetween(s, b.startAt, to) : playerStepsBetween(pid, b.startAt, to);
-  if (b.metric === "distance") return Math.round((pid === ME ? myDistanceBetween(s, b.startAt, to) : steps * STEP_KM) * 100) / 100;
-  return steps;
+  const mode = legacyMode(b);
+  if (mode === "most_steps") {
+    const steps = pid === ME ? myStepsBetween(s, b.startAt, to) : playerStepsBetween(pid, b.startAt, to);
+    if (b.metric === "distance") return Math.round((pid === ME ? myDistanceBetween(s, b.startAt, to) : steps * STEP_KM) * 100) / 100;
+    return steps;
+  }
+  if (mode === "last_one_standing") return standing(s, b, pid).days;
+  if (mode === "hold_the_route") return pid === ME ? myRouteBest(s, b) : rivalRouteBest(b);
+  if (pid === ME) return b.entries?.me?.sec ?? null;
+  return rivalEntry(b)?.sec ?? null;
+};
+
+const decide = (mode, mine, theirs) => {
+  if (mine == null && theirs == null) return null;
+  if (mine == null) return "them";
+  if (theirs == null) return "me";
+  if (mine === theirs) return null;
+  return (mine < theirs) === lowerWins(mode) ? "me" : "them";
+};
+
+const settleOne = (s, b) => {
+  const opp = rivalOf(b);
+  const mode = legacyMode(b);
+  const mine = battleValue(s, b, ME);
+  const theirs = battleValue(s, b, opp);
+  let side = decide(mode, mine, theirs);
+  if (mode === "last_one_standing") {
+    const a = standing(s, b, ME);
+    const c = standing(s, b, opp);
+    side = a.missedAt && (!c.missedAt || a.missedAt < c.missedAt) ? "them" : c.missedAt && (!a.missedAt || c.missedAt < a.missedAt) ? "me" : decide(mode, mine, theirs);
+  }
+  b.status = "complete";
+  b.final = { me: mine, opponent: theirs };
+  b.winnerId = side === "me" ? ME : side === "them" ? opp : null;
+  b.forfeit = MODE[mode]?.unit === "time" && (mine == null) !== (theirs == null);
+  b.completedAt = Date.now();
+  const player = playerById[opp];
+  const stake = b.stakeOut || 0;
+  if (b.winnerId === ME) {
+    b.prize = award(s, { xp: 150, out: 15 + stake * 2, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
+    notify(s, { type: "battles", title: `You beat ${player?.name} 🏆`, body: `150 XP and ${15 + stake * 2} OUT are yours.`, link: `/battles/${b.id}` });
+  } else {
+    b.prize = award(s, { xp: 25, out: b.winnerId ? 0 : stake, label: b.winnerId ? "Battle played" : "Battle drawn", reason: "battle", refId: b.id });
+    notify(s, { type: "battles", title: b.winnerId ? `${player?.name} won this one` : "Battle drawn", body: "25 XP for showing up. Run it back?", link: `/battles/${b.id}` });
+  }
 };
 
 const settleBattles = (s) => {
   let any = false;
   for (const b of s.battles) {
-    if (b.status === "active" && Date.now() >= b.endAt) {
-      const opp = b.creatorId === ME ? b.opponentId : b.creatorId;
-      const mine = battleValue(s, b, ME);
-      const theirs = battleValue(s, b, opp);
-      b.status = "complete";
-      b.final = { me: mine, opponent: theirs };
-      b.winnerId = mine > theirs ? ME : theirs > mine ? opp : null;
-      b.completedAt = Date.now();
-      const player = playerById[opp];
-      if (b.winnerId === ME) {
-        b.prize = award(s, { xp: 150, out: 15, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
-        notify(s, { type: "battles", title: `You beat ${player?.name} 🏆`, body: "150 XP and 15 OUT are yours.", link: `/battles/${b.id}` });
-      } else {
-        b.prize = award(s, { xp: 25, label: "Battle played", reason: "battle", refId: b.id });
-        notify(s, { type: "battles", title: b.winnerId ? `${player?.name} won this one` : "Battle drawn", body: "25 XP for showing up. Run it back?", link: `/battles/${b.id}` });
-      }
+    if (b.status !== "active") continue;
+    const mode = legacyMode(b);
+    const now = Date.now();
+    let due = b.endAt && now >= b.endAt;
+    if (!due && MODE[mode]?.kind === "distance" && b.startAt) due = b.entries?.me && rivalEntry(b);
+    if (!due && mode === "last_one_standing") due = !!(standing(s, b, ME).missedAt || standing(s, b, rivalOf(b)).missedAt);
+    if (due) {
+      settleOne(s, b);
       any = true;
     }
   }
@@ -953,26 +1050,51 @@ const settleBattles = (s) => {
 };
 
 const battleView = (s, b) => {
-  const oppId = b.creatorId === ME ? b.opponentId : b.creatorId;
+  const oppId = rivalOf(b);
+  const mode = legacyMode(b);
+  const def = MODE[mode];
   const done = b.status === "complete";
   const mine = done ? b.final.me : battleValue(s, b, ME);
-  const theirs = done ? b.final.opponent : battleValue(s, b, oppId);
+  let theirs = done ? b.final.opponent : battleValue(s, b, oppId);
+  const timed = def.unit === "time";
+  const sealed = mode === "blind_time_trial" && !done && !(mine != null && theirs != null);
+  if (sealed) theirs = null;
+  const lobby = mode === "live_race" && b.status === "active" && b.phase !== "live";
+  const side = mine == null && theirs == null ? null : decide(mode, mine, theirs);
   return {
     id: b.id,
-    metric: b.metric,
+    mode,
+    modeName: def.name,
+    metric: mode === "most_steps" ? b.metric || "steps" : def.unit,
     durationHours: b.durationHours,
+    distanceM: mode === "hold_the_route" ? Math.round(routeKm(b) * 1000) : b.distanceM || null,
+    routeKm: mode === "hold_the_route" ? routeKm(b) : null,
+    routeName: b.routeName || null,
+    stakeOut: b.stakeOut || 0,
     status: b.status,
+    phase: lobby ? "lobby" : b.status === "active" ? "live" : b.status,
+    readyMe: !!b.ready?.me,
+    readyThem: !!b.ready?.them || (b.createdAt && Date.now() - b.createdAt > RIVAL_READY_MS),
+    sealed,
+    timed,
+    myTimeIn: timed && mine != null,
+    theirTimeIn: timed && (sealed ? !!rivalEntry(b) : theirs != null),
+    ghostSec: mode === "ghost_race" && b.startAt ? rivalTime(b) : null,
+    rivalPaceSec: mode === "live_race" ? rivalPace(oppId) : null,
+    target: mode === "last_one_standing" && b.startAt ? standingTarget(Math.max(0, Math.floor((startOfDay().getTime() - startOfDay(b.startAt).getTime()) / DAY_MS))) : null,
+    todaySteps: mode === "last_one_standing" ? { me: stepsOnDay(s, ME, dayKey()), them: playerStepsToday(oppId) } : null,
     incoming: b.status === "pending" && b.opponentId === ME,
     isChallenger: b.creatorId === ME,
     prize: b.prize || null,
     createdAt: b.createdAt,
     startAt: b.startAt || null,
     endAt: b.endAt || null,
-    remainingMs: b.status === "active" ? Math.max(0, b.endAt - Date.now()) : 0,
+    remainingMs: b.status === "active" && b.endAt ? Math.max(0, b.endAt - Date.now()) : 0,
     me: { player: meAsPlayer(s), value: mine },
     opponent: { player: publicPlayer(oppId), value: theirs },
-    leader: mine === theirs ? null : mine > theirs ? ME : oppId,
+    leader: side === "me" ? ME : side === "them" ? oppId : null,
     winnerId: b.winnerId ?? null,
+    forfeit: !!b.forfeit,
     result: done ? (b.winnerId === ME ? "won" : b.winnerId ? "lost" : "draw") : null,
   };
 };
@@ -1011,10 +1133,13 @@ export const getBattleLimits = async () =>
     return { tier: me.tier, createdThisWeek, active, battlesPerWeek: rules.battlesPerWeek, maxActive: rules.maxActiveBattles, canCreate: createdThisWeek < rules.battlesPerWeek && active < rules.maxActiveBattles };
   });
 
-export const createBattle = async ({ opponentId, durationHours = 24, metric = "steps" }) =>
+export const createBattle = async ({ opponentId, mode = "most_steps", durationHours, distanceM, stakeOut = 0, routeRunId = null, metric = "steps" }) =>
   write((s) => {
     const me = requireMe(s);
+    const def = MODE[mode];
+    if (!def) throw new EngineError("BAD_MODE", "Pick a way to battle.");
     if (!playerById[opponentId]) throw new EngineError("NOT_FOUND", "Pick an opponent.");
+    if (isRosterHidden(s, opponentId)) throw new EngineError("NOT_ALLOWED", "You took them off your list. Add them back first.");
     const rules = TIER_RULES[me.tier];
     const weekAgo = Date.now() - 7 * DAY_MS;
     if (s.battles.filter((b) => b.creatorId === ME && b.createdAt >= weekAgo).length >= rules.battlesPerWeek) {
@@ -1023,12 +1148,64 @@ export const createBattle = async ({ opponentId, durationHours = 24, metric = "s
     if (s.battles.filter((b) => b.status === "active").length >= rules.maxActiveBattles) {
       throw new EngineError("TOO_MANY", `You can have ${rules.maxActiveBattles} active battles at once.`);
     }
+    const stake = Math.max(0, Math.min(500, Math.round(Number(stakeOut) || 0)));
+    if (stake > balance(s, "out")) throw new EngineError("NOT_ENOUGH_OUT", "You don't have that much OUT to stake.");
+    if (def.kind === "distance" && !def.distances.includes(distanceM)) throw new EngineError("DISTANCE_REQUIRED", "Pick a distance.");
+    const hours = def.kind === "window" ? (def.durations.includes(durationHours) ? durationHours : def.defaultDuration) : null;
+    const route = mode === "hold_the_route" && routeRunId ? s.runs.find((r) => r.id === routeRunId) : null;
+    if (mode === "hold_the_route" && routeRunId && !route) throw new EngineError("NOT_FOUND", "That route has gone.");
+
     // Simulated players accept straight away.
     const now = Date.now();
-    const b = { id: randomId("b"), metric, creatorId: ME, opponentId, durationHours, status: "active", createdAt: now, startAt: now, endAt: now + durationHours * HOUR_MS };
+    const b = {
+      id: randomId("b"),
+      mode,
+      metric: mode === "most_steps" ? metric : undefined,
+      creatorId: ME,
+      opponentId,
+      durationHours: hours,
+      distanceM: def.kind === "distance" ? distanceM : null,
+      routeKm: route ? route.distanceKm : mode === "hold_the_route" ? 2 : null,
+      routeName: route?.title || null,
+      stakeOut: stake,
+      status: "active",
+      phase: mode === "live_race" ? "lobby" : "live",
+      ready: {},
+      entries: {},
+      createdAt: now,
+      startAt: mode === "live_race" ? null : now,
+      endAt: mode === "live_race" ? null : now + (hours || BLIND_FINISH_HOURS) * HOUR_MS,
+    };
+    if (stake) award(s, { out: -stake, label: "Battle stake held", reason: "battle_stake", refId: b.id });
     s.battles.push(b);
     return battleView(s, b);
   });
+
+// Live race: both press ready, then the start lands on both phones together.
+export const readyBattle = async (id) =>
+  write((s) => {
+    const b = s.battles.find((x) => x.id === id);
+    if (!b || legacyMode(b) !== "live_race" || b.status !== "active" || b.phase === "live") throw new EngineError("NOT_ALLOWED", "This race has already started.");
+    b.ready = { ...(b.ready || {}), me: Date.now(), them: b.ready?.them || Date.now() };
+    b.phase = "live";
+    b.startAt = Date.now() + LIVE_RACE_LEAD_MS;
+    b.endAt = b.startAt + LIVE_RACE_HOURS * HOUR_MS;
+    return battleView(s, b);
+  });
+
+// A saved run that covers a timed battle's distance becomes your time.
+const applyRunToBattles = (s, run) => {
+  const used = [];
+  for (const b of s.battles) {
+    if (b.status !== "active" || !b.startAt || MODE[legacyMode(b)]?.kind !== "distance") continue;
+    if (b.entries?.me || run.startedAt < b.startAt - 30 * 1000 || run.startedAt > b.endAt) continue;
+    const km = battleKm(b);
+    if (!km || run.distanceKm < km) continue;
+    b.entries = { ...(b.entries || {}), me: { sec: Math.round(run.durationSec * (km / run.distanceKm)), runId: run.id, at: Date.now() } };
+    used.push(b.id);
+  }
+  return used;
+};
 
 export const respondToBattle = async (id, accept) =>
   write((s) => {
@@ -1036,8 +1213,12 @@ export const respondToBattle = async (id, accept) =>
     if (!b || b.status !== "pending") throw new EngineError("NOT_FOUND", "That challenge has gone.");
     if (accept) {
       b.status = "active";
-      b.startAt = Date.now();
-      b.endAt = b.startAt + b.durationHours * HOUR_MS;
+      if (legacyMode(b) === "live_race") {
+        b.phase = "lobby";
+      } else {
+        b.startAt = Date.now();
+        b.endAt = b.startAt + (b.durationHours || BLIND_FINISH_HOURS) * HOUR_MS;
+      }
     } else {
       b.status = "declined";
     }
@@ -1050,7 +1231,79 @@ export const cancelBattle = async (id) =>
     if (!b || b.status !== "active") throw new EngineError("NOT_FOUND", "Only active battles can be cancelled.");
     if (b.creatorId !== ME) throw new EngineError("FORBIDDEN", "Only the challenger can cancel.");
     b.status = "cancelled";
+    if (b.stakeOut) award(s, { out: b.stakeOut, label: "Stake returned", reason: "battle_stake", refId: b.id });
     return battleView(s, b);
+  });
+
+// ── Character select ──────────────────────────────────────────────────────────
+// The people you battle most, as a fighting game roster: your record with each,
+// their best day, and stat bars from their own numbers. Crossing someone off
+// takes them out of your regulars without telling them.
+
+const isRosterHidden = (s, pid) => (s.rosterHidden || []).includes(pid);
+
+const statBars = (s, pid) => {
+  const days = Array.from({ length: 14 }, (_, i) => stepsOnDay(s, pid, dayKey(addDays(new Date(), -1 - i))));
+  const avg = days.reduce((a, b) => a + b, 0) / days.length;
+  const best = Math.max(...days);
+  const pace = pid === ME ? s.runs.find((r) => r.paceSecPerKm)?.paceSecPerKm || 360 : rivalPace(pid);
+  const streak = pid === ME ? computeStreak(s) : playerStreak(pid);
+  const clamp = (v) => Math.max(0.08, Math.min(1, v));
+  return {
+    bestDay: best,
+    avgSteps: Math.round(avg),
+    paceSec: pace,
+    bars: [
+      { key: "speed", label: "Speed", value: clamp((480 - pace) / 220) },
+      { key: "stamina", label: "Stamina", value: clamp(avg / 18000) },
+      { key: "streak", label: "Streak", value: clamp(streak / 30) },
+      { key: "peak", label: "Peak", value: clamp(best / 25000) },
+    ],
+  };
+};
+
+export const getRivalRoster = async () => {
+  await settleIfNeeded();
+  return read((s) => {
+    requireMe(s);
+    const record = {};
+    for (const b of s.battles) {
+      const pid = rivalOf(b);
+      const r = (record[pid] ||= { played: 0, wins: 0, losses: 0, last: 0 });
+      r.played += 1;
+      r.last = Math.max(r.last, b.createdAt);
+      if (b.status === "complete") {
+        if (b.winnerId === ME) r.wins += 1;
+        else if (b.winnerId) r.losses += 1;
+      }
+    }
+    const regulars = Object.keys(record).sort((a, b) => record[b].played - record[a].played || record[b].last - record[a].last);
+    const fill = [...s.following, ...PLAYERS.map((p) => p.id)];
+    const ids = [...new Set([...regulars, ...fill])].filter((pid) => playerById[pid] && !isRosterHidden(s, pid)).slice(0, 11);
+    return {
+      me: { player: meAsPlayer(s), ...statBars(s, ME) },
+      roster: ids.map((pid) => ({ player: personView(s, pid), record: record[pid] || { played: 0, wins: 0, losses: 0 }, regular: !!record[pid], ...statBars(s, pid) })),
+      hidden: (s.rosterHidden || []).map((pid) => publicPlayer(pid)).filter(Boolean),
+    };
+  });
+};
+
+export const hideFromRoster = async (pid) =>
+  write((s) => {
+    s.rosterHidden = [...new Set([...(s.rosterHidden || []), pid])];
+  });
+
+export const showInRoster = async (pid) =>
+  write((s) => {
+    s.rosterHidden = (s.rosterHidden || []).filter((x) => x !== pid);
+  });
+
+// A random rival near your level, for the mystery tile.
+export const randomRival = async () =>
+  read((s) => {
+    const pool = PLAYERS.filter((p) => !isRosterHidden(s, p.id));
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    return pick ? personView(s, pick.id) : null;
   });
 
 // ── Crews ─────────────────────────────────────────────────────────────────────
@@ -1320,7 +1573,9 @@ export const saveRun = async (run) =>
     s.runs = [saved, ...s.runs.filter((r) => r.id !== saved.id)];
     const xp = Math.round(saved.distanceKm * 10);
     if (xp > 0) award(s, { xp, out: Math.floor(saved.distanceKm), label: `${saved.distanceKm} km ${saved.type}`, reason: "run", refId: saved.id });
-    return saved;
+    const battles = applyRunToBattles(s, saved);
+    settleBattles(s);
+    return { ...saved, battles };
   });
 
 const defaultRunTitle = (ms) => {
