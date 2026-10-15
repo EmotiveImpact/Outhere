@@ -77,7 +77,7 @@ do $$
 declare a uuid := (select v::uuid from ids where k = 'club_a');
 begin
   assert (select status from clubs where id = a) = 'verified', 'approved club is verified';
-  assert (select slug from clubs where id = a) = 'southbank-runners', 'slug from the name';
+  assert (select slug from clubs where id = a) = 'southbankrunners', 'slug from the name';
   assert (select instagram from clubs where id = a) = 'southbankrunners', 'proof handle kept, no @';
   assert club_role_of(a, '00000000-0000-0000-0000-0000000000c1') = 'captain', 'claimant is captain';
   assert (select tier from profiles where id = '00000000-0000-0000-0000-0000000000c1') = 'pro', 'organisers get Pro';

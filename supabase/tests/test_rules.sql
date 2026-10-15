@@ -113,7 +113,7 @@ reset role;
 select pg_temp.act('00000000-0000-0000-0000-00000000000b');
 set role authenticated;
 do $$
-declare cid uuid := (select id from clubs where slug = 'peckham-pacers');
+declare cid uuid := (select id from clubs where slug = 'peckhampacers');
 begin
   assert (select count(*) from club_messages) = 0, 'non members cannot read chat';
   assert (select count(*) from club_invites) = 0, 'non staff cannot read invites';
@@ -205,10 +205,10 @@ reset role;
 -- ── Membership ───────────────────────────────────────────────────────────────
 insert into subscriptions (user_id, tier, source, status, provider_ref, current_period_end, referral_club_id)
 select '00000000-0000-0000-0000-00000000000b', 'pro', 'web', 'active', 'sub_test_1', now() + interval '30 days', id
-from clubs where slug = 'peckham-pacers';
+from clubs where slug = 'peckhampacers';
 do $$ begin
   assert (select tier from profiles where id = '00000000-0000-0000-0000-00000000000b') = 'pro', 'subscription sets the ring';
-  update clubs set status = 'verified' where slug = 'peckham-pacers';
+  update clubs set status = 'verified' where slug = 'peckhampacers';
   assert credit_club_fund(date_trunc('month', now())::date) = 1, 'club credited';
   assert (select amount_pence from club_fund_entries limit 1) = 100, 'web pro is £1';
   update subscriptions set status = 'expired';

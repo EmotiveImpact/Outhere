@@ -41,7 +41,11 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      # Run from the functions folder so Deno reads its own deno.json and
+      # leaves the pnpm workspace at the root alone.
       - name: Typecheck Edge Functions
-        run: deno check supabase/functions/story-media/index.ts
+        working-directory: supabase/functions
+        run: deno check story-media/index.ts
       - name: Test the R2 helper
-        run: deno test --allow-env supabase/functions/_shared/r2_test.ts
+        working-directory: supabase/functions
+        run: deno test --allow-env _shared/r2_test.ts

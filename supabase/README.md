@@ -38,7 +38,7 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 | Money | `subscriptions` (sets the ring), `club_fund_entries`, `club_fund_months`, `locals_partners` | payment webhooks, scheduler: `credit_club_fund` |
 | Drops | `drops`, `drop_orders`, `drop_reminders` | `reserve_drop` |
 | Staff | `audit_log` (every action below writes a line) | moderators: `verify_club`, `review_steps`, `remove_from_squad`; admins: `set_reveal_held` |
-| Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats` |
+| Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats`. UK-wide: each row is a launch city (`city_id`, plus a borough in London) or a town with one of 11 regions (`town`, `region`) |
 
 Rules the database enforces, so no client can cheat them:
 
@@ -53,7 +53,7 @@ Rules the database enforces, so no client can cheat them:
 - Routes shown to others have the first and last 200 m removed.
 - Club chat is for members only; announcements are for captains and admins.
 - Private profiles. With `public_profile` off, the full profile and its badges are seen only by the member, staff and friends (people they follow back; a one way follow is not enough, since follows need no approval). Everyone else, signed in or not, sees only `profile_cards`: id, username, display name, avatar and the ring.
-- Clubs with `join_policy = 'request'` turn `join_club` into a request that club staff answer with `decide_join_request`; an invite code counts as an invitation and joins straight away. Club addresses change only through `rename_club`, and no club can take a slug the app or website owns (`is_reserved_slug`, copied from `RESERVED_SLUGS` in `packages/core` rules.ts).
+- Clubs with `join_policy = 'request'` turn `join_club` into a request that club staff answer with `decide_join_request`; an invite code counts as an invitation and joins straight away. Club addresses change only through `rename_club`, and no club can take a slug the app or website owns. Club links (`weouthere.app/<slug>`) are letters and numbers only. The reserved words live in the `reserved_slugs` table (app and website paths, UK nations, regions and every UK city), seeded from `RESERVED_SLUGS` in `packages/core`; keep the two the same. A club made with no link chosen gets `suggest_club_slug(name, city)`: the name, then the name and city, then a number (`parksiderunners`, `parksiderunnersleeds`, `parksiderunnersleeds2`).
 - Borough totals count each person's unflagged counted steps for the borough on their profile, in Monday to Sunday London weeks. Reviewing a flagged day as fine pays what was held back, with the same keys, so nothing pays twice. A season with `reveal_held` is skipped by `settle_due_fixtures` until it is released.
 - Error codes are raised as the exception message (`TIER_REQUIRED`, `NOT_ENOUGH_OUT`, `EVENT_FULL`, `FUTURE_DAY` ...), so clients can switch on them.
 

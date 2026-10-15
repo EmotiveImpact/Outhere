@@ -981,17 +981,10 @@ export const getCrewLimits = async () => {
   return { tier: p.tier, owned: owned.count || 0, joined: joined.count || 0, maxOwned: 3, maxJoined: 10, canCreate: (owned.count || 0) < 3, canJoin: (joined.count || 0) < 10 };
 };
 
-const slugify = (name) =>
-  `${name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 32)}-${Math.random().toString(36).slice(2, 6)}`;
-
 export const createCrew = async ({ name, tagline = "", city }) => {
   const me = await requireUid();
   const p = await run(supabase.from("profiles").select("city_id").eq("id", me).single());
-  const c = await rpc("create_club", { p_name: name.trim(), p_slug: slugify(name), p_city: city ? cityId(city) : p.city_id, p_tagline: tagline || null });
+  const c = await rpc("create_club", { p_name: name.trim(), p_slug: null, p_city: city ? cityId(city) : p.city_id, p_tagline: tagline || null });
   changed();
   return getCrew(c.id);
 };
