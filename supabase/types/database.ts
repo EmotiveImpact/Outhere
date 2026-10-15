@@ -319,6 +319,7 @@ export type Database = {
           lng: number | null;
           is_live: boolean;
           created_at: string;
+          image_path: string | null;
         };
         Insert: {
           id: string;
@@ -330,6 +331,7 @@ export type Database = {
           lng?: number | null;
           is_live?: boolean;
           created_at?: string;
+          image_path?: string | null;
         };
         Update: {
           id?: string;
@@ -341,6 +343,7 @@ export type Database = {
           lng?: number | null;
           is_live?: boolean;
           created_at?: string;
+          image_path?: string | null;
         };
         Relationships: [];
       };
@@ -2018,6 +2021,19 @@ export type Database = {
         };
         Relationships: [];
       };
+      city_eligible_counts: {
+        Row: {
+          city_id: string | null;
+          name: string | null;
+          region: string | null;
+          is_live: boolean | null;
+          image_path: string | null;
+          eligible: number | null;
+          needed: number | null;
+          to_go: number | null;
+        };
+        Relationships: [];
+      };
       club_founding_progress: {
         Row: {
           club_id: string | null;
@@ -2057,6 +2073,15 @@ export type Database = {
         };
         Relationships: [];
       };
+      region_eligible_counts: {
+        Row: {
+          region: string | null;
+          eligible: number | null;
+          live_places: number | null;
+          places: number | null;
+        };
+        Relationships: [];
+      };
       wallets: {
         Row: {
           user_id: string | null;
@@ -2078,6 +2103,7 @@ export type Database = {
       challenge_club: { Args: { p_my_club: string; p_opponent?: string; p_mode?: Database["public"]["Enums"]["club_battle_mode"]; p_starts_at?: string; p_hours?: number; }; Returns: Database["public"]["Tables"]["club_battles"]["Row"] };
       challenge_value: { Args: { p_user: string; c: Database["public"]["Tables"]["challenges"]["Row"]; }; Returns: number };
       check_in_event: { Args: { p_event: string; p_code: string; }; Returns: undefined };
+      city_eligible_count: { Args: { p_city: string; }; Returns: number };
       claim_challenge: { Args: { p_challenge: string; }; Returns: undefined };
       claim_club: { Args: { p_club: string; p_size: string; p_role: string; p_email: string; p_city?: string; p_borough?: string; p_town?: string; p_region?: string; p_social?: string; }; Returns: Json };
       claim_my_club: { Args: { p_name: string; p_meeting_place: string; p_usual_times: string; p_founded?: number; p_proof_method?: string; p_proof_handle?: string; p_call_at?: string; p_club?: string; }; Returns: Json };
