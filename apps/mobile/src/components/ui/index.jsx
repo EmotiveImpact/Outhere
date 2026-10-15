@@ -242,7 +242,12 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon:
         <ActivityIndicator color={v.fg} />
       ) : (
         <>
-          {Icon ? <Icon size={size === "sm" ? 15 : 18} color={v.fg} /> : null}
+          {/* Wrapped so the icon paints above the gradient on the web too. */}
+          {Icon ? (
+            <View>
+              <Icon size={size === "sm" ? 15 : 18} color={v.fg} />
+            </View>
+          ) : null}
           <Text
             style={
               big
@@ -252,7 +257,11 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon:
           >
             {title}
           </Text>
-          {IconRight ? <IconRight size={size === "sm" ? 15 : 18} color={v.fg} /> : null}
+          {IconRight ? (
+            <View>
+              <IconRight size={size === "sm" ? 15 : 18} color={v.fg} />
+            </View>
+          ) : null}
         </>
       )}
     </PressableScale>
