@@ -35,10 +35,11 @@ is labelled as an example. That is also how a preview without a database behaves
 2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project settings > API)
    and `VITE_SITE_URL=https://weouthere.app` in the host's environment, then build.
    With them set, the figures are real and the "example" labels disappear.
-3. Host the `dist` folder. On Vercel: import the repo, set the root directory to
-   `apps/web` (`vercel.json` sets the rest: pnpm, clean URLs, invite links,
-   caching, security headers, and skipping builds when the site has not changed),
-   then add the domain.
+3. Host the `dist` folder. On Vercel: import the repo with the root directory
+   left at the repo root. `vercel.json` at the repo root belongs to the website
+   and sets the rest: pnpm, clean URLs, invite links, caching, security headers,
+   and skipping builds on branches without the site or where it has not
+   changed. Then add the domain.
 
 The website owns `weouthere.app`. Any path it has no page for (a club link such
 as `weouthere.app/peckhampacers`, or anything else) is passed to the member app
