@@ -76,7 +76,7 @@ function LiveScoreboard({ battle, now }) {
     <PressableScale onPress={() => router.push(`/battles/${battle.id}`)} scaleTo={0.98} style={styles.board}>
       <Row style={{ justifyContent: "space-between" }}>
         <Row gap={10}>
-          <Avatar uri={battle.me.player?.avatar} name={battle.me.player?.name} tier={battle.me.player?.tier || "pro"} size={44} />
+          <Avatar uri={battle.me.player?.avatar} name={battle.me.player?.name} tier={battle.me.player?.tier} size={44} />
           <View>
             <Text style={styles.boardNum}>{formatScore(battle.metric, mine)}</Text>
             <Text style={styles.boardWho}>You</Text>

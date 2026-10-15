@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Avatar, Button, C, F, LiveDot, Pill, PressableScale, R, Row, S } from "@/components/ui";
 import { countdown, timeAgo } from "@/utils/format";
-import { battleFormat, formatScore, ME, metricUnit, playerName, rivalColour, standingLine } from "./shared";
+import { battleFormat, formatScore, ME, playerName, rivalColour, standingLine } from "./shared";
 import { TugBar } from "./TugBar";
 
 export { TugBar };
@@ -40,7 +40,7 @@ export default function BattleCard({ battle, now = Date.now(), onAccept, onDecli
 }
 
 function InviteCard({ battle, onPress, onAccept, onDecline, busy, primary, style }) {
-  const { me, opponent, metric } = battle;
+  const { me, opponent } = battle;
   const rival = rivalColour(opponent.player);
   return (
     <PressableScale onPress={onPress} scaleTo={0.985} style={[styles.card, style]}>

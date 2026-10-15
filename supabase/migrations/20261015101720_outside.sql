@@ -559,7 +559,7 @@ declare
   hs record;
   aws record;
   size_ int;
-  seed text := coalesce(p_seed, encode(gen_random_bytes(8), 'hex'));
+  seed text := coalesce(p_seed, encode(extensions.gen_random_bytes(8), 'hex'));
 begin
   select * into f from fixtures where id = p_fixture for update;
   if f.id is null then raise exception 'NOT_FOUND'; end if;
@@ -950,7 +950,7 @@ begin
   select code into c from city_invites where user_id = me;
   if c is not null then return c; end if;
   loop
-    c := upper(substr(encode(gen_random_bytes(5), 'hex'), 1, 8));
+    c := upper(substr(encode(extensions.gen_random_bytes(5), 'hex'), 1, 8));
     begin
       insert into city_invites (code, user_id) values (c, me);
       return c;
@@ -1967,7 +1967,7 @@ grant execute on function public.advance_drop_order(uuid, text, text) to authent
 create table if not exists public.event_tickets (
   event_id    uuid not null references public.events(id) on delete cascade,
   user_id     uuid not null references public.profiles(id) on delete cascade,
-  code        text not null unique default lower(encode(gen_random_bytes(9), 'hex')),
+  code        text not null unique default lower(encode(extensions.gen_random_bytes(9), 'hex')),
   wave        smallint not null,
   gate        text not null,
   created_at  timestamptz not null default now(),

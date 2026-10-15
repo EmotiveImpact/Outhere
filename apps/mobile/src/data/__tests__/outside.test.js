@@ -149,6 +149,19 @@ test("swipe picks rivals near you and challenges one", async () => {
   expect(division.every((c) => c.cityId !== "london")).toBe(true);
 });
 
+test("blocking someone takes them off Swipe and out of your picks", async () => {
+  await setUp("London");
+  const [first, second] = await engine.getSwipeDeck("near");
+  await engine.swipeRival(first.id, true);
+  await engine.blockPlayer(first.id);
+  await engine.blockPlayer(second.id);
+  expect(await engine.listPicks()).toEqual([]);
+  const ids = (await engine.getSwipeDeck("near")).map((c) => c.id);
+  expect(ids).not.toContain(first.id);
+  expect(ids).not.toContain(second.id);
+  await expect(engine.swipeRival(second.id, true)).rejects.toMatchObject({ code: "NOT_ALLOWED" });
+});
+
 test("mystery challengers: settings, an offer, then the reveal", async () => {
   await setUp("London");
   const set = await engine.setMysterySettings({ scope: "uk", perDay: 5, levelGap: 2 });

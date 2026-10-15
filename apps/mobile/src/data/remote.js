@@ -1755,7 +1755,7 @@ export const {
 export const {
   listCities, listAreas, getPlaySide, getCityLeague, getCityFixture, getCallUp, respondCallUp, getRising, claimFoundingMedal,
   getCityInvite, redeemCityInvite, getAreaTable, getClubWeekTable, getFriendsWeek, getSwipeDeck, swipeRival, listPicks,
-  challengePick, setShowOnSwipe, blockPlayer, getMysterySettings, setMysterySettings, findMysteryChallenger, getMysteryOffer, answerMystery,
+  challengePick, setShowOnSwipe, getMysterySettings, setMysterySettings, findMysteryChallenger, getMysteryOffer, answerMystery,
   sendBattleEmote, listBattleEmotes, boostBattle, rematchBattle, getHeadToHead, getArenaNow, getSeasonResults,
   claimSeasonRewards, listDropShop, getDropItem, getDeliveryAddress, claimDrop, listOrders, getOrder, getTicket,
   getEventGoing, getRunReview, answerRunReview,

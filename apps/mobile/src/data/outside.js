@@ -450,7 +450,8 @@ export function makeOutside(h) {
     };
   };
   const openWith = (s, pid) => s.battles.some((b) => ["pending", "active"].includes(b.status) && (b.creatorId === pid || b.opponentId === pid));
-  const hidden = (s, pid) => (s.rosterHidden || []).includes(pid);
+  // Blocks live with the crew area (s.blocked); rosterHidden is the older list.
+  const hidden = (s, pid) => (s.rosterHidden || []).includes(pid) || (s.blocked || []).includes(pid);
   const tileGap = (a, b) => (a && b ? Math.abs(a.col - b.col) + Math.abs(a.row - b.row) : 99);
 
   const getSwipeDeck = async (scope = "near", limit = 20) =>
@@ -497,7 +498,7 @@ export function makeOutside(h) {
     read((s) => {
       requireMe(s);
       const weekAgo = Date.now() - 7 * DAY_MS;
-      return box(s).picks.filter((x) => x.at > weekAgo && playerById[x.id]).map((x) => rivalCard(s, x.id));
+      return box(s).picks.filter((x) => x.at > weekAgo && playerById[x.id] && !hidden(s, x.id)).map((x) => rivalCard(s, x.id));
     });
 
   const challengePick = async ({ rivalId, metric = "steps", durationHours = 72, stakeOut = 100 }) => {
@@ -515,17 +516,6 @@ export function makeOutside(h) {
     });
     return battle;
   };
-
-  // Block in one tap: off Swipe, picks and mystery challengers, never told.
-  const blockPlayer = async (playerId) =>
-    write((s) => {
-      requireMe(s);
-      if (!playerById[playerId]) throw new EngineError("NOT_FOUND", "Player not found.");
-      s.rosterHidden = [...new Set([...(s.rosterHidden || []), playerId])];
-      const o = box(s);
-      o.picks = o.picks.filter((x) => x.id !== playerId);
-      return true;
-    });
 
   // Show me on Swipe: off means only friends and your club can challenge you.
   const setShowOnSwipe = async (on) =>
@@ -1108,7 +1098,6 @@ export function makeOutside(h) {
     listPicks,
     challengePick,
     setShowOnSwipe,
-    blockPlayer,
     getMysterySettings,
     setMysterySettings,
     findMysteryChallenger,
