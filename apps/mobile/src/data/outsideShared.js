@@ -136,3 +136,8 @@ export const analyseRoute = (points, { distanceM, steps = 0 } = {}) => {
     fastStretches,
   };
 };
+
+// ── Battle words ──────────────────────────────────────────────────────────────
+
+export const metricWord = (m) => (m === "distance" ? "Distance" : m === "minutes" ? "Minutes" : "Steps");
+export const lengthWord = (h) => (h >= 168 ? "1 week" : h >= 48 ? `${Math.round(h / 24)} days` : `${h} hours`);

@@ -1143,6 +1143,8 @@ declare
 begin
   select * into me from profiles where id = auth.uid();
   if me.id is null then raise exception 'NOT_SIGNED_IN'; end if;
+  -- Swipe is for over 18s only: under 18s battle friends and their club.
+  if public.is_minor(me.id) then return '[]'::json; end if;
   if p_scope = 'division' then
     select * into my_side from public.side_of(me.id);
     select division into my_div from public.league_sides() where side_kind = my_side.kind and side_id = my_side.id;
@@ -1153,7 +1155,9 @@ begin
       select p.* from profiles p
       where p.id <> me.id and p.show_on_swipe and p.public_profile and p.onboarded_at is not null
         and not public.is_blocked(me.id, p.id)
-        and public.is_minor(p.id) = public.is_minor(me.id)
+        and not public.is_minor(p.id)
+        -- Real movers only: someone appears once they've logged a run.
+        and exists (select 1 from runs r where r.user_id = p.id)
         and not exists (select 1 from rival_passes rp where rp.user_id = me.id and rp.rival_id = p.id)
         and not exists (select 1 from rival_picks pk where pk.user_id = me.id and pk.rival_id = p.id)
         and not exists (select 1 from battles b
@@ -1185,7 +1189,7 @@ declare
 begin
   if me is null then raise exception 'NOT_SIGNED_IN'; end if;
   if p_rival = me or public.is_blocked(me, p_rival) then raise exception 'NOT_ALLOWED'; end if;
-  if public.is_minor(p_rival) <> public.is_minor(me) then raise exception 'NOT_ALLOWED'; end if;
+  if public.is_minor(p_rival) or public.is_minor(me) then raise exception 'NOT_ALLOWED'; end if;
   if p_pick then
     insert into rival_picks (user_id, rival_id) values (me, p_rival) on conflict do nothing;
   else
@@ -1201,6 +1205,7 @@ returns json language sql stable security definer set search_path = public as $$
   select coalesce(json_agg(public.rival_card(p, (select level from profiles where id = auth.uid())) order by pk.created_at desc), '[]'::json)
   from rival_picks pk join profiles p on p.id = pk.rival_id
   where pk.user_id = auth.uid() and pk.created_at > now() - interval '7 days'
+    and not public.is_blocked(auth.uid(), p.id)
 $$;
 revoke execute on function public.my_picks() from public, anon;
 grant execute on function public.my_picks() to authenticated;

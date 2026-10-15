@@ -516,6 +516,17 @@ export function makeOutside(h) {
     return battle;
   };
 
+  // Block in one tap: off Swipe, picks and mystery challengers, never told.
+  const blockPlayer = async (playerId) =>
+    write((s) => {
+      requireMe(s);
+      if (!playerById[playerId]) throw new EngineError("NOT_FOUND", "Player not found.");
+      s.rosterHidden = [...new Set([...(s.rosterHidden || []), playerId])];
+      const o = box(s);
+      o.picks = o.picks.filter((x) => x.id !== playerId);
+      return true;
+    });
+
   // Show me on Swipe: off means only friends and your club can challenge you.
   const setShowOnSwipe = async (on) =>
     write((s) => {
@@ -1097,6 +1108,7 @@ export function makeOutside(h) {
     listPicks,
     challengePick,
     setShowOnSwipe,
+    blockPlayer,
     getMysterySettings,
     setMysterySettings,
     findMysteryChallenger,

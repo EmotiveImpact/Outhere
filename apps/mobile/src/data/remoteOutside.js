@@ -168,6 +168,14 @@ export function makeRemoteOutside({ supabase, run, rpc: rawRpc, uid, requireUid,
     changed();
     return !!on;
   };
+  // Block in one tap: they drop off Swipe, picks, battles and emotes both ways,
+  // and are never told.
+  const blockPlayer = async (playerId) => {
+    const me = await requireUid();
+    await run(supabase.from("blocks").upsert({ user_id: me, blocked_id: playerId }, { onConflict: "user_id,blocked_id", ignoreDuplicates: true }));
+    changed();
+    return true;
+  };
 
   // ── Mystery challengers ─────────────────────────────────────────────────────
 
@@ -343,7 +351,7 @@ export function makeRemoteOutside({ supabase, run, rpc: rawRpc, uid, requireUid,
   return {
     listCities, listAreas, getPlaySide, getCityLeague, getCityFixture, getCallUp, respondCallUp, getRising, claimFoundingMedal,
     getCityInvite, redeemCityInvite, getAreaTable, getClubWeekTable, getFriendsWeek, getSwipeDeck, swipeRival, listPicks,
-    challengePick, setShowOnSwipe, getMysterySettings, setMysterySettings, findMysteryChallenger, getMysteryOffer, answerMystery,
+    challengePick, setShowOnSwipe, blockPlayer, getMysterySettings, setMysterySettings, findMysteryChallenger, getMysteryOffer, answerMystery,
     sendBattleEmote, listBattleEmotes, boostBattle, rematchBattle, getHeadToHead, getArenaNow, getSeasonResults,
     claimSeasonRewards, listDropShop, getDropItem, getDeliveryAddress, claimDrop, listOrders, getOrder, getTicket,
     getEventGoing, getRunReview, answerRunReview,

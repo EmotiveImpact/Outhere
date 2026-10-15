@@ -250,6 +250,10 @@ begin
 end $$;
 
 -- ── Swipe to battle ──────────────────────────────────────────────────────────
+-- Only people who have logged a run appear on Swipe.
+insert into runs (user_id, started_at, ended_at, distance_m, moving_s, steps)
+select id, now() - interval '2 days', now() - interval '2 days' + interval '30 minutes', 5000, 1800, 6500
+from profiles where id in ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-0000000000e5');
 select pg_temp.act('00000000-0000-0000-0000-0000000000e1');
 set role authenticated;
 do $$
@@ -258,6 +262,7 @@ begin
   deck := swipe_deck('near', 50);
   assert (select count(*) from json_array_elements(deck) x where x->>'id' = '00000000-0000-0000-0000-0000000000e2') = 1, 'Kemi is near';
   assert (select count(*) from json_array_elements(deck) x where x->>'id' = '00000000-0000-0000-0000-0000000000e5') = 0, 'no under 18s for adults';
+  assert (select count(*) from json_array_elements(deck) x where x->>'id' = '00000000-0000-0000-0000-0000000000e4') = 0, 'nobody without a run';
   n := swipe_rival('00000000-0000-0000-0000-0000000000e2', true);
   assert n = 1, 'one pick';
   perform swipe_rival('00000000-0000-0000-0000-0000000000e3', false);
@@ -279,8 +284,13 @@ select pg_temp.act('00000000-0000-0000-0000-0000000000e5');
 set role authenticated;
 do $$
 begin
-  assert (select count(*) from json_array_elements(swipe_deck('city', 50)) x
-          where x->>'id' = '00000000-0000-0000-0000-0000000000e1') = 0, 'under 18s never see adults';
+  assert json_array_length(swipe_deck('city', 50)) = 0, 'no Swipe for under 18s';
+  begin
+    perform swipe_rival('00000000-0000-0000-0000-0000000000e2', true);
+    raise exception 'minor picked someone';
+  exception when raise_exception then
+    if sqlerrm <> 'NOT_ALLOWED' then raise; end if;
+  end;
   begin
     perform set_mystery_settings(true);
     raise exception 'minor switched on mystery challengers';

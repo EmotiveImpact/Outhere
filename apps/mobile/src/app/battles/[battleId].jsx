@@ -28,7 +28,7 @@ const BLUE = "#3d8bff";
 const RED = "#ff4d55";
 const BOOST_OUT = 20;
 
-export const clockText = (ms) => {
+const clockText = (ms) => {
   const t = Math.max(0, Math.floor(ms / 1000));
   const d = Math.floor(t / 86400);
   const h = Math.floor((t % 86400) / 3600);
