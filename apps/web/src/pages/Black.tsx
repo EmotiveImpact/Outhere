@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { BoroughSelect, Honeypot, Mist } from '../components/controls';
+import { Honeypot, Mist, PlacePicker } from '../components/controls';
 import { useSite } from '../components/Site';
 import { SITE } from '../content/site';
 import { requestBlack } from '../lib/api';
-import { type Borough } from '../lib/boroughs';
 import { validEmail } from '../lib/format';
+import { ELSEWHERE, type Place } from '../lib/places';
+import { placeError } from '../lib/validate';
 
 const H2 = { fontSize: 'clamp(40px,4.6vw,64px)' };
 
 export default function Black() {
   const site = useSite();
-  const [f, setF] = useState({ name: '', borough: 'Hackney' as Borough, email: '', code: '', why: '' });
+  const [f, setF] = useState({ name: '', place: { city: 'london', borough: 'Hackney' } as Place, email: '', code: '', why: '' });
   const [hp, setHp] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -21,11 +22,14 @@ export default function Black() {
     e.preventDefault();
     if (hp) return;
     if (!f.name.trim()) { setErr('Add your name so we know who to look out for.'); document.getElementById('bName')?.focus(); return; }
+    const place = f.place.city === ELSEWHERE ? { ...f.place, town: f.place.town.trim() } : f.place;
+    const bad = placeError(place);
+    if (bad) { setErr(bad); return; }
     if (!validEmail(f.email)) { setErr('Enter an email address like name@example.com.'); document.getElementById('bEmail')?.focus(); return; }
     setErr('');
     setBusy(true);
     try {
-      await requestBlack({ ...f, name: f.name.trim(), email: f.email.trim(), code: f.code.trim(), why: f.why.trim() });
+      await requestBlack({ ...f, place, name: f.name.trim(), email: f.email.trim(), code: f.code.trim(), why: f.why.trim() });
       setSent(true);
       site.toast('Request sent');
     } catch (x) {
@@ -44,7 +48,7 @@ export default function Black() {
           <span className="mark k" style={{ alignSelf: 'flex-start', justifySelf: 'start' }}>BLACK</span>
           <h1 className="disp"><span className="streak" style={{ display: 'block' }}>By</span><span className="streak" style={{ display: 'block' }}>invitation</span></h1>
           <div className="row">
-            <p className="lede" style={{ color: 'var(--ink)' }}>A small membership for the people who move London. Its own nights, its own drops and a ring everyone notices. Members invite members, and a few places open to the waitlist each month.</p>
+            <p className="lede" style={{ color: 'var(--ink)' }}>A small membership for the people who move their city. Its own nights, its own drops and a ring everyone notices. Members invite members, and a few places open to the waitlist each month.</p>
             <a className="btn btn-gm" href="#request">Request an invite</a>
           </div>
         </div>
@@ -58,7 +62,7 @@ export default function Black() {
             <p className="lede">Black includes every Pro feature. These are the things only Black members get.</p>
           </div>
           <div className="grid3">
-            <article className="pic rv"><img src="/img/roof.jpg" alt="Members chatting on a rooftop above London at night" style={{ objectPosition: '45% center' }} loading="lazy" /><span className="mono">Monthly</span><h3>Members' nights</h3><p>Rooftop runs, late track sessions and dinners across London, for Black members and one guest.</p></article>
+            <article className="pic rv"><img src="/img/roof.jpg" alt="Members chatting on a rooftop above London at night" style={{ objectPosition: '45% center' }} loading="lazy" /><span className="mono">Monthly</span><h3>Members' nights</h3><p>Rooftop runs, late track sessions and dinners in every launch city, for Black members and one guest.</p></article>
             <article className="pic rv"><img src="/img/jacket.jpg" alt="A gunmetal running jacket hanging in a dark room" loading="lazy" /><span className="mono">Every drop</span><h3>First access</h3><p>Black members shop every drop 48 hours before anyone else, and some pieces are made only for them.</p></article>
             <article className="pic rv" style={{ justifyContent: 'center', textAlign: 'center', alignItems: 'center', background: 'radial-gradient(60% 50% at 50% 40%,#2a2f37,#0a0b0d 75%)' }}>
               <span className="mono">Always on</span>
@@ -102,13 +106,11 @@ export default function Black() {
                 <span className="kick">Request an invite</span>
                 <h2 className="disp" style={H2}>Tell us<br />who you are</h2>
                 <form noValidate style={{ display: 'grid', gap: 16 }} onSubmit={submit}>
-                  <div className="row2">
-                    <div className="field"><label htmlFor="bName">Name</label><input id="bName" autoComplete="name" placeholder="Your name" maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-                    <div className="field"><label htmlFor="bBorough">Borough</label><BoroughSelect id="bBorough" value={f.borough} onChange={(b) => setF({ ...f, borough: b })} /></div>
-                  </div>
+                  <div className="field"><label htmlFor="bName">Name</label><input id="bName" autoComplete="name" placeholder="Your name" maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
+                  <PlacePicker id="b" value={f.place} onChange={(p) => setF({ ...f, place: p })} />
                   <div className="field"><label htmlFor="bEmail">Email</label><input id="bEmail" type="email" autoComplete="email" placeholder="you@example.com" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
                   <div className="field"><label htmlFor="bCode">Invite code (optional)</label><input id="bCode" placeholder="From a Black member" maxLength={24} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
-                  <div className="field"><label htmlFor="bWhy">How do you move London?</label><textarea id="bWhy" placeholder="Your club, your routes, what you'd bring to a members' night" maxLength={1000} value={f.why} onChange={(e) => setF({ ...f, why: e.target.value })} /></div>
+                  <div className="field"><label htmlFor="bWhy">How do you move your city?</label><textarea id="bWhy" placeholder="Your club, your routes, what you'd bring to a members' night" maxLength={1000} value={f.why} onChange={(e) => setF({ ...f, why: e.target.value })} /></div>
                   <Honeypot value={hp} onChange={setHp} />
                   <p className="err" role="alert">{err}</p>
                   <button className="btn btn-gm" type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Sending…' : 'Send my request'}</button>
@@ -123,7 +125,7 @@ export default function Black() {
         <figure><img src="/img/black.jpg" alt="A Black member standing still as commuters blur past" loading="lazy" /></figure>
         <div className="copy">
           <span className="mark k" style={{ alignSelf: 'flex-start' }}>BLACK</span>
-          <h2 className="disp" style={{ fontSize: 'clamp(46px,5.6vw,84px)' }}>Stand still<br />while London<br />rushes past</h2>
+          <h2 className="disp" style={{ fontSize: 'clamp(46px,5.6vw,84px)' }}>Stand still<br />while the city<br />rushes past</h2>
           <p className="lede">Black is quiet on purpose. No badges to grind for, no leaderboard of members. Just the people who are out there most, in one place.</p>
         </div>
         <Mist />

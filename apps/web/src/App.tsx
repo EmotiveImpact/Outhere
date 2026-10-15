@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Footer, Grain, Nav, useLanding, useReveal } from './components/Chrome';
 import { SiteProvider } from './components/Site';
 import { local } from './lib/format';
-import { slug } from './lib/boroughs';
+import { isBorough, slug } from './lib/boroughs';
 import Black from './pages/Black';
 import Borough from './pages/Borough';
 import Crews from './pages/Crews';
@@ -17,8 +17,9 @@ function Page({ route }: { route: Route }) {
   useEffect(() => {
     // The bare /boroughs page jumps to your own borough once you have picked one.
     if (route.path === '/boroughs') {
-      const me = local.get<{ borough: string }>('me');
-      if (me?.borough && me.borough !== route.borough) location.replace(`/boroughs/${slug(me.borough)}`);
+      const me = local.get<{ borough?: string; place?: { city?: string; borough?: string } }>('me');
+      const b = me?.place ? (me.place.city === 'london' ? me.place.borough : undefined) : me?.borough;
+      if (isBorough(b) && b !== route.borough) location.replace(`/boroughs/${slug(b)}`);
     }
   }, [route]);
   switch (route.page) {
@@ -33,7 +34,7 @@ function Page({ route }: { route: Route }) {
 
 export default function App({ route }: { route: Route }) {
   return (
-    <SiteProvider defaultBorough={route.borough}>
+    <SiteProvider defaultPlace={route.borough ? { city: 'london', borough: route.borough } : undefined}>
       <Nav page={route.page} />
       <Page route={route} />
       <Footer />

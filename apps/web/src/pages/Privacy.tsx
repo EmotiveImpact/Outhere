@@ -18,9 +18,9 @@ export default function Privacy() {
             <table>
               <tbody>
                 <tr><th>When you</th><th>We collect</th></tr>
-                <tr><td>Join the waitlist</td><td>Your email, your borough, whether you walk or run, and your run club if you give one</td></tr>
-                <tr><td>Claim a run club</td><td>The club's name, borough and size, your role, the club email, and its social account if you give one</td></tr>
-                <tr><td>Request a Black invite</td><td>Your name, email, borough, any invite code and what you write about yourself</td></tr>
+                <tr><td>Join the waitlist</td><td>Your email, where you move (your city and, in London, your borough, or your town and region), whether you walk or run, and your run club if you give one</td></tr>
+                <tr><td>Claim a run club</td><td>The club's name, where it runs, its size, your role, the club email, and its social account if you give one</td></tr>
+                <tr><td>Request a Black invite</td><td>Your name, email, city or town, any invite code and what you write about yourself</td></tr>
                 <tr><td>Share an invite link</td><td>Which link brought each new sign-up, so we can move you up the list</td></tr>
               </tbody>
             </table>
@@ -28,14 +28,14 @@ export default function Privacy() {
 
             <h2>Why we use it</h2>
             <ul>
-              <li>To hold your place on the waitlist and tell you when your borough opens. Our lawful basis is your consent, given when you sign up.</li>
+              <li>To hold your place on the waitlist and tell you when Outhere launches near you. Our lawful basis is your consent, given when you sign up.</li>
               <li>To check that a run club claim comes from someone who runs the club. Our basis is our legitimate interest in keeping one official crew per club.</li>
               <li>To review Black invite requests. Our basis is your consent.</li>
             </ul>
             <p>We will never sell your data. We only email you about Outhere, and every email has a one-click unsubscribe.</p>
 
             <h2>How long we keep it</h2>
-            <p>We keep waitlist details until the app launches in your borough and for 12 months after, then delete them unless you have created an account. Declined Black requests are deleted after 6 months.</p>
+            <p>We keep waitlist details until the app launches and for 12 months after, then delete them unless you have created an account. Declined Black requests are deleted after 6 months.</p>
 
             <h2>Who we share it with</h2>
             <p>Only the services that help us run the waitlist: our database host and our website host, both bound by data processing agreements and storing data in the UK or EU.</p>

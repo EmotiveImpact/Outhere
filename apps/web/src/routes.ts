@@ -33,18 +33,18 @@ export function metaFor(r: Route): Meta {
   const image = SITE.url + '/og.jpg';
   switch (r.page) {
     case 'home':
-      return { title: 'Outhere · Every step counts', description: 'Outhere turns your walks and runs into points for your crew, your borough and your city. London first. Join the waitlist.', canonical: url('/'), image };
+      return { title: 'Outhere · Every step counts', description: 'Outhere turns your walks and runs into points for your crew, your area and your city. Anyone in the UK can join on day one. Join the waitlist.', canonical: url('/'), image };
     case 'crews':
-      return { title: 'Run clubs and crews · Outhere', description: 'Every crew on Outhere is a real run club. Captains claim their official crew, and the first 500 clubs get a founding crest for life.', canonical: url('/crews'), image };
+      return { title: 'Run clubs and crews · Outhere', description: 'Every crew on Outhere is a real run club. Captains claim their official crew, and the first 500 clubs in the UK get a founding crest for life.', canonical: url('/crews'), image };
     case 'black':
-      return { title: 'Outhere Black · By invitation', description: "A small membership for the people who move London: members' nights, first access to every drop and the gunmetal ring.", canonical: url('/black'), image };
+      return { title: 'Outhere Black · By invitation', description: "A small membership for the people who move their city: members' nights in every launch city, first access to every drop and the gunmetal ring.", canonical: url('/black'), image };
     case 'privacy':
       return { title: 'Privacy notice · Outhere', description: 'What Outhere collects when you join the waitlist, claim a run club or request a Black invite, and your rights.', canonical: url('/privacy'), image };
     case 'borough': {
       const b = r.borough ?? DEFAULT_BOROUGH;
       return {
         title: `${b} on Outhere`,
-        description: `${b} opens on Outhere when 1,000 people are on its list. Join, share your link and bring opening day closer.`,
+        description: `${b} plays its own league in London on Outhere. See how long its list is, join it and share your link.`,
         canonical: url(`/boroughs/${slug(b)}`),
         image,
       };

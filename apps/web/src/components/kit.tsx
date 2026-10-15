@@ -88,6 +88,7 @@ export const TabPanel = Tabs.Content;
 /** London tile map: 32 boroughs on a 9 by 6 grid, each lit by the size of its waitlist. */
 export function BoroughMap({ selected, onPick }: { selected?: Borough; onPick: (b: Borough) => void }) {
   const { stats, me } = useSite();
+  const mine = me?.place.city === 'london' ? me.place.borough : undefined;
   const el = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<'hidden' | 'in' | 'done'>('done');
   const vals = Object.values(stats.boroughs);
@@ -109,7 +110,7 @@ export function BoroughMap({ selected, onPick }: { selected?: Borough; onPick: (
         const v = stats.boroughs[n];
         const a = 0.06 + 0.94 * Math.pow((v - min) / (max - min || 1), 1.5);
         return (
-          <button key={n} type="button" data-lit={a > 0.45 ? 1 : 0} className={n === me?.borough ? 'me' : undefined} aria-pressed={n === selected} aria-label={`${n}, ${fmt(v)} on the list`}
+          <button key={n} type="button" data-lit={a > 0.45 ? 1 : 0} className={n === mine ? 'me' : undefined} aria-pressed={n === selected} aria-label={`${n}, ${fmt(v)} on the list`}
             onClick={() => onPick(n)}
             style={{ gridColumn: c + 1, gridRow: r + 1, ['--lit' as string]: a.toFixed(2), ...(phase === 'hidden' ? { opacity: 0, transform: 'scale(.8)' } : phase === 'in' ? { transitionDelay: `${(c + r) * 55}ms` } : {}) }}>
             {k}
@@ -120,9 +121,9 @@ export function BoroughMap({ selected, onPick }: { selected?: Borough; onPick: (
   );
 }
 
-export const MapLegend = () => <div className="maplegend"><span>Quiet</span><i /><span>Ready to open</span></div>;
+export const MapLegend = ({ hi = 'Busiest' }: { hi?: string }) => <div className="maplegend"><span>Quiet</span><i /><span>{hi}</span></div>;
 
-/** "4,213 Londoners on the list", gently ticking up while the figures are examples. */
+/** "24,180 people on the list across the UK", gently ticking up while the figures are examples. */
 export function ListCount() {
   const { stats, ready, live } = useSite();
   const [extra, setExtra] = useState(0);
@@ -132,5 +133,5 @@ export function ListCount() {
     return () => clearInterval(t);
   }, [live]);
   if (!ready) return null;
-  return <div className="count"><i className="dot" /><span><b className="tab">{fmt(stats.total + extra)}</b> Londoners on the list</span></div>;
+  return <div className="count"><i className="dot" /><span><b className="tab">{fmt(stats.total + extra)}</b> on the list across the UK</span></div>;
 }

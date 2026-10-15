@@ -4,7 +4,8 @@ import { BoroughSelect, Mist } from '../components/controls';
 import { BoroughMap, MapLegend } from '../components/kit';
 import { rankOf, useCopy, useSite } from '../components/Site';
 import { SITE } from '../content/site';
-import { type Borough as B, BOROUGHS, EXAMPLE_CLUBS, initials, OPEN_AT, shortName, slug } from '../lib/boroughs';
+import { type Borough as B, BOROUGHS, initials, shortName, slug } from '../lib/boroughs';
+import { EXAMPLE_CLUBS, type Place } from '../lib/places';
 import { countTo, fmt } from '../lib/format';
 
 const go = (b: B) => { location.href = `/boroughs/${slug(b)}`; };
@@ -22,23 +23,25 @@ export default function Borough({ borough }: { borough: B }) {
     first.current = false;
     return stop;
   }, [n]);
-  const pct = Math.min(100, (n / OPEN_AT) * 100);
-  const clubs = site.live
-    ? site.stats.clubs.filter((c) => c.borough === borough).map((c) => c.name)
-    : EXAMPLE_CLUBS.filter((c) => c.borough === borough).map((c) => c.name);
+  const here = (p: Place) => p.city === 'london' && p.borough === borough;
+  const clubs = (site.live ? site.stats.clubs : EXAMPLE_CLUBS).filter((c) => here(c.place)).map((c) => c.name);
   const ranked = [...BOROUGHS].sort((a, c) => site.stats.boroughs[c] - site.stats.boroughs[a]);
-  const max = site.stats.boroughs[ranked[0]] || 1;
+  const leader = ranked[0];
+  const max = site.stats.boroughs[leader] || 1;
+  const top = leader === borough;
+  const pct = Math.min(100, (n / max) * 100);
   const short = shortName(borough);
+  const place: Place = { city: 'london', borough };
 
   return (
     <main>
       <section className="phero on-photo">
         <div className="ph" style={{ backgroundImage: 'url(/img/borough.jpg)', backgroundPosition: 'center 30%' }} aria-hidden="true" />
         <div className="wrap">
-          <div className="crumbs mono"><a href="/">Outhere</a><span>/</span><a href="/boroughs">Boroughs</a><span>/</span><span>{borough}</span></div>
+          <div className="crumbs mono"><a href="/">Outhere</a><span>/</span><a href="/boroughs">London boroughs</a><span>/</span><span>{borough}</span></div>
           <h1 className="disp"><span style={{ display: 'block' }}>{borough}</span><span className="b" style={{ display: 'block' }}><span className="tab">{fmt(deep)}</span> deep</span></h1>
           <div className="row">
-            <p className="lede" style={{ color: 'var(--ink)' }}>{borough} opens on Outhere when 1,000 people are on the list. Every friend you bring gets it there sooner.</p>
+            <p className="lede" style={{ color: 'var(--ink)' }}>{borough} is one of London's 32 borough leagues. Every friend you bring pushes it up the table before launch night.</p>
             <div className="field" style={{ minWidth: 'min(300px,100%)' }}><label htmlFor="pick" style={{ color: 'var(--ink-soft)' }}>Switch borough</label><BoroughSelect id="pick" value={borough} onChange={go} /></div>
           </div>
         </div>
@@ -52,13 +55,13 @@ export default function Borough({ borough }: { borough: B }) {
             <div><b className="tab">{fmt(n)}</b><span>people on the list</span></div>
             <div><b className="tab">{rankOf(site.stats, borough)}/32</b><span>London rank</span></div>
             <div><b className="tab">{clubs.length}</b><span>run clubs claimed</span></div>
-            <div><b className="tab">{fmt(Math.max(0, OPEN_AT - n))}</b><span>to go until it opens</span></div>
+            <div><b className="tab">{fmt(Math.max(0, max - n))}</b><span>{top ? 'top of the London table' : `behind ${shortName(leader)}`}</span></div>
           </div>
           <div className="card rv" style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span className="kick">Opening progress</span><span className="mono" style={{ color: 'var(--ink-muted)' }}><span className="tab">{Math.round(pct)}</span>% of 1,000</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span className="kick">Race to the top</span><span className="mono" style={{ color: 'var(--ink-muted)' }}>{top ? 'Top of London' : <><span className="tab">{Math.round(pct)}</span>% of {shortName(leader)}'s list</>}</span></div>
             <div className="meter" style={{ height: 14 }}><i style={{ width: pct + '%' }} /></div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-              <JoinButton borough={borough}>Join the {short} list</JoinButton>
+              <JoinButton place={place}>Join the {short} list</JoinButton>
               <div className="link" style={{ flex: 1, minWidth: 'min(320px,100%)' }}><code ref={share}>{SITE.host}/boroughs/{slug(borough)}</code><button className="btn btn-q" type="button" onClick={() => copy(share.current, 'Borough link copied')}>Copy link</button></div>
             </div>
           </div>
@@ -104,10 +107,10 @@ export default function Borough({ borough }: { borough: B }) {
       <section className="final on-photo">
         <div className="bgp" style={{ backgroundImage: 'url(/img/sun.jpg)', backgroundPosition: '35% center' }} aria-hidden="true" />
         <div className="wrap">
-          <div className="kick" style={{ marginBottom: 22 }}>Next up: {borough}</div>
+          <div className="kick" style={{ marginBottom: 22 }}>Launch night: {borough}</div>
           <h2 className="disp">Bring it<br /><span className="b">into the light</span></h2>
-          <p className="lede" style={{ margin: '20px auto 0', color: 'var(--ink)' }}>Every name on the list brings opening day closer. Share the link with the people you run with.</p>
-          <div style={{ marginTop: 28 }}><JoinButton borough={borough}>Join the {short} list</JoinButton></div>
+          <p className="lede" style={{ margin: '20px auto 0', color: 'var(--ink)' }}>Every name on the list lifts {borough} up the table. Share the link with the people you run with.</p>
+          <div style={{ marginTop: 28 }}><JoinButton place={place}>Join the {short} list</JoinButton></div>
         </div>
         <Mist />
       </section>

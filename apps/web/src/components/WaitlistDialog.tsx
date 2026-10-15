@@ -1,21 +1,22 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useRef, useState } from 'react';
-import { joinWaitlist } from '../lib/api';
-import { type Borough, shortName, slug } from '../lib/boroughs';
+import { joinWaitlist, placeCount } from '../lib/api';
+import { shortName, slug } from '../lib/boroughs';
 import { fmt, validEmail } from '../lib/format';
-import { MOVES } from '../lib/validate';
+import { cityById, ELSEWHERE, type Place, TEAM_AT, theRegion } from '../lib/places';
+import { MOVES, placeError } from '../lib/validate';
 import { SITE } from '../content/site';
-import { BoroughSelect, Choice, Honeypot } from './controls';
+import { Choice, Honeypot, PlacePicker } from './controls';
 import { Close } from './icons';
-import { type OpenOpts, rankOf, useCopy, useSite } from './Site';
+import { cityRank, type OpenOpts, rankOf, useCopy, useSite } from './Site';
 
 const EMAIL_ERR = 'Enter an email address like name@example.com.';
 const Prog = ({ n }: { n: number }) => (
   <div className="prog" aria-hidden="true">{[1, 2, 3].map((i) => <i key={i} className={i <= n ? 'on' : ''} />)}</div>
 );
 
-export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
-  open: boolean; onOpenChange: (o: boolean) => void; opts: OpenOpts; defaultBorough: Borough;
+export function WaitlistDialog({ open, onOpenChange, opts, defaultPlace }: {
+  open: boolean; onOpenChange: (o: boolean) => void; opts: OpenOpts; defaultPlace: Place;
 }) {
   const site = useSite();
   const copy = useCopy();
@@ -23,12 +24,12 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
   const [step, setStep] = useState(opts.step ?? 1);
   const [email, setEmail] = useState(opts.email ?? '');
   const [err, setErr] = useState(opts.error ?? '');
-  const [borough, setBorough] = useState<Borough>(opts.borough ?? defaultBorough);
+  const [place, setPlace] = useState<Place>(opts.place ?? defaultPlace);
   const [move, setMove] = useState<(typeof MOVES)[number]>('Walk');
   const [club, setClub] = useState('');
   const [hp, setHp] = useState('');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(site.me && step === 3 ? { position: site.me.position, code: site.me.code, borough: site.me.borough } : null);
+  const [result, setResult] = useState(site.me && step === 3 ? { position: site.me.position, code: site.me.code, place: site.me.place } : null);
   const body = useRef<HTMLDivElement>(null);
   const inv = useRef<HTMLElement>(null);
 
@@ -48,13 +49,16 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
   const submitDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     if (hp) return;
+    const where = place.city === ELSEWHERE ? { ...place, town: place.town.trim() } : place;
+    const bad = placeError(where);
+    if (bad) return setErr(bad);
     setBusy(true);
     setErr('');
     try {
-      const r = await joinWaitlist({ email, borough, move, club: club.trim(), ref: site.ref, invite });
-      site.bump(borough);
-      site.setMe({ email, borough, position: r.position, code: r.code });
-      setResult({ position: r.position, code: r.code, borough });
+      const r = await joinWaitlist({ email, place: where, move, club: club.trim(), ref: site.ref, invite });
+      site.bump(where);
+      site.setMe({ email, place: where, position: r.position, code: r.code });
+      setResult({ position: r.position, code: r.code, place: where });
       setStep(3);
     } catch (x) {
       setErr((x as Error).message);
@@ -63,8 +67,8 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
     }
   };
 
-  const b = result?.borough ?? borough;
-  const bc = site.stats.boroughs[b];
+  const p = result?.place ?? place;
+  const pc = placeCount(site.stats, p);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -80,7 +84,7 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
                   <Dialog.Title asChild>
                     <h3>{invite ? <>Request a<br /><span className="b">Black invite</span></> : <>Join the<br /><span className="b">waitlist</span></>}</h3>
                   </Dialog.Title>
-                  <p>{invite ? 'Black opens a few places to the waitlist each month. Tell us who you are and we will be in touch.' : 'Be first in when Outhere launches in London. It takes ten seconds.'}</p>
+                  <p>{invite ? 'Black opens a few places to the waitlist each month. Tell us who you are and we will be in touch.' : 'Outhere launches across the UK. Be first in on day one. It takes ten seconds.'}</p>
                   <form onSubmit={submitEmail} noValidate style={{ display: 'grid', gap: 14 }}>
                     <div className="field">
                       <label htmlFor="mEmail">Email</label>
@@ -95,9 +99,9 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
                 <>
                   <Prog n={2} />
                   <Dialog.Title asChild><h3>Where do<br /><span className="b">you move?</span></h3></Dialog.Title>
-                  <p>We open borough by borough, so this decides when you get in.</p>
+                  <p>Launch nights run in ten cities. Everywhere else plays for its region until {TEAM_AT} people there are active.</p>
                   <form onSubmit={submitDetails} noValidate style={{ display: 'grid', gap: 16 }}>
-                    <div className="field"><label htmlFor="mBorough">Your borough</label><BoroughSelect id="mBorough" value={borough} onChange={setBorough} /></div>
+                    <PlacePicker id="m" value={place} onChange={setPlace} />
                     <div className="field"><label id="mMove">You mostly</label><Choice options={MOVES} value={move} onChange={setMove} label="You mostly" /></div>
                     <div className="field"><label htmlFor="mCrew">Run club (optional)</label><input id="mCrew" value={club} onChange={(e) => setClub(e.target.value)} placeholder="Your club's name" maxLength={60} /></div>
                     <Honeypot value={hp} onChange={setHp} />
@@ -112,22 +116,14 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
                   <Prog n={3} />
                   <span className="kick">{invite ? 'Request received' : 'You are on the list'}</span>
                   <Dialog.Title asChild><div className="pos">#{fmt(result.position)}</div></Dialog.Title>
-                  <p>
-                    {invite
-                      ? `We review Black requests every month. You also hold place #${fmt(result.position)} on the London waitlist.`
-                      : `Your place in the London queue. ${b} is ${fmt(bc)} deep and ranks ${rankOf(site.stats, b)} of 32 boroughs.`}
-                  </p>
-                  <div className="stats3">
-                    <div><b>{fmt(bc)}</b><span>in {shortName(b)}</span></div>
-                    <div><b>{rankOf(site.stats, b)}/32</b><span>borough rank</span></div>
-                    <div><b>100</b><span>places per invite</span></div>
-                  </div>
+                  <p>{invite ? `We review Black requests every month. You also hold place #${fmt(result.position)} on the UK waitlist.` : `Your place in the UK queue. ${standing(p, pc, site.stats)}`}</p>
+                  <div className="stats3">{tiles(p, pc, site.stats)}</div>
                   <div className="field">
                     <label>Move up 100 places for every friend who joins</label>
                     <div className="link"><code ref={inv}>{SITE.host}/i/{result.code}</code><button className="btn btn-p" type="button" onClick={() => copy(inv.current, 'Invite link copied')}>Copy link</button></div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <a className="btn btn-q" href={`/boroughs/${slug(b)}`}>See {shortName(b)}</a>
+                    {p.city === 'london' && <a className="btn btn-q" href={`/boroughs/${slug(p.borough)}`}>See {shortName(p.borough)}</a>}
                     <Dialog.Close className="btn btn-q" type="button">Done</Dialog.Close>
                   </div>
                 </>
@@ -138,6 +134,21 @@ export function WaitlistDialog({ open, onOpenChange, opts, defaultBorough }: {
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+type S = ReturnType<typeof useSite>['stats'];
+
+/** One line on where you stand, for a London borough, a launch city or a town elsewhere. */
+function standing(p: Place, n: number, stats: S): string {
+  if (p.city === 'london') return `${p.borough} is ${fmt(n)} deep and ranks ${rankOf(stats, p.borough)} of 32 London boroughs.`;
+  if (p.city === ELSEWHERE) return `${p.town} plays for ${theRegion(p.region)} until ${TEAM_AT} people there are active, and ${fmt(n)} people across ${theRegion(p.region)} are on the list so far.`;
+  return `${cityById(p.city)!.name} is ${fmt(n)} deep and ranks ${cityRank(stats, p.city)} of 10 launch cities.`;
+}
+
+function tiles(p: Place, n: number, stats: S) {
+  if (p.city === 'london') return <><div><b>{fmt(n)}</b><span>in {shortName(p.borough)}</span></div><div><b>{rankOf(stats, p.borough)}/32</b><span>borough rank</span></div><div><b>100</b><span>places per invite</span></div></>;
+  if (p.city === ELSEWHERE) return <><div><b>{fmt(n)}</b><span>in {theRegion(p.region)}</span></div><div><b>{TEAM_AT}</b><span>for a {p.town} team</span></div><div><b>100</b><span>places per invite</span></div></>;
+  return <><div><b>{fmt(n)}</b><span>in {cityById(p.city)!.name}</span></div><div><b>{cityRank(stats, p.city)}/10</b><span>city rank</span></div><div><b>100</b><span>places per invite</span></div></>;
 }
 
 /** The inline email box: a valid email skips straight to step two of the dialog. */

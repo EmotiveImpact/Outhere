@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useRef, useState } from 'react';
 import { SITE } from '../content/site';
 import { fmt, prefersReducedMotion } from '../lib/format';
-import { type Borough } from '../lib/boroughs';
+import { type Place } from '../lib/places';
 import { Close, SOCIAL } from './icons';
 import { Logo } from './Logo';
 import { useSite } from './Site';
@@ -13,19 +13,19 @@ export type PageKey = 'home' | 'crews' | 'borough' | 'black' | 'privacy' | 'notf
 const LINKS: [string, string, string][] = [
   ['How it works', '/#how', 'how'],
   ['Crews', '/crews', 'crews'],
-  ['Boroughs', '/boroughs', 'borough'],
+  ['Cities', '/#map', 'borough'],
   ['Black', '/black', 'black'],
   ['Membership', '/#membership', 'membership'],
 ];
 
 /** Any "Join the waitlist" button. In the nav it shows your place once you have joined. */
-export function JoinButton({ children = 'Join the waitlist', borough, className = 'btn btn-p', showPlace, id }: {
-  children?: React.ReactNode; borough?: Borough; className?: string; showPlace?: boolean; id?: string;
+export function JoinButton({ children = 'Join the waitlist', place, className = 'btn btn-p', showPlace, id }: {
+  children?: React.ReactNode; place?: Place; className?: string; showPlace?: boolean; id?: string;
 }) {
   const { me, openWaitlist } = useSite();
   const placed = showPlace && me;
   return (
-    <button id={id} type="button" className={className} onClick={() => (placed ? openWaitlist({ step: 3 }) : openWaitlist({ borough }))}>
+    <button id={id} type="button" className={className} onClick={() => (placed ? openWaitlist({ step: 3 }) : openWaitlist({ place }))}>
       {placed ? `#${fmt(me.position)} on the list` : children}
     </button>
   );
@@ -96,8 +96,8 @@ export function Nav({ page, active }: { page: PageKey; active?: string }) {
 
 const FCOLS: [string, [string, string][]][] = [
   ['Outhere', [['How it works', '/#how'], ['1v1 battles', '/#battles'], ['City vs city', '/#cities'], ['Membership', '/#membership'], ['The app', '/#app']]],
+  ['Across the UK', [['Ten launch cities', '/#map'], ['Towns and regions', '/#map'], ['London boroughs', '/boroughs'], ['Hackney', '/boroughs/hackney'], ['Southwark', '/boroughs/southwark']]],
   ['Run clubs', [['Claim your club', '/crews#find'], ['For captains', '/crews#captains'], ['Founding 500', '/crews#founding'], ['Find a club near you', '/crews#find']]],
-  ['London', [['All 32 boroughs', '/boroughs'], ['Hackney', '/boroughs/hackney'], ['Southwark', '/boroughs/southwark'], ['Lambeth', '/boroughs/lambeth'], ['Tower Hamlets', '/boroughs/tower-hamlets']]],
   ['Black', [['Request an invite', '/black#request'], ['How invites work', '/black#invites'], ["Members' nights", '/black#perks']]],
   ['Company', [['About', '/#why'], ['Press kit', ''], ['Careers', ''], ['Contact', '']]],
   ['Legal', [['Privacy notice', '/privacy'], ['Terms', ''], ['Cookies', '']]],
@@ -111,7 +111,7 @@ export function Footer() {
         <div className="ftop">
           <div className="fbrand">
             <Logo style={{ justifySelf: 'start' }} />
-            <p>Every step counts for your crew, your borough and your city. London first.</p>
+            <p>Every step counts for your crew, your area and your city. Anyone in the UK can join on day one.</p>
             <WaitlistForm />
             <div className="stores">
               <span className="store"><b>App Store</b><small>Coming soon</small></span>
@@ -140,7 +140,7 @@ export function Footer() {
         <p className="fmark" aria-hidden="true">Outhere</p>
         <div className="fgrid mono">
           <span>© 2026 Outhere · Made in London</span>
-          <span>London now · Manchester and Birmingham next</span>
+          <span>Launch nights in ten UK cities</span>
           <button type="button" className="totop mono" onClick={() => scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })}>Back to top ↑</button>
         </div>
       </div>

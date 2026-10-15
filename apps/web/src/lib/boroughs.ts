@@ -11,8 +11,6 @@ export type Borough = (typeof BOROUGHS)[number];
 
 export const DEFAULT_BOROUGH: Borough = 'Southwark';
 
-/** Each borough opens on Outhere once this many people are on its list. */
-export const OPEN_AT = 1000;
 
 /** URL slug, which is also the borough's id in the Outhere database (supabase/seed.sql). */
 const SLUG_OVERRIDES: Record<string, string> = { 'Richmond upon Thames': 'richmond', 'Kingston upon Thames': 'kingston' };
@@ -35,24 +33,6 @@ export const MAP: [number, number, Borough, string][] = [
   [1, 3, 'Hounslow', 'HNS'], [2, 3, 'Richmond upon Thames', 'RCH'], [3, 3, 'Wandsworth', 'WNS'], [4, 3, 'Lambeth', 'LAM'],
   [5, 3, 'Southwark', 'SWK'], [6, 3, 'Lewisham', 'LSH'], [7, 3, 'Greenwich', 'GRN'], [8, 3, 'Bexley', 'BXL'],
   [2, 4, 'Kingston upon Thames', 'KNG'], [3, 4, 'Merton', 'MRT'], [4, 4, 'Croydon', 'CRD'], [5, 4, 'Bromley', 'BRM'], [4, 5, 'Sutton', 'STN'],
-];
-
-/** Example run clubs shown until real clubs claim their crews. */
-export const EXAMPLE_CLUBS: { name: string; borough: Borough; members: number; claimed: boolean; boroughOnly?: boolean }[] = [
-  { name: 'Bermondsey Night Runners', borough: 'Southwark', members: 46, claimed: true },
-  { name: 'Peckham Pacers', borough: 'Southwark', members: 72, claimed: true },
-  { name: 'Camberwell Green Milers', borough: 'Southwark', members: 31, claimed: false, boroughOnly: true },
-  { name: 'Hackney Marshes Run Club', borough: 'Hackney', members: 120, claimed: false },
-  { name: 'London Fields Late Lap', borough: 'Hackney', members: 38, claimed: false, boroughOnly: true },
-  { name: 'Brixton Lights', borough: 'Lambeth', members: 58, claimed: false },
-  { name: 'Clapham Common Sunrise', borough: 'Lambeth', members: 88, claimed: true },
-  { name: 'Canary Wharf Lunch Club', borough: 'Tower Hamlets', members: 34, claimed: false },
-  { name: 'Walthamstow Wetlands Runners', borough: 'Waltham Forest', members: 41, claimed: true },
-  { name: 'Crystal Palace Hill Club', borough: 'Bromley', members: 27, claimed: false },
-  { name: 'Greenwich Park Striders', borough: 'Greenwich', members: 63, claimed: false },
-  { name: 'Finsbury Park Social', borough: 'Haringey', members: 95, claimed: false },
-  { name: 'Ealing Early Miles', borough: 'Ealing', members: 22, claimed: false },
-  { name: 'Wimbledon Common Trail', borough: 'Merton', members: 49, claimed: true },
 ];
 
 export const initials = (n: string) => n.split(' ').slice(0, 2).map((w) => w[0]).join('');

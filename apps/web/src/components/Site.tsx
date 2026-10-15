@@ -1,11 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { DEMO_STATS, EMPTY_STATS, fetchStats, LIVE, type Stats } from '../lib/api';
-import { type Borough, BOROUGHS, DEFAULT_BOROUGH } from '../lib/boroughs';
+import { addTo, DEMO_STATS, EMPTY_STATS, fetchStats, LIVE, type Stats } from '../lib/api';
+import { type Borough, BOROUGHS, isBorough } from '../lib/boroughs';
+import { CITIES, type CityId, DEFAULT_PLACE, type Place, readPlace } from '../lib/places';
 import { local } from '../lib/format';
 import { WaitlistDialog } from './WaitlistDialog';
 
-export type Me = { email: string; borough: Borough; position: number; code: string };
-export type OpenOpts = { step?: 1 | 2 | 3; borough?: Borough; invite?: boolean; email?: string; error?: string };
+export type Me = { email: string; place: Place; position: number; code: string };
+export type OpenOpts = { step?: 1 | 2 | 3; place?: Place; invite?: boolean; email?: string; error?: string };
+
+/** Your place on the list as this browser saved it. Older saves only held a London borough. */
+function readMe(v: unknown): Me | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const place = readPlace(o.place) ?? (isBorough(o.borough) ? { city: 'london' as const, borough: o.borough } : null);
+  if (!place || typeof o.email !== 'string' || typeof o.position !== 'number' || typeof o.code !== 'string') return null;
+  return { email: o.email, place, position: o.position, code: o.code };
+}
 
 type Site = {
   stats: Stats;
@@ -17,7 +27,7 @@ type Site = {
   ref: string;
   openWaitlist: (o?: OpenOpts) => void;
   toast: (msg: string) => void;
-  bump: (b: Borough) => void;
+  bump: (p: Place) => void;
 };
 
 const Ctx = createContext<Site | null>(null);
@@ -28,8 +38,9 @@ export const useSite = () => {
 };
 
 export const rankOf = (stats: Stats, b: Borough) => [...BOROUGHS].sort((x, y) => stats.boroughs[y] - stats.boroughs[x]).indexOf(b) + 1;
+export const cityRank = (stats: Stats, c: CityId) => CITIES.map((x) => x.id).sort((x, y) => stats.cities[y] - stats.cities[x]).indexOf(c) + 1;
 
-export function SiteProvider({ children, defaultBorough = DEFAULT_BOROUGH }: { children: React.ReactNode; defaultBorough?: Borough }) {
+export function SiteProvider({ children, defaultPlace = DEFAULT_PLACE }: { children: React.ReactNode; defaultPlace?: Place }) {
   const [stats, setStats] = useState<Stats>(LIVE ? EMPTY_STATS : DEMO_STATS);
   const [ready, setReady] = useState(!LIVE);
   const [me, setMeState] = useState<Me | null>(null);
@@ -39,7 +50,7 @@ export function SiteProvider({ children, defaultBorough = DEFAULT_BOROUGH }: { c
   const tt = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    setMeState(local.get<Me>('me'));
+    setMeState(readMe(local.get('me')));
     // Invite links arrive as /i/CODE (rewritten to the home page) or ?ref=CODE.
     const m = location.pathname.match(/^\/i\/([A-Za-z0-9]{1,24})\/?$/);
     const q = new URLSearchParams(location.search).get('ref');
@@ -65,7 +76,7 @@ export function SiteProvider({ children, defaultBorough = DEFAULT_BOROUGH }: { c
   }, []);
 
   const setMe = useCallback((m: Me) => { local.set('me', m); setMeState(m); }, []);
-  const bump = useCallback((b: Borough) => setStats((s) => ({ ...s, total: s.total + 1, boroughs: { ...s.boroughs, [b]: s.boroughs[b] + 1 } })), []);
+  const bump = useCallback((p: Place) => setStats((s) => addTo(s, p)), []);
   const openWaitlist = useCallback((o: OpenOpts = {}) => setDlg({ ...o, open: true, key: Date.now() }), []);
 
   const value = useMemo<Site>(() => ({ stats, ready, live: LIVE, me, setMe, ref, openWaitlist, toast, bump }), [stats, ready, me, setMe, ref, openWaitlist, toast, bump]);
@@ -79,7 +90,7 @@ export function SiteProvider({ children, defaultBorough = DEFAULT_BOROUGH }: { c
           open={dlg.open}
           onOpenChange={(open) => setDlg((d) => (d ? { ...d, open } : d))}
           opts={dlg}
-          defaultBorough={me?.borough || defaultBorough}
+          defaultPlace={me?.place || defaultPlace}
         />
       )}
       {toastMsg && <div className="toast" role="status" key={toastMsg.key}>{toastMsg.msg}</div>}

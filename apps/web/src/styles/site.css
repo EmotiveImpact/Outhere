@@ -529,6 +529,28 @@ textarea{font:inherit;color:inherit}
 .sheet{transition:transform .35s var(--ease)}
 .sheet.dragging{transition:none}
 .sheet .grab{position:absolute;left:50%;top:calc(10px + env(safe-area-inset-top,0px));width:44px;height:5px;border-radius:9px;background:var(--surface-2);transform:translateX(-50%)}
+/* UK launch map: a dot map of the coastline with the ten launch cities sized by their lists */
+.mapwrap.uk{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.ukmap{position:relative;aspect-ratio:2/3;width:min(100%,460px);margin:0 auto}
+.ukmap svg{position:absolute;inset:0;width:100%;height:100%}
+.ukmap .land{fill:rgba(255,255,255,.025);stroke:var(--line);stroke-width:.6;stroke-linejoin:round}
+.ukmap pattern circle{fill:var(--ink-dim)}
+.ukmap button{position:absolute;width:var(--s,16px);height:var(--s,16px);transform:translate(-50%,-50%);border:0;padding:0;border-radius:50%;cursor:pointer;background:radial-gradient(circle,var(--blue-hi) 0 28%,rgba(61,139,255,.55) 30%,rgba(61,139,255,.12) 70%,transparent 72%);transition:transform .35s var(--spring)}
+.ukmap button::before{content:"";position:absolute;inset:-6px;border-radius:50%}
+.ukmap button[aria-pressed="true"]{box-shadow:0 0 0 2px #fff,0 0 24px var(--glow);z-index:2}
+.ukmap button.me::after{content:"";position:absolute;right:-2px;top:-2px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff}
+.ukmap .lbl{position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;font-size:10.5px;color:var(--ink);background:var(--scrim);padding:4px 7px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .2s}
+.ukmap button[aria-pressed="true"] .lbl,.ukmap button:focus-visible .lbl{opacity:1}
+@media (hover:hover){.ukmap button:hover{transform:translate(-50%,-50%) scale(1.15)}.ukmap button:hover .lbl{opacity:1}}
+.ukmap button:focus-visible{outline:2px solid var(--blue-hi);outline-offset:3px}
+.lb.mini{gap:2px}
+.lb.mini .lbr{grid-template-columns:minmax(0,1fr) 90px 56px;padding:7px 10px}
+.lb.mini .lbr .nm{font-size:13px}
+.lb.mini .lbr .v{font-size:17px}
+.ukmap button[data-side="l"] .lbl{left:auto;right:calc(100% + 8px)}
+.ukmap button[data-side="t"] .lbl{left:50%;top:auto;bottom:calc(100% + 6px);transform:translateX(-50%)}
+@media (max-width:620px){.lb.mini .lbr{grid-template-columns:minmax(0,1fr) 56px}}
+@media (max-width:900px){.mapwrap.uk{grid-template-columns:minmax(0,1fr)}.ukmap{width:min(100%,380px)}}
 @media (max-width:900px){.faqwrap,.mapwrap{grid-template-columns:1fr}}
 @media (max-width:560px){.cmp .row{grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,.8fr));font-size:13px;gap:6px}.cmp .v{font-size:12px}}
 @media (prefers-reduced-motion:reduce){.tabs .thumb,.acc .pnl,.acc .pm,.bmap button,.tippop{transition:none}}
