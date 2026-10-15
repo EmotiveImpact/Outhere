@@ -1,4 +1,4 @@
--- Club links (part 14): the reserved list, letters and numbers only, and the
+-- Club links (part 15): the reserved list, letters and numbers only, and the
 -- city then a number for a second club with the same name.
 
 \set QUIET on
@@ -77,3 +77,21 @@ end $$;
 do $$ begin
   perform pg_temp.raises($s$update clubs set slug = 'parkside-runners' where slug = 'parksiderunners'$s$, '23514');
 end $$;
+
+-- A claim from a town takes a city in its region, not London.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-0000000000e9', 'mod2@example.com', '{"display_name":"Mod"}');
+insert into staff (user_id, role) values ('00000000-0000-0000-0000-0000000000e9', 'moderator');
+update profiles set city_id = null, borough_id = null where id = '00000000-0000-0000-0000-0000000000e2';
+insert into club_claims (club_name, size, role, email, user_id, town, region)
+values ('Parkside Runners', '10-25', 'Captain', 'fin@example.com', '00000000-0000-0000-0000-0000000000e2', 'Harrogate', 'Yorkshire');
+select pg_temp.act('00000000-0000-0000-0000-0000000000e9');
+set role authenticated;
+do $$
+declare cid uuid;
+begin
+  cid := review_club_claim((select id from club_claims where town = 'Harrogate'), true);
+  assert (select city_id from clubs where id = cid) = 'leeds', 'a Yorkshire town claim lands in a Yorkshire city';
+  assert (select slug from clubs where id = cid) = 'parksiderunnersleeds3', 'and takes the next free link';
+end $$;
+reset role;

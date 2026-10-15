@@ -38,7 +38,7 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 | Money | `subscriptions` (sets the ring), `club_fund_entries`, `club_fund_months`, `locals_partners` | payment webhooks, scheduler: `credit_club_fund` |
 | Drops | `drops`, `drop_orders`, `drop_reminders` | `reserve_drop` |
 | Staff | `audit_log` (every action below writes a line) | moderators: `verify_club`, `review_steps`, `remove_from_squad`; admins: `set_reveal_held` |
-| Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats` |
+| Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats`. UK-wide: each row is a launch city (`city_id`, plus a borough in London) or a town with one of 11 regions (`town`, `region`) |
 
 Rules the database enforces, so no client can cheat them:
 

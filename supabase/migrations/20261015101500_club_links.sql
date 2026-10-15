@@ -1,4 +1,4 @@
--- Club links: weouthere.app/<slug>, with no clashes ever.
+-- Club links (part 15): weouthere.app/<slug>, with no clashes ever.
 --
 -- 1. The reserved words move into a table, seeded from RESERVED_SLUGS in
 --    packages/core (app and website paths, future page words, UK nations,
@@ -169,8 +169,9 @@ begin
 end $$;
 revoke execute on function public.rename_club(uuid, text) from public, anon;
 
--- An approved claim takes the suggested link, and the city of the borough it
--- named rather than assuming London. Otherwise as in web_gaps.
+-- An approved claim takes the suggested link, and the city it named (or its
+-- borough's city, or a city in its region) rather than assuming London.
+-- Otherwise as in web_gaps.
 create or replace function public.review_club_claim(p_claim bigint, p_approve boolean)
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
@@ -194,7 +195,8 @@ begin
   select * into p from profiles where id = c.user_id;
   cid := c.club_id;
   if cid is null then
-    city := coalesce((select city_id from boroughs where id = c.borough_id), p.city_id, 'london');
+    city := coalesce(c.city_id, (select city_id from boroughs where id = c.borough_id), p.city_id,
+                     (select id from cities where region = c.region order by is_live desc, name limit 1), 'london');
     insert into clubs (name, slug, city_id, borough_id, meeting_place, usual_times, founded_year,
                        instagram, strava, created_by, status, verified_at)
     values (c.club_name,
