@@ -59,7 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
       case "public-profile": await db.setPublicProfile(act.on); break;
       case "notes-read": await db.markNotificationsRead(); break;
       case "join-decide": await db.decideJoinRequest(act.clubId, act.requestId, act.approve); break;
-      case "club-join": await db.joinClub(act.slug, { pace: act.pace, runId: act.runId }); break;
+      case "club-join": return { ok: true, joined: await db.joinClub(act.slug, { pace: act.pace, runId: act.runId }) };
       case "club-page": {
         const { intent: _i, clubId, ...patch } = act;
         return { ok: true, club: await db.updateClubPage(clubId, patch) };

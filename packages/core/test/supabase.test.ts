@@ -77,6 +77,7 @@ const profile = (over: Record<string, unknown> = {}) => ({
   level: 1,
   streak_days: 0,
   surprise_challengers: true,
+  public_profile: true,
   ...over,
 });
 
@@ -103,7 +104,8 @@ describe("Supabase data source", () => {
 
   it("shows a red dot for someone who just stopped, and none once it has gone", async () => {
     const { data } = fake((q) => {
-      if (q.table === "profiles") return { data: q.has("maybeSingle") ? profile() : [{ id: ME, display_name: "Kemi Adeyemi", avatar_path: null, tier: "pro" }] };
+      if (q.table === "profiles") return { data: profile() };
+      if (q.table === "profile_cards") return { data: [{ id: ME, username: "kemi", display_name: "Kemi Adeyemi", avatar_path: null, tier: "pro", public_profile: true }] };
       if (q.table === "member_dots") return { data: q.has("maybeSingle") ? { dot: "stopped" } : [{ user_id: ME, dot: null }] };
       return undefined;
     });
@@ -178,6 +180,55 @@ describe("Supabase data source", () => {
     });
   });
 
+  it("keeps a stake in words as the battle's note, and five days as 120 hours", async () => {
+    const { data, queries } = fake((q) => (q.table.startsWith("rpc:") ? { data: { id: "battle-2" } } : undefined));
+    await data.createBattle({ opponentId: "p2", mode: "last", length: "5 days", stake: "Loser buys the coffees" });
+    expect(queries.find((q) => q.table === "rpc:create_battle")?.calls[0]?.args[0]).toEqual({
+      p_opponent: "p2", p_mode: "last_one_standing", p_duration_h: 120, p_stake_out: 0, p_stake_note: "Loser buys the coffees",
+    });
+  });
+
+  it("ranks the viewer's area by steps a day per person this week", async () => {
+    const MONDAY = "2026-10-12";
+    const { data } = fake((q) => {
+      if (q.table === "profiles") return { data: profile() };
+      if (q.table === "cities") return { data: [{ id: "london", name: "London", region: "London", is_live: true }] };
+      if (q.table === "boroughs") return { data: ["lambeth", "southwark", "hackney"].map((id) => ({ id, city_id: "london", name: id[0]!.toUpperCase() + id.slice(1), tile_col: 1, tile_row: 1 })) };
+      if (q.table === "borough_week_steps") {
+        return {
+          data: [
+            // Thursday is day four, so 4 days so far this week.
+            { borough_id: "lambeth", week_start: MONDAY, counted: 80_000, people: 2 },
+            { borough_id: "southwark", week_start: MONDAY, counted: 72_000, people: 2 },
+            { borough_id: "southwark", week_start: "2026-10-05", counted: 70_000, people: 1 },
+            { borough_id: "lambeth", week_start: "2026-10-05", counted: 60_000, people: 1 },
+          ],
+        };
+      }
+      return undefined;
+    });
+    const home = await data.home();
+    expect(home.boroughTable).toEqual([{ name: "Lambeth", steps: 10_000 }, { name: "Southwark", steps: 9_000, me: true }]);
+    expect(home.boroughLine).toBe("Southwark is 2nd in London, down 1");
+    const map = await data.boroughs("steps", "london");
+    expect(map.map((b) => [b.name, b.value])).toEqual([["Lambeth", 10_000], ["Southwark", 9_000], ["Hackney", 0]]);
+  });
+
+  it("clears a flagged step day and takes someone out of an unrevealed squad through the staff functions", async () => {
+    const { data, queries } = fake((q) => {
+      if (q.table === "profiles") return { data: profile() };
+      if (q.table === "staff") return { data: [{ role: "moderator" }] };
+      if (q.table === "squad_members") return { data: [{ fixture_id: "f1" }] };
+      if (q.table === "fixtures") return { data: [{ id: "f1" }] };
+      return undefined;
+    });
+    await data.clearFlag("steps:u1:2026-10-14");
+    await data.removeFromSquad("steps:u2:2026-10-14");
+    const calls = (name: string) => queries.filter((q) => q.table === `rpc:${name}`).map((q) => q.calls[0]?.args[0]);
+    expect(calls("review_steps")).toEqual([{ p_user: "u1", p_day: "2026-10-14", p_ok: true }, { p_user: "u2", p_day: "2026-10-14", p_ok: false }]);
+    expect(calls("remove_from_squad")).toEqual([{ p_fixture: "f1", p_user: "u2" }]);
+  });
+
   it("refuses to read the viewer when nobody is signed in, but has no people to show", async () => {
     const { data } = fake(() => undefined, null);
     await expect(data.viewer()).rejects.toThrow("NOT_SIGNED_IN");
@@ -191,6 +242,16 @@ describe("profile", () => {
     expect(await data.profile("@Nobody")).toBeNull();
     expect(queries[0]?.table).toBe("profiles");
     expect(queries[0]?.eq("username")).toBe("nobody");
+  });
+
+  it("keeps a private profile private, even to someone who can read the row", async () => {
+    const { data } = fake((q) => (q.table === "profiles" ? { data: profile({ id: "someone-else", public_profile: false }) } : undefined));
+    expect(await data.profile("kemi")).toEqual({ handle: "kemi", visible: false });
+  });
+
+  it("says a hidden profile exists when only its public card can be read", async () => {
+    const { data } = fake((q) => (q.table === "profile_cards" ? { data: { username: "kemi" } } : undefined), null);
+    expect(await data.profile("kemi")).toEqual({ handle: "kemi", visible: false });
   });
 
   it("shows signed out visitors public numbers only", async () => {

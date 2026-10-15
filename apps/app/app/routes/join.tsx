@@ -39,7 +39,9 @@ const DAYS: Record<string, string> = { MON: "Monday", TUE: "Tuesday", WED: "Wedn
 export default function Join({ loaderData }: Route.ComponentProps) {
   const { club: c, run, signIn, resume } = loaderData;
   const toast = useToast();
-  const { act, result } = useAct();
+  const { act, result } = useAct<{ joined: "joined" | "requested" }>();
+  // Clubs that say yes first answer with "requested"; until the answer comes back, show you're in.
+  const requested = result?.joined === "requested";
   const [step, setStep] = useState(resume ? 1 : 0);
   const [pace, setPace] = useState<PaceGroup>("Steady");
   const [come, setCome] = useState(true);
@@ -145,14 +147,16 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                 {steps}
                 <div className="jbody" style={{ marginTop: 20, textAlign: "center", alignItems: "center" }}>
                   <img className="obj" src="/_app/img/verified.jpg" alt="" style={{ width: 190, marginTop: 6 }} />
-                  <h2 className="disp" style={{ fontSize: 64, marginTop: 4 }}>You're <span className="b">in</span></h2>
+                  <h2 className="disp" style={{ fontSize: 64, marginTop: 4 }}>{requested ? <>Request <span className="b">sent</span></> : <>You're <span className="b">in</span></>}</h2>
                   <p style={{ fontSize: 15, color: "var(--ink-soft)", marginTop: 10 }}>
-                    {run && come
+                    {requested
+                      ? `${c.name} says yes to each new member first. We'll tell you as soon as the captain does. You asked for the ${pace.toLowerCase()} group.`
+                      : run && come
                       ? `See you ${day} at ${run.time} ${run.place}. Look for the blue flag. You're in the ${pace.toLowerCase()} group.`
                       : `You're in the ${pace.toLowerCase()} group. Pick a run on the club page whenever you're ready.`}
                   </p>
                   <div style={{ display: "grid", gap: 8, width: "100%", marginTop: "auto" }}>
-                    {run && come && <button type="button" className="btn btn-q" onClick={() => toast("Added to your calendar")}><Icon name="cal" />Add to calendar</button>}
+                    {run && come && !requested && <button type="button" className="btn btn-q" onClick={() => toast("Added to your calendar")}><Icon name="cal" />Add to calendar</button>}
                     <button type="button" className="btn btn-p btn-l" onClick={() => toast("Opens the App Store or Google Play")}>Get the app to count your steps</button>
                     <button type="button" className="btn btn-s" style={{ color: "var(--ink-muted)" }} onClick={() => setStep(0)}>Start again</button>
                   </div>

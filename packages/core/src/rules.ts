@@ -140,6 +140,9 @@ export function suggestClubSlug(name: string, city: string, taken: (slug: string
   }
 }
 
+/** Tags a captain can pick from on the club page, besides their own words. */
+export const CLUB_TAG_SUGGESTIONS = ["All paces", "Women-led", "Coffee after", "Beginners welcome", "Night runs", "Walkers welcome", "Trail", "Social", "5k and 10k", "Families"];
+
 /* ---------- roles ---------- */
 
 export const canSeeClubHq = (viewer: Pick<Viewer, "roles">): boolean =>

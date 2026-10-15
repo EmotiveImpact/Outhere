@@ -615,6 +615,7 @@ export class MockData implements OuthereData {
     if (existing) Object.assign(existing, input);
     else this.s.joins.push({ clubId: club.id, personId, ...input });
     if (input.runId) await this.setRsvp(input.runId, true);
+    return "joined" as const;
   }
 
   /* ---------- club HQ ---------- */

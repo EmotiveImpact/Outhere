@@ -82,8 +82,11 @@ export interface OuthereData {
   /* public */
   clubBySlug(slug: string): Promise<Club | null>;
   clubPage(slug: string): Promise<ClubPageView | null>;
-  /** Join a club from its public page or QR code, with a pace and maybe a first run. */
-  joinClub(slug: string, input: JoinInput): Promise<void>;
+  /**
+   * Join a club from its public page or QR code, with a pace and maybe a first
+   * run. "requested" when the club says yes to each new member first.
+   */
+  joinClub(slug: string, input: JoinInput): Promise<"joined" | "requested">;
 
   /* club HQ */
   clubHq(clubId: string): Promise<ClubHqView>;
