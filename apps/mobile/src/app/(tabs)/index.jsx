@@ -117,9 +117,12 @@ function OnlineHome({ profile, liveSteps }) {
         live: true,
         kicker: "Live now",
         title: formatNumber(out?.count ?? 0),
-        body: friendsOut.length
-          ? `outside in ${place}. ${friendsOut.slice(0, 2).map((f) => f.name).join(" and ")} ${friendsOut.length > 1 ? "are" : "is"} out near you.`
-          : `outside in ${place} right now.`,
+        body: (() => {
+          const names = friendsOut.slice(0, 2).map((f) => f.name).join(" and ");
+          const verb = friendsOut.length > 1 ? "are" : "is";
+          if (!out?.count) return friendsOut.length ? `outside in ${place} yet. ${names} ${verb} out elsewhere.` : `outside in ${place} yet. Be the first out.`;
+          return friendsOut.length ? `outside in ${place}. ${names} ${verb} out too.` : `outside in ${place} right now.`;
+        })(),
         faces: (out?.people || []).slice(0, 4),
         image: PHOTOS.navCity,
         onPress: () => router.push("/(tabs)/move"),
