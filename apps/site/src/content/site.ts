@@ -8,5 +8,5 @@ export const SITE = {
   appDemoUrl: 'https://claude.ai/artifact/98grfv6cXNWjffQE3jhBdi',
   /** Fill in a URL to turn the footer button into a real link. Empty means "comes at launch". */
   social: { Instagram: '', TikTok: '', Strava: '', YouTube: '', X: '' } as Record<string, string>,
-  prices: { pro: { m: '£5.99', y: '£49.99', yNote: "That's £4.17 a month" }, black: { m: '£17.99', y: '£149.99' } },
+  prices: { pro: { m: '£5.99', y: '£49.99', yNote: "That's £4.17 a month" }, black: { m: '£12.99', y: '£129.99' } },
 };
