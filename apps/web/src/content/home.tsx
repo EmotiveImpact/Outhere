@@ -1,6 +1,6 @@
 /** Words for the home page that are easier to edit here than in the markup. */
 export const FAQ: [string, React.ReactNode][] = [
-  ['Is Outhere free?', 'Yes. Free covers every step, one crew, your local league and three battles a week. Pro and Black add more, and their prices are placeholders until launch.'],
+  ['Is Outhere free?', 'Yes. Free covers every step, one crew, your local league and three battles a week. Pro (£5.99 a month or £59.99 a year) and Black (£12.99 a month or £129.99 a year) add more.'],
   ['When does it open?', 'On launch day, for anyone in the UK. Launch nights run in the ten biggest cities, and sharing your link moves you up the list so you are first in.'],
   ["I'm not in a big city. Can I still play?", 'Yes, from day one. Pick your town when you join and you play for your region. Once 100 people in your town are active, it gets a team and a league of its own.'],
   ['Do I have to run?', 'No. Walking, running, the school run and the commute all count. A step is a step.'],
