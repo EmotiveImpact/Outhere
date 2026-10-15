@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { formatNumber } from "@outhere/core";
+import { formatNumber, type RevealResult } from "@outhere/core";
 import { Icon, useToast } from "@outhere/ui";
 
 type Stage = "intro" | 3 | 2 | 1 | "score" | "result";
@@ -8,11 +8,8 @@ type Stage = "intro" | 3 | 2 | 1 | "score" | "result";
  * Sunday's reveal: a countdown, both scores counting up together, the winner
  * lit, then what it means for the club, the squad and the borough.
  */
-export function RevealOverlay({ onClose, home = { name: "Peckham Pacers", crest: "/img/pacers.jpg", score: 13224 }, away = { name: "Brixton Sunrise", crest: "", score: 12826 } }: {
-  onClose: () => void;
-  home?: { name: string; crest: string; score: number };
-  away?: { name: string; crest: string; score: number };
-}) {
+export function RevealOverlay({ onClose, result }: { onClose: () => void; result: RevealResult }) {
+  const { home, away, cards } = result;
   const toast = useToast();
   const [stage, setStage] = useState<Stage>("intro");
   const [lit, setLit] = useState(false);
@@ -53,6 +50,12 @@ export function RevealOverlay({ onClose, home = { name: "Peckham Pacers", crest:
   }, [stage, home.score, away.score]);
 
   const margin = home.score - away.score;
+  const winner = margin > 0 ? home : margin < 0 ? away : null;
+  const share = () => {
+    const text = `${home.name} ${formatNumber(home.score)}, ${away.name} ${formatNumber(away.score)}. Sunday reveal on Outhere.`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else navigator.clipboard?.writeText(text).then(() => toast("Score copied to share"), () => {});
+  };
   return (
     <div className={`rv${lit ? " lit" : ""}`} role="dialog" aria-label="Sunday reveal">
       <img src="/img/derby.jpg" alt="" />
@@ -70,13 +73,13 @@ export function RevealOverlay({ onClose, home = { name: "Peckham Pacers", crest:
           <>
             <div className="ft">FULL TIME · CLUB DERBY</div>
             <div className="sides">
-              <div className={`side2${won ? " win" : ""}`}>
+              <div className={`side2${won && margin !== 0 ? (margin > 0 ? " win" : " lose") : ""}`}>
                 <img src={home.crest} alt="" />
                 <div className="nm">{home.name}</div>
                 <div className="sc2">{formatNumber(scores[0] ?? 0)}</div>
               </div>
               <div className="vs2">VS</div>
-              <div className={`side2${won ? " lose" : ""}`}>
+              <div className={`side2${won && margin !== 0 ? (margin < 0 ? " win" : " lose") : ""}`}>
                 {away.crest && <img src={away.crest} alt="" />}
                 <div className="nm">{away.name}</div>
                 <div className="sc2">{formatNumber(scores[1] ?? 0)}</div>
@@ -86,15 +89,17 @@ export function RevealOverlay({ onClose, home = { name: "Peckham Pacers", crest:
         )}
         {stage === "result" && (
           <>
-            <div className="ft">PECKHAM WIN BY {margin}</div>
-            <div className="head" style={{ marginTop: 16 }}>Peckham<br /><span>take the derby</span></div>
+            <div className="ft">{winner ? `${winner.short.toUpperCase()} WIN BY ${formatNumber(Math.abs(margin))}` : "LEVEL AT FULL TIME"}</div>
+            <div className="head" style={{ marginTop: 16 }}>{winner ? <>{winner.short}<br /><span>take the derby</span></> : <>All<br /><span>square</span></>}</div>
+            {cards.length > 0 && (
+              <div className="after">
+                {cards.slice(0, 3).map((c) => (
+                  <div key={c.kick} className="card"><span className="kick">{c.kick}</span><h3 style={{ marginTop: 8 }}>{c.title}</h3><p className="muted" style={{ fontSize: 12.5 }}>{c.line}</p></div>
+                ))}
+              </div>
+            )}
             <div className="after">
-              <div className="card"><span className="kick">Club Premier</span><h3 style={{ marginTop: 8 }}>Up to 1st</h3><p className="muted" style={{ fontSize: 12.5 }}>+3 points · 13 from 5</p></div>
-              <div className="card"><span className="kick">Your squad</span><h3 style={{ marginTop: 8 }}>London beat Manchester</h3><p className="muted" style={{ fontSize: 12.5 }}>8,912 to 8,610 · you were #214</p></div>
-              <div className="card"><span className="kick">Borough league</span><h3 style={{ marginTop: 8 }}>Southwark up to 2nd</h3><p className="muted" style={{ fontSize: 12.5 }}>Your 78,265 steps helped</p></div>
-            </div>
-            <div className="after">
-              <button type="button" className="btn btn-p btn-l" onClick={() => toast("Story saved with the final score")}><Icon name="share" />Share the win</button>
+              <button type="button" className="btn btn-p btn-l" onClick={share}><Icon name="share" />{margin > 0 ? "Share the win" : "Share the result"}</button>
               <button type="button" className="btn btn-g btn-l" onClick={onClose}>Done</button>
             </div>
           </>

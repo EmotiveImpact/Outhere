@@ -3,7 +3,7 @@ import { battleLengths, firstName, ordinal, rolesFor, isValidClubSlug, slugify }
 import type {
   AdminOverview, AuditEntry, BattlesView, BoroughMetric, BoroughStat, CalendarView, ChatItem, ChatView,
   CheckinRun, Club, ClubHqView, ClubPagePatch, ClubPageView, FairPlayView, FeedPost, FeedView, FundView, HomeView,
-  JoinInput, KitView, LeagueView, MembersView, NewBattle, NewPickup, Notification, MeView, Person, Pickup, PickupsView, Plan, PublicProfile, Reaction,
+  JoinInput, KitView, NewRun, LeagueView, MembersView, NewBattle, NewPickup, Notification, MeView, Person, Pickup, PickupsView, Plan, PublicProfile, RevealResult, Reaction,
   Role, RunsWeekView, SearchItem, SeasonsView, VerificationRequest, Viewer,
 } from "../types";
 import * as seed from "./seed";
@@ -13,6 +13,8 @@ type State = {
   people: Record<string, Person>;
   clubs: Club[];
   runs: typeof seed.RUNS;
+  /** Runs added from Club HQ, shown on the week by weekday. */
+  addedRuns: (RunsWeekView["days"][number]["runs"][number] & { day: string })[];
   stories: typeof seed.STORIES;
   feed: FeedPost[];
   chat: typeof seed.CHAT;
@@ -44,6 +46,7 @@ function freshState(): State {
     people,
     clubs: clone(seed.CLUBS),
     runs: clone(seed.RUNS),
+    addedRuns: [],
     stories: clone(seed.STORIES),
     feed: clone(seed.FEED),
     chat: clone(seed.CHAT),
@@ -443,6 +446,20 @@ export class MockData implements OuthereData {
     };
   }
 
+  async lastReveal(): Promise<RevealResult | null> {
+    const home = this.club(this.s.viewer.homeClubId);
+    const away = this.s.clubs.find((c) => c.id === "brixton-sunrise") ?? home;
+    return {
+      home: { name: home.name, short: home.nameTop, crest: home.crest, score: 13224 },
+      away: { name: away.name, short: away.nameTop, crest: away.crest, score: 12826 },
+      cards: [
+        { kick: "Club Premier", title: "Up to 1st", line: "+3 points · 13 from 5" },
+        { kick: "Your squad", title: "London beat Manchester", line: "8,912 to 8,610 · you were #214" },
+        { kick: "Borough league", title: "Southwark up to 2nd", line: "Your 78,265 steps helped" },
+      ],
+    };
+  }
+
   async profile(handle: string): Promise<PublicProfile | null> {
     const h = handle.toLowerCase();
     const v = this.s.viewer;
@@ -623,6 +640,21 @@ export class MockData implements OuthereData {
     }
   }
 
+  async createRun(input: NewRun): Promise<void> {
+    if (!this.s.viewer.roles.includes("captain")) throw new Error("NOT_ALLOWED");
+    const at = new Date(`${input.date}T12:00:00Z`);
+    if (Number.isNaN(at.getTime()) || !/^\d\d:\d\d$/.test(input.time)) throw new Error("BAD_TIME");
+    const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][at.getUTCDay()]!;
+    const title = input.title.trim().slice(0, 48) || (input.walk ? "Club walk" : "Club run");
+    const place = input.place.trim().slice(0, 60);
+    if (!place) throw new Error("NO_PLACE");
+    this.s.addedRuns.push({ day, time: input.time, title, line: `${place} · 0 going`, ...(input.walk ? { walk: true } : {}) });
+    this.s.runs.push({
+      id: `run-${this.s.nextId++}`, clubId: input.clubId, day: day.toUpperCase(), date: at.getUTCDate(), time: input.time,
+      title, place, detail: input.detail.trim().slice(0, 80) || "All paces", going: 0, goingIds: [], imGoing: false,
+    });
+  }
+
   async runsWeek(clubId: string): Promise<RunsWeekView> {
     const runs: Record<string, RunsWeekView["days"][number]["runs"]> = {
       Tue: [{ time: "19:00", title: "Rye Lane 5k", line: "All paces · 34 going" }],
@@ -631,7 +663,12 @@ export class MockData implements OuthereData {
       Sat: [{ time: "08:00", title: "Long run, 14k", line: "Rye to Southbank · 41 going" }],
       Sun: [{ time: "09:30", title: "Recovery walk", line: "Dulwich Park · 12 going", walk: true }],
     };
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => ({ day, date: 20 + i, today: day === "Thu", runs: runs[day] ?? [] }));
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => ({
+      day,
+      date: 20 + i,
+      today: day === "Thu",
+      runs: [...(runs[day] ?? []), ...this.s.addedRuns.filter((r) => r.day === day).map(({ day: _d, ...r }) => r)].sort((a, b) => a.time.localeCompare(b.time)),
+    }));
     return {
       club: clone(this.club(clubId)),
       weekOf: "week of 20 October",

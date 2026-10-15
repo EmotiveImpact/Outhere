@@ -185,7 +185,7 @@ function DerbyCard({ post }: { post: Extract<FeedPost, { kind: "derby" }> }) {
   );
 }
 
-export function Post({ post, viewerId, boroughStats, onReveal }: { post: FeedPost; viewerId: string; boroughStats: BoroughStat[]; onReveal: () => void }) {
+export function Post({ post, viewerId, boroughStats, onReveal }: { post: FeedPost; viewerId: string; boroughStats: BoroughStat[]; onReveal?: () => void }) {
   const toast = useToast();
   switch (post.kind) {
     case "derby":
@@ -277,7 +277,7 @@ export function Post({ post, viewerId, boroughStats, onReveal }: { post: FeedPos
             <span className="pill glass"><i className="dot pulse" />Sunday reveal</span>
             <h3 className="disp">{post.match.split(" v ")[0]} <span className="b">v</span> {post.match.split(" v ")[1]}</h3>
             <p>{post.line}</p>
-            <button type="button" className="btn btn-p" id="frv" onClick={onReveal}>Watch last week's reveal</button>
+            {onReveal && <button type="button" className="btn btn-p" id="frv" onClick={onReveal}>Watch last week's reveal</button>}
           </div>
         </article>
       );

@@ -1,5 +1,5 @@
 import { data } from "react-router";
-import type { BattleModeKey, PaceGroup, PickupType, Reaction, Role, Tier } from "@outhere/core";
+import type { BattleModeKey, NewRun, PaceGroup, PickupType, Reaction, Role, Tier } from "@outhere/core";
 import { startCheckout } from "~/checkout.server";
 import { getData, PREVIEW_COOKIE, usingExampleData } from "~/data.server";
 import type { Route } from "./+types/act";
@@ -24,6 +24,7 @@ export type Act =
   | { intent: "surprise"; on: boolean }
   | { intent: "pickup-going"; id: string; going: boolean }
   | { intent: "pickup-post"; type: PickupType; title: string; at: string; when: string; visibility: string }
+  | { intent: "run-create"; run: NewRun }
   | { intent: "public-profile"; on: boolean }
   | { intent: "notes-read" }
   | { intent: "join-decide"; clubId: string; requestId: string; approve: boolean }
@@ -53,6 +54,7 @@ export async function action({ request }: Route.ActionArgs) {
       case "surprise": await db.setSurpriseChallengers(act.on); break;
       case "pickup-going": await db.setPickupGoing(act.id, act.going); break;
       case "pickup-post": return { ok: true, pickup: await db.postPickup(act) };
+      case "run-create": await db.createRun(act.run); break;
       case "public-profile": await db.setPublicProfile(act.on); break;
       case "notes-read": await db.markNotificationsRead(); break;
       case "join-decide": await db.decideJoinRequest(act.clubId, act.requestId, act.approve); break;

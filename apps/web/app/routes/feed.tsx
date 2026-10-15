@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router";
-import { firstName, formatNumber, type FeedScope } from "@outhere/core";
+import { canPostStory, firstName, formatNumber, type FeedScope } from "@outhere/core";
 import { Avatar, DateBox, Icon, Seg, Spark, usePeople, usePerson, useToast } from "@outhere/ui";
 import { getData } from "~/data.server";
 import { useAct } from "~/hooks";
@@ -15,8 +15,8 @@ export const meta: Route.MetaFunction = () => [{ title: "Feed · Outhere" }];
 export async function loader({ request }: Route.LoaderArgs) {
   const db = await getData(request);
   const viewer = await db.viewer();
-  const [feed, boroughs, chat] = await Promise.all([db.feed(), db.boroughs("steps"), db.chat(viewer.homeClubId)]);
-  return { feed, boroughs, viewer, club: chat.club };
+  const [feed, boroughs, chat, lastReveal] = await Promise.all([db.feed(), db.boroughs("steps"), db.chat(viewer.homeClubId), db.lastReveal()]);
+  return { feed, boroughs, viewer, club: chat.club, lastReveal };
 }
 
 function OutNowRow({ personId, doing, where }: { personId: string; doing: string; where: string }) {
@@ -32,7 +32,7 @@ function OutNowRow({ personId, doing, where }: { personId: string; doing: string
 }
 
 export default function Feed({ loaderData }: Route.ComponentProps) {
-  const { feed, boroughs, viewer, club } = loaderData;
+  const { feed, boroughs, viewer, club, lastReveal } = loaderData;
   const toast = useToast();
   const { act } = useAct();
   const zain = usePerson(feed.chatPreview.personId);
@@ -68,12 +68,19 @@ export default function Feed({ loaderData }: Route.ComponentProps) {
       <div className="g g-73 feedg">
         <div className="fstream">
           <div className="stories" id="stories">
-            <button type="button" className="sty me" onClick={() => toast("Post a story: a photo from today's run, gone in 24 hours")}>
-              <span className="ring t-me"><img src={viewer.avatar} alt="" /><i><Icon name="plus" /></i></span>
-              <b>You</b>
-            </button>
+            {canPostStory(viewer) ? (
+              <button type="button" className="sty me" onClick={() => toast("Post a story from the Outhere app: a photo from today's run, gone in 24 hours")}>
+                <span className="ring t-me"><img src={viewer.avatar} alt="" /><i><Icon name="plus" /></i></span>
+                <b>You</b>
+              </button>
+            ) : (
+              <Link className="sty me" to="/membership" aria-label="Go Pro to post stories">
+                <span className="ring t-me"><img src={viewer.avatar} alt="" /><i><Icon name="lock" /></i></span>
+                <b>Go Pro</b>
+              </Link>
+            )}
             {stories.map((s, i) => (
-              <StoryButton key={s.id} story={s} clubCrest={club.crest} onOpen={() => setStory(i)} />
+              <StoryButton key={s.id} story={s} clubCrest={club.crest} clubName={club.name} clubShort={club.nameBottom} onOpen={() => setStory(i)} />
             ))}
           </div>
           <div className="card fp-new">
@@ -84,7 +91,7 @@ export default function Feed({ loaderData }: Route.ComponentProps) {
           <div id="fposts">
             {feed.posts.map((p) => (
               <div key={p.id} hidden={scope !== "all" && !p.scopes.includes(scope)}>
-                <Post post={p} viewerId={viewer.id} boroughStats={boroughs} onReveal={() => setReveal(true)} />
+                <Post post={p} viewerId={viewer.id} boroughStats={boroughs} onReveal={lastReveal ? () => setReveal(true) : undefined} />
               </div>
             ))}
           </div>
@@ -131,7 +138,7 @@ export default function Feed({ loaderData }: Route.ComponentProps) {
       {story !== null && (
         <StoryViewer stories={stories} start={story} clubCrest={club.crest} clubName={club.name} onSeen={markSeen} onClose={() => setStory(null)} />
       )}
-      {reveal && <RevealOverlay onClose={() => setReveal(false)} />}
+      {reveal && lastReveal && <RevealOverlay onClose={() => setReveal(false)} result={lastReveal} />}
     </>
   );
 }

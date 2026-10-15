@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { formatNumber, type BoroughMetric } from "@outhere/core";
 import { Avatar, Bars, BoroughMap, Countdown, DateBox, Faces, Icon, Seg, useLiveScore, useToast } from "@outhere/ui";
-import { getData } from "~/data.server";
+import { config, getData } from "~/data.server";
 import { useAct } from "~/hooks";
 import { RevealOverlay } from "~/components/reveal";
 import type { Route } from "./+types/home";
@@ -11,8 +11,9 @@ export const meta: Route.MetaFunction = () => [{ title: "Home · Outhere" }];
 
 export async function loader({ request }: Route.LoaderArgs) {
   const db = await getData(request);
-  const [home, steps, clubs] = await Promise.all([db.home(), db.boroughs("steps"), db.boroughs("clubs")]);
-  return { home, maps: { steps, clubs } };
+  const [home, steps, clubs, last] = await Promise.all([db.home(), db.boroughs("steps"), db.boroughs("clubs"), config().example ? db.lastReveal() : null]);
+  // The preview plays this week's derby as it stands. Example data adds last week's cards, as in the mockup.
+  return { home, maps: { steps, clubs }, previewCards: last?.cards ?? [] };
 }
 
 function Activity({ personId, html, ago }: { personId: string; html: string; ago: string }) {
@@ -26,7 +27,7 @@ function Activity({ personId, html, ago }: { personId: string; html: string; ago
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { home, maps } = loaderData;
+  const { home, maps, previewCards } = loaderData;
   const { derby, callup, nextRun } = home;
   const toast = useToast();
   const { act } = useAct();
@@ -39,7 +40,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <section className="slab" style={{ minHeight: 420 }}>
-        <img className="bg" src="/img/derby.jpg" alt="Peckham Pacers and Brixton Sunrise lined up on a wet street at night" />
+        <img className="bg" src="/img/derby.jpg" alt={`${derby.home.name} and ${derby.away.name} lined up on a wet street at night`} />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span className="pill glass"><i className="dot pulse" />Club derby · live</span>
           <span className="pill glass">{derby.division} · {derby.week}</span>
@@ -106,7 +107,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               aria-pressed={nextRun.imGoing}
               onClick={() => {
                 act({ intent: "rsvp", runId: nextRun.id, going: !nextRun.imGoing });
-                if (!nextRun.imGoing) toast("See you Tuesday. Your run leader is Zain.");
+                if (!nextRun.imGoing) toast(`See you at ${nextRun.time}, ${nextRun.place}.`);
               }}
             >
               {nextRun.imGoing ? "Going ✓" : "I'm going"}
@@ -140,11 +141,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </div>
         </div>
         <div className="card feed">
-          <div className="hd"><h3>From your club</h3><span className="pill">Peckham Pacers</span></div>
+          <div className="hd"><h3>From your club</h3><span className="pill">{derby.home.name}</span></div>
           {home.clubActivity.map((a) => <Activity key={a.html} {...a} />)}
         </div>
       </div>
-      {reveal && <RevealOverlay onClose={() => setReveal(false)} away={{ name: derby.away.name, crest: derby.away.crest, score: 12826 }} />}
+      {reveal && <RevealOverlay onClose={() => setReveal(false)} result={{ home: { ...derby.home, score: L }, away: { ...derby.away, score: R }, cards: previewCards }} />}
     </>
   );
 }

@@ -48,7 +48,9 @@ What the web and admin apps need that the schema on `claude/mobile-app-build-nho
 
 ## Game and leagues
 
-- **Borough step totals.** `home().boroughTable`, `home().boroughLine`, `boroughs("steps")` and the feed's borough card. Nothing totals counted steps per borough, and members can't do it from the client. Fix: add a view or RPC `borough_week_steps (city_id, borough_id, week_start, counted, people)`.
+- **Reveal movement.** `lastReveal()` says where the club sits now ("Now 1st") and its points, not "Up to 1st" or "+3 points", because nothing keeps a club's place or points from before a reveal, and no function in the schema awards fixture points. Fix: add `league_entry_history (entry_id, fixture_id, position, points, recorded_at)` written when a fixture is settled, or a `points_awarded` column on `fixtures` per side.
+- **Squad places.** `lastReveal()`'s squad card says "you were in the squad", not "you were #214". `squad_members` has no steps or rank per walker. Fix: add `squad_members.counted integer` and `rank integer`, filled when the fixture is scored.
+- **Borough step totals.** `home().boroughTable`, `home().boroughLine`, `boroughs("steps")`, the feed's borough card and the borough card in `lastReveal()`. Nothing totals counted steps per borough, and members can't do it from the client. Fix: add a view or RPC `borough_week_steps (city_id, borough_id, week_start, counted, people)`.
 - **Squad number and squad average.** `home().callup.squadNumber` is 0. `callup.average` uses `fixture_side_score`, which includes the turnout bonus. Fix: add `squad_members.squad_number` (set by `draw_fixture`) and a `fixture_side_stats(p_fixture, p_entry)` that returns the average, turnout and score separately.
 - **City turnout.** `league().match.homeTurnout` and `awayTurnout` are 0. Fix: the same `fixture_side_stats`.
 - **City table extras.** `league().table[].image`, `eligible` and `league().rising`. `eligible_walkers` cannot be called by clients. Fix: add `cities.image_path` and a public view `city_eligible_counts (city_id, eligible)`.

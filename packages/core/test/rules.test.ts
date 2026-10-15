@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  battleLengths, clubShare, countdown, countedSteps, isValidClubSlug, ordinal, priceSplit, ringClass, rolesFor, storyRing,
+  battleLengths, canPostStory, clubShare, countdown, countedSteps, isValidClubSlug, ordinal, priceSplit, ringClass, rolesFor, storyRing,
 } from "../src/rules";
 import { seed } from "../src/mock";
 
@@ -73,5 +73,13 @@ describe("helpers", () => {
   it("gives staff every role", () => {
     expect(rolesFor("staff")).toEqual(["member", "captain", "staff"]);
     expect(rolesFor("member")).toEqual(["member"]);
+  });
+});
+
+describe("canPostStory", () => {
+  it("lets paying members post and keeps Free to watching", () => {
+    expect(canPostStory({ tier: "pro" })).toBe(true);
+    expect(canPostStory({ tier: "black" })).toBe(true);
+    expect(canPostStory({ tier: "free" })).toBe(false);
   });
 });

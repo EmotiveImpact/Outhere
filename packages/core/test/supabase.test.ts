@@ -202,3 +202,34 @@ describe("profile", () => {
     expect(queries.some((q) => q.table === "wallets" || q.table === "daily_steps")).toBe(false);
   });
 });
+
+describe("lastReveal", () => {
+  const CLUB = "c0000000-0000-0000-0000-000000000001";
+  const OTHER = "c0000000-0000-0000-0000-000000000002";
+
+  it("is null without a home club", async () => {
+    const { data } = fake((q) => (q.table === "profiles" ? { data: profile() } : undefined));
+    expect(await data.lastReveal()).toBeNull();
+  });
+
+  it("puts the viewer's club first with the final scores and the club card", async () => {
+    const { data, queries } = fake((q) => {
+      if (q.table === "profiles") return { data: profile({ home_club_id: CLUB }) };
+      if (q.table === "league_entries" && q.eq("club_id") === CLUB) return { data: [{ id: "e1" }] };
+      if (q.table === "league_entries" && q.eq("id") === "e2") return { data: { club_id: OTHER } };
+      if (q.table === "league_entries" && q.eq("division_id")) return { data: [{ id: "e2", points: 15, played: 5 }, { id: "e1", points: 13, played: 5 }] };
+      if (q.table === "fixtures" && !q.eq("starts_on")) {
+        return { data: { id: "f1", division_id: "d1", week: 5, home_id: "e2", away_id: "e1", is_derby: true, starts_on: "2026-10-05", ends_on: "2026-10-11", draw_seed: null, drawn_at: null, home_score: 12826.4, away_score: 13224.2, revealed_at: "2026-10-12T19:00:00Z" } };
+      }
+      if (q.table === "divisions") return { data: { name: "Club Premier" } };
+      if (q.table === "clubs") return { data: [{ id: CLUB, name: "Peckham Pacers", logo_path: null }, { id: OTHER, name: "Brixton Sunrise", logo_path: null }] };
+      return undefined;
+    });
+    const result = await data.lastReveal();
+    expect(result?.home).toMatchObject({ name: "Peckham Pacers", short: "Peckham", score: 13224 });
+    expect(result?.away).toMatchObject({ name: "Brixton Sunrise", short: "Brixton", score: 12826 });
+    expect(result?.cards).toEqual([{ kick: "Club Premier", title: "Now 2nd", line: "Won · 13 points from 5" }]);
+    const fixture = queries.find((q) => q.table === "fixtures");
+    expect(fixture?.calls.find((c) => c.method === "lte")?.args).toEqual(["revealed_at", "2026-10-15T12:00:00.000Z"]);
+  });
+});

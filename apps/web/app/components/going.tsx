@@ -14,7 +14,7 @@ export function GoingButton({ runId, going, style }: { runId: string; going: boo
       style={style}
       onClick={() => {
         act({ intent: "rsvp", runId, going: !on });
-        if (!on) toast("See you Tuesday. Your run leader is Zain.");
+        if (!on) toast("You're on the list. See you there.");
       }}
     >
       {on ? "Going ✓" : "I'll come"}

@@ -132,6 +132,14 @@ export interface RevealInfo {
   seed: string;
 }
 
+/** A finished Sunday reveal, replayed full screen: the derby score, then what it meant. */
+export interface RevealResult {
+  home: { name: string; short: string; crest: string; score: number };
+  away: { name: string; short: string; crest: string; score: number };
+  /** Up to three cards after the score: the club table, the city squad, the borough. */
+  cards: { kick: string; title: string; line: string }[];
+}
+
 export interface HomeView {
   derby: Derby;
   callup: Callup;
@@ -535,6 +543,19 @@ export interface NewPickup {
 }
 
 /* ---------- club HQ ---------- */
+
+/** A club run or walk a captain adds from Club HQ. Date and time are London local. */
+export interface NewRun {
+  clubId: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** HH:MM */
+  time: string;
+  title: string;
+  place: string;
+  detail: string;
+  walk: boolean;
+}
 
 export interface Kpi {
   label: string;

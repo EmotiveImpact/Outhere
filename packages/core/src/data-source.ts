@@ -1,4 +1,6 @@
 import type {
+  RevealResult,
+  NewRun,
   PublicProfile,
   BattlesView, BoroughMetric, BoroughStat, CalendarView, ChatView, Club, ClubFilter, ClubHqView,
   ClubPagePatch, ClubPageView, FairPlayView, JoinInput, FeedView, FundView, HomeView, KitView, LeagueView,
@@ -52,11 +54,15 @@ export interface OuthereData {
   pickups(): Promise<PickupsView>;
   setPickupGoing(id: string, going: boolean): Promise<void>;
   postPickup(input: NewPickup): Promise<Pickup>;
+  /** Club staff only. */
+  createRun(input: NewRun): Promise<void>;
 
   league(): Promise<LeagueView>;
   boroughs(metric: BoroughMetric): Promise<BoroughStat[]>;
   clubs(query?: ClubQuery): Promise<Club[]>;
   me(): Promise<MeView>;
+  /** The viewer's home club derby from the last reveal, or null before the first one. */
+  lastReveal(): Promise<RevealResult | null>;
   /** weouthere.app/@handle. Null when nobody has that handle. */
   profile(handle: string): Promise<PublicProfile | null>;
   plans(): Promise<Plan[]>;

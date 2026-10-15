@@ -199,7 +199,7 @@ export default function Battles({ loaderData }: Route.ComponentProps) {
             {captain ? (
               <button type="button" className="btn btn-p btn-s mt" onClick={() => toast(`Challenge sent to ${battles.rivalClub.name}. Their members vote by Thursday.`)}><Icon name="bolt" />Challenge a club</button>
             ) : (
-              <button type="button" className="btn btn-q btn-s mt" onClick={() => toast("Asked Dami and Zain to set one up")}>Ask your captain</button>
+              <button type="button" className="btn btn-q btn-s mt" onClick={() => toast("Asked your captains to set one up")}>Ask your captain</button>
             )}
           </div>
           <div className="card mt">

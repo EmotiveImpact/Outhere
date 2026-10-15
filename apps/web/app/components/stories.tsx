@@ -4,16 +4,16 @@ import { firstName, storyRing } from "@outhere/core";
 import { Icon, useReducedMotion, usePerson, useToast } from "@outhere/ui";
 
 /** One button in the stories row. The ring here is the story alone, never membership. */
-export function StoryButton({ story, clubCrest, onOpen }: { story: Story; clubCrest: string; onOpen: () => void }) {
+export function StoryButton({ story, clubCrest, clubName, clubShort, onOpen }: { story: Story; clubCrest: string; clubName: string; clubShort: string; onOpen: () => void }) {
   const p = usePerson(story.personId);
   const club = !!story.clubId;
   const { ring, state } = storyRing(story.seen);
   return (
-    <button type="button" className={`sty ${state}${club ? " club" : ""}`} onClick={onOpen} aria-label={`${club ? "Peckham Pacers" : p.name}'s story${story.seen ? ", watched" : ""}`}>
+    <button type="button" className={`sty ${state}${club ? " club" : ""}`} onClick={onOpen} aria-label={`${club ? clubName : p.name}'s story${story.seen ? ", watched" : ""}`}>
       <span className={`ring ${ring}`}>
         <img src={club ? clubCrest : p.avatar} alt="" />
       </span>
-      <b>{club ? "Pacers" : firstName(p.name)}</b>
+      <b>{club ? clubShort : firstName(p.name)}</b>
       {!club && p.outNow === "out" && <em className="ld" aria-label="Out now" />}
       {!club && p.outNow === "stopped" && <em className="ld stop" aria-label="Just stopped" />}
     </button>

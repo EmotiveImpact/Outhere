@@ -133,6 +133,9 @@ export const canSeeClubHq = (viewer: Pick<Viewer, "roles">): boolean =>
 
 export const canSeeStaff = (viewer: Pick<Viewer, "roles">): boolean => viewer.roles.includes("staff");
 
+/** Only paying members (Pro and Black) post stories. Everyone can watch and react. The database enforces this too. */
+export const canPostStory = (viewer: Pick<Viewer, "tier">): boolean => viewer.tier !== "free";
+
 export const rolesFor = (preview: Role): Role[] =>
   preview === "staff" ? ["member", "captain", "staff"] : preview === "captain" ? ["member", "captain"] : ["member"];
 

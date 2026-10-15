@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { ClubQuery, OuthereData } from "../data-source";
-import { battleLengths, firstName, formatNumber, isValidClubSlug, slugify } from "../rules";
+import { battleLengths, firstName, formatNumber, isValidClubSlug, ordinal, slugify } from "../rules";
 import { nextReveal } from "../mock/source";
 // Product definitions (battle modes and plan prices), not example data. See SCHEMA_GAPS.md.
 import { BATTLE_MODES, PLANS } from "../mock/seed";
@@ -8,8 +8,8 @@ import type {
   AdminOverview, AuditEntry, Battle, BattleModeKey, BattlesView, BoroughMetric, BoroughStat, CalendarEvent,
   CalendarView, ChatChannel, ChatItem, ChatView, CheckinRun, Club, FormLetter, JoinInput, MeView, PickupsView, PublicProfile, ClubHqView, ClubPagePatch, ClubPageView, ClubRun,
   Derby, FairPlayFlag, FairPlayView, FeedComment, FeedPost, FeedScope, FeedView, FundView, HomeView, IconName,
-  KitView, LeagueView, Member, MembersView, NeedsYou, NewBattle, NewPickup, Notification, OutNowEntry,
-  PaceGroup, Person, Pickup, PickupType, Plan, Reaction, ReactionCounts, RevealInfo, Role, RouteShape,
+  KitView, LeagueView, Member, MembersView, NeedsYou, NewBattle, NewPickup, NewRun, Notification, OutNowEntry,
+  PaceGroup, Person, Pickup, PickupType, Plan, Reaction, ReactionCounts, RevealInfo, RevealResult, Role, RouteShape,
   RunsWeekView, SearchItem, SeasonsView, Story, Trust, VerificationRequest, Viewer,
 } from "../types";
 import type { Database, Enums, Json, Tables } from "./database";
@@ -424,7 +424,7 @@ export class SupabaseData implements OuthereData {
         id: c.id,
         slug: c.slug,
         name: c.name,
-        nameTop: words.length > 1 ? (words[0] ?? c.name) : c.name,
+        nameTop: nameTop(c.name),
         nameBottom: words.slice(1).join(" "),
         borough: (c.borough_id && boroughs.get(c.borough_id)) || "",
         cover: this.media("club-media", c.cover_path),
@@ -1421,6 +1421,32 @@ export class SupabaseData implements OuthereData {
     return this.toPickup(created, [{ event_id: created.id, user_id: ctx.me, status: "going" }], ctx.me);
   }
 
+  async createRun(input: NewRun): Promise<void> {
+    const ctx = await this.ctx();
+    if (!/^\d{4}-\d\d-\d\d$/.test(input.date) || !/^\d\d:\d\d$/.test(input.time)) throw new DataError("BAD_TIME");
+    const place = input.place.trim().slice(0, 60);
+    if (!place) throw new DataError("NO_PLACE");
+    const club = one(await this.client.from("clubs").select("id, city_id").eq("id", input.clubId).maybeSingle());
+    if (!club) throw new DataError("NO_SUCH_CLUB");
+    const [h, m] = input.time.split(":").map(Number);
+    const startsAt = new Date(new Date(londonMidnight(input.date)).getTime() + ((h ?? 0) * 60 + (m ?? 0)) * 60_000).toISOString();
+    if (startsAt < this.now().toISOString()) throw new DataError("BAD_TIME");
+    // The events policy only lets club staff add club events, so the database refuses anyone else.
+    done(
+      await this.client.from("events").insert({
+        club_id: club.id,
+        city_id: club.city_id,
+        kind: input.walk ? "walk" : "club_run",
+        title: input.title.trim().slice(0, 48) || (input.walk ? "Club walk" : "Club run"),
+        description: input.detail.trim().slice(0, 80) || null,
+        starts_at: startsAt,
+        place_name: place,
+        visibility: "public",
+        created_by: ctx.me,
+      }),
+    );
+  }
+
   /* ---------- league, boroughs, plans ---------- */
 
   async league(): Promise<LeagueView> {
@@ -1653,6 +1679,97 @@ export class SupabaseData implements OuthereData {
         levelKpi,
         streak,
       ],
+    };
+  }
+
+  /**
+   * The last revealed result for the viewer's home club: its most recent
+   * club league fixture whose reveal has passed, with the final scores. The
+   * cards follow when the data supports them: the club's division and place,
+   * and the viewer's city squad result in the same week. The borough card
+   * needs borough step totals, which the schema does not keep (see
+   * SCHEMA_GAPS.md).
+   */
+  async lastReveal(): Promise<RevealResult | null> {
+    if (!(await this.uid())) return null;
+    const ctx = await this.ctx();
+    if (!ctx.homeClubId) return null;
+    const nowIso = this.now().toISOString();
+
+    const entries = rows(await this.client.from("league_entries").select("id").eq("club_id", ctx.homeClubId).limit(100));
+    if (!entries.length) return null;
+    const ids = entries.map((e) => e.id).join(",");
+    const fixture = one(
+      await this.client.from("fixtures").select(FIXTURE)
+        .or(`home_id.in.(${ids}),away_id.in.(${ids})`)
+        .not("revealed_at", "is", null).lte("revealed_at", nowIso)
+        .not("home_score", "is", null).not("away_score", "is", null)
+        .order("revealed_at", { ascending: false }).limit(1).maybeSingle(),
+    );
+    if (!fixture) return null;
+    const usHome = entries.some((e) => e.id === fixture.home_id);
+    const ourEntryId = usHome ? fixture.home_id : fixture.away_id;
+    const theirEntryId = usHome ? fixture.away_id : fixture.home_id;
+    const ourScore = Math.round(Number((usHome ? fixture.home_score : fixture.away_score) ?? 0));
+    const theirScore = Math.round(Number((usHome ? fixture.away_score : fixture.home_score) ?? 0));
+
+    const [their, table, division] = await Promise.all([
+      this.client.from("league_entries").select("club_id").eq("id", theirEntryId).maybeSingle().then(one),
+      this.client.from("league_entries").select("id, points, played").eq("division_id", fixture.division_id).order("points", { ascending: false }).then(rows),
+      this.client.from("divisions").select("name").eq("id", fixture.division_id).maybeSingle().then(one),
+    ]);
+    const clubIds = unique([ctx.homeClubId, their?.club_id ?? ""].filter(Boolean));
+    const clubRows = rows(await this.client.from("clubs").select("id, name, logo_path").in("id", clubIds));
+    const card = (id: string | null | undefined, score: number) => {
+      const c = clubRows.find((r) => r.id === id);
+      const name = c?.name ?? "";
+      return { name, short: nameTop(name), crest: this.media("club-media", c?.logo_path), score };
+    };
+
+    const cards: RevealResult["cards"] = [];
+    const at = table.findIndex((t) => t.id === ourEntryId);
+    const ours = table[at];
+    if (division && ours) {
+      // Where the club sat before the reveal is not kept, so this says where it is now.
+      cards.push({ kick: division.name, title: `Now ${ordinal(at + 1)}`, line: `${resultWord(ourScore, theirScore)} · ${ours.points} points from ${ours.played}` });
+    }
+    const squad = await this.squadResult(ctx, fixture.starts_on, nowIso);
+    if (squad) cards.push(squad);
+
+    return { home: card(ctx.homeClubId, ourScore), away: card(their?.club_id, theirScore), cards };
+  }
+
+  /** The viewer's city side in the city league fixture of the same week, once revealed. */
+  private async squadResult(ctx: Ctx, startsOn: string, nowIso: string): Promise<RevealResult["cards"][number] | null> {
+    const entries = rows(await this.client.from("league_entries").select("id").eq("city_id", ctx.cityId).limit(100));
+    if (!entries.length) return null;
+    const ids = entries.map((e) => e.id).join(",");
+    const f = one(
+      await this.client.from("fixtures").select(FIXTURE)
+        .or(`home_id.in.(${ids}),away_id.in.(${ids})`).eq("starts_on", startsOn)
+        .not("revealed_at", "is", null).lte("revealed_at", nowIso)
+        .not("home_score", "is", null).not("away_score", "is", null)
+        .limit(1).maybeSingle(),
+    );
+    if (!f) return null;
+    const usHome = entries.some((e) => e.id === f.home_id);
+    const ourEntry = usHome ? f.home_id : f.away_id;
+    const otherEntry = usHome ? f.away_id : f.home_id;
+    const [other, inSquad] = await Promise.all([
+      this.client.from("league_entries").select("city_id").eq("id", otherEntry).maybeSingle().then(one),
+      this.client.from("squad_members").select("user_id").eq("fixture_id", f.id).eq("entry_id", ourEntry).eq("user_id", ctx.me).maybeSingle().then(one),
+    ]);
+    const cityIds = unique([ctx.cityId, other?.city_id ?? ""].filter(Boolean));
+    const cities = rows(await this.client.from("cities").select("id, name").in("id", cityIds));
+    const nameOf = (id: string | null | undefined) => cities.find((c) => c.id === id)?.name ?? "";
+    const us = Math.round(Number((usHome ? f.home_score : f.away_score) ?? 0));
+    const them = Math.round(Number((usHome ? f.away_score : f.home_score) ?? 0));
+    const verb = us > them ? "beat" : us < them ? "lost to" : "drew with";
+    // Each walker's place in the squad is not stored; see SCHEMA_GAPS.md.
+    return {
+      kick: inSquad ? "Your squad" : "Your city",
+      title: `${nameOf(ctx.cityId)} ${verb} ${nameOf(other?.city_id)}`,
+      line: `${formatNumber(us)} to ${formatNumber(them)}${inSquad ? " · you were in the squad" : ""}`,
     };
   }
 
@@ -2352,6 +2469,16 @@ export class SupabaseData implements OuthereData {
 }
 
 /* ---------- helpers that need no client ---------- */
+
+/** The first display word of a club's name, as nameTop. */
+function nameTop(name: string): string {
+  const words = name.split(" ");
+  return words.length > 1 ? (words[0] ?? name) : name;
+}
+
+function resultWord(us: number, them: number): string {
+  return us > them ? "Won" : us < them ? "Lost" : "Drew";
+}
 
 /** How a club role reads on a member's page. */
 function roleLabel(role: string | null | undefined): string {
