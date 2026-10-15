@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { ChevronDown, Crown, TrendingUp } from "lucide-react-native";
-import { Body, Button, C, Card, F, FadeIn, PressableScale, Row, S, SkeletonList } from "@/components/ui";
+import { Body, Button, C, F, FadeIn, IconTile, PressableScale, Row, S, SkeletonList, Surface } from "@/components/ui";
 import { useCrewRace } from "@/data/hooks";
 import { compactNumber, formatNumber } from "@/utils/format";
 import ActionSheet from "./ActionSheet";
@@ -20,7 +20,8 @@ const PERIODS = [
   { value: "all", label: "All time", title: "All time" },
 ];
 
-const FACE = 30;
+const FACE = 32;
+const BAR = 10;
 
 function Lane({ row, index }) {
   const v = useSharedValue(0);
@@ -35,8 +36,9 @@ function Lane({ row, index }) {
       <Text style={[styles.rank, me && { color: C.accent }]}>{row.rank}</Text>
       <View style={styles.trackWrap}>
         <View style={styles.track} />
-        <Animated.View style={[styles.fill, fill]}>
-          <LinearGradient colors={me ? ["#1d4ea6", C.accent] : ["#18335f", "#2f6fd6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+        <Animated.View style={[styles.fill, me && styles.fillMe, fill]}>
+          <LinearGradient colors={me ? ["#16408f", "#4f9bff"] : ["#132a52", "#2f6fd6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[StyleSheet.absoluteFill, { borderRadius: BAR / 2 }]} />
+          <View style={styles.fillSheen} />
         </Animated.View>
         <Animated.View style={[styles.face, face]}>
           <PlayerAvatar player={row.player} size={FACE} outside={row.isOutside} style={me ? styles.meFace : null} />
@@ -62,9 +64,9 @@ function Nudge({ nudge, period }) {
   const title = pass ? `${formatNumber(nudge.gap)} steps to pass ${name}` : `You lead by ${formatNumber(nudge.gap)} steps`;
   const sub = pass ? `About ${walkTime(nudge.minutes)} of walking` : `${name} is next. Keep moving ${period === "week" ? "this week" : "and stay there"}.`;
   return (
-    <Card padding={S.lg} style={{ marginTop: S.md }}>
-      <Row gap={S.md}>
-        <View style={styles.nudgeIcon}>{pass ? <TrendingUp size={18} color={C.accentHi} /> : <Crown size={18} color={C.accentHi} />}</View>
+    <Surface radius={20} padding={null} style={{ marginTop: 12 }} contentStyle={{ paddingVertical: 14, paddingHorizontal: 14 }}>
+      <Row gap={12}>
+        <IconTile icon={pass ? TrendingUp : Crown} tone="blue" size={42} iconSize={18} />
         <View style={{ flex: 1 }}>
           <Text style={styles.nudgeTitle} numberOfLines={2}>
             {title}
@@ -73,9 +75,9 @@ function Nudge({ nudge, period }) {
             {sub}
           </Body>
         </View>
-        <Button title="Go" size="sm" onPress={() => router.push("/(tabs)/move")} accessibilityLabel="Go for a walk" />
+        <Button title="Go" size="sm" onPress={() => router.push("/(tabs)/move")} accessibilityLabel="Go for a walk" style={{ height: 34, paddingHorizontal: 18 }} />
       </Row>
-    </Card>
+    </Surface>
   );
 }
 
@@ -103,11 +105,11 @@ export default function CrewRace({ crew }) {
       {race.isPending ? (
         <SkeletonList count={1} height={250} />
       ) : (
-        <Card padding={S.md}>
+        <Surface radius={22} padding={null} contentStyle={{ paddingVertical: 8, paddingHorizontal: 14 }}>
           {lanes.map((r, i) => (
             <Lane key={`${period}:${r.player.id}`} row={r} index={i} />
           ))}
-        </Card>
+        </Surface>
       )}
 
       <Nudge nudge={race.data?.nudge} period={period} />
@@ -120,15 +122,15 @@ export default function CrewRace({ crew }) {
               {rows.length} {rows.length === 1 ? "runner" : "runners"}
             </Body>
           </Row>
-          <Card padding={0} style={{ overflow: "hidden" }}>
+          <Surface radius={22} padding={null}>
             {rows.map((r, i) => (
               <FadeIn key={`${period}:t:${r.player.id}`} index={Math.min(i, 8)}>
                 <PressableScale
                   onPress={() => router.push(r.isMe ? "/(tabs)/profile" : `/player/${r.player.id}`)}
                   scaleTo={0.985}
-                  style={[styles.tableRow, i > 0 && styles.divider, r.isMe && { backgroundColor: "rgba(61,139,255,0.08)" }]}
+                  style={[styles.tableRow, i > 0 && styles.divider, r.isMe && styles.meRow]}
                 >
-                  <Text style={[styles.tableRank, r.rank === 1 && { color: C.accent }]}>{r.rank}</Text>
+                  <Text style={[styles.tableRank, (r.rank === 1 || r.isMe) && { color: C.accentHi }]}>{r.rank}</Text>
                   <PlayerAvatar player={r.player} size={40} outside={r.isOutside} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.name} numberOfLines={1}>
@@ -145,7 +147,7 @@ export default function CrewRace({ crew }) {
                 </PressableScale>
               </FadeIn>
             ))}
-          </Card>
+          </Surface>
         </>
       ) : null}
 
@@ -162,18 +164,21 @@ export default function CrewRace({ crew }) {
 const styles = StyleSheet.create({
   h: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
   period: { color: C.accent, fontFamily: F.bodySemi, fontSize: 14 },
-  lane: { height: 52 },
+  lane: { height: 50 },
   rank: { width: 16, color: C.textDim, fontFamily: F.display, fontSize: 18, textAlign: "center" },
   trackWrap: { flex: 1, height: FACE + 6, justifyContent: "center", marginRight: FACE / 2 },
-  track: { position: "absolute", left: 0, right: 0, height: 5, borderRadius: 3, backgroundColor: C.surfaceHigh },
-  fill: { position: "absolute", left: 0, height: 5, borderRadius: 3, overflow: "hidden" },
-  face: { position: "absolute", top: 3, marginLeft: -FACE / 2 },
-  meFace: { borderRadius: FACE, shadowColor: C.accent, shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  // .r11race .rail: a 10px track, the fill lit along its top
+  track: { position: "absolute", left: 0, right: 0, height: BAR, borderRadius: BAR / 2, backgroundColor: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.5)" },
+  fill: { position: "absolute", left: 0, height: BAR, borderRadius: BAR / 2, boxShadow: "0 0 10px rgba(47,111,214,0.35)" },
+  fillMe: { boxShadow: "0 0 16px rgba(79,155,255,0.65)" },
+  fillSheen: { position: "absolute", left: 2, right: 2, top: 1, height: 2, borderRadius: 1, backgroundColor: "rgba(255,255,255,0.22)" },
+  face: { position: "absolute", top: 2, marginLeft: -FACE / 2 },
+  meFace: { borderRadius: FACE, boxShadow: "0 0 0 2.5px #4f9bff, 0 0 16px rgba(79,155,255,0.8)" },
   value: { width: 52, textAlign: "right", color: C.text, fontFamily: F.display, fontSize: 19 },
-  nudgeIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
-  nudgeTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  nudgeTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5 },
   tableRow: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+  divider: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)" },
+  meRow: { backgroundColor: "rgba(61,139,255,0.1)", boxShadow: "inset 0 0 0 1px rgba(130,180,255,0.2)" },
   tableRank: { width: 18, color: C.textDim, fontFamily: F.display, fontSize: 17 },
   name: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   km: { color: C.text, fontFamily: F.display, fontSize: 22 },

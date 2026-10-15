@@ -5,7 +5,8 @@
 import React from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
-import { Body, Button, C, Card, F, FadeIn, Row, S, Skeleton } from "@/components/ui";
+import { Body, Button, C, F, FadeIn, Row, S, Skeleton, Surface } from "@/components/ui";
+import { LinearGradient } from "expo-linear-gradient";
 import { engine, useCrewChallenges, useCrewDays, useCrewGoal, useEngineMutation } from "@/data/hooks";
 import { photoFor } from "@/data/seedCrew";
 import { PlayerAvatar, playerName } from "./shared";
@@ -24,7 +25,8 @@ export function GoalCard({ goal }) {
   const segments = [...shown.map((c, i) => ({ key: c.player.id, share: c.share, colour: SHADES[i] })), ...(rest > 0 ? [{ key: "rest", share: rest, colour: SHADES[4] }] : [])];
   let left = 1;
   return (
-    <Card padding={S.lg}>
+    // the "412 of 500" goal card (.r11goal): one bar, split by who ran it
+    <Surface radius={22} padding={null} contentStyle={{ padding: 16 }}>
       <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
         <Text style={styles.big}>
           {kmText(goal.km)}
@@ -38,7 +40,11 @@ export function GoalCard({ goal }) {
         {segments.map((sg) => {
           const w = Math.max(0, Math.min(left, sg.share));
           left -= w;
-          return w > 0 ? <View key={sg.key} style={[styles.segment, { width: `${w * 100}%`, backgroundColor: sg.colour }]} /> : null;
+          return w > 0 ? (
+            <View key={sg.key} style={[styles.segment, { width: `${w * 100}%`, backgroundColor: sg.colour }]}>
+              <View style={styles.segSheen} />
+            </View>
+          ) : null;
         })}
       </View>
       <Row style={{ justifyContent: "space-between", marginTop: S.md }}>
@@ -51,7 +57,7 @@ export function GoalCard({ goal }) {
           </Row>
         ))}
       </Row>
-    </Card>
+    </Surface>
   );
 }
 
@@ -95,6 +101,7 @@ export function CrewDays({ days }) {
                 c.future ? styles.dayFuture : c.today ? styles.dayToday : c.hit ? styles.dayHit : styles.dayMissed,
               ]}
             >
+              {!c.future && (c.hit || c.today) ? <LinearGradient colors={c.today ? ["#5ea2ff", "#2a6af0"] : ["#244a85", "#18315a"]} style={[StyleSheet.absoluteFill, { borderRadius: 10 }]} /> : null}
               <Text style={[styles.dayText, c.future && { color: C.textMute }, c.today && { color: "#fff" }, !c.future && !c.hit && !c.today && { color: C.textDim }]}>{c.day}</Text>
             </View>
           ),
@@ -111,8 +118,8 @@ function ChallengeRow({ crewId, ch, index }) {
   const join = useEngineMutation(engine.joinCrewChallenge, { success: (r) => (r.joined ? `You're in ${ch.title}` : null) });
   return (
     <FadeIn index={index}>
-      <Card padding={S.md} style={{ marginBottom: S.md }}>
-        <Row gap={S.md}>
+      <Surface radius={20} padding={null} style={{ marginBottom: 10 }} contentStyle={{ padding: 12 }}>
+        <Row gap={12}>
           <Image source={photoFor(ch.image)} style={styles.chImage} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text style={styles.chTitle} numberOfLines={1}>
@@ -125,13 +132,14 @@ function ChallengeRow({ crewId, ch, index }) {
           <Button
             title={ch.joined ? "Joined" : "Join"}
             size="sm"
-            variant={ch.joined ? "secondary" : "primary"}
+            variant={ch.joined ? "quiet" : "primary"}
+            style={{ height: 34, paddingHorizontal: 16 }}
             loading={join.isPending}
             onPress={() => join.mutate([crewId, ch.id, !ch.joined])}
             accessibilityLabel={ch.joined ? `Leave ${ch.title}` : `Join ${ch.title}`}
           />
         </Row>
-      </Card>
+      </Surface>
     </FadeIn>
   );
 }
@@ -143,7 +151,7 @@ export default function CrewChallenges({ crew }) {
   return (
     <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
       <GoalCard goal={goal.data} />
-      <View style={{ marginTop: S.xl }}>
+      <View style={{ marginTop: 22 }}>
         <CrewDays days={days.data} />
       </View>
       <Row style={{ justifyContent: "space-between", marginTop: S.xxl, marginBottom: S.md }}>
@@ -161,16 +169,17 @@ const styles = StyleSheet.create({
   h: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
   big: { color: C.text, fontFamily: F.display, fontSize: 42, lineHeight: 46 },
   of: { color: C.textSoft, fontFamily: F.displayMedium, fontSize: 18 },
-  goalTrack: { flexDirection: "row", height: 14, borderRadius: 7, backgroundColor: C.surfaceHigh, overflow: "hidden", marginTop: S.md, gap: 2 },
+  goalTrack: { flexDirection: "row", height: 14, borderRadius: 7, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: 14, gap: 2, boxShadow: "inset 0 1px 2px rgba(0,0,0,0.5)" },
   segment: { height: "100%" },
+  segSheen: { position: "absolute", left: 0, right: 0, top: 1, height: 3, backgroundColor: "rgba(255,255,255,0.25)" },
   legend: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   weekday: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 12, textAlign: "center" },
   day: { borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  dayHit: { backgroundColor: "#1d3a68" },
-  dayMissed: { borderWidth: 1.5, borderColor: C.borderStrong },
-  dayToday: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
-  dayFuture: { backgroundColor: "#0f1217" },
+  dayHit: { boxShadow: "inset 0 1px 0 rgba(130,180,255,0.25)" },
+  dayMissed: { backgroundColor: "rgba(255,255,255,0.03)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.16)" },
+  dayToday: { boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 18px -4px rgba(42,106,240,0.85)" },
+  dayFuture: { backgroundColor: "rgba(255,255,255,0.035)" },
   dayText: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
-  chImage: { width: 56, height: 56, borderRadius: 14, backgroundColor: C.surfaceHigh },
-  chTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
+  chImage: { width: 52, height: 52, borderRadius: 14, backgroundColor: C.surfaceHigh },
+  chTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
 });

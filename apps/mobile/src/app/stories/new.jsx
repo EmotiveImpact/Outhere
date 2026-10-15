@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, Clock, Flame, ImagePlus, Navigation, Send, Swords, Users, X } from "lucide-react-native";
 import { engine, useBattles, useEngineMutation, useMyCrews, useProfile, useRuns } from "@/data/hooks";
-import { Body, Button, C, F, PressableScale, Row, S, toast } from "@/components/ui";
+import { Button, C, F, GlowBackdrop, Grain, PressableScale, Row, S, toast } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { hapticSelection, hapticSuccess } from "@/services/haptics";
 import { pickPhoto } from "@/components/crew/pickPhoto";
@@ -65,14 +65,15 @@ export default function NewStory() {
     return (
       <View style={styles.screen}>
         <Image source={PHOTOS.selfie} style={StyleSheet.absoluteFill} contentFit="cover" />
-        <LinearGradient colors={["rgba(7,9,12,0.4)", "rgba(7,9,12,0.75)"]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={["rgba(2,3,6,0.6)", "rgba(2,3,6,0.88)"]} style={StyleSheet.absoluteFill} />
         <Row style={[styles.top, { paddingTop: insets.top + S.sm }]}>
           <PressableScale onPress={close} accessibilityLabel="Close" style={styles.round}>
             <X size={20} color="#fff" />
           </PressableScale>
         </Row>
         <View style={{ flex: 1 }} />
-        <View style={[styles.upsell, { paddingBottom: insets.bottom + S.lg }]}>
+        <View style={[styles.upsell, { paddingBottom: insets.bottom + 18 }]}>
+          <LinearGradient colors={["#10141c", "#07090c"]} locations={[0, 0.6]} style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 28, borderTopRightRadius: 28 }]} />
           <StoryUpsellBody onClose={close} onUpgrade={() => router.replace("/membership")} />
         </View>
       </View>
@@ -96,7 +97,7 @@ export default function NewStory() {
 
       <Row style={[styles.top, { paddingTop: insets.top + S.sm }]}>
         <PressableScale onPress={close} accessibilityLabel="Close" style={styles.round}>
-          <X size={20} color="#fff" />
+          <X size={22} color="#fff" strokeWidth={2.2} />
         </PressableScale>
         <View style={styles.gone}>
           <Clock size={14} color="#fff" />
@@ -153,15 +154,21 @@ export default function NewStory() {
           </View>
         </>
       ) : (
+        // Before a photo: the composer in waiting, its light and your last run ready to stick on
         <View style={styles.empty}>
+          <GlowBackdrop preset="screen" style={StyleSheet.absoluteFill} />
+          <Grain amount={0.05} />
+          {run ? (
+            <View style={{ marginBottom: 34, opacity: 0.95 }} pointerEvents="none">
+              <RunSticker run={{ km: run.distanceKm, seconds: run.durationSec, paceSec: run.paceSecPerKm, title: run.title }} tilt={-4} />
+            </View>
+          ) : null}
           <Text style={[styles.big, { textAlign: "center" }]}>Show them</Text>
-          <Text style={[styles.big, { color: C.accent, textAlign: "center" }]}>where you are</Text>
-          <Body dim style={{ marginTop: S.md, textAlign: "center", maxWidth: 290 }}>
-            One photo from today, with your run on it. It stays up for 24 hours, then it's gone.
-          </Body>
-          <Row gap={S.md} style={{ marginTop: S.xl }}>
-            <Button title="Camera" icon={Camera} onPress={() => choose(true)} />
-            <Button title="Photos" icon={ImagePlus} variant="secondary" onPress={() => choose(false)} />
+          <Text style={[styles.big, styles.blue, { textAlign: "center" }]}>where you are</Text>
+          <Text style={styles.lead}>One photo from today, with your run on it. It stays up for 24 hours, then it's gone.</Text>
+          <Row gap={10} style={{ marginTop: 26, alignSelf: "stretch" }}>
+            <Button title="Photos" icon={ImagePlus} variant="quiet" onPress={() => choose(false)} style={{ flex: 1 }} />
+            <Button title="Camera" icon={Camera} onPress={() => choose(true)} style={{ flex: 1.3 }} />
           </Row>
         </View>
       )}
@@ -185,7 +192,6 @@ export default function NewStory() {
           <Button
             title={label}
             icon={Send}
-            size="lg"
             full
             loading={post.isPending}
             onPress={() =>
@@ -211,23 +217,25 @@ export default function NewStory() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   top: { justifyContent: "space-between", paddingHorizontal: S.gutter },
-  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(10,14,20,0.5)", alignItems: "center", justifyContent: "center" },
-  gone: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: "rgba(10,14,20,0.6)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
+  round: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  gone: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.1)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.12)" },
   goneText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13 },
   side: { position: "absolute", right: S.gutter, gap: S.md, alignItems: "center" },
   sideItem: { alignItems: "center", gap: 4 },
-  sideIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(10,14,20,0.6)", alignItems: "center", justifyContent: "center" },
-  sideLabel: { color: "#fff", fontFamily: F.bodySemi, fontSize: 11 },
+  sideIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(10,14,20,0.55)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
+  sideLabel: { color: "#fff", fontFamily: F.bodySemi, fontSize: 9.5 },
   middle: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 70 },
   tag: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: "rgba(10,13,18,0.86)" },
   tagText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13 },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: S.gutter },
-  big: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 44, textTransform: "uppercase" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+  big: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 43, textTransform: "uppercase" },
+  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+  lead: { color: C.textDim, fontFamily: F.body, fontSize: 13.5, lineHeight: 20, marginTop: 12, textAlign: "center", maxWidth: 290 },
   bottom: { paddingHorizontal: S.gutter },
   caption: { color: "#fff", fontFamily: F.bodySemi, fontSize: 20, paddingVertical: S.sm, marginBottom: S.md, textAlign: "center", outlineStyle: "none" },
-  aud: { height: 36, paddingHorizontal: 16, borderRadius: 18, backgroundColor: "rgba(20,24,30,0.85)", justifyContent: "center" },
+  aud: { height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: "rgba(10,14,20,0.55)", justifyContent: "center" },
   audOn: { backgroundColor: "#fff" },
-  audText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 14 },
+  audText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 12 },
   change: { color: "rgba(255,255,255,0.8)", fontFamily: F.bodyMedium, fontSize: 13 },
-  upsell: { backgroundColor: "#141416", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: S.md, borderWidth: 1, borderColor: "#232326" },
+  upsell: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 22, paddingTop: 18, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), 0 -20px 50px -10px rgba(0,0,0,0.8)" },
 });

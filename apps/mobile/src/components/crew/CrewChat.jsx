@@ -466,6 +466,7 @@ export default function CrewChat({ crew }) {
                   placeholder="Message the crew"
                   placeholderTextColor={C.textMute}
                   multiline
+                  numberOfLines={1}
                   maxLength={1000}
                   style={styles.input}
                   accessibilityLabel="Message the crew"
@@ -510,10 +511,10 @@ const styles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.textDim },
   typingText: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: S.sm, paddingHorizontal: S.gutter, paddingTop: S.sm, backgroundColor: C.bg },
-  plus: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  inputWrap: { flex: 1, minHeight: 46, borderRadius: 23, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, justifyContent: "center" },
-  input: { maxHeight: 120, color: C.text, fontSize: 15, fontFamily: F.body, paddingHorizontal: S.lg, paddingTop: 12, paddingBottom: 12, outlineStyle: "none" },
-  send: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+  plus: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)" },
+  inputWrap: { flex: 1, minHeight: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)", justifyContent: "center" },
+  input: { maxHeight: 120, color: C.text, fontSize: 14, lineHeight: 19, fontFamily: F.body, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, outlineStyle: "none" },
+  send: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   locked: { flex: 1, height: 46, paddingHorizontal: S.lg, borderRadius: 23, backgroundColor: C.surface },
   trayTitle: { color: C.text, fontFamily: F.display, fontSize: 24, textTransform: "uppercase", marginTop: S.xs },
   trayItem: { flex: 1, padding: S.md, borderRadius: 16, backgroundColor: C.surfaceHigh, gap: 4 },

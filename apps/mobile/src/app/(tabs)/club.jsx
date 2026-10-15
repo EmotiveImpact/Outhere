@@ -228,12 +228,14 @@ export default function CrewTab() {
         bottom={bottom}
         sub={h ? `${h.memberCount} members · ${h.outNow} out right now` : " "}
         object={PHOTOS.podium}
+        objectSize={186}
+        objectStyle={{ right: -18 }}
         right={more}
       />
     );
   } else if (tab === "challenges") {
     const g = goal.data;
-    head = <CrewSlab kicker={g ? `Crew goal · ${g.daysLeft} ${g.daysLeft === 1 ? "day" : "days"} left` : "Crew goal"} top={`${(g?.goalKm ?? crew.weeklyGoalKm ?? 100).toLocaleString("en-GB")} km`} bottom="together" object={PHOTOS.dial} height={220} right={more} />;
+    head = <CrewSlab kicker={g ? `Crew goal · ${g.daysLeft} ${g.daysLeft === 1 ? "day" : "days"} left` : "Crew goal"} top={`${(g?.goalKm ?? crew.weeklyGoalKm ?? 100).toLocaleString("en-GB")} km`} bottom="together" photo={PHOTOS.crew} height={210} right={more} />;
   } else if (tab === "stats") {
     const st = stats.data;
     const share = () =>

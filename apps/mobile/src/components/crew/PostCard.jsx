@@ -8,7 +8,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Flag, Heart, MessageCircle, MoreHorizontal, Share2, Trash2, UserRound } from "lucide-react-native";
-import { Body, Button, C, Card, F, PressableScale, Row, S } from "@/components/ui";
+import { BlendImage, Body, Button, C, Card, F, PressableScale, Row, S } from "@/components/ui";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { hapticImpact } from "@/services/haptics";
 import { formatPace, timeAgo } from "@/utils/format";
@@ -49,12 +49,25 @@ export function Kudos({ liked, count, onToggle, label = false, pill = false }) {
   );
 }
 
-function Stat({ value, label }) {
+/** The run's numbers sat on the picture or the map (.oh-feat chips). */
+function DataChips({ post }) {
+  if (!post.km) return null;
   return (
-    <View style={{ flex: 1 }}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <Row gap={6} style={styles.chips} pointerEvents="none">
+      <View style={styles.chip}>
+        <Text style={styles.chipText}>{post.km.toFixed(1)} km</Text>
+      </View>
+      {post.paceSec ? (
+        <View style={styles.chip}>
+          <Text style={styles.chipText}>{formatPace(post.paceSec)} /km</Text>
+        </View>
+      ) : null}
+      {post.out ? (
+        <View style={[styles.chip, styles.chipOut]}>
+          <Text style={[styles.chipText, { color: "#cfe1ff" }]}>+{post.out} OUT</Text>
+        </View>
+      ) : null}
+    </Row>
   );
 }
 
@@ -136,7 +149,7 @@ export default function PostCard({ post, crew, onComments, onReport }) {
     return (
       <Card padding={S.lg} style={styles.card}>
         <Row gap={S.md}>
-          {post.badge ? <Image source={post.badge} style={styles.badge} contentFit="cover" /> : <PlayerAvatar player={post.author} size={56} />}
+          {post.badge ? <BlendImage source={post.badge} size={60} mask="tight" glow={70} /> : <PlayerAvatar player={post.author} size={56} />}
           <View style={{ flex: 1 }}>
             <Text style={styles.title} numberOfLines={2}>
               {first(post.author)} earned {post.title}
@@ -158,23 +171,7 @@ export default function PostCard({ post, crew, onComments, onReport }) {
         <View style={{ padding: S.lg, paddingBottom: S.md }}>{head(who, [post.title, ago(post.at)].filter(Boolean).join(" · "))}</View>
         <View>
           <Image source={post.photo} style={styles.photo} contentFit="cover" transition={200} accessibilityLabel={post.caption || `${name}'s photo`} />
-          {post.km ? (
-            <Row gap={S.sm} style={styles.chips}>
-              <View style={styles.chip}>
-                <Text style={styles.chipText}>{post.km.toFixed(1)} km</Text>
-              </View>
-              {post.paceSec ? (
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>{formatPace(post.paceSec)} /km</Text>
-                </View>
-              ) : null}
-              {post.out ? (
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>+{post.out} OUT</Text>
-                </View>
-              ) : null}
-            </Row>
-          ) : null}
+          <DataChips post={post} />
         </View>
         <View style={{ padding: S.lg, paddingTop: S.md }}>
           {post.caption ? <Body style={{ marginBottom: S.md }}>{post.caption}</Body> : null}
@@ -198,12 +195,10 @@ export default function PostCard({ post, crew, onComments, onReport }) {
     return (
       <Card padding={S.lg} style={styles.card}>
         {head(post.kind === "route" ? `${first(post.author)} shared ${post.title || "a route"}` : `${first(post.author)} ran ${post.title || "a run"}`, [ago(post.at), post.place].filter(Boolean).join(" · "))}
-        <RouteArt points={post.route} seed={post.id} height={140} style={{ marginTop: S.md }} />
-        <Row style={{ marginTop: S.md }}>
-          <Stat value={post.km.toFixed(1)} label="km" />
-          <Stat value={formatPace(post.paceSec)} label="Pace" />
-          <Stat value={post.out ? `+${post.out}` : "0"} label="OUT" />
-        </Row>
+        <View style={{ marginTop: S.md }}>
+          <RouteArt points={post.route} seed={post.id} height={170} />
+          <DataChips post={post} />
+        </View>
         {post.caption ? <Body style={{ marginTop: S.md }}>{post.caption}</Body> : null}
         <View style={styles.divider} />
         <Row gap={S.xl}>
@@ -238,14 +233,12 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   more: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   photo: { width: "100%", aspectRatio: 1.15, backgroundColor: C.surfaceHigh },
-  chips: { position: "absolute", left: S.md, bottom: S.md },
-  chip: { height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: "rgba(7,9,12,0.72)", justifyContent: "center" },
-  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  chips: { position: "absolute", left: 12, bottom: 12 },
+  chip: { height: 28, paddingHorizontal: 11, borderRadius: 14, backgroundColor: "rgba(10,14,20,0.6)", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.08)" },
+  chipOut: { backgroundColor: "rgba(42,106,240,0.45)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), inset 0 0 0 1px rgba(130,180,255,0.35)" },
+  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12 },
   action: { flexDirection: "row", alignItems: "center", gap: 6, height: 32 },
   actionText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 14 },
   pill: { height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: C.surfaceHigh },
-  badge: { width: 56, height: 56, borderRadius: 14, backgroundColor: C.surfaceHigh },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 26, lineHeight: 30 },
-  statLabel: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginVertical: S.md },
 });

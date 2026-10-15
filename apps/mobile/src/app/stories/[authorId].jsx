@@ -110,16 +110,16 @@ export default function StoryViewer() {
   return (
     <View style={styles.screen}>
       {story ? <Image source={story.image} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" transition={180} /> : null}
-      <LinearGradient colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0)"]} style={[styles.shade, { height: 200 + insets.top }]} />
-      <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.78)"]} style={[styles.shade, { bottom: 0, height: 320 }]} />
+      <LinearGradient colors={["rgba(0,0,0,0.55)", "rgba(0,0,0,0)"]} style={[styles.shade, { height: 190 + insets.top }]} />
+      <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.85)"]} style={[styles.shade, { bottom: 0, height: 380 }]} />
 
       <TapZones onPrev={prev} onNext={next} onHold={() => setPaused(true)} onRelease={() => setPaused(false)} />
 
-      <View style={[styles.top, { paddingTop: insets.top + S.sm }]} pointerEvents="box-none">
+      <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
         <ProgressBars count={list.length} index={index} progress={progress} />
-        <Row style={{ marginTop: S.md, justifyContent: "space-between" }} pointerEvents="box-none">
+        <Row style={{ marginTop: 11, justifyContent: "space-between" }} pointerEvents="box-none">
           <PressableScale onPress={() => !mine && router.push(`/player/${authorId}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Avatar uri={author?.avatar} name={author?.name || ""} tier={author?.tier} dot={live || author?.isOutside ? "out" : null} size={40} />
+            <Avatar uri={author?.avatar} name={author?.name || ""} tier={author?.tier} dot={live || author?.isOutside ? "out" : null} size={36} />
             <View>
               <Text style={styles.name}>{mine ? "Your story" : author?.name || " "}</Text>
               {story ? <Text style={styles.when}>{live ? "Out now" : timeAgo(story.postedAt)}</Text> : null}
@@ -132,7 +132,7 @@ export default function StoryViewer() {
               </PressableScale>
             ) : null}
             <PressableScale onPress={close} accessibilityLabel="Close" style={styles.round}>
-              <X size={20} color="#fff" />
+              <X size={22} color="#fff" strokeWidth={2.2} />
             </PressableScale>
           </Row>
         </Row>
@@ -145,10 +145,10 @@ export default function StoryViewer() {
         </View>
       ) : null}
 
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + S.lg }]} pointerEvents="box-none">
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 20 }]} pointerEvents="box-none">
         {story?.caption ? <Text style={styles.caption}>{story.caption}</Text> : null}
         {!mine && story && live ? (
-          <Button title="Send a cheer" icon={Zap} size="lg" full loading={cheer.isPending} onPress={() => cheer.mutate([story.id, authorId])} style={{ marginTop: S.lg }} />
+          <Button title="Send a cheer" icon={Zap} full loading={cheer.isPending} onPress={() => cheer.mutate([story.id, authorId])} style={{ marginTop: 12, height: 46 }} />
         ) : null}
         {!mine && story ? (
           <ReplyRow

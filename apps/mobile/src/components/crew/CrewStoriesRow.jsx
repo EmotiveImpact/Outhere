@@ -77,6 +77,6 @@ export default function CrewStoriesRow({ crew }) {
 const styles = StyleSheet.create({
   row: { paddingHorizontal: S.gutter, gap: 14, paddingVertical: S.sm },
   item: { width: 66, alignItems: "center" },
-  name: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12, marginTop: 6, maxWidth: 66 },
-  add: { position: "absolute", right: 0, top: 42, width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
+  name: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 11.5, marginTop: 6, maxWidth: 66 },
+  add: { position: "absolute", right: 0, top: 42, width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg, boxShadow: "0 4px 12px -2px rgba(42,106,240,0.8)" },
 });
