@@ -2,7 +2,7 @@
 -- to re-run.
 
 -- UK regions, cities, towns and every city's areas (London's boroughs and the
--- other launch cities' areas) are seeded by migration 20261015101700_outside.sql,
+-- other launch cities' areas) are seeded by migration 20261015101720_outside.sql,
 -- generated from apps/mobile/src/data/places.js.
 
 insert into public.challenges (id, title, description, metric, target, period, reward_xp, reward_out, tier_required, sort) values

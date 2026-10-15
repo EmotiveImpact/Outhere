@@ -7,7 +7,7 @@
 //
 // The same functions exist over Supabase in remoteOutside.js with the same
 // names, arguments and shapes; the rules live in the database
-// (supabase/migrations/20261015101700_outside.sql). Places a member plays
+// (supabase/migrations/20261015101720_outside.sql). Places a member plays
 // for: their city once it has 100 active walkers, their region until then.
 
 import { ACTIVE_TO_GO_LIVE, UK_AREAS, UK_CITIES, UK_REGIONS, areasOf, cityById, divisionFor, findArea, findCity, regionById, sortCities } from "./places";

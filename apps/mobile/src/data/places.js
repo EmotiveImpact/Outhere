@@ -1,6 +1,6 @@
 // UK places: the regions, the cities and towns in them, and the areas each
 // launch city plays in. The same data is seeded in the database by
-// supabase/migrations/20261015101700_outside.sql (public.regions,
+// supabase/migrations/20261015101720_outside.sql (public.regions,
 // public.cities, public.boroughs), so ids match on both data sources.
 //
 // Outhere launches UK-wide. The ten biggest cities have launch nights; every

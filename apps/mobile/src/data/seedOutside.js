@@ -1,7 +1,7 @@
 // Seed data for the Outside area on the local engine: how many people are
 // active in each place, the drop shop (priced in OUT), arena seasons, the
 // neighbourhoods seeded players live in, and the emotes a battle can send.
-// The database holds the same things in supabase/migrations/20261015101700_outside.sql.
+// The database holds the same things in supabase/migrations/20261015101720_outside.sql.
 
 import { PHOTOS } from "@/constants/photos";
 import { OUTSIDE_PHOTOS } from "@/constants/outsidePhotos";

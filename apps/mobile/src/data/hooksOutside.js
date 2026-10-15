@@ -36,7 +36,7 @@ export const useSeasonResults = (season = null) => useQuery(q(["seasonResults", 
 
 // The drop shop and orders
 export const useDropShop = () => useQuery(q(["dropShop"], engine.listDropShop));
-export const useDropItem = (id) => useQuery(q(["dropItem", id], () => engine.getDropItem(id), { enabled: !!id }));
+export const useDropItem = (id) => useQuery(q(["dropItem", id], () => engine.getDropItem(id), { enabled: !!id, retry: false }));
 export const useDeliveryAddress = () => useQuery(q(["deliveryAddress"], engine.getDeliveryAddress));
 export const useOrders = () => useQuery(q(["orders"], engine.listOrders));
 export const useOrder = (id) => useQuery(q(["order", id], () => engine.getOrder(id), { enabled: !!id }));

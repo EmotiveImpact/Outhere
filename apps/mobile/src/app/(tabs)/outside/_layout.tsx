@@ -11,8 +11,8 @@ const { C, F, R, S } = UI as any;
 const SUB_TABS = [
   { key: "arena", label: "Arena", href: "/outside/arena" },
   { key: "challenges", label: "Challenges", href: "/outside/challenges" },
-  { key: "events", label: "Events", href: "/outside/events" },
   { key: "drops", label: "Drops", href: "/outside/drops" },
+  { key: "events", label: "Events", href: "/outside/events" },
   { key: "news", label: "News", href: "/outside/news" },
 ] as const;
 

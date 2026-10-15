@@ -1,6 +1,6 @@
 // Outside over Supabase: the same functions as outside.js (local engine) with
 // the same names, arguments and shapes. Every rule lives in the database
-// (supabase/migrations/20261015101700_outside.sql); this file calls those
+// (supabase/migrations/20261015101720_outside.sql); this file calls those
 // functions and reads a few tables, then reshapes rows for the screens.
 // remote.js builds it with its helpers and spreads it into its exports.
 
