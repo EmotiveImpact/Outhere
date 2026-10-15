@@ -229,6 +229,18 @@ describe("Supabase data source", () => {
     expect(calls("remove_from_squad")).toEqual([{ p_fixture: "f1", p_user: "u2" }]);
   });
 
+  it("cheers on the closest town in the viewer's region that still plays for it", async () => {
+    const place = (city_id: string, region: string, is_live: boolean, eligible: number) => ({ city_id, name: city_id[0]!.toUpperCase() + city_id.slice(1), region, is_live, image_path: null, eligible, needed: 100 });
+    const { data } = fake((q) => {
+      if (q.table === "profiles") return { data: profile({ city_id: "leeds" }) };
+      if (q.table === "city_eligible_counts") {
+        return { data: [place("leeds", "Yorkshire", true, 900), place("york", "Yorkshire", false, 40), place("harrogate", "Yorkshire", false, 71), place("truro", "South West", false, 95)] };
+      }
+      return undefined;
+    });
+    expect((await data.league()).rising).toEqual({ city: "Harrogate", cityId: "harrogate", region: "Yorkshire", eligible: 71, needed: 100 });
+  });
+
   it("refuses to read the viewer when nobody is signed in, but has no people to show", async () => {
     const { data } = fake(() => undefined, null);
     await expect(data.viewer()).rejects.toThrow("NOT_SIGNED_IN");

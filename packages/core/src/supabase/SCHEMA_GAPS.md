@@ -1,8 +1,8 @@
 # Schema gaps found while writing the web data source
 
-What the web and admin apps still need that the schema on `claude/mobile-app-build-nhob8r` (PR #4, mapped at commit 88966e3) does not have. `SupabaseData` returns an empty or neutral value for each read gap and throws `NOT_SUPPORTED` for each write gap. Each item names the need, the `OuthereData` method, and a suggested fix.
+What the web and admin apps still need that the schema on `claude/mobile-app-build-nhob8r` (PR #4, mapped at commit 50282c1) does not have. `SupabaseData` returns an empty or neutral value for each read gap and throws `NOT_SUPPORTED` for each write gap. Each item names the need, the `OuthereData` method, and a suggested fix.
 
-Closed by `20261015101300_web_gaps.sql` and now wired: private profiles and `profile_cards`, pace groups, join requests, club tags, filters and renames, founding year, badges, notification faces, chat reactions, unread counts and channel descriptions, borough step totals, staff actions (verify a club, review flagged steps, take someone out of a squad, hold the reveal, all written to `audit_log`), pick-up activity, stakes in words, five day battles and telling a challenger they were turned down. `20261015101500_club_links.sql` added the reserved words table, so the database now refuses the same club links as `rules.ts`.
+Closed by `20261015101300_web_gaps.sql` and now wired: private profiles and `profile_cards`, pace groups, join requests, club tags, filters and renames, founding year, badges, notification faces, chat reactions, unread counts and channel descriptions, borough step totals, staff actions (verify a club, review flagged steps, take someone out of a squad, hold the reveal, all written to `audit_log`), pick-up activity, stakes in words, five day battles and telling a challenger they were turned down. `20261015101500_club_links.sql` added the reserved words table, so the database now refuses the same club links as `rules.ts`. `20261015101550_city_counts.sql` added `city_eligible_counts` and `cities.image_path`, which now fill the city table's pictures and active counts and the rising towns card.
 
 ## Types
 
@@ -42,7 +42,6 @@ Closed by `20261015101300_web_gaps.sql` and now wired: private profiles and `pro
 - **Squad places.** `lastReveal()`'s squad card says "you were in the squad", not "you were #214". `squad_members` has no steps or rank per walker. Fix: add `squad_members.counted integer` and `rank integer`, filled when the fixture is scored.
 - **Squad number and squad average.** `home().callup.squadNumber` is 0. `callup.average` uses `fixture_side_score`, which includes the turnout bonus. Fix: add `squad_members.squad_number` (set by `draw_fixture`) and a `fixture_side_stats(p_fixture, p_entry)` that returns the average, turnout and score separately.
 - **City turnout.** `league().match.homeTurnout` and `awayTurnout` are 0. Fix: the same `fixture_side_stats`.
-- **City table extras.** `league().table[].image`, `eligible` and `league().rising`. `eligible_walkers` cannot be called by clients, so rising towns show no count of active members yet. Fix: add `cities.image_path` and a public view `city_eligible_counts (city_id, eligible)`. With the UK-wide launch this is what tells a town how close it is to 100 active.
 - **Open-ended last one standing.** "Until someone drops" is sent as 168 hours. The database thread left this out on purpose: it needs `ends_at` and the scheduler to work without an end time.
 
 ## Pick-ups

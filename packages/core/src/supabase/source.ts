@@ -137,6 +137,28 @@ const NOTE_ICONS: Record<string, IconName> = { battle: "trophy", club: "people",
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const unique = <T>(xs: Iterable<T>): T[] => [...new Set(xs)];
+/**
+ * The place to cheer on towards 100 active: the viewer's own if it still
+ * plays for its region, else the one closest in the viewer's region, else the
+ * closest anywhere. Empty when no such place has anyone active yet.
+ */
+function risingPlace(
+  counts: { city_id: string | null; name: string | null; region: string | null; is_live: boolean | null; eligible: number | null; needed: number | null }[],
+  home: string,
+): LeagueView["rising"] {
+  const waiting = counts
+    .filter((c) => c.city_id && !c.is_live && (c.eligible ?? 0) < (c.needed ?? 100))
+    .sort((a, b) => (b.eligible ?? 0) - (a.eligible ?? 0));
+  const region = counts.find((c) => c.city_id === home)?.region;
+  const pick =
+    waiting.find((c) => c.city_id === home) ??
+    waiting.find((c) => c.region === region && (c.eligible ?? 0) > 0) ??
+    waiting.find((c) => (c.eligible ?? 0) > 0);
+  return pick
+    ? { city: pick.name ?? "", cityId: pick.city_id ?? "", region: pick.region ?? "", eligible: pick.eligible ?? 0, needed: pick.needed ?? 100 }
+    : { city: "", cityId: "", region: "", eligible: 0, needed: 100 };
+}
+
 /** "100 OUT on it", "Loser buys the coffees", both joined, or nothing. */
 function stakeLine(out: number | null | undefined, note: string | undefined): string {
   return [out ? `${out} OUT on it` : "", note ?? ""].filter(Boolean).join(" and ");
@@ -1642,11 +1664,12 @@ export class SupabaseData implements OuthereData {
 
   async league(cityId?: string): Promise<LeagueView> {
     const ctx = await this.ctx();
-    const [season, cityFixture, city, derby] = await Promise.all([
+    const [season, cityFixture, city, derby, counts] = await Promise.all([
       this.currentSeason("city"),
       this.currentFixture({ cityId: ctx.cityId }),
       this.cityOf(cityId),
       this.homeDerby(ctx),
+      this.cityCounts(),
     ]);
     const today = ukTime(this.now()).date;
 
@@ -1693,21 +1716,25 @@ export class SupabaseData implements OuthereData {
           .filter((e) => e.division_id === d.id)
           .map((e) => ({
             city: cities.find((c) => c.id === e.city_id)?.name ?? "",
-            // City pictures and eligible counts are not readable yet; see SCHEMA_GAPS.md.
-            image: "",
+            image: this.media("club-media", counts.find((c) => c.city_id === e.city_id)?.image_path),
             points: e.points,
             form: cityForms.get(e.id) ?? "",
-            eligible: 0,
+            eligible: counts.find((c) => c.city_id === e.city_id)?.eligible ?? 0,
             ...(e.city_id === ctx.cityId ? { me: true } : {}),
           })),
       })),
-      // Eligible counts per town are not readable yet; see SCHEMA_GAPS.md.
-      rising: { city: "", cityId: "", region: "", eligible: 0, needed: 100 },
+      rising: risingPlace(counts, ctx.cityId),
       city,
       clubTable,
       derby: derby.derby,
       reveal: this.reveal(shortSeed(cityFixture?.row.draw_seed ?? null)),
     };
+  }
+
+  /** Active members in every city and town, and how many each needs to play as itself. Counts only, never who. */
+  private cityCounts() {
+    return this.once("city-counts", async () =>
+      rows(await this.client.from("city_eligible_counts").select("city_id, name, region, is_live, image_path, eligible, needed").limit(2000)));
   }
 
   /** This week's City League matches in every division. */
