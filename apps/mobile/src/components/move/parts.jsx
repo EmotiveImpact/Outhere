@@ -185,9 +185,9 @@ export function TurnBanner({ dir = "straight", metres, text, style }) {
 }
 
 /** .setlist .sr: a settings row with an icon, two lines of text and a switch. */
-export function ToggleRow({ icon: Icon, title, sub, value, onChange, first }) {
+export function ToggleRow({ icon: Icon, title, sub, value, onChange, first, disabled }) {
   return (
-    <View style={[styles.toggle, !first && styles.toggleRule]}>
+    <View style={[styles.toggle, !first && styles.toggleRule, disabled && { opacity: 0.55 }]}>
       {Icon ? <Icon size={18} color={C.textDim} /> : null}
       <View style={{ flex: 1 }}>
         <Text style={styles.toggleTitle}>{title}</Text>
@@ -195,6 +195,7 @@ export function ToggleRow({ icon: Icon, title, sub, value, onChange, first }) {
       </View>
       <Switch
         value={value}
+        disabled={disabled}
         onValueChange={(v) => {
           hapticSelection();
           onChange(v);

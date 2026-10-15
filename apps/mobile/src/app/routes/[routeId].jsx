@@ -7,11 +7,11 @@ import { Alert, ScrollView, Share, StyleSheet, Text, TextInput, View } from "rea
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Bookmark, ChevronLeft, Ghost, Pencil, Play, Share2, Trash2 } from "lucide-react-native";
-import { Avatar, Button, C, EmptyState, F, FadeIn, PressableScale, S, Skeleton } from "@/components/ui";
+import { Avatar, C, EmptyState, F, FadeIn, GlowButton, PressableScale, S, Skeleton } from "@/components/ui";
 import { engine, useEngineMutation, useProfile, useRoute } from "@/data/hooks";
 import { formatDuration } from "@/utils/format";
 import { RoundGlass } from "@/components/move/parts";
-import { ClimbChart, Slab, StatCards, twoLines } from "@/components/move/RunBits";
+import { ClimbChart, LitCard, Slab, StatCards, twoLines } from "@/components/move/RunBits";
 import { runRoute } from "@/components/move/launch";
 
 const kickerFor = (route, where) =>
@@ -31,7 +31,7 @@ const climbNote = (route) => {
 
 function Leaders({ leaders }) {
   return (
-    <View style={styles.box}>
+    <LitCard style={styles.box}>
       <View style={styles.boxHead}>
         <Text style={styles.boxTitle}>Fastest here</Text>
         <Text style={styles.boxSide}>This month</Text>
@@ -40,7 +40,7 @@ function Leaders({ leaders }) {
         leaders.map((l, i) => (
           <View key={`${l.player.id}-${l.rank}`} style={[styles.leader, i > 0 && styles.rule]}>
             <Text style={styles.rank}>{l.rank}</Text>
-            <Avatar uri={l.player.avatar} name={l.player.name} size={30} tier={l.player.tier} />
+            <Avatar uri={l.player.avatar} name={l.player.name} size={28} tier={l.player.tier} />
             <Text style={[styles.leaderName, l.isMe && { color: C.accentHi }]} numberOfLines={1}>
               {l.isMe ? "You" : l.player.name.split(" ")[0]}
             </Text>
@@ -50,7 +50,7 @@ function Leaders({ leaders }) {
       ) : (
         <Text style={styles.empty}>Nobody's run it this month. First one sets the time.</Text>
       )}
-    </View>
+    </LitCard>
   );
 }
 
@@ -97,10 +97,11 @@ export default function RouteDetail() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
         <Slab
           route={route.path}
-          height={250}
+          height={258}
+          size={42}
           kicker={kickerFor(route, where)}
           top={l1}
           bottom={l2}
@@ -123,13 +124,26 @@ export default function RouteDetail() {
           <FadeIn index={2}>
             <Leaders leaders={route.leaders || []} />
           </FadeIn>
+          {/* .controls: race your ghost, or start */}
+          <View style={styles.controls}>
+            <GlowButton
+              title="Ghost race"
+              icon={Ghost}
+              variant="quiet"
+              disabled={!route.ghost}
+              onPress={() => runRoute(router, route, { ghost: true })}
+              accessibilityLabel={route.ghost ? `Race your ghost, ${formatDuration(route.ghost.sec)}` : "Run it once to race your ghost"}
+              style={{ flex: 1, paddingHorizontal: 14 }}
+            />
+            <GlowButton title="Start route" icon={Play} onPress={() => runRoute(router, route)} style={{ flex: 1.3, paddingHorizontal: 14 }} />
+          </View>
 
           {route.mine ? (
             <FadeIn index={3}>
               {renaming != null ? (
                 <View style={styles.renameRow}>
                   <TextInput value={renaming} onChangeText={setRenaming} maxLength={30} autoFocus style={styles.input} placeholder="Route name" placeholderTextColor={C.textMute} returnKeyType="done" onSubmitEditing={() => rename.mutate([route.id, renaming])} />
-                  <Button title="Save" size="sm" onPress={() => rename.mutate([route.id, renaming])} loading={rename.isPending} />
+                  <GlowButton title="Save" size="sm" onPress={() => rename.mutate([route.id, renaming])} loading={rename.isPending} />
                 </View>
               ) : (
                 <View style={styles.actions}>
@@ -158,40 +172,29 @@ export default function RouteDetail() {
           )}
         </View>
       </ScrollView>
-
-      <View style={[styles.foot, { paddingBottom: insets.bottom + S.lg }]}>
-        <Button
-          title="Ghost race"
-          icon={Ghost}
-          variant="secondary"
-          disabled={!route.ghost}
-          onPress={() => runRoute(router, route, { ghost: true })}
-          accessibilityLabel={route.ghost ? `Race your ghost, ${formatDuration(route.ghost.sec)}` : "Run it once to race your ghost"}
-          style={{ flex: 1, height: 56 }}
-        />
-        <Button title="Start route" icon={Play} onPress={() => runRoute(router, route)} style={{ flex: 1.15, height: 56 }} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  body: { paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md },
-  box: { backgroundColor: C.surface, borderRadius: 20, paddingHorizontal: S.lg, paddingVertical: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  boxHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, marginTop: 4 },
-  boxTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  boxSide: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
-  leader: { flexDirection: "row", alignItems: "center", gap: 12, height: 50 },
-  rule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  rank: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 14, width: 14 },
-  leaderName: { flex: 1, color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  leaderTime: { color: C.text, fontFamily: F.display, fontSize: 19, fontVariant: ["tabular-nums"] },
-  empty: { color: C.textDim, fontFamily: F.body, fontSize: 14, paddingVertical: 10 },
+  // .body.nt: 14 down, 11 apart
+  body: { paddingHorizontal: 18, paddingTop: 14, gap: 11 },
+  // .r11kings
+  box: { paddingHorizontal: 14, paddingVertical: 12 },
+  boxHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  boxTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 12.5 },
+  boxSide: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
+  leader: { flexDirection: "row", alignItems: "center", gap: 10, height: 41 },
+  rule: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
+  rank: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 12, width: 14 },
+  leaderName: { flex: 1, color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  leaderTime: { color: C.text, fontFamily: F.display, fontSize: 16, fontVariant: ["tabular-nums"] },
+  empty: { color: C.textDim, fontFamily: F.body, fontSize: 12.5, paddingVertical: 10 },
+  controls: { flexDirection: "row", gap: 8, marginTop: 2 },
   actions: { flexDirection: "row", justifyContent: "center", gap: S.xl },
-  action: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, paddingHorizontal: 6 },
-  actionText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 14 },
+  action: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8, paddingHorizontal: 6 },
+  actionText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 13 },
   renameRow: { flexDirection: "row", gap: 10, alignItems: "center" },
-  input: { flex: 1, height: 48, borderRadius: 14, backgroundColor: C.surface, color: C.text, fontFamily: F.body, fontSize: 15, paddingHorizontal: 14 },
-  foot: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: 10, paddingHorizontal: S.lg, paddingTop: S.md, backgroundColor: "rgba(7,9,12,0.94)" },
+  input: { flex: 1, height: 46, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.06)", color: C.text, fontFamily: F.body, fontSize: 15, paddingHorizontal: 14, boxShadow: "inset 0 0 0 1.5px rgba(79,155,255,0.55)" },
 });

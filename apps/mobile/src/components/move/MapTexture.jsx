@@ -17,7 +17,7 @@ import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, G, Polyline } from "react-native-svg";
-import { C } from "@/components/ui";
+import { Avatar, C } from "@/components/ui";
 import { isCoord } from "./geo";
 
 export const MAP_TEXTURES = {
@@ -42,8 +42,11 @@ export function MapTiles({ project, centre, mpp, w, h, tone = "blue", blur = 0, 
   const tiles = useMemo(() => {
     if (!project || !centre || !w || !h || !mpp) return [];
     const kx = kxFor(centre.latitude);
-    const tileLat = (TEX_H * M_PER_TEX) / M_PER_DEG;
-    const tileLon = (TEX_W * M_PER_TEX) / (M_PER_DEG * kx);
+    // Zoomed right out (a long route in a small card), the streets would
+    // shrink into a pattern; past that point the texture stops shrinking.
+    const mpt = Math.max(M_PER_TEX, mpp * 0.85);
+    const tileLat = (TEX_H * mpt) / M_PER_DEG;
+    const tileLon = (TEX_W * mpt) / (M_PER_DEG * kx);
     const spanLat = ((h * mpp) / M_PER_DEG) * 0.75 + tileLat;
     const spanLon = ((w * mpp) / (M_PER_DEG * kx)) * 0.75 + tileLon;
     const j0 = Math.floor((centre.latitude - spanLat) / tileLat);
@@ -158,8 +161,11 @@ const linePoints = (project, path) =>
  * A still map. lines: [{ path, colour, width, glow, dash }] (the first one is
  * fitted unless fit is given). start / end: draw the prototype's start ring
  * and finish dot on the first line. pad: room round the fitted lines.
+ * face: { uri, name, tier, size } puts that person (face() in the
+ * prototype, in their membership ring, with a soft blue halo) at the end of
+ * the first line instead of the finish dot.
  */
-export function MapArt({ width, height, lines = [], fit, start = true, end = true, pad, tone = "blue", shade = true, shadeTop = 0.35, shadeBottom = 0.55, style, children }) {
+export function MapArt({ width, height, lines = [], fit, start = true, end = true, face, pad, tone = "blue", shade = true, shadeTop = 0.35, shadeBottom = 0.55, style, children }) {
   const view = useMemo(() => {
     const coords = fit || lines[0]?.path || [];
     return fitView(coords, width, height, pad);
@@ -177,8 +183,14 @@ export function MapArt({ width, height, lines = [], fit, start = true, end = tru
             <GlowLine key={i} points={linePoints(view.project, l.path)} colour={l.colour || C.accent} width={l.width || 7} glow={l.glow !== false} dash={l.dash} opacity={l.opacity ?? 1} />
           ))}
           {a ? <Circle cx={a.x} cy={a.y} r={7} fill="#07090c" stroke="#82b4ff" strokeWidth={3.5} /> : null}
-          {z ? <Circle cx={z.x} cy={z.y} r={8.5} fill={C.accent} stroke="#fff" strokeWidth={3.5} /> : null}
+          {z && face ? <Circle cx={z.x} cy={z.y} r={(face.size || 44) * 0.95} fill="rgba(61,139,255,0.16)" /> : null}
+          {z && !face ? <Circle cx={z.x} cy={z.y} r={8.5} fill={C.accent} stroke="#fff" strokeWidth={3.5} /> : null}
         </Svg>
+      ) : null}
+      {z && face ? (
+        <View pointerEvents="none" style={{ position: "absolute", left: z.x - (face.size || 44) / 2, top: z.y - (face.size || 44) / 2 }}>
+          <Avatar uri={face.uri} name={face.name} size={face.size || 44} tier={face.tier} />
+        </View>
       ) : null}
       {children}
     </View>

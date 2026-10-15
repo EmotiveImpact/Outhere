@@ -39,6 +39,7 @@ import {
   PausedPanel,
   PausedWord,
   PilotPanel,
+  PilotSky,
   StreetPanel,
 } from "@/components/move/LiveHud";
 import RunSummary from "@/components/move/RunSummary";
@@ -352,7 +353,8 @@ export default function MoveScreen() {
       { name: values.name, path: nameDraft.path, waypoints: nameDraft.waypoints || [], distanceKm: nameDraft.distanceKm, climbM: nameDraft.climbM, hideEnds: values.hideEnds, shareWithClub: values.shareWithClub },
       {
         onSuccess: (route) => {
-          toast.success("Route saved", `${route.name} is in Your routes`);
+          // Running it now goes straight into the countdown; the toast would sit on its chip.
+          if (!then) toast.success("Route saved", `${route.name} is in Your routes`);
           store().setPlanning(false);
           store().clearPlan();
           setSheet(null);
@@ -399,9 +401,12 @@ export default function MoveScreen() {
     userName: profile?.name,
     userTier: profile?.tier,
     tone: paused ? "grey" : "blue",
-    blur: phase === PHASE.COUNTDOWN ? 3 : 0,
+    blur: phase === PHASE.COUNTDOWN ? 4 : 0,
+    showsUser: phase !== PHASE.COUNTDOWN,
     follow: live || phase === PHASE.COUNTDOWN ? true : follow && !isPlanning && !sheet,
     camera: live ? view : "map",
+    // Live, you sit up in the open map above the sheet (.mapx face at ~32%).
+    focusY: live && view !== "pilot" ? 0.32 : undefined,
     heading: heading || 0,
     segments: live || phase === PHASE.SUMMARY ? segments : [],
     trackColour: paused ? "#6f7c92" : C.accent,
@@ -476,7 +481,7 @@ export default function MoveScreen() {
     return <MapPanel km={km} avgPace={avgPace} steps={steps} xp={earn.xp} out={earn.out} goalKm={goalKm} paused={paused} onPause={togglePause} onFinish={() => setHoldOpen(true)} bottomInset={sheetInset} />;
   };
 
-  const idleBottom = TAB_BAR_SPACE - 18 + insets.bottom;
+  const idleBottom = TAB_BAR_SPACE - 10 + insets.bottom; // .fl bottom 100 over the tab bar
 
   return (
     <View style={styles.fill}>
@@ -484,6 +489,7 @@ export default function MoveScreen() {
       <MotiView animate={{ scale: phase === PHASE.COUNTDOWN ? 1.12 : 1 }} transition={{ type: "timing", duration: 650 }} style={StyleSheet.absoluteFill}>
         <RunMap ref={mapRef} style={StyleSheet.absoluteFill} {...mapProps} />
       </MotiView>
+      {live && view === "pilot" && !offRoute ? <PilotSky /> : null}
       {paused && Platform.OS !== "web" ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.drain]} /> : null}
       {paused && !holdOpen ? <PausedWord seconds={seconds} km={km} top={top + 228} /> : null}
 
@@ -629,7 +635,8 @@ const styles = StyleSheet.create({
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0 },
   drain: { backgroundColor: "rgba(40,44,52,0.55)" },
   // .fl turn at 22, .modes at 124, 60 in from each side
-  pilotTop: { position: "absolute", left: 14, right: 14, top: 0, gap: 24 },
+  // Its own layer on the web, so the tilted map under it never paints over it.
+  pilotTop: { position: "absolute", left: 14, right: 14, top: 0, gap: 24, zIndex: 5, ...(Platform.OS === "web" ? { willChange: "transform" } : null) },
   modes: { alignSelf: "center", width: 270, maxWidth: "80%" },
   modesAbs: { position: "absolute", left: 60, right: 60, width: "auto", maxWidth: undefined },
   banner: { position: "absolute", left: 14, right: 14 },

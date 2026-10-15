@@ -19,7 +19,7 @@ const LINES = ["Laces tight", "Phone away", "Breathe", "Go get it"];
 const NUMS = ["3", "2", "1", "GO"];
 
 // The run's own veil: the .hype light, thinner, so the map reads through.
-const RUN_VEIL = [{ x: 0.5, y: 0.44, rx: 0.62, ry: 0.42, stops: [[0, "rgba(10,30,70,0.42)"], [0.75, "rgba(3,5,10,0.8)"], [1, "rgba(3,5,10,0.88)"]] }];
+const RUN_VEIL = [{ x: 0.5, y: 0.44, rx: 0.62, ry: 0.42, stops: [[0, "rgba(14,40,96,0.06)"], [0.7, "rgba(3,5,10,0.34)"], [1, "rgba(3,5,10,0.55)"]] }];
 
 export default function HypeCountdown({ routeLabel, kickers = [], stakes = [], onGo, onCancel, top = 22 }) {
   const [i, setI] = useState(0);

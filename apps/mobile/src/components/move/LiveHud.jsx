@@ -11,7 +11,7 @@
 // LockOverlay   ignores touches until held
 
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
@@ -22,6 +22,8 @@ import { formatDuration, formatNumber, formatPace } from "@/utils/format";
 import { hapticImpact, hapticSuccess } from "@/services/haptics";
 import { Dash, Glass, MapSheet } from "./parts";
 import { MOVE_IMAGES } from "./images";
+import { Image } from "expo-image";
+import { PHOTOS } from "@/constants/photos";
 
 const HOLD_MS = 1200;
 
@@ -244,6 +246,23 @@ export function HoldPanel({ km, pace, out, paused, onPause, onLock, onFinish, on
 
 // ── Pilot and street ─────────────────────────────────────────────────────────
 
+/**
+ * Pilot's horizon (mPilot's hero): the city at night across the top, shaded
+ * like the prototype, fading into the tilted map so your real route runs
+ * out towards it.
+ */
+export function PilotSky() {
+  const { height } = useWindowDimensions();
+  const h = Math.round(height * 0.5);
+  return (
+    <View pointerEvents="none" style={[styles.sky, { height: h + 120 }]}>
+      <Image source={PHOTOS.city} contentFit="cover" contentPosition={{ left: "50%", top: "30%" }} style={{ width: "100%", height: h }} />
+      <LinearGradient colors={["rgba(2,5,12,0.55)", "rgba(2,5,12,0)", "rgba(2,5,12,0)", "rgba(5,8,14,0.9)", "#05080e"]} locations={[0, 0.3, 0.55, 0.88, 1]} style={[StyleSheet.absoluteFill, { height: h }]} />
+      <LinearGradient colors={["#05080e", "rgba(5,8,14,0)"]} style={{ height: 120 }} />
+    </View>
+  );
+}
+
 export function PilotPanel({ seconds, km, pace, paused, onPause, arriveLabel, onFinish, bottom }) {
   return (
     <Panel bottom={bottom} style={{ paddingHorizontal: 10 }}>
@@ -412,7 +431,9 @@ export function LockOverlay({ onUnlock, bottom }) {
       <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Screen locked" />
       <PressableScale onLongPress={onUnlock} onPress={() => hapticImpact()} accessibilityLabel="Hold to unlock" style={[styles.unlockWrap, { bottom }]}>
         <Glass radius={R.full} style={styles.unlock}>
-          <Unlock size={18} color="#fff" />
+          <View>
+            <Unlock size={18} color="#fff" />
+          </View>
           <Text style={styles.unlockText}>Hold to unlock</Text>
         </Glass>
       </PressableScale>
@@ -421,6 +442,7 @@ export function LockOverlay({ onUnlock, bottom }) {
 }
 
 const styles = StyleSheet.create({
+  sky: { position: "absolute", left: 0, right: 0, top: 0, ...(Platform.OS === "web" ? { willChange: "transform" } : null) },
   xs: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginBottom: 8 },
   muted12: { color: "#a3adbd", fontFamily: F.body, fontSize: 12 },
   kick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },

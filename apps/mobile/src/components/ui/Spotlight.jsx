@@ -11,7 +11,7 @@
 // is where the light, rays and rings centre (the number's middle).
 
 import React, { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
 import { GlowBackdrop } from "./GlowBackdrop";
 import { Grain } from "./Grain";
@@ -135,7 +135,7 @@ export function SpotlightNumber({ value, colour = HYPE_COLOURS[3], size, style }
   const text = { fontFamily: F.display, fontSize, lineHeight: fontSize * 0.92, letterSpacing: go ? 0 : -4, textAlign: "center", includeFontPadding: false };
   return (
     <View pointerEvents="none" style={[styles.number, style]}>
-      {reduce ? null : <Animated.Text style={[text, styles.abs, { color: "transparent", textShadowColor: colour, textShadowRadius: 6, textShadowOffset: { width: 0, height: 0 } }, echo]}>{value}</Animated.Text>}
+      {reduce ? null : <Animated.Text style={[text, styles.abs, Platform.OS === "web" ? { color: "transparent", WebkitTextStroke: `2px ${colour}` } : { color: "transparent", textShadowColor: colour, textShadowRadius: 6, textShadowOffset: { width: 0, height: 0 } }, echo]}>{value}</Animated.Text>}
       <Animated.Text style={[text, { color: "#ffffff", textShadowColor: colour, textShadowRadius: 50, textShadowOffset: { width: 0, height: 0 } }, main]}>{value}</Animated.Text>
     </View>
   );

@@ -69,6 +69,7 @@ const RunMap = forwardRef(function RunMap(
     tone = "blue",
     blur = 0,
     shade = true,
+    focusY,
     onPress,
     fitTo,
     padding = PAD,
@@ -88,7 +89,7 @@ const RunMap = forwardRef(function RunMap(
     const fitPts = (fitTo?.length ? fitTo : !follow ? [...plannedPath, ...routes.flatMap((r) => r.path || [])] : []).filter(isCoord);
     let centre = me || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude };
     let mpp = MPP[camera] || MPP.map;
-    let cy = h * (camera === "pilot" ? 0.62 : 0.45);
+    let cy = h * (focusY ?? (camera === "pilot" ? 0.62 : 0.45));
     if (fitPts.length > 1) {
       const b = boundsOf(me && !fitTo?.length ? [...fitPts, me] : fitPts);
       const kx = Math.cos((((b.minLat + b.maxLat) / 2) * Math.PI) / 180);
@@ -103,7 +104,7 @@ const RunMap = forwardRef(function RunMap(
     const project = (p) => ({ x: cx + ((p.longitude - centre.longitude) * M_PER_DEG * kx) / mpp, y: cy - ((p.latitude - centre.latitude) * M_PER_DEG) / mpp });
     const unproject = (x, y) => ({ latitude: centre.latitude - ((y - cy) * mpp) / M_PER_DEG, longitude: centre.longitude + ((x - cx) * mpp) / (M_PER_DEG * kx) });
     return { project, unproject, centre, mpp, w, h };
-  }, [size, userLocation?.latitude, userLocation?.longitude, follow, camera, fitTo, plannedPath, routes, nudge, padding]);
+  }, [size, userLocation?.latitude, userLocation?.longitude, follow, camera, fitTo, plannedPath, routes, nudge, padding, focusY]);
 
   const line = (pts) => (pts || []).filter(isCoord).map((p) => view.project(p)).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const me = view && isCoord(userLocation) ? view.project(userLocation) : null;

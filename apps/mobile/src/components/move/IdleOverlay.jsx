@@ -5,10 +5,9 @@
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { AnimatePresence, MotiText } from "moti";
 import Svg, { Circle } from "react-native-svg";
 import { ArrowRight, Bike, Bookmark, Flame, Footprints, History, MapPin, PersonStanding, ShieldCheck } from "lucide-react-native";
-import { C, F, PressableScale, R, S } from "@/components/ui";
+import { C, F, GlowButton, PressableScale, R, S } from "@/components/ui";
 import { useChallenges } from "@/data/hooks";
 import { formatNumber } from "@/utils/format";
 import { hapticHeavy, hapticSelection } from "@/services/haptics";
@@ -35,10 +34,10 @@ export function IdleTop({ top, outside, sharing, onHistory, onSafety, onCrew }) 
         right={<RoundGlass icon={ShieldCheck} label="Live sharing" onPress={onSafety} tone={sharing ? "accent" : undefined} />}
       />
       {outside ? (
-        <Glass style={[styles.near, { top: top + 54 }]} radius={18}>
+        <Glass style={[styles.near, { top: top + 54 }]} radius={24}>
           <Text style={styles.nearKick}>Near you</Text>
           <Text style={styles.nearBig}>{formatNumber(outside.near)} out</Text>
-          {outside.area ? <Text style={styles.nearKick}>in {outside.area}</Text> : null}
+          {outside.area ? <Text style={[styles.nearKick, { marginTop: 2 }]}>in {outside.area}</Text> : null}
         </Glass>
       ) : null}
     </>
@@ -109,67 +108,53 @@ export function IdleBottom({ bottom, activityType, onActivity, onPlan, onSaved, 
       <View style={{ flexDirection: "row", gap: S.sm }}>
         <PressableScale onPress={onPlan} accessibilityLabel="Plan a route" style={{ flex: 1 }}>
           <Glass radius={R.full} style={styles.pill}>
-            <MapPin size={17} color="#fff" />
+            <View>
+              <MapPin size={16} color="#fff" />
+            </View>
             <Text style={styles.pillText}>Plan a route</Text>
           </Glass>
         </PressableScale>
         <PressableScale onPress={onSaved} accessibilityLabel="Saved routes" style={{ flex: 1 }}>
           <Glass radius={R.full} style={styles.pill}>
-            <Bookmark size={17} color="#fff" />
+            <View>
+              <Bookmark size={16} color="#fff" />
+            </View>
             <Text style={styles.pillText}>Saved</Text>
           </Glass>
         </PressableScale>
       </View>
-      <PressableScale
+      {/* .btn.pri at 58: the lit blue that acts, its word rotating */}
+      <GlowButton
+        title={CTAS[i]}
+        iconRight={ArrowRight}
         haptic={false}
         onPress={() => {
           hapticHeavy();
           onStart();
         }}
         accessibilityLabel={`Start a ${kind.label.toLowerCase()}`}
-        scaleTo={0.97}
-        style={styles.cta}
-      >
-        <View style={styles.ctaWord}>
-          <AnimatePresence exitBeforeEnter>
-            <MotiText key={CTAS[i]} from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} exit={{ opacity: 0, translateY: -8 }} transition={{ type: "timing", duration: 220 }} style={styles.ctaText}>
-              {CTAS[i]}
-            </MotiText>
-          </AnimatePresence>
-        </View>
-        <ArrowRight size={20} color="#fff" />
-      </PressableScale>
+        size="lg"
+        full
+        textStyle={styles.ctaText}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  near: { position: "absolute", right: S.lg, width: 160, paddingHorizontal: 14, paddingVertical: 12 },
-  nearKick: { color: C.textSoft, fontFamily: F.body, fontSize: 12 },
-  nearBig: { color: C.text, fontFamily: F.display, fontSize: 32, textTransform: "uppercase", marginVertical: 2 },
-  bottom: { position: "absolute", left: S.lg, right: S.lg, gap: 10 },
-  kind: { alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(18,22,30,0.82)" },
-  kindText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
-  chal: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 10, paddingRight: 14 },
-  chalKick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase" },
-  chalLine: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5, marginTop: 2 },
-  chalAll: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 13 },
-  pill: { height: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  pillText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 14.5 },
-  cta: {
-    height: 66,
-    borderRadius: R.full,
-    backgroundColor: C.accent,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    shadowColor: C.accent,
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
-  },
-  ctaWord: { minWidth: 150, alignItems: "center" },
-  ctaText: { color: "#fff", fontFamily: F.display, fontSize: 22, letterSpacing: 1.8 },
+  // .fl.gl.panel at 76, 150 wide
+  near: { position: "absolute", right: 14, width: 150, paddingHorizontal: 14, paddingVertical: 12 },
+  nearKick: { color: "#a3adbd", fontFamily: F.body, fontSize: 10.5 },
+  nearBig: { color: C.text, fontFamily: F.display, fontSize: 26, lineHeight: 26, textTransform: "uppercase", marginTop: 4 },
+  bottom: { position: "absolute", left: 14, right: 14, gap: 10 },
+  kind: { alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(10,14,20,0.64)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
+  kindText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12.5 },
+  chal: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9, paddingLeft: 10, paddingRight: 14 },
+  chalKick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 9.5, letterSpacing: 0.8, textTransform: "uppercase" },
+  chalLine: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, marginTop: 3 },
+  chalAll: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 12 },
+  // the glass pills, 44 high
+  pill: { height: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  pillText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 12.5 },
+  ctaText: { fontFamily: F.display, fontSize: 16, letterSpacing: 1 },
 });
