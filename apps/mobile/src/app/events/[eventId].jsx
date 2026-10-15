@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarClock, Check, Lock, MapPin, UserRound } from "lucide-react-native";
 import { engine, useEngineMutation, useEvent, useProfile, useSearchPlayers } from "@/data/hooks";
@@ -12,11 +12,32 @@ import { countdown, formatNumber, tierLabel, timeLabel } from "@/utils/format";
 
 const HOSTS = { outhere: "Official Outhere event", crew: "Crew-run event", partner: "Partner event" };
 
+// Live events ask for the organiser's code so nobody checks in from the sofa.
+function CodeCheckIn({ event, checkIn }) {
+  const [code, setCode] = useState("");
+  return (
+    <Row gap={S.sm}>
+      <TextInput
+        value={code}
+        onChangeText={setCode}
+        placeholder="Check-in code"
+        placeholderTextColor={C.textMute}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={styles.code}
+        accessibilityLabel="Check-in code"
+      />
+      <Button size="lg" icon={MapPin} title="Check in" disabled={code.trim().length < 4} loading={checkIn.isPending} onPress={() => checkIn.mutate([event.id, code])} />
+    </Row>
+  );
+}
+
 function ActionBar({ event, rsvp, checkIn }) {
   const locked = !event.canAttend;
   if (locked) {
     return <Button full size="lg" icon={Lock} title={`Unlock with ${tierLabel(event.tierRequired)}`} loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, true])} />;
   }
+  if (event.checkInOpen && !event.checkedIn && event.needsCode) return <CodeCheckIn event={event} checkIn={checkIn} />;
   if (event.checkInOpen && !event.checkedIn) {
     return <Button full size="lg" icon={MapPin} title="I'm here, check me in" loading={checkIn.isPending} onPress={() => checkIn.mutate(event.id)} />;
   }
@@ -193,6 +214,7 @@ export default function EventDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  code: { flex: 1, height: 56, borderRadius: 16, paddingHorizontal: S.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, color: C.text, fontFamily: F.bodySemi, fontSize: 17, letterSpacing: 2 },
   small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
   big: { color: C.text, fontFamily: F.display, fontSize: 56, lineHeight: 60, letterSpacing: -1 },
   cardTitle: { color: C.text, fontSize: 15, fontWeight: "600" },

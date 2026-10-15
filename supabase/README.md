@@ -18,7 +18,7 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 
 | Area | Tables and views | Write through |
 |---|---|---|
-| People | `profiles` (public face, tier = ring), `profile_private`, `staff`, `audit_log` | own row update (limited columns) |
+| People | `profiles` (public face, tier = ring), `profile_private`, `staff`, `audit_log` | `finish_onboarding` (name, city, welcome bonus once), then own row update (limited columns) |
 | Places | `cities`, `boroughs` | seed, staff |
 | Clubs | `clubs`, `club_members`, `club_bans`, `club_invites`, `club_founding_progress` | `create_club`, `join_club`, `join_club_by_code`, `leave_club`, `remove_club_member`, `set_club_role` |
 | Events | `events` (club runs, open runs, pick-ups, city moments), `event_rsvps`, `event_codes` | `rsvp_event`, `check_in_event` |
@@ -73,7 +73,7 @@ Once the hosted project exists, `supabase link --project-ref <ref>` then `supaba
 
 Each app needs only the project URL and the publishable (anon) key:
 
-- Mobile: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- Mobile: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Without them the app runs on local demo data (`apps/mobile/src/data/source.js` picks `remote.js` or `engine.js`). Sign in is an emailed 6 digit code, so the project's email template should send `{{ .Token }}`.
 - Web and admin (Vite): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
 The service role key is only for webhooks and scheduled functions and never ships in an app.

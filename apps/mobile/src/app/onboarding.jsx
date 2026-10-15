@@ -1,5 +1,6 @@
-// Profile setup: username, city, optional crew code, a quick word on step
-// counting, then engine.createProfile and into the app.
+// Profile setup: an email sign-in code when the app runs on Supabase, then
+// username, city, optional crew code, a quick word on step counting, then
+// engine.createProfile and into the app.
 
 import React, { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
@@ -8,13 +9,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { Pedometer } from "expo-sensors";
-import { AtSign, Check, ChevronLeft, Footprints, Users, X } from "lucide-react-native";
-import { engine, useEngineMutation } from "@/data/hooks";
+import { AtSign, Check, ChevronLeft, Footprints, Mail, Users, X } from "lucide-react-native";
+import { engine, isRemote, showEngineError, useEngineMutation } from "@/data/hooks";
 import { CITIES } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/services/haptics";
 import { AnimatedBar, Body, Button, C, F, PressableScale, R, Row, S, toast } from "@/components/ui";
 
-const STEPS = ["username", "city", "crew", "motion"];
+const LOCAL_STEPS = ["username", "city", "crew", "motion"];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const randomUsername = () => `mover${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -28,7 +30,39 @@ export default function OnboardingScreen() {
   const [crewCode, setCrewCode] = useState("");
   const [motion, setMotion] = useState("unknown"); // unknown | asking | granted | denied | unavailable
   const [welcome, setWelcome] = useState(null); // the new profile, once created
+  const [steps, setSteps] = useState(isRemote ? ["account", ...LOCAL_STEPS] : LOCAL_STEPS);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
   const reqId = useRef(0);
+  const STEPS = steps;
+
+  // Already signed in on this phone: skip straight to the username.
+  useEffect(() => {
+    if (!isRemote) return;
+    engine.signedIn().then((yes) => yes && setSteps(LOCAL_STEPS)).catch(() => {});
+  }, []);
+
+  const account = async () => {
+    setAuthBusy(true);
+    try {
+      if (!codeSent) {
+        await engine.sendSignInCode(email);
+        setCodeSent(true);
+        toast("Code sent", `Check ${email.trim()} for a 6 digit code.`);
+      } else {
+        await engine.verifySignInCode(email, code);
+        hapticSuccess();
+        setStep(step + 1);
+      }
+    } catch (e) {
+      hapticError();
+      showEngineError(e);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   // Live username check, debounced.
   useEffect(() => {
@@ -78,10 +112,12 @@ export default function OnboardingScreen() {
   };
 
   const key = STEPS[step];
-  const canNext = key === "username" ? check.state === "ok" : true;
+  const canNext =
+    key === "username" ? check.state === "ok" : key === "account" ? (codeSent ? code.trim().length >= 6 : EMAIL_RE.test(email.trim())) : true;
 
   const next = () => {
     if (!canNext) return hapticError();
+    if (key === "account") return account();
     if (step < STEPS.length - 1) setStep(step + 1);
     else finish();
   };
@@ -99,7 +135,7 @@ export default function OnboardingScreen() {
           <Text style={styles.counter}>
             <Text style={{ color: C.text }}>{String(step + 1).padStart(2, "0")}</Text> / {String(STEPS.length).padStart(2, "0")}
           </Text>
-          {__DEV__ ? (
+          {__DEV__ && !isRemote ? (
             <PressableScale hitSlop={12} onPress={() => create.mutate({ username: randomUsername(), city: "London" })} scaleTo={0.94} style={styles.devSkip}>
               <Text style={{ color: C.textMute, fontSize: 12, fontWeight: "600" }}>Skip (dev)</Text>
             </PressableScale>
@@ -116,6 +152,7 @@ export default function OnboardingScreen() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.xxl + S.sm, paddingBottom: S.xl }} keyboardShouldPersistTaps="handled">
         <MotiView key={key} from={{ opacity: 0, translateX: 28 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "spring", damping: 20, stiffness: 220 }}>
+          {key === "account" && <AccountStep n={step + 1} email={email} onEmail={setEmail} code={code} onCode={setCode} sent={codeSent} onChangeEmail={() => { setCodeSent(false); setCode(""); }} onSubmit={next} />}
           {key === "username" && <UsernameStep n={step + 1} value={username} onChange={setUsername} check={check} onSubmit={next} />}
           {key === "city" && <CityStep n={step + 1} value={city} onChange={setCity} />}
           {key === "crew" && <CrewStep n={step + 1} value={crewCode} onChange={setCrewCode} />}
@@ -125,11 +162,11 @@ export default function OnboardingScreen() {
 
       <View style={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + S.lg, gap: S.sm }}>
         <Button
-          title={key === "motion" ? "Let's go" : key === "crew" && !crewCode.trim() ? "Skip for now" : "Continue"}
+          title={key === "account" ? (codeSent ? "Sign in" : "Send my code") : key === "motion" ? "Let's go" : key === "crew" && !crewCode.trim() ? "Skip for now" : "Continue"}
           size="lg"
           full
           disabled={!canNext}
-          loading={create.isPending}
+          loading={create.isPending || authBusy}
           onPress={next}
           variant={key === "crew" && !crewCode.trim() ? "secondary" : "primary"}
         />
@@ -140,11 +177,11 @@ export default function OnboardingScreen() {
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
-const KICKERS = ["Who are you", "Your patch", "Your people", "The engine"];
+const KICKERS = { account: "Your account", username: "Who are you", city: "Your patch", crew: "Your people", motion: "The engine" };
 
-const StepTitle = ({ n, title, body }) => (
+const StepTitle = ({ kicker, title, body }) => (
   <View style={{ marginBottom: S.xxl }}>
-    <Text style={styles.kicker}>{KICKERS[n - 1]}</Text>
+    <Text style={styles.kicker}>{KICKERS[kicker]}</Text>
     <Text style={styles.stepTitle}>{title}</Text>
     <Body dim size={16} style={{ marginTop: S.md, lineHeight: 23 }}>
       {body}
@@ -152,11 +189,62 @@ const StepTitle = ({ n, title, body }) => (
   </View>
 );
 
+function AccountStep({ email, onEmail, code, onCode, sent, onChangeEmail, onSubmit }) {
+  return (
+    <>
+      <StepTitle kicker="account" title={sent ? "Check your email." : "Sign in with email."} body={sent ? `We sent a 6 digit code to ${email.trim()}. It keeps your streak, XP and crews safe if you change phone.` : "No password. We email you a code, and the same address signs you in on any phone."} />
+      {sent ? (
+        <>
+          <Row gap={S.sm} style={[styles.field, { borderColor: code.length >= 6 ? C.borderStrong : C.border }]}>
+            <TextInput
+              value={code}
+              onChangeText={(t) => onCode(t.replace(/\D/g, "").slice(0, 8))}
+              placeholder="123456"
+              placeholderTextColor={C.textMute}
+              keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={onSubmit}
+              accessibilityLabel="Sign-in code"
+              style={{ flex: 1, color: C.text, fontSize: 26, fontFamily: F.displayMedium, letterSpacing: 8, outlineStyle: "none" }}
+            />
+          </Row>
+          <PressableScale onPress={onChangeEmail} hitSlop={10} style={{ marginTop: S.md }}>
+            <Body dim size={13}>Wrong address? Change it</Body>
+          </PressableScale>
+        </>
+      ) : (
+        <Row gap={S.sm} style={[styles.field, { borderColor: EMAIL_RE.test(email.trim()) ? C.borderStrong : C.border }]}>
+          <View style={{ width: 20 }}><Mail size={20} color={C.textMute} /></View>
+          <TextInput
+            value={email}
+            onChangeText={onEmail}
+            placeholder="you@example.com"
+            placeholderTextColor={C.textMute}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            returnKeyType="send"
+            onSubmitEditing={onSubmit}
+            accessibilityLabel="Email address"
+            style={{ flex: 1, color: C.text, fontSize: 20, fontFamily: F.body, outlineStyle: "none" }}
+          />
+        </Row>
+      )}
+    </>
+  );
+}
+
 function UsernameStep({ n, value, onChange, check, onSubmit }) {
   const tone = check.state === "bad" ? C.danger : check.state === "ok" ? C.borderStrong : C.border;
   return (
     <>
-      <StepTitle n={n} title="Pick your name." body="This is how people find you, battle you and see you on the board." />
+      <StepTitle kicker="username" title="Pick your name." body="This is how people find you, battle you and see you on the board." />
       <Row gap={S.sm} style={[styles.field, { borderColor: tone }]}>
         <View style={{ width: 20 }}><AtSign size={20} color={C.textMute} /></View>
         <TextInput
@@ -196,7 +284,7 @@ function UsernameStep({ n, value, onChange, check, onSubmit }) {
 function CityStep({ n, value, onChange }) {
   return (
     <>
-      <StepTitle n={n} title="Where do you move?" body="Your city sets your local leaderboard, events and who's out near you." />
+      <StepTitle kicker="city" title="Where do you move?" body="Your city sets your local leaderboard, events and who's out near you." />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: S.sm }}>
         {CITIES.map((c) => {
           const active = c.name === value;
@@ -221,7 +309,7 @@ function CityStep({ n, value, onChange }) {
 function CrewStep({ n, value, onChange }) {
   return (
     <>
-      <StepTitle n={n} title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew." />
+      <StepTitle kicker="crew" title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew." />
       <Row gap={S.sm} style={[styles.field, { borderColor: value ? C.borderStrong : C.border }]}>
         <View style={{ width: 20 }}><Users size={20} color={C.textMute} /></View>
         <TextInput
@@ -250,11 +338,11 @@ function MotionStep({ n, status, onAsk }) {
   }[status];
   return (
     <>
-      <StepTitle n={n} title="Your steps do the work." body="Outhere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
+      <StepTitle kicker="motion" title="Your steps do the work." body="Outhere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
       <View style={{ gap: S.lg, marginBottom: S.xxl }}>
         {[
           { title: "5 XP for every 1,000 steps", text: "Plus bonuses for active days and hitting your goal." },
-          { title: "Private by default", text: "Only step counts are read. Your data stays on this phone." },
+          { title: "Private by default", text: "Only step counts are read. Your location is used only while you track a run." },
         ].map(({ title, text }, i) => (
           <View key={title}>
             {i > 0 ? <View style={styles.sep} /> : null}

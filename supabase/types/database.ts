@@ -1203,6 +1203,7 @@ export type Database = {
           surprise_challengers: boolean;
           created_at: string;
           updated_at: string;
+          onboarded_at: string | null;
         };
         Insert: {
           id: string;
@@ -1224,6 +1225,7 @@ export type Database = {
           surprise_challengers?: boolean;
           created_at?: string;
           updated_at?: string;
+          onboarded_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1245,6 +1247,7 @@ export type Database = {
           surprise_challengers?: boolean;
           created_at?: string;
           updated_at?: string;
+          onboarded_at?: string | null;
         };
         Relationships: [];
       };
@@ -1618,6 +1621,7 @@ export type Database = {
       counted_steps: { Args: { raw: number; }; Returns: number };
       create_battle: { Args: { p_opponent: string; p_mode?: Database["public"]["Enums"]["battle_mode"]; p_duration_h?: number; p_distance_m?: number; p_stake_out?: number; p_route_run?: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       create_club: { Args: { p_name: string; p_slug: string; p_city: string; p_borough?: string; p_tagline?: string; p_meeting_place?: string; p_usual_times?: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
+      finish_onboarding: { Args: { p_username: string; p_display_name?: string; p_city?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       fixture_side_score: { Args: { p_fixture: string; p_entry: string; }; Returns: number };
       haversine_m: { Args: { lat1: number; lng1: number; lat2: number; lng2: number; }; Returns: number };
       ingest_steps: { Args: { p_day: string; p_steps: number; p_distance_m?: number; p_active_minutes?: number; p_source?: string; }; Returns: Database["public"]["Tables"]["daily_steps"]["Row"] };

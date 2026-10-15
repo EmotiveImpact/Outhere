@@ -1,15 +1,15 @@
-// React Query hooks over the local engine. Screens use these and never call
-// the engine directly for reads, so swapping in a server later only touches
-// this file and engine.js.
+// React Query hooks over the data source: Supabase when configured, the local
+// engine otherwise (see source.js). Screens use these and never call either
+// directly for reads.
 
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
-import * as engine from "./engine";
+import { api as engine, isRemote } from "./source";
 import { setHapticsEnabled } from "@/services/haptics";
 import { toast } from "@/components/ui/Toast";
 
-export { engine };
+export { engine, isRemote };
 
 const KEY = "engine";
 

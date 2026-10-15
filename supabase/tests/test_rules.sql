@@ -239,6 +239,27 @@ do $$ begin
 end $$;
 reset role;
 
+-- Onboarding sets the name once and pays the welcome bonus once.
+select pg_temp.act('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+do $$
+declare before_xp int;
+begin
+  select xp into before_xp from profiles where id = auth.uid();
+  perform finish_onboarding('bea.out', 'Bea', 'london');
+  perform finish_onboarding('bea.out', 'Bea', 'london');
+  assert (select username from profiles where id = auth.uid()) = 'bea.out', 'username set';
+  assert (select onboarded_at is not null from profiles where id = auth.uid()), 'onboarded';
+  assert (select xp from profiles where id = auth.uid()) = before_xp + 100, 'welcome paid once';
+  begin
+    perform finish_onboarding('admin');
+    assert false, 'reserved names refused';
+  exception when others then
+    assert sqlerrm = 'BAD_USERNAME', sqlerrm;
+  end;
+end $$;
+reset role;
+
 -- Anonymous visitors see public pages only.
 select pg_temp.act('');
 set role anon;

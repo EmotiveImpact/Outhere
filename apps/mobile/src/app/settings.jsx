@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronRight, Minus, Plus } from "lucide-react-native";
-import { engine, useEngineMutation, useProfile, useSettings } from "@/data/hooks";
+import { engine, isRemote, useEngineMutation, useProfile, useSettings } from "@/data/hooks";
 import { CITIES } from "@/constants/theme";
 import { Avatar, Button, C, F, FadeIn, Header, PressableScale, R, Row, S, Screen, Skeleton, TierBadge, toast } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
@@ -54,7 +54,9 @@ export default function SettingsScreen() {
   const resetEverything = (title) =>
     Alert.alert(
       title,
-      "Your Outhere data lives only on this phone for now. This wipes your profile, steps, streak, XP and OUT for good.",
+      isRemote
+        ? "You'll need your email code to sign back in. Your streak, XP and crews stay safe on your account."
+        : "Your Outhere data lives only on this phone for now. This wipes your profile, steps, streak, XP and OUT for good.",
       [
         { text: "Cancel", style: "cancel" },
         {

@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
 import { Pedometer } from "expo-sensors";
 import { create } from "zustand";
-import * as engine from "@/data/engine";
+import { api as engine } from "@/data/source";
 import { addDays, dayKey, startOfDay } from "@/data/time";
 
 const STEP_KM = 0.000762;
