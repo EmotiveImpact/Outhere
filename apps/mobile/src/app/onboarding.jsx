@@ -18,7 +18,8 @@ import * as Notifications from "expo-notifications";
 import { Bell, Camera, Check, Footprints, Lock, LocateFixed, Mail, Minus, Plus, User, X } from "lucide-react-native";
 import { engine, isRemote, showEngineError, useOutsideCount } from "@/data/hooks";
 import { birthDateProblem, isMinorDate } from "@/data/account";
-import { Body, Button, C, F, LiveDot, PressableScale, R, Row, S, Wordmark, toast } from "@/components/ui";
+import { Body, Button, C, EASE, F, FINISH, LiveDot, PressableScale, R, Row, S, TOP_GAP, Wordmark, toast } from "@/components/ui";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { GlowHero, Group, Note, OnboardingBar, Row as SettingRow, Toggle, accountStyles } from "@/components/account/parts";
 import PatchPicker, { areaWord } from "@/components/account/PatchPicker";
 import { PHOTOS } from "@/constants/photos";
@@ -347,7 +348,7 @@ function SignIn({ onDone }) {
       <StatusBar style="light" />
       <Image source={PHOTOS.signin} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} accessibilityLabel="Runners crossing a bridge at dawn" />
       <LinearGradient colors={["rgba(2,5,12,0.55)", "rgba(2,5,12,0)", "rgba(2,5,12,0.2)", "rgba(2,5,12,0.85)", "#02050c"]} locations={[0, 0.2, 0.4, 0.62, 0.8]} style={StyleSheet.absoluteFill} />
-      <Row style={{ paddingTop: insets.top + S.md, paddingHorizontal: S.gutter, justifyContent: "space-between" }}>
+      <Row style={{ paddingTop: insets.top + TOP_GAP + 2, paddingHorizontal: S.gutter, justifyContent: "space-between" }}>
         <Wordmark height={20} ink="#fff" sub="UK" />
         {mode !== "buttons" ? (
           <PressableScale onPress={() => setMode("buttons")} hitSlop={10}>
@@ -519,8 +520,24 @@ export function MapVisibility({ value, onChange, minor }) {
     { value: "friends", label: "Friends" },
     { value: "crew", label: "Crew" },
   ];
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const [width, setWidth] = useState(0);
+  const slot = width ? (width - 8) / options.length : 0;
+  const x = useSharedValue(index * slot);
+  useEffect(() => {
+    x.value = slot ? withSpring(index * slot, EASE.thumb) : index * slot;
+  }, [index, slot, x]);
+  const slide = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
-    <View style={styles.seg3}>
+    <View style={styles.seg3} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {slot ? (
+        <Animated.View pointerEvents="none" style={[styles.seg3Thumb, { width: slot }, slide]}>
+          <View style={styles.seg3ThumbBody}>
+            <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }]} />
+          </View>
+        </Animated.View>
+      ) : null}
       {options.map((o) => {
         const on = value === o.value;
         const off = minor && o.value === "everyone";
@@ -528,13 +545,17 @@ export function MapVisibility({ value, onChange, minor }) {
           <PressableScale
             key={o.value}
             disabled={off}
-            onPress={() => !on && onChange(o.value)}
+            onPress={() => {
+              if (on) return;
+              hapticSelection();
+              onChange(o.value);
+            }}
             scaleTo={0.96}
-            style={[styles.seg3Item, on && styles.seg3On, off && { opacity: 0.35 }]}
+            style={[styles.seg3Item, off && { opacity: 0.35 }]}
             accessibilityRole="radio"
             accessibilityState={{ selected: on, disabled: off }}
           >
-            <Text style={[styles.seg3Text, on && { color: "#fff" }]}>{o.label}</Text>
+            <Text style={[styles.seg3Text, on && { color: "#fff", fontFamily: F.bodySemi }]}>{o.label}</Text>
           </PressableScale>
         );
       })}
@@ -693,11 +714,13 @@ const styles = StyleSheet.create({
   signinLink: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 14 },
   live: { alignSelf: "flex-start", paddingVertical: 7, paddingLeft: 10, paddingRight: 12, borderRadius: R.full, backgroundColor: "rgba(10,16,28,0.6)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.16)", marginBottom: S.md },
   liveText: { color: "#fff", fontFamily: F.body, fontSize: 12 },
-  signinHead: { color: "#fff", fontFamily: F.display, fontSize: 54, lineHeight: 52, textTransform: "uppercase" },
-  provider: { height: 52, borderRadius: R.full, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  providerDark: { backgroundColor: "rgba(40,44,52,0.85)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.22)" },
-  providerText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 15 },
-  emailLink: { color: "#fff", fontFamily: F.bodyMedium, fontSize: 14 },
+  // .w-body h2: the display face at 50
+  signinHead: { color: "#fff", fontFamily: F.display, fontSize: 50, lineHeight: 47, textTransform: "uppercase" },
+  provider: { height: 50, borderRadius: R.full, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  // .authb: frosted glass with a faint ring
+  providerDark: { backgroundColor: "rgba(255,255,255,0.14)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)", backdropFilter: "blur(12px)" },
+  providerText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 14 },
+  emailLink: { color: "#d6dde8", fontFamily: F.bodyMedium, fontSize: 14 },
   terms: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 19, textAlign: "center", paddingHorizontal: S.lg },
   emailField: { height: 56, borderRadius: R.lg, backgroundColor: "rgba(18,21,26,0.9)", paddingHorizontal: S.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
   emailInput: { flex: 1, color: C.text, fontFamily: F.body, fontSize: 17, outlineStyle: "none" },
@@ -714,10 +737,13 @@ const styles = StyleSheet.create({
   dobPart: { width: 40, textAlign: "center" },
   dobSlash: { color: C.textMute, fontFamily: F.body, fontSize: 17 },
   dobHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 4 },
-  seg3: { flexDirection: "row", padding: 4, borderRadius: R.full, backgroundColor: "#0c0f14", borderWidth: StyleSheet.hairlineWidth, borderColor: "#2a303b" },
-  seg3Item: { flex: 1, height: 36, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
-  seg3On: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
-  seg3Text: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 14 },
+  // .seg.sm with the round ten thumb: a recessed track, the act gradient
+  // thumb glowing blue underneath, springing to the choice
+  seg3: { flexDirection: "row", padding: 4, borderRadius: R.full, backgroundColor: "#0b0d11", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05)" },
+  seg3Thumb: { position: "absolute", top: 4, bottom: 4, left: 4, borderRadius: R.full, boxShadow: "0 6px 16px -6px rgba(42,106,240,0.95), 0 0 22px -4px rgba(61,139,255,0.55)" },
+  seg3ThumbBody: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  seg3Item: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
+  seg3Text: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 12.5 },
   // goal
   stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: S.md, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
   stepBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },

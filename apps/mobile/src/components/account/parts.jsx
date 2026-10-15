@@ -11,8 +11,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { ChevronLeft, ChevronsRight } from "lucide-react-native";
-import { C, F, LIT, PressableScale, R, S } from "@/components/ui";
+import { BlendImage, C, F, FINISH, GlowBackdrop, Grain, LIT, PressableScale, R, S, TOP_GAP, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
+import { StackTabBar } from "@/components/AppTabBar";
 
 /**
  * Asks before something that can't be undone. Resolves true when the member
@@ -41,7 +42,9 @@ export function BackButton({ onPress, style }) {
   };
   return (
     <PressableScale onPress={go} hitSlop={10} scaleTo={0.9} accessibilityLabel="Back" style={[styles.round, style]}>
-      <ChevronLeft size={20} color={C.text} />
+      <View>
+        <ChevronLeft size={19} color="#fff" />
+      </View>
     </PressableScale>
   );
 }
@@ -50,7 +53,9 @@ export function BackButton({ onPress, style }) {
 export function RoundButton({ icon: Icon, onPress, label, style }) {
   return (
     <PressableScale onPress={onPress} hitSlop={10} scaleTo={0.9} accessibilityLabel={label} style={[styles.round, style]}>
-      <Icon size={18} color={C.text} />
+      <View>
+        <Icon size={18} color="#fff" />
+      </View>
     </PressableScale>
   );
 }
@@ -101,46 +106,42 @@ export function OnboardingBar({ index, onBack, onSkip, top = 0 }) {
   );
 }
 
+const SLAB_EDGE = splitShadow(FINISH.slabEdge);
+
 /**
- * The dark slab with a blue glow in its top right, a kicker and a two-tone
- * headline. Rounded at the bottom. Pass `photo` content as children behind.
+ * The slab (.slab, .oh-slab): smooth blue light from the upper right, film
+ * grain, rounded at the bottom and lit along its lower edge, with a kicker
+ * and a two-tone headline. `object` floats a 3D object on the right with its
+ * black dropped out and a breathing glow behind it. `background` replaces
+ * the light with your own picture (a photo and its shade).
  */
-export function GlowHero({ kicker, top, bottom, height = 300, background, object, children, style }) {
+export function GlowHero({ kicker, top, bottom, height = 300, size = 44, background, object, objectSize, objectTop, objectStyle, children, style }) {
   const insets = useSafeAreaInsets();
+  const obj = objectSize || Math.round(height * 0.9);
   return (
-    <View style={[styles.slab, { height: height + insets.top }, style]}>
-      {background}
-      {!background && !object ? (
-        <>
-          <LinearGradient colors={["#0d1524", "#080b11"]} style={StyleSheet.absoluteFill} />
-          <Glow />
-          <LinearGradient colors={["rgba(61,139,255,0.10)", "rgba(61,139,255,0)"]} start={{ x: 0.75, y: 0.15 }} end={{ x: 0.2, y: 0.95 }} style={StyleSheet.absoluteFill} />
-        </>
-      ) : null}
-      {object ? (
-        // The object photos are shot on black, so the slab goes black behind
-        // them and the blue light sits over the top.
-        <>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#000" }]} />
-          <Image source={object} contentFit="contain" style={{ position: "absolute", right: -30, top: insets.top + 18, width: height * 0.9, height: height * 0.9 }} />
-          <Glow opacity={0.3} />
-          <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.85)"]} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.2, y: 1 }} style={StyleSheet.absoluteFill} />
-        </>
-      ) : null}
-      <View style={styles.heroText}>
-        {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
-        {top ? (
-          <Text style={styles.headline} numberOfLines={2} adjustsFontSizeToFit>
-            {top}
-          </Text>
+    <View style={[styles.slabWrap, { boxShadow: SLAB_EDGE.outer }, style]}>
+      <View style={[styles.slab, { height: height + insets.top }]}>
+        {background || <GlowBackdrop preset="slab" />}
+        {object ? (
+          <BlendImage source={object} size={obj} float glow={Math.round(obj * 1.2)} style={[{ position: "absolute", right: -30, top: objectTop != null ? insets.top + objectTop - 14 : insets.top + (height - obj) / 2 - 6 }, objectStyle]} />
         ) : null}
-        {bottom ? (
-          <Text style={[styles.headline, styles.blue]} numberOfLines={2} adjustsFontSizeToFit>
-            {bottom}
-          </Text>
-        ) : null}
+        <Grain amount={0.06} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRound, { boxShadow: SLAB_EDGE.inset }]} />
+        <View style={styles.heroText}>
+          {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
+          {top ? (
+            <Text style={[styles.headline, { fontSize: size, lineHeight: size * 0.96 }]} numberOfLines={2} adjustsFontSizeToFit>
+              {top}
+            </Text>
+          ) : null}
+          {bottom ? (
+            <Text style={[styles.headline, styles.blue, { fontSize: size, lineHeight: size * 0.96 }]} numberOfLines={2} adjustsFontSizeToFit>
+              {bottom}
+            </Text>
+          ) : null}
+        </View>
+        {children}
       </View>
-      {children}
     </View>
   );
 }
@@ -149,18 +150,20 @@ export function GlowHero({ kicker, top, bottom, height = 300, background, object
  * A settings page whose top is the glowing slab: back on the left, an
  * optional round button on the right, then the body under it.
  */
-export function HeroPage({ kicker, top, bottom, height = 210, right, background, object, children, bodyStyle }) {
+export function HeroPage({ kicker, top, bottom, height = 210, size, right, background, object, objectSize, objectTop, objectStyle, children, bodyStyle, footer, tab }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        <GlowHero kicker={kicker} top={top} bottom={bottom} height={height} background={background} object={object} />
-        <View style={[{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }, bodyStyle]}>{children}</View>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + (tab ? 120 : 40) }}>
+        <GlowHero kicker={kicker} top={top} bottom={bottom} height={height} size={size} background={background} object={object} objectSize={objectSize} objectTop={objectTop} objectStyle={objectStyle} />
+        <View style={[{ paddingHorizontal: 18, paddingTop: 16, gap: 12 }, bodyStyle]}>{children}</View>
       </ScrollView>
-      <View style={[styles.heroBar, { top: insets.top + S.sm }]}>
+      <View style={[styles.heroBar, { top: insets.top + TOP_GAP }]}>
         <BackButton />
         {right || null}
       </View>
+      {footer}
+      {tab ? <StackTabBar current={tab} /> : null}
     </View>
   );
 }
@@ -196,14 +199,17 @@ export function PlainHeadline({ kicker, top, bottom, size = 46, style }) {
 export function Group({ children, highlight = false, style }) {
   const rows = React.Children.toArray(children).filter(Boolean);
   return (
-    <View style={[styles.group, highlight && styles.groupOn, style]}>
-      <LinearGradient colors={highlight ? ["#15233a", "#101a2b"] : LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
+    <View style={[styles.group, { boxShadow: highlight ? "0 14px 34px -16px rgba(42,106,240,0.65)" : FINISH.shadowCard }, style]}>
+      <View style={[StyleSheet.absoluteFill, styles.groupClip]}>
+        <LinearGradient colors={highlight ? ["#13213d", "#0f1626"] : LIT} style={StyleSheet.absoluteFill} />
+      </View>
       {rows.map((child, i) => (
         <React.Fragment key={i}>
           {i > 0 ? <View style={styles.sep} /> : null}
           {child}
         </React.Fragment>
       ))}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.groupClip, { boxShadow: highlight ? "inset 0 1px 0 rgba(130,180,255,0.45), inset 0 0 0 1px rgba(61,139,255,0.35)" : FINISH.litEdge }]} />
     </View>
   );
 }
@@ -248,9 +254,14 @@ export function Toggle({ value, onChange, disabled = false, label }) {
       accessibilityLabel={label}
       style={{ opacity: disabled ? 0.45 : 1 }}
     >
-      <MotiView animate={{ backgroundColor: on ? C.accent : "#1d222b" }} transition={{ type: "timing", duration: 180 }} style={[styles.track, on && styles.trackOn]}>
-        <MotiView animate={{ translateX: on ? 20 : 0 }} transition={{ type: "spring", damping: 18, stiffness: 260 }} style={styles.thumb} />
-      </MotiView>
+      <View style={[styles.track, on && styles.trackOn]}>
+        <MotiView animate={{ opacity: on ? 1 : 0 }} transition={{ type: "timing", duration: 200 }} style={[StyleSheet.absoluteFill, { borderRadius: 14, overflow: "hidden" }]}>
+          <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
+        </MotiView>
+        <MotiView animate={{ translateX: on ? 18 : 0 }} transition={{ type: "spring", damping: 16, stiffness: 240 }} style={styles.thumb}>
+          <LinearGradient colors={["#ffffff", "#dfe5ee"]} style={[StyleSheet.absoluteFill, { borderRadius: 11 }]} />
+        </MotiView>
+      </View>
     </Pressable>
   );
 }
@@ -274,6 +285,7 @@ export function MiniSegment({ options, value, onChange, style }) {
             accessibilityState={{ selected: active }}
             style={[styles.segItem, active && styles.segItemOn]}
           >
+            {active ? <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} /> : null}
             <Text style={[styles.segText, active && { color: "#fff" }]}>{opt.label}</Text>
           </Pressable>
         );
@@ -293,38 +305,45 @@ export function Note({ icon: Icon, children, style }) {
 }
 
 export const accountStyles = StyleSheet.create({
-  field: { borderRadius: R.lg, backgroundColor: C.surface, paddingHorizontal: S.lg, paddingTop: 12, paddingBottom: 12, borderWidth: 1, borderColor: "transparent" },
-  fieldOn: { borderColor: C.accent, backgroundColor: "#0f1726" },
-  fieldLabel: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  input: { color: C.text, fontFamily: F.bodySemi, fontSize: 17, paddingVertical: 4, marginTop: 2, outlineStyle: "none" },
+  field: { borderRadius: 18, backgroundColor: "#15181e", paddingLeft: 14, paddingRight: 14, paddingTop: 11, paddingBottom: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", borderTopColor: "rgba(255,255,255,0.1)", boxShadow: FINISH.shadowCard },
+  fieldOn: { borderColor: C.accent, borderTopColor: C.accent, backgroundColor: "#121a2a", boxShadow: "0 0 0 1px rgba(61,139,255,0.35), 0 12px 30px -16px rgba(42,106,240,0.8)" },
+  fieldLabel: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 10.5 },
+  input: { color: C.text, fontFamily: F.bodySemi, fontSize: 15, paddingVertical: 3, marginTop: 4, outlineStyle: "none" },
 });
 
 const styles = StyleSheet.create({
-  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(18,21,26,0.85)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
-  heroBar: { position: "absolute", left: S.gutter, right: S.gutter, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  // .round.glass: 38px, frosted, a faint ring
+  round: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(10,14,20,0.45)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", ...(Platform.OS === "web" ? { backdropFilter: "blur(12px)" } : null) },
+  heroBar: { position: "absolute", left: 18, right: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 56, paddingHorizontal: S.gutter },
   topTitle: { flex: 1, textAlign: "center", color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
   bar: { position: "absolute", left: S.gutter, right: S.gutter, zIndex: 5, flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 44 },
   skip: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 14 },
-  slab: { backgroundColor: "#0b0e13", borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: "hidden", justifyContent: "flex-end" },
+  slabWrap: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  slab: { backgroundColor: FINISH.slab.base, borderBottomLeftRadius: 34, borderBottomRightRadius: 34, overflow: "hidden", justifyContent: "flex-end" },
+  slabRound: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
   glow: { position: "absolute", width: 260, height: 260, borderRadius: 130, right: -30, top: 20, backgroundColor: "rgba(40,90,190,0.20)" },
-  heroText: { paddingHorizontal: S.gutter, paddingBottom: S.xl },
-  kicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 8 },
-  headline: { color: C.text, fontFamily: F.display, fontSize: 48, lineHeight: 48, textTransform: "uppercase" },
-  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.45)", textShadowRadius: 18 },
-  group: { borderRadius: R.lg, backgroundColor: C.surface, overflow: "hidden", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  groupOn: { borderWidth: 1, borderColor: "rgba(61,139,255,0.55)" },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginLeft: S.lg },
-  row: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 56, paddingVertical: 12, paddingHorizontal: S.lg },
-  rowTitle: { color: C.text, fontFamily: F.bodyMedium, fontSize: 15 },
-  rowHint: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 16, marginTop: 2 },
-  rowValue: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
-  track: { width: 46, height: 28, borderRadius: 14, padding: 3, borderWidth: 1, borderColor: "#2a303b" },
-  trackOn: { borderColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
-  thumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" },
-  seg: { flexDirection: "row", padding: 3, borderRadius: R.full, backgroundColor: "#0c0f14", borderWidth: StyleSheet.hairlineWidth, borderColor: "#2a303b" },
+  // .slab .hl: 18 in, 22 up
+  heroText: { paddingHorizontal: 18, paddingBottom: 22 },
+  kicker: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 8 },
+  headline: { color: C.text, fontFamily: F.display, fontSize: 48, lineHeight: 48, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  blue: { color: "#4b93ff", textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+  // .setlist / .card with the lit finish
+  group: { borderRadius: 20 },
+  groupClip: { borderRadius: 20, overflow: "hidden" },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginLeft: 14, marginRight: 14 },
+  // .setlist .sr: 12 down, 14 in, 13px text
+  row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 50, paddingVertical: 12, paddingHorizontal: 14 },
+  rowTitle: { color: C.text, fontFamily: F.bodyMedium, fontSize: 13.5 },
+  rowHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  rowValue: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  // .switch: 46 by 28, the act gradient and a glow when on
+  track: { width: 46, height: 28, borderRadius: 14, padding: 3, backgroundColor: "#1d222b", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.5)" },
+  trackOn: { boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 0 16px -4px rgba(42,106,240,0.9)" },
+  thumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.3)" },
+  seg: { flexDirection: "row", padding: 3, borderRadius: R.full, backgroundColor: "#0b0d11", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05)" },
   segItem: { minWidth: 46, height: 30, paddingHorizontal: 12, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
-  segItemOn: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  segItemOn: { overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 6px 16px -8px rgba(42,106,240,0.9)" },
   segText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 13 },
   note: { flex: 1, color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 18 },
 });

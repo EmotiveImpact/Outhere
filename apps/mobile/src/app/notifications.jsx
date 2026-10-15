@@ -7,7 +7,8 @@ import { useRouter } from "expo-router";
 import { Bell, CalendarDays, CheckCheck, Flame, Gift, MoreHorizontal, Settings2, ShoppingBag, Swords, Trash2, Users } from "lucide-react-native";
 import { engine, useBattles, useEngineMutation, useNotifications, useProfile } from "@/data/hooks";
 import { startOfDay } from "@/data/time";
-import { Avatar, Button, C, EmptyState, F, FadeIn, PressableScale, R, S, Sheet, Skeleton } from "@/components/ui";
+import { Avatar, Button, C, EmptyState, F, FadeIn, IconTile, PressableScale, R, S, Sheet, Skeleton, Surface } from "@/components/ui";
+import { OUTSIDE_PHOTOS } from "@/constants/outsidePhotos";
 import { imageSource } from "@/components/ui/Cover";
 import { HeroPage, RoundButton, confirmAsk } from "@/components/account/parts";
 import { timeAgo } from "@/utils/format";
@@ -65,7 +66,13 @@ export default function NotificationsScreen() {
       kicker={`Notifications${unread ? ` · ${unread} new` : ""}`}
       top="What you"
       bottom="missed"
-      height={190}
+      height={192}
+      size={42}
+      object={OUTSIDE_PHOTOS.bell}
+      objectSize={190}
+      objectTop={20}
+      objectStyle={{ right: -22 }}
+      tab="index"
       right={<RoundButton icon={MoreHorizontal} label="More" onPress={() => setMenu(true)} />}
       bodyStyle={{ gap: 10 }}
     >
@@ -83,14 +90,14 @@ export default function NotificationsScreen() {
         groups.map((g, gi) => (
           <FadeIn key={g.title} index={invites.length + gi}>
             {gi > 0 || invites.length ? <Text style={styles.groupTitle}>{g.title}</Text> : null}
-            <View style={styles.group}>
+            <Surface radius={20} padding={null}>
               {g.items.map((n, i) => (
                 <React.Fragment key={n.id}>
                   {i > 0 ? <View style={styles.sep} /> : null}
                   <Item n={n} faded={n.read || n.at < weekAgo} onPress={() => open(n)} />
                 </React.Fragment>
               ))}
-            </View>
+            </Surface>
           </FadeIn>
         ))
       )}
@@ -143,13 +150,13 @@ function Invite({ battle }) {
   const bits = [battle.stakeOut ? `${battle.stakeOut} OUT` : null, battle.durationHours ? `${battle.durationHours} hours` : battle.modeName, battle.createdAt ? `${timeAgo(battle.createdAt)}` : null].filter(Boolean);
   return (
     <View style={{ gap: 10 }}>
-      <PressableScale onPress={() => router.push(`/battles/${battle.id}`)} scaleTo={0.98} style={styles.invite}>
+      <Surface onPress={() => router.push(`/battles/${battle.id}`)} radius={20} padding={null} contentStyle={styles.invite}>
         <View style={styles.vs}>
-          <Avatar uri={opp.avatar} name={opp.name} tier={opp.tier} size={44} />
+          <Avatar uri={opp.avatar} name={opp.name} tier={opp.tier} size={40} />
           <View style={styles.vsBadge}>
             <Text style={styles.vsText}>VS</Text>
           </View>
-          <Avatar uri={me?.avatar} name={me?.name || me?.username} tier={me?.tier} size={44} />
+          <Avatar uri={me?.avatar} name={me?.name || me?.username} tier={me?.tier} size={40} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.inviteTitle} numberOfLines={1}>
@@ -159,10 +166,10 @@ function Invite({ battle }) {
             {bits.join(" · ")}
           </Text>
         </View>
-      </PressableScale>
+      </Surface>
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <Button title="Accept" size="md" loading={busy && respond.variables?.[1]} disabled={busy} onPress={() => respond.mutate([battle.id, true])} style={{ flex: 1 }} />
-        <Button title="Not now" variant="secondary" disabled={busy} onPress={() => respond.mutate([battle.id, false])} style={{ flex: 1 }} />
+        <Button title="Accept" size="md" loading={busy && respond.variables?.[1]} disabled={busy} onPress={() => respond.mutate([battle.id, true])} style={{ flex: 1, height: 42 }} />
+        <Button title="Not now" variant="secondary" disabled={busy} onPress={() => respond.mutate([battle.id, false])} style={{ flex: 1, height: 42 }} />
       </View>
     </View>
   );
@@ -176,9 +183,7 @@ function Item({ n, faded, onPress }) {
       {n.image ? (
         <Avatar source={imageSource(n.image)} name={n.title} size={40} />
       ) : (
-        <View style={[styles.icon, n.type === "rewards" && styles.iconBlue]}>
-          <Icon size={18} color={n.type === "rewards" ? C.accent : C.textSoft} />
-        </View>
+        <IconTile icon={Icon} size={38} radius={19} iconSize={17} tone="blue" />
       )}
       <View style={{ flex: 1 }}>
         <Text style={styles.title} numberOfLines={2}>
@@ -206,22 +211,22 @@ function MenuRow({ icon: Icon, title, onPress, danger, disabled }) {
 }
 
 const styles = StyleSheet.create({
-  groupTitle: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 8, marginTop: 6, marginLeft: 4 },
-  group: { borderRadius: R.lg, backgroundColor: C.surface, overflow: "hidden", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginLeft: 68 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: S.lg, minHeight: 64 },
+  groupTitle: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 8, marginTop: 4, marginLeft: 4 },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginLeft: 14, marginRight: 14 },
+  // .ilist rows: 12 down, 14 in, 13.5px titles
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14, minHeight: 58 },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
   iconBlue: { backgroundColor: "rgba(61,139,255,0.16)" },
-  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, lineHeight: 19 },
-  body: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 17, marginTop: 2 },
-  time: { color: C.textDim, fontFamily: F.body, fontSize: 12, alignSelf: "flex-start", marginTop: 2 },
-  dot: { position: "absolute", left: 6, top: 30, width: 5, height: 5, borderRadius: 3, backgroundColor: C.accent },
-  invite: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5, lineHeight: 18 },
+  body: { color: C.textDim, fontFamily: F.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  time: { color: C.textDim, fontFamily: F.body, fontSize: 11, alignSelf: "flex-start", marginTop: 2 },
+  dot: { position: "absolute", left: 5, top: 27, width: 5, height: 5, borderRadius: 3, backgroundColor: C.accent, boxShadow: "0 0 6px rgba(61,139,255,0.9)" },
+  invite: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12, paddingLeft: 14, paddingRight: 14 },
   vs: { flexDirection: "row", alignItems: "center" },
   vsBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", marginHorizontal: -6, zIndex: 2, borderWidth: 2, borderColor: C.surface },
   vsText: { color: "#fff", fontFamily: F.display, fontSize: 11 },
-  inviteTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
-  inviteSub: { color: C.textSoft, fontFamily: F.body, fontSize: 13, marginTop: 3 },
+  inviteTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5 },
+  inviteSub: { color: C.textSoft, fontFamily: F.body, fontSize: 12, marginTop: 3 },
   menuRow: { flexDirection: "row", alignItems: "center", gap: 14, height: 54, paddingHorizontal: 4 },
   menuText: { color: C.text, fontFamily: F.bodyMedium, fontSize: 16 },
 });

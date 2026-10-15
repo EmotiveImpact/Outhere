@@ -3,16 +3,29 @@
 // badge and emote tiles, the membership line under a name and small bits.
 
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft, Lock } from "lucide-react-native";
-import { AnimatedBar, C, F, Hero, IconButton, LIT, PressableScale, R, Row, S } from "@/components/ui";
+import { AnimatedBar, BlendImage, C, F, FINISH, GlowButton, Hero, IconTile, PressableScale, Row, S, Surface, TOP_GAP, splitShadow } from "@/components/ui";
 import { compactNumber } from "@/utils/format";
 import { badgeArt } from "@/constants/badges";
 import { EMOTE_BY_ID } from "@/constants/emotes";
+
+const BLUR = Platform.OS === "web" ? { backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } : null;
+
+/** The round glass button over a slab or photo (.round.glass, 38px). */
+export function RoundGlass({ icon: Icon, onPress, label, size = 38, iconSize = 19, style }) {
+  return (
+    <PressableScale onPress={onPress} hitSlop={8} scaleTo={0.9} accessibilityLabel={label} style={[styles.round, { width: size, height: size, borderRadius: size / 2 }, BLUR, style]}>
+      <View>
+        <Icon size={iconSize} color="#fff" />
+      </View>
+    </PressableScale>
+  );
+}
 
 /** Hero slab with a back button on the left. */
 export function Slab({ back = true, onBack, right, height = 236, style, ...rest }) {
@@ -25,63 +38,59 @@ export function Slab({ back = true, onBack, right, height = 236, style, ...rest 
   };
   return (
     <View>
-      {/* 3D objects are shot on black, so the slab goes black behind them. */}
-      <Hero height={height} right={right} style={[rest.object && !rest.photo ? { backgroundColor: "#000" } : null, style]} {...rest} />
+      {/* 3D objects blend onto the slab's own blue light (BlendImage drops their black). */}
+      <Hero height={height} right={right} style={style} {...rest} />
       {back ? (
-        <View style={{ position: "absolute", left: S.gutter, top: insets.top + S.sm }}>
-          <IconButton icon={ChevronLeft} onPress={goBack} label="Back" />
+        <View style={{ position: "absolute", left: 18, top: insets.top + TOP_GAP }}>
+          <RoundGlass icon={ChevronLeft} onPress={goBack} label="Back" />
         </View>
       ) : null}
     </View>
   );
 }
 
-/** Three equal stat cards: big number over a small label. */
+/** Three equal stat cards (.grid3 .card): big number over a small label, on the lit surface. */
 export function StatTrio({ items, style }) {
   return (
     <Row gap={S.sm} style={style}>
       {items.map((it) => (
-        <View key={it.label} style={styles.stat}>
-          <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.md }]} />
+        <Surface key={it.label} radius={20} padding={12} style={{ flex: 1 }}>
           <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
             {typeof it.value === "number" ? compactNumber(it.value) : it.value}
           </Text>
           <Text style={styles.statLabel} numberOfLines={1}>
             {it.label}
           </Text>
-        </View>
+        </Surface>
       ))}
     </Row>
   );
 }
 
-/** A badge: the 3D object, its name, and Earned or a progress bar. */
+/**
+ * A badge (.bdg3): the 3D medal blended onto the lit card with its black
+ * dropped out, its name, and Earned or what's left. Locked ones go grey.
+ */
 export function BadgeTile({ badge, onPress, bar = false }) {
   const b = badge;
   return (
-    <PressableScale onPress={onPress} scaleTo={0.95} style={[styles.badge, !b.earned && { opacity: 0.92 }]} accessibilityLabel={`${b.label}. ${b.earned ? "Earned" : b.toGo}`}>
-      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.md }]} />
-      <View style={styles.badgeArt}>
-        <Image source={badgeArt(b.id)} style={[StyleSheet.absoluteFill, !b.earned && { opacity: 0.35 }]} contentFit="cover" />
-        {!b.earned ? (
-          <View style={styles.lock}>
-            <Lock size={10} color={C.textDim} />
-          </View>
-        ) : null}
-      </View>
-      <Text style={[styles.badgeName, !b.earned && { color: C.textSoft }]} numberOfLines={1}>
-        {b.label}
-      </Text>
-      {b.earned ? (
-        <Text style={[styles.badgeSub, bar && { color: C.accent }]}>Earned</Text>
-      ) : bar ? (
-        <AnimatedBar value={b.progress} height={4} colour={C.accent} track={C.surfaceHigh} style={{ marginTop: 7, width: "70%" }} />
-      ) : (
-        <Text style={styles.badgeSub} numberOfLines={1}>
-          {b.toGo}
+    <Surface onPress={onPress} radius={18} padding={null} style={{ flex: 1 }} contentStyle={styles.badge}>
+      <View accessible accessibilityLabel={`${b.label}. ${b.earned ? "Earned" : b.toGo}`} style={{ alignItems: "center", alignSelf: "stretch" }}>
+        <BlendImage source={badgeArt(b.id)} size={72} mask="tight" grey={b.earned ? 0 : 1} dim={b.earned ? 1 : 0.6} />
+        <Text style={[styles.badgeName, !b.earned && { color: C.textSoft }]} numberOfLines={1}>
+          {b.label}
         </Text>
-      )}
-    </PressableScale>
+        {b.earned ? (
+          <Text style={[styles.badgeSub, bar && { color: C.accent }]}>Earned</Text>
+        ) : bar ? (
+          <AnimatedBar value={b.progress} height={4} colour={C.accent} track={C.surfaceHigh} style={{ marginTop: 6, width: "70%" }} />
+        ) : (
+          <Text style={styles.badgeSub} numberOfLines={1}>
+            {b.toGo}
+          </Text>
+        )}
+      </View>
+    </Surface>
   );
 }
 
@@ -130,35 +139,46 @@ export function MemberLine({ tier = "free", foundingNumber, onTryPro, style }) {
   );
 }
 
-/** Small round icon well used at the left of cards. */
-export function IconWell({ icon: Icon, colour = C.accentHi, size = 44, style }) {
+/** The small lit icon square at the left of a card (.nudge .ni, .oh-tile). */
+export function IconWell({ icon, colour, size = 38, style }) {
+  const tone = colour === C.warn || colour === C.gold ? "gold" : colour === C.danger ? "red" : "blue";
+  return <IconTile icon={icon} tone={tone} size={size} radius={Math.round(size * 0.32)} iconSize={Math.round(size * 0.47)} style={style} />;
+}
+
+const TAG_SHADOW = splitShadow(FINISH.actShadow);
+
+/**
+ * The same pill drawn without a button of its own (.pill-go), for a card
+ * that is itself the button: a button can't hold another button.
+ */
+export function PillTag({ title, style }) {
   return (
-    <View style={[{ width: size, height: size, borderRadius: size * 0.32, backgroundColor: "rgba(61,139,255,0.12)", borderWidth: 1, borderColor: "rgba(61,139,255,0.28)", alignItems: "center", justifyContent: "center" }, style]}>
-      <Icon size={size * 0.42} color={colour} />
+    <View style={[styles.tag, { boxShadow: TAG_SHADOW.outer }, style]}>
+      <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 999, boxShadow: TAG_SHADOW.inset }]} />
+      <Text style={styles.tagText} numberOfLines={1}>
+        {title}
+      </Text>
     </View>
   );
 }
 
-/** Small pill button used inside cards ('Open', 'Add', 'Share'). */
+/** Small pill button used inside cards ('Open', 'Add', 'Share'): the act gradient (.pill-go), or quiet. */
 export function PillButton({ title, onPress, ghost = false, disabled = false, style }) {
-  return (
-    <PressableScale onPress={onPress} disabled={disabled} scaleTo={0.94} accessibilityLabel={title} style={[styles.pillBtn, ghost && styles.pillGhost, disabled && { opacity: 0.5 }, style]}>
-      <Text style={[styles.pillText, ghost && { color: C.textSoft }]}>{title}</Text>
-    </PressableScale>
-  );
+  return <GlowButton title={title} onPress={onPress} disabled={disabled} variant={ghost ? "quiet" : "primary"} size="sm" shine={false} style={[{ height: 32, paddingHorizontal: 14 }, style]} />;
 }
 
 const styles = StyleSheet.create({
-  stat: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, paddingVertical: S.md, paddingHorizontal: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 30, lineHeight: 34 },
-  statLabel: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
-  badge: { flex: 1, alignItems: "center", backgroundColor: C.surface, borderRadius: R.md, paddingTop: S.md, paddingBottom: S.md, paddingHorizontal: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop, overflow: "hidden" },
-  badgeArt: { width: "84%", aspectRatio: 1.25, borderRadius: R.sm, overflow: "hidden", backgroundColor: "#0b0e13" },
-  badgeName: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, marginTop: S.sm, textAlign: "center" },
-  badgeSub: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, marginTop: 2, textAlign: "center" },
+  round: { alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10,14,20,0.45)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
+  tag: { height: 32, paddingLeft: 14, paddingRight: 14, borderRadius: 999, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  tagText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 12, letterSpacing: -0.15 },
+  // .grid3 .card b: the display face at 24, line height .9
+  statValue: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 24 },
+  statLabel: { color: C.textDim, fontFamily: F.body, fontSize: 10.5, marginTop: 4 },
+  // .bdg3 div: padding 8 6 11
+  badge: { alignItems: "center", paddingTop: 8, paddingBottom: 11, paddingLeft: 6, paddingRight: 6 },
+  badgeName: { color: C.text, fontFamily: F.bodySemi, fontSize: 11.5, marginTop: 4, textAlign: "center" },
+  badgeSub: { color: C.textDim, fontFamily: F.body, fontSize: 10, marginTop: 2, textAlign: "center" },
   lock: { position: "absolute", right: 4, bottom: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" },
   member: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginTop: 6 },
-  pillBtn: { height: 34, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
-  pillGhost: { backgroundColor: C.surfaceHigh },
-  pillText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13 },
 });

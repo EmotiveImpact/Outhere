@@ -3,3 +3,11 @@
 body {
   font-family: "Inter", sans-serif !important;
 }
+
+/* Skia draws into a <canvas> that flexes to fill its view. A canvas keeps a
+   minimum height of 150px (its default size) as a flex item, so a small
+   BlendImage (under 150px) grew past its box. Let it shrink to the view. */
+canvas {
+  min-height: 0;
+  min-width: 0;
+}

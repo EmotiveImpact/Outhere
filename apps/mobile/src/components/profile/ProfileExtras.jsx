@@ -5,7 +5,8 @@ import { Text, View } from "react-native";
 import { ChevronRight, Play } from "lucide-react-native";
 import { formatDuration, formatKm, formatPace, tierLabel, timeAgo } from "@/utils/format";
 import { priceLabel } from "@/constants/plans";
-import { Body, C, Card, Divider, F, FadeIn, ListRow, PressableScale, R, Row, S, Skeleton, Title, tierColour } from "@/components/ui";
+import { BlendImage, Body, C, Card, Divider, F, FadeIn, ListRow, PressableScale, R, Row, S, Skeleton, Surface, Title, tierColour } from "@/components/ui";
+import { PHOTOS } from "@/constants/photos";
 
 export function RecentRuns({ runs, loading, units, onStart, onOpen }) {
   if (loading) return <Skeleton height={150} radius={R.lg} />;
@@ -55,21 +56,22 @@ export function MembershipCard({ tier, onPress }) {
       : tier === "pro"
         ? "1.5x OUT, unlimited battles and a streak freeze a month."
         : "2x OUT, first pick of every drop and private events.";
+  // The tier's own card object, blended onto the lit surface (.card.tier .card3d).
+  const art = tier === "black" ? PHOTOS.blackcard : tier === "pro" ? PHOTOS.procard : PHOTOS.card;
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98} accessibilityLabel="Membership">
-      <Card padding={S.lg} style={{ overflow: "hidden" }}>
-        {edge ? <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: edge }} /> : null}
-        <Row gap={S.md}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18 }}>Outhere {tierLabel(tier)}</Text>
-            <Body dim size={13} style={{ marginTop: 2 }}>
-              {line}
-            </Body>
-          </View>
-          <ChevronRight size={18} color={C.textMute} />
-        </Row>
-      </Card>
-    </PressableScale>
+    <Surface radius={20} padding={null} onPress={onPress} accessibilityLabel="Membership" contentStyle={{ paddingTop: 14, paddingBottom: 14, paddingLeft: 10, paddingRight: 14 }}>
+      {edge ? <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: edge }} /> : null}
+      <Row gap={10}>
+        <BlendImage source={art} size={64} mask="tight" />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18, textTransform: "uppercase" }}>Outhere {tierLabel(tier)}</Text>
+          <Body dim size={12} style={{ marginTop: 2, lineHeight: 17 }}>
+            {line}
+          </Body>
+        </View>
+        <ChevronRight size={18} color={C.textMute} />
+      </Row>
+    </Surface>
   );
 }
 

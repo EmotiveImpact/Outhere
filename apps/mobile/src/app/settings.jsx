@@ -10,7 +10,9 @@ import Slider from "@react-native-community/slider";
 import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, Shield, Watch, Zap } from "lucide-react-native";
 import { engine, isRemote, useAccount, useEngineMutation, useProfile, useSettings, useUpdateSettings } from "@/data/hooks";
 import { pingsOn } from "@/data/account";
-import { Avatar, C, F, FadeIn, PressableScale, R, S, Screen, Skeleton, TierBadge } from "@/components/ui";
+import { LinearGradient } from "expo-linear-gradient";
+import { Avatar, C, F, FadeIn, FINISH, R, S, Screen, Skeleton, Surface } from "@/components/ui";
+import { StackTabBar } from "@/components/AppTabBar";
 import { Group, MiniSegment, Row, Toggle, TopBar, confirmAsk } from "@/components/account/parts";
 import { formatNumber, tierLabel } from "@/utils/format";
 
@@ -62,10 +64,11 @@ export default function SettingsScreen() {
   const where = [profile.area, profile.city].filter(Boolean)[0];
 
   return (
-    <Screen header={<TopBar title="Settings" />} contentStyle={{ gap: S.md, paddingTop: S.sm }}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <Screen tab header={<TopBar title="Settings" />} contentStyle={{ gap: 12, paddingTop: 6, paddingHorizontal: 18 }} padded={false}>
       <FadeIn index={0}>
-        <PressableScale onPress={() => router.push("/settings/profile")} scaleTo={0.98} style={styles.profile} accessibilityLabel="Edit your profile">
-          <Avatar uri={profile.avatar} name={profile.name || profile.username} tier={profile.tier} size={52} />
+        <Surface onPress={() => router.push("/settings/profile")} radius={20} padding={null} contentStyle={styles.profile} accessibilityLabel="Edit your profile">
+          <Avatar uri={profile.avatar} name={profile.name || profile.username} tier={profile.tier} size={46} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>
               {profile.name || profile.username}
@@ -75,8 +78,8 @@ export default function SettingsScreen() {
               {where ? ` · ${where}` : ""}
             </Text>
           </View>
-          <TierBadge tier={profile.tier} />
-        </PressableScale>
+          <TierChip tier={profile.tier} />
+        </Surface>
       </FadeIn>
 
       <FadeIn index={1}>
@@ -126,6 +129,21 @@ export default function SettingsScreen() {
 
       <Text style={styles.version}>Outhere build 0.1</Text>
     </Screen>
+    {/* The prototype draws Settings with the tab bar, Profile lit. */}
+    <StackTabBar current="profile" />
+    </View>
+  );
+}
+
+// .tierchip: PRO on the act gradient, BLACK on gunmetal. Free shows nothing.
+function TierChip({ tier }) {
+  if (!tier || tier === "free") return null;
+  const black = tier === "black";
+  return (
+    <View style={[styles.chip, { boxShadow: black ? "inset 0 0 0 1px rgba(255,255,255,0.18)" : "inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 14px -4px rgba(61,139,255,0.8)" }]}>
+      <LinearGradient colors={black ? ["#15181d", "#5d6570", "#15181d"] : FINISH.act} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 7 }]} />
+      <Text style={styles.chipText}>{black ? "BLACK" : "PRO"}</Text>
+    </View>
   );
 }
 
@@ -135,7 +153,7 @@ function TextSize({ value = 1, onChange }) {
   const [v, setV] = useState(value);
   useEffect(() => setV(value), [value]);
   return (
-    <View style={styles.sizeCard}>
+    <Surface radius={20} padding={null} contentStyle={styles.sizeCard}>
       <View style={styles.sizeHead}>
         <Text style={styles.sizeTitle}>Text size</Text>
         <Text style={styles.sizeValue}>{sizeName(v)}</Text>
@@ -157,8 +175,8 @@ function TextSize({ value = 1, onChange }) {
         />
         <Text style={[styles.sizeA, { fontSize: 22 }]}>A</Text>
       </View>
-      <Text style={[styles.sizePreview, { fontSize: 14 * v, lineHeight: 20 * v }]}>8,412 steps today. Kemi is 300 ahead.</Text>
-    </View>
+      <Text style={[styles.sizePreview, { fontSize: 13 * v, lineHeight: 19 * v }]}>8,412 steps today. Kemi is 300 ahead.</Text>
+    </Surface>
   );
 }
 
@@ -186,13 +204,16 @@ function DevTools() {
 }
 
 const styles = StyleSheet.create({
-  profile: { flexDirection: "row", alignItems: "center", gap: 14, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
-  handle: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },
-  sizeCard: { borderRadius: R.lg, backgroundColor: C.surface, padding: S.lg, paddingBottom: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  chip: { paddingVertical: 5, paddingHorizontal: 9, borderRadius: 7, overflow: "hidden" },
+  chipText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10, lineHeight: 11, letterSpacing: 1 },
+  // .card.meline
+  profile: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 13, paddingBottom: 13, paddingLeft: 14, paddingRight: 14 },
+  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  handle: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, marginTop: 2 },
+  sizeCard: { paddingTop: 13, paddingBottom: 10, paddingLeft: 14, paddingRight: 14 },
   sizeHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  sizeTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  sizeValue: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
+  sizeTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  sizeValue: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   sizeRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
   sizeA: { color: C.text, fontFamily: F.bodySemi },
   sizePreview: { color: C.textSoft, fontFamily: F.body, marginTop: 2 },
