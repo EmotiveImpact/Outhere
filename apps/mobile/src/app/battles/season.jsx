@@ -5,12 +5,15 @@ import React from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
 import { CalendarClock } from "lucide-react-native";
 import { engine, useArenaNow, useEngineMutation, useSeasonResults } from "@/data/hooks";
-import { Button, C, EmptyState, F, R, Row, S, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { BlendImage, C, EmptyState, F, GlowButton, IconTile, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { BottomBar, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
+import { StackTabBar } from "@/components/AppTabBar";
 import { PHOTOS } from "@/constants/photos";
+
+// The stack of OUT coins, as in the prototype's season prize.
+const COIN_STACK = require("../../../assets/images/oh/stack.jpg");
 import { formatNumber } from "@/utils/format";
 
 const startsLine = (iso) => {
@@ -49,22 +52,24 @@ export default function SeasonResults() {
 
   const pct = Math.max(1, Math.round((r.rank / r.players) * 100));
   const rewards = [
-    { key: "out", image: PHOTOS.coin, title: `${formatNumber(r.prizeOut)} OUT`, sub: "season prize" },
-    { key: "badge", image: PHOTOS.badge, title: r.name, sub: "finisher badge" },
-    ...(r.perk === "black_week" ? [{ key: "black", image: PHOTOS.blackcard, title: "Black week", sub: "free trial" }] : []),
+    { key: "out", image: COIN_STACK, title: `${formatNumber(r.prizeOut)} OUT`, sub: "season prize" },
+    { key: "badge", image: PHOTOS.medal, title: r.name, sub: "finisher badge" },
+    ...(r.perk === "black_week" ? [{ key: "black", image: PHOTOS.ticket, title: "Black week", sub: "free trial" }] : []),
   ];
   const share = () => Share.share({ message: `I finished #${r.rank} of ${formatNumber(r.players)} in ${r.city} in the Outhere Arena, ${r.name}.` }).catch(() => {});
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: (r.claimed ? TAB_BAR_SPACE : 130) + insets.bottom }}>
-        <GlowHero height={260} kicker={`Arena · ${r.name} results`} top="You finished" bottom={`#${formatNumber(r.rank)}`} sub={`Top ${pct}% of ${formatNumber(r.players)} players in ${r.city}`} />
+        <GlowHero height={290} object={PHOTOS.trophy} objectSize={250} objectStyle={{ right: -50, top: insets.top - 10 }} kicker={`Arena · ${r.name} results`} top="You finished" bottom={`#${formatNumber(r.rank)}`} sub={`Top ${pct}% of ${formatNumber(r.players)} players in ${r.city}`} />
         <View style={{ paddingHorizontal: S.gutter }}>
           <SectionLabel right={r.claimed ? "All claimed" : null}>Your rewards</SectionLabel>
-          <Row gap={S.md} style={{ alignItems: "flex-start" }}>
-            {rewards.map((x) => (
+          <Row gap={S.sm} style={{ alignItems: "flex-start" }}>
+            {rewards.map((x, i) => (
               <View key={x.key} style={styles.reward}>
-                <Image source={x.image} style={[styles.rewardArt, !r.claimed && { opacity: 0.55 }]} contentFit="cover" />
+                <View style={styles.rewardArt}>
+                  <BlendImage source={x.image} size={104} glow float={i === 1} dim={r.claimed ? 1 : 0.6} />
+                </View>
                 <Text style={styles.rewardTitle} numberOfLines={1}>
                   {x.title}
                 </Text>
@@ -73,17 +78,15 @@ export default function SeasonResults() {
             ))}
           </Row>
           {r.next ? (
-            <View style={styles.next}>
-              <View style={styles.nextIcon}>
-                <CalendarClock size={20} color={C.accent} />
-              </View>
+            <Surface padding={S.lg} style={{ marginTop: S.xl }} contentStyle={styles.next}>
+              <IconTile icon={CalendarClock} size={44} radius={14} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.nextTitle}>
                   {r.next.name} {startsLine(r.next.startsOn)}
                 </Text>
                 {r.next.headline ? <Text style={[styles.small, { marginTop: 2, lineHeight: 17 }]}>{r.next.headline}</Text> : null}
               </View>
-            </View>
+            </Surface>
           ) : null}
           <Text style={[styles.small, { marginTop: S.lg }]}>
             {formatNumber(r.points)} arena points. Ranks come from battles won and steps counted over the season, worked out on the server.
@@ -92,20 +95,20 @@ export default function SeasonResults() {
       </ScrollView>
       {!r.claimed ? (
         <BottomBar>
-          <Button title="Pick up your rewards" size="lg" full loading={claim.isPending} onPress={() => claim.mutate(r.season)} />
+          <GlowButton title="Pick up your rewards" size="lg" full loading={claim.isPending} onPress={() => claim.mutate(r.season)} />
         </BottomBar>
       ) : null}
       <TopBar onShare={share} />
+      {r.claimed ? <StackTabBar current="outside" /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   reward: { flex: 1, alignItems: "center" },
-  rewardArt: { width: "100%", aspectRatio: 1, borderRadius: R.md, backgroundColor: C.surface },
-  rewardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginTop: S.sm },
+  rewardArt: { width: "100%", height: 108, alignItems: "center", justifyContent: "center" },
+  rewardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginTop: S.xs },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  next: { flexDirection: "row", alignItems: "center", gap: S.md, marginTop: S.xl, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  nextIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center" },
+  next: { flexDirection: "row", alignItems: "center", gap: S.md },
   nextTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
 });

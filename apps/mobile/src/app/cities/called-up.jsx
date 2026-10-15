@@ -1,14 +1,14 @@
 // The Friday moment: your number in the squad, when it starts, and a reserve
-// takes your place if you can't play.
+// takes your place if you can't play. Your city at night fills the screen.
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useCallUp, useEngineMutation, engine } from "@/data/hooks";
-import { Button, C, EmptyState, F, R, Row, S, Skeleton } from "@/components/ui";
-import { BottomBar, ButtonPair, Glow, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
+import { C, EmptyState, F, GlowButton, PhotoBackground, R, Row, S, Skeleton } from "@/components/ui";
+import { BottomBar, Glow, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
+import { cityPhoto } from "@/components/arena/CityParts";
 import { formatNumber } from "@/utils/format";
 
 export default function CalledUp() {
@@ -44,8 +44,8 @@ export default function CalledUp() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <LinearGradient colors={["#07090c", "#0a1220", "#07090c"]} style={StyleSheet.absoluteFill} />
-      <Glow y="55%" />
+      <PhotoBackground source={cityPhoto(c.side)} fade={[[0, 0.45], [0.2, 0.05], [0.36, 0.25], [0.58, 0.8], [1, 1]]} kenBurns grain={0.05} />
+      <Glow y="52%" r="60%" opacity={0.3} />
       <View style={[styles.body, { paddingBottom: insets.bottom + 140 }]}>
         <Text style={styles.kick}>
           {c.division} · {c.home} vs {c.away}
@@ -60,6 +60,7 @@ export default function CalledUp() {
           Drawn at random from {pool} who moved three days this week. {dayLong}, all day, wherever you are.
         </Text>
         <StatBoxes
+          glass
           style={{ marginTop: S.xl, alignSelf: "stretch" }}
           items={[
             { value: formatNumber(c.squad), label: "each side" },
@@ -70,14 +71,14 @@ export default function CalledUp() {
       </View>
       <BottomBar>
         {!c.open ? (
-          <Button title="It's kicked off" size="lg" full onPress={() => router.replace("/cities/vs")} />
+          <GlowButton title="It's kicked off" size="lg" full onPress={() => router.replace("/cities/vs")} />
         ) : c.answer === "in" ? (
-          <Button title="See the fixture" size="lg" full onPress={() => router.replace("/cities/vs")} />
+          <GlowButton title="See the fixture" size="lg" full onPress={() => router.replace("/cities/vs")} />
         ) : (
-          <ButtonPair
-            secondary={{ title: "Pass to a reserve", disabled: respond.isPending, onPress: () => respond.mutate([c.fixture, false]) }}
-            primary={{ title: "I'm in", loading: respond.isPending, onPress: () => respond.mutate([c.fixture, true]) }}
-          />
+          <Row gap={S.sm}>
+            <GlowButton title="Pass to a reserve" variant="quiet" size="lg" textStyle={{ fontSize: 15 }} disabled={respond.isPending} onPress={() => respond.mutate([c.fixture, false])} style={{ flex: 1.15 }} />
+            <GlowButton title="I'm in" size="lg" loading={respond.isPending} onPress={() => respond.mutate([c.fixture, true])} style={{ flex: 1 }} />
+          </Row>
         )}
       </BottomBar>
       <TopBar back={false} onMore={() => router.push("/cities/fair")} />
@@ -88,9 +89,9 @@ export default function CalledUp() {
 const styles = StyleSheet.create({
   body: { flex: 1, justifyContent: "flex-end", alignItems: "center", paddingHorizontal: S.gutter },
   kick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", textAlign: "center" },
-  title: { color: C.text, fontFamily: F.display, fontSize: 46, lineHeight: 48, textTransform: "uppercase", textAlign: "center", marginTop: 6 },
+  title: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 52, textTransform: "uppercase", textAlign: "center", marginTop: 6, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 2 } },
   blue: { color: C.accent, marginTop: 0, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 } },
-  number: { color: C.text, fontFamily: F.display, fontSize: 96, lineHeight: 98 },
+  number: { color: C.text, fontFamily: F.display, fontSize: 110, lineHeight: 112, textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 22, textShadowOffset: { width: 0, height: 2 } },
   of: { color: C.accentHi, fontFamily: F.display, fontSize: 22, marginBottom: 14, marginLeft: 4 },
-  sub: { color: C.textSoft, fontFamily: F.body, fontSize: 14, lineHeight: 20, textAlign: "center", maxWidth: 300, marginTop: S.sm },
+  sub: { color: "rgba(255,255,255,0.82)", fontFamily: F.body, fontSize: 14, lineHeight: 20, textAlign: "center", maxWidth: 300, marginTop: S.sm },
 });

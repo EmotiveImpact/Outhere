@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Send } from "lucide-react-native";
 import { engine, useEngineMutation, usePicks, useProfile } from "@/data/hooks";
-import { Avatar, Button, C, EmptyState, F, PressableScale, R, Row, S, Segment, Skeleton } from "@/components/ui";
+import { Avatar, C, EmptyState, F, GlowButton, PressableScale, R, Row, S, Segment, Skeleton, Surface } from "@/components/ui";
 import { BottomBar, GlowHero, TopBar } from "@/components/arena/OutsideKit";
 import { formatNumber } from "@/utils/format";
 
@@ -81,7 +81,7 @@ export default function PicksScreen() {
                 );
               })}
             </ScrollView>
-            <View style={[styles.panel, { marginHorizontal: S.gutter }]}>
+            <Surface padding={S.lg} style={{ marginHorizontal: S.gutter, marginTop: S.xl }} contentStyle={{ gap: S.sm }}>
               <Text style={styles.label}>Battle on</Text>
               <Segment options={METRICS} value={metric} onChange={setMetric} />
               <Text style={[styles.label, { marginTop: S.md }]}>How long</Text>
@@ -91,7 +91,7 @@ export default function PicksScreen() {
                 <Text style={[styles.label, { color: C.textDim }]}>You have {formatNumber(out)} OUT</Text>
               </Row>
               <Segment options={STAKES.filter((v) => v <= Math.max(out, 0) || v === 0).map((v) => ({ value: v, label: v ? String(v) : "None" }))} value={stake} onChange={setStake} />
-            </View>
+            </Surface>
             <Text style={styles.note}>
               {stake ? `Winner takes ${formatNumber(stake * 2)} OUT.` : "Winner takes the XP."}
               {lo ? ` You are both Level ${lo === hi ? lo : `${lo} to ${hi}`}.` : ""}
@@ -101,7 +101,7 @@ export default function PicksScreen() {
       </ScrollView>
       {rival ? (
         <BottomBar>
-          <Button title={`Send challenge to ${rival.name.split(" ")[0]}`} icon={Send} size="lg" full loading={send.isPending} onPress={() => send.mutate({ rivalId: rival.id, metric, durationHours: hours, stakeOut: stake })} />
+          <GlowButton title={`Send challenge to ${rival.name.split(" ")[0]}`} icon={Send} size="lg" full loading={send.isPending} onPress={() => send.mutate({ rivalId: rival.id, metric, durationHours: hours, stakeOut: stake })} />
         </BottomBar>
       ) : null}
       <TopBar />
@@ -111,10 +111,9 @@ export default function PicksScreen() {
 
 const styles = StyleSheet.create({
   ring: { padding: 3, borderRadius: 999, borderWidth: 2 },
-  ringOn: { shadowColor: "#3d8bff", shadowOpacity: 0.6, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } },
+  ringOn: { boxShadow: "0 0 22px rgba(61,139,255,0.65)" },
   tick: { position: "absolute", right: -2, top: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   name: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginTop: S.sm },
-  panel: { marginTop: S.xl, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)", gap: S.sm },
   label: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   note: { color: C.textDim, fontFamily: F.body, fontSize: 13, textAlign: "center", marginTop: S.md, paddingHorizontal: S.gutter },
 });

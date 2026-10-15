@@ -8,7 +8,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Bell, ChevronsRight, Clock3, Crosshair, TrendingUp } from "lucide-react-native";
 import { engine, useEngineMutation, useMysterySettings, usePlaySide } from "@/data/hooks";
-import { Button, C, F, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
+import { C, F, GlowButton, PressableScale, R, Row, S, Skeleton, Surface } from "@/components/ui";
+import { PHOTOS } from "@/constants/photos";
 import { BottomBar, GlowHero, Toggle, TopBar } from "@/components/arena/OutsideKit";
 
 const QUIET = [
@@ -78,9 +79,9 @@ export default function MysterySettings() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}>
-        <GlowHero height={200} kicker="Settings · Battles" top="Mystery" bottom="challengers" />
+        <GlowHero height={236} photo={PHOTOS.challenger} kicker="Settings · Battles" top="Mystery" bottom="challengers" />
         <View style={{ paddingHorizontal: S.gutter, gap: S.md, marginTop: S.lg }}>
-          <View style={[styles.card, set.enabled && styles.cardOn]}>
+          <Surface tone={set.enabled ? "blue" : "lit"} padding={S.lg}>
             <Row gap={S.md}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineTitle}>Let strangers challenge me</Text>
@@ -88,8 +89,9 @@ export default function MysterySettings() {
               </View>
               <Toggle value={set.enabled} disabled={set.minor} onChange={(v) => save.mutate({ enabled: v })} label="Let strangers challenge me" />
             </Row>
-          </View>
-          <View style={[styles.card, { paddingVertical: 4 }, off && { opacity: 0.5 }]} pointerEvents={off ? "none" : "auto"}>
+          </Surface>
+          <View style={off && { opacity: 0.5 }} pointerEvents={off ? "none" : "auto"}>
+          <Surface padding={null} contentStyle={{ paddingHorizontal: S.lg, paddingVertical: 4 }}>
             <Line
               first
               icon={Crosshair}
@@ -120,13 +122,14 @@ export default function MysterySettings() {
                 </PressableScale>
               }
             />
+          </Surface>
           </View>
           <Text style={styles.small}>Under 18s never get mystery challengers. Decline as often as you like, it never counts against you.</Text>
         </View>
       </ScrollView>
       {set.enabled ? (
         <BottomBar>
-          <Button title="Find a challenger now" size="lg" full loading={find.isPending} onPress={() => find.mutate()} />
+          <GlowButton title="Find a challenger now" size="lg" full loading={find.isPending} onPress={() => find.mutate()} />
         </BottomBar>
       ) : null}
       <TopBar />
@@ -141,9 +144,9 @@ const styles = StyleSheet.create({
   lineTop: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   lineTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 17, marginTop: 2 },
-  pills: { padding: 3, borderRadius: R.full, backgroundColor: C.surfaceHigh },
+  pills: { padding: 3, borderRadius: R.full, backgroundColor: "rgba(0,0,0,0.35)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05)" },
   pillOpt: { height: 30, minWidth: 30, paddingHorizontal: 10, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
-  pillOn: { backgroundColor: C.accent },
+  pillOn: { backgroundColor: C.accent, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 16px -6px rgba(42,106,240,0.9)" },
   pillText: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 12 },
   cycle: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6 },
   cycleText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },

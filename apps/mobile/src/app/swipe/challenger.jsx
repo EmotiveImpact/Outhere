@@ -6,13 +6,13 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInLeft } from "react-native-reanimated";
 import { Clock3 } from "lucide-react-native";
 import { engine, useEngineMutation, useMysteryOffer } from "@/data/hooks";
-import { Button, C, EmptyState, F, R, Row, S, Skeleton } from "@/components/ui";
-import { ButtonPair, GlassChip, TopBar } from "@/components/arena/OutsideKit";
+import { C, EmptyState, F, GlowButton, PhotoBackground, R, Row, S, Skeleton } from "@/components/ui";
+import { GlassChip, TopBar } from "@/components/arena/OutsideKit";
+import { Facts, GlassCard } from "@/components/arena/BattleKit";
 import { useNow } from "@/components/arena/shared";
 import { PHOTOS } from "@/constants/photos";
 import { formatNumber } from "@/utils/format";
@@ -54,8 +54,7 @@ export default function Challenger() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Image source={PHOTOS.challenger} style={StyleSheet.absoluteFill} contentFit="cover" />
-      <LinearGradient colors={["rgba(7,9,12,0.5)", "rgba(7,9,12,0.2)", "rgba(7,9,12,0.95)"]} locations={[0, 0.45, 0.8]} style={StyleSheet.absoluteFill} />
+      <PhotoBackground source={PHOTOS.challenger} fade={[[0, 0.45], [0.25, 0.1], [0.5, 0.15], [0.78, 0.9], [1, 1]]} kenBurns glow />
       <Animated.View entering={FadeInLeft.springify().damping(14)} style={[styles.banner, { top: insets.top + 80 }]}>
         <LinearGradient colors={["#2a6af0", "#5d9dff", "#2a6af0"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
         <Text style={styles.bannerSmall}>Here comes a</Text>
@@ -67,7 +66,7 @@ export default function Challenger() {
         </View>
       ) : null}
 
-      <View style={[styles.card, { bottom: insets.bottom + S.lg }]}>
+      <GlassCard style={[styles.card, { bottom: insets.bottom + S.md }]}>
         <Row gap={S.md}>
           <View style={styles.q}>
             <Text style={styles.qText}>?</Text>
@@ -77,49 +76,43 @@ export default function Challenger() {
             <Text style={styles.small}>Matched at random. You won't know who until you both say yes.</Text>
           </View>
         </Row>
-        <Row style={styles.stats}>
-          {[
-            [offer.levelLow === offer.levelHigh ? String(offer.levelLow) : `${offer.levelLow}–${offer.levelHigh}`, "Level"],
-            [metricWord(offer.metric), "Battle on"],
-            [lengthWord(offer.durationHours), "Length"],
-            [offer.stakeOut ? formatNumber(offer.stakeOut) : "0", "OUT each"],
-          ].map(([v, l], i) => (
-            <View key={l} style={[styles.statCell, i > 0 && styles.statLine]}>
-              <Text style={styles.statValue}>{v}</Text>
-              <Text style={styles.small}>{l}</Text>
-            </View>
-          ))}
-        </Row>
+        <Facts
+          size={20}
+          style={styles.stats}
+          items={[
+            { value: offer.levelLow === offer.levelHigh ? String(offer.levelLow) : `${offer.levelLow}–${offer.levelHigh}`, label: "Level" },
+            { value: metricWord(offer.metric), label: "Battle on" },
+            { value: lengthWord(offer.durationHours), label: "Length" },
+            { value: offer.stakeOut ? formatNumber(offer.stakeOut) : "0", label: "OUT each" },
+          ]}
+        />
         {open ? (
-          <ButtonPair
-            secondary={{ title: "Decline", disabled: answer.isPending, onPress: () => answer.mutate([offer.id, false]) }}
-            primary={{ title: "Accept", loading: answer.isPending, onPress: () => answer.mutate([offer.id, true]) }}
-          />
+          <Row gap={S.sm}>
+            <GlowButton title="Decline" variant="quiet" size="lg" disabled={answer.isPending} onPress={() => answer.mutate([offer.id, false])} style={{ flex: 1 }} />
+            <GlowButton title="Accept" size="lg" loading={answer.isPending} onPress={() => answer.mutate([offer.id, true])} style={{ flex: 1 }} />
+          </Row>
         ) : offer.status === "revealed" ? (
-          <Button title="See who it is" size="lg" full onPress={() => router.replace(`/swipe/reveal?offer=${offer.id}`)} />
+          <GlowButton title="See who it is" size="lg" full onPress={() => router.replace(`/swipe/reveal?offer=${offer.id}`)} />
         ) : (
           <>
             <Text style={[styles.small, { textAlign: "center", marginBottom: S.md }]}>{said ? "They passed this time. No harm done." : offer.myAnswer === false ? "Declined. It never counts against you." : "Too late, that one's gone."}</Text>
-            <Button title="Done" variant="secondary" size="lg" full onPress={() => (router.canGoBack() ? router.back() : router.replace("/outside/arena"))} />
+            <GlowButton title="Done" variant="quiet" size="lg" full onPress={() => (router.canGoBack() ? router.back() : router.replace("/outside/arena"))} />
           </>
         )}
-      </View>
+      </GlassCard>
       <TopBar close />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: { position: "absolute", left: -20, right: -20, height: 86, justifyContent: "center", paddingLeft: 40, transform: [{ rotate: "-7deg" }], overflow: "hidden", shadowColor: "#3d8bff", shadowOpacity: 0.8, shadowRadius: 30, shadowOffset: { width: 0, height: 0 } },
+  banner: { position: "absolute", left: -20, right: -20, height: 86, justifyContent: "center", paddingLeft: 40, transform: [{ rotate: "-7deg" }], overflow: "hidden", boxShadow: "0 0 40px rgba(61,139,255,0.75), inset 0 1px 0 rgba(255,255,255,0.4)" },
   bannerSmall: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13, letterSpacing: 2, textTransform: "uppercase" },
   bannerBig: { color: "#fff", fontFamily: F.display, fontSize: 36, lineHeight: 38, fontStyle: "italic", textTransform: "uppercase" },
-  card: { position: "absolute", left: S.md, right: S.md, padding: S.lg, borderRadius: R.xl, backgroundColor: "rgba(18,21,26,0.97)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)" },
-  q: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: C.accent, backgroundColor: "#0d1a33", alignItems: "center", justifyContent: "center" },
+  card: { position: "absolute", left: S.md, right: S.md },
+  q: { width: 56, height: 56, borderRadius: 18, backgroundColor: "#0d1a33", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(130,180,255,0.55), inset 0 0 0 1.5px rgba(61,139,255,0.6), 0 0 22px -4px rgba(61,139,255,0.7)" },
   qText: { color: "#fff", fontFamily: F.display, fontSize: 26 },
   title: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 16 },
   stats: { marginVertical: S.lg },
-  statCell: { flex: 1, alignItems: "center" },
-  statLine: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: C.border },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 20 },
 });
