@@ -1,10 +1,18 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+// Someone else's profile: their photo and ring, where they're from and their
+// club, your head to head this week above their numbers, and Challenge as
+// the main button. Message opens your shared club's chat when you share one.
+
+import React, { useState } from "react";
+import { Share, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { MapPin, Swords, UserCheck, UserPlus } from "lucide-react-native";
-import { engine, useEngineMutation, usePlayer } from "@/data/hooks";
-import { AnimatedNumber, Avatar, Cover, Body, Button, C, Card, Divider, EmptyState, F, FadeIn, Header, ListRow, LiveDot, Row, S, Screen, SectionHeader, Skeleton, TierBadge, toast } from "@/components/ui";
-import { compactNumber, formatNumber } from "@/utils/format";
+import { MessageSquare, MoreHorizontal, Share2, Swords, UserCheck, UserPlus } from "lucide-react-native";
+import { engine, useEngineMutation, usePlayerCard } from "@/data/hooks";
+import { AnimatedBar, Avatar, Body, Button, C, Card, EmptyState, F, FadeIn, Header, IconButton, LiveDot, PressableScale, R, Row, S, Screen, Sheet, Skeleton, imageSource, toast } from "@/components/ui";
+import { useCrewFocus } from "@/components/crew/shared";
+import { Slab, StatTrio } from "@/components/profile/parts";
+import { PHOTOS } from "@/constants/photos";
+import { PLANS, inviteLink } from "@/constants/plans";
+import { compactNumber } from "@/utils/format";
 
 export default function PlayerScreen() {
   const { playerId } = useLocalSearchParams();
@@ -15,168 +23,159 @@ export default function PlayerScreen() {
 
 function PlayerProfile({ id }) {
   const router = useRouter();
-  const { data: player, isPending, error, refetch, isRefetching } = usePlayer(id);
-  const follow = useEngineMutation(engine.follow, { success: () => `Following ${player?.name || "them"}` });
-  const unfollow = useEngineMutation(engine.unfollow, { onSuccess: () => toast(`Unfollowed ${player?.name || "them"}`) });
+  const focusClub = useCrewFocus((s) => s.focus);
+  const { data: p, isPending, error, refetch, isRefetching } = usePlayerCard(id);
+  const [menu, setMenu] = useState(false);
+  const follow = useEngineMutation(engine.follow, { success: () => `Following ${p?.name || "them"}` });
+  const unfollow = useEngineMutation(engine.unfollow, { onSuccess: () => toast(`Unfollowed ${p?.name || "them"}`) });
 
   if (isPending) {
     return (
-      <Screen header={<Header back />}>
-        <View style={{ alignItems: "center", gap: S.md, paddingTop: S.lg }}>
-          <Skeleton width={112} height={112} radius={56} />
-          <Skeleton width={160} height={28} />
-          <Skeleton width={120} height={14} />
-          <Skeleton height={80} radius={20} style={{ marginTop: S.xl }} />
+      <Screen padded={false} style={{ paddingTop: 0 }}>
+        <Skeleton height={300} radius={0} />
+        <View style={{ padding: S.gutter, gap: S.md }}>
+          <Skeleton height={86} radius={R.lg} />
+          <Skeleton height={86} radius={R.lg} />
         </View>
       </Screen>
     );
   }
-
-  if (error || !player) {
+  if (error || !p) {
     return (
       <Screen header={<Header back />}>
-        <EmptyState title="Player not found" body="They may have left Outhere." action="Back to the Arena" onAction={() => router.replace("/outside/arena")} />
+        <EmptyState title="Player not found" body="They may have left Outhere." action="Back to Outside" onAction={() => router.replace("/(tabs)/outside")} />
       </Screen>
     );
   }
 
-  const colour = player.color || C.textDim;
-  const record = player.recordVsMe || { wins: 0, losses: 0 };
-  const played = record.wins + record.losses;
+  const [first, ...rest] = (p.name || "").split(" ");
+  const last = rest.join(" ");
+  const place = p.area || p.city;
+  const kicker = [place, p.club?.name].filter(Boolean).join(" · ") || `@${p.username}`;
+  const meta = [`Level ${p.level?.level || 1}`, p.streak ? `${p.streak} day streak` : null, p.tier !== "free" ? PLANS[p.tier]?.name : null].filter(Boolean).join(" · ");
+  const w = p.week;
+  const total = w.mine + w.theirs;
+  const share = w.battles ? (w.myWins === w.theirWins ? `${w.myWins} each` : w.myWins > w.theirWins ? `You lead ${w.myWins}–${w.theirWins}` : `${first} leads ${w.theirWins}–${w.myWins}`) : "No battles yet";
   const busy = follow.isPending || unfollow.isPending;
-  const place = [player.area, player.city].filter(Boolean).join(", ");
-  const battle = () => router.push(`/battles/new?opponent=${player.id}`);
+  const challenge = () => router.push({ pathname: "/battles/new", params: { opponent: p.id } });
+  const message = () => {
+    focusClub(p.sharedClubId);
+    router.push("/(tabs)/club");
+  };
+  const shareProfile = () => {
+    setMenu(false);
+    Share.share({ message: `${p.name} is on Outhere: https://${inviteLink(p.username)}` }).catch(() => {});
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen padded={false} header={<Header back title={`@${player.username}`} />} onRefresh={refetch} refreshing={isRefetching}>
+    <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
+      <Slab
+        photo={imageSource(p.avatar) || PHOTOS.walk}
+        kicker={kicker}
+        top={first}
+        bottom={last || undefined}
+        height={300}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/outside"))}
+        right={<IconButton icon={MoreHorizontal} onPress={() => setMenu(true)} label="More" />}
+      >
+        <Row gap={6} style={{ marginTop: 8 }}>
+          {p.isOutside ? <LiveDot size={6} /> : null}
+          <Text style={styles.meta}>{p.isOutside ? `Out now · ${meta}` : meta}</Text>
+        </Row>
+      </Slab>
+
+      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
+        {p.bio ? <Body dim size={14}>{p.bio}</Body> : null}
         <FadeIn>
-          <View style={styles.hero}>
-            <View style={[styles.ring, { borderColor: colour }]}>
-              <Avatar uri={player.avatar} name={player.name} colour={colour} size={96} />
-            </View>
-
-            <Row gap={S.sm} style={{ marginTop: S.lg }}>
-              <Text style={styles.name} numberOfLines={1}>
-                {player.name}
+          <Card padding={S.lg}>
+            <Row style={{ justifyContent: "space-between" }}>
+              <Text style={styles.cardTitle}>You and {first} this week</Text>
+              <Text style={styles.dim}>
+                {w.battles ? `${w.battles} battle${w.battles === 1 ? "" : "s"} · ${share}` : share}
               </Text>
-              <TierBadge tier={player.tier} />
             </Row>
-            {place || player.isOutside ? (
-              <Row gap={5} style={{ marginTop: 4 }}>
-                {place ? (
-                  <>
-                    <MapPin size={13} color={C.textDim} />
-                    <Text style={styles.place}>{place}</Text>
-                  </>
-                ) : null}
-                {player.isOutside ? (
-                  <>
-                    {place ? <Text style={styles.place}> · </Text> : null}
-                    <LiveDot size={6} />
-                    <Text style={styles.place}>Outside now</Text>
-                  </>
-                ) : null}
-              </Row>
-            ) : null}
-            {player.bio ? <Text style={styles.bio}>{player.bio}</Text> : null}
-
-            <Row gap={S.sm} style={{ marginTop: S.xl, alignSelf: "stretch" }}>
+            <Row gap={S.sm} style={{ marginTop: S.md }}>
+              <Avatar uri={p.me?.avatar} name={p.me?.name} tier={p.me?.tier} size={30} />
+              <Text style={styles.num}>{compactNumber(w.mine)}</Text>
               <View style={{ flex: 1 }}>
-                {player.isFollowing ? (
-                  <Button title="Following" variant="secondary" icon={UserCheck} onPress={() => unfollow.mutate(player.id)} loading={busy} full />
-                ) : (
-                  <Button title="Follow" variant="secondary" icon={UserPlus} onPress={() => follow.mutate(player.id)} loading={busy} full />
-                )}
+                <AnimatedBar value={total ? w.mine / total : 0.5} height={8} colour={C.accent} track={C.surfaceHigh} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Button title="Battle" icon={Swords} onPress={battle} full />
-              </View>
+              <Text style={styles.num}>{compactNumber(w.theirs)}</Text>
+              <Avatar uri={p.avatar} name={p.name} tier={p.tier} size={30} />
             </Row>
-          </View>
+          </Card>
         </FadeIn>
 
-        <View style={{ paddingHorizontal: S.gutter }}>
-          <FadeIn index={1}>
-            <View style={styles.stats}>
-              <Stat value={player.todaySteps} hint="steps today" />
-              <Stat value={player.weekSteps} hint="this week" compact />
-              <Stat value={player.streak} hint="day streak" />
-              <Stat value={player.xp} hint="XP" compact />
-            </View>
-          </FadeIn>
+        <FadeIn index={1}>
+          <StatTrio
+            items={[
+              { label: "Steps", value: p.totals.steps },
+              { label: "km", value: p.totals.km },
+              { label: "Badges", value: p.totals.badges },
+            ]}
+          />
+        </FadeIn>
 
-          <SectionHeader title="You vs them" />
-          <FadeIn index={2}>
-            <Card padding={S.xl} style={{ borderWidth: 0 }}>
-              {played ? (
-                <Row style={{ justifyContent: "space-around" }}>
-                  <Score label="You" value={record.wins} highlight={record.wins >= record.losses} />
-                  <Text style={styles.dash}>:</Text>
-                  <Score label={player.name} value={record.losses} highlight={record.losses > record.wins} />
-                </Row>
-              ) : (
-                <Body dim>
-                  No battles between you yet. {player.name} is on {formatNumber(player.todaySteps)} steps today.
-                </Body>
-              )}
-              <Button title={played ? "Run it back" : "Challenge to a battle"} variant="secondary" onPress={battle} full style={{ marginTop: S.lg }} />
-            </Card>
-          </FadeIn>
-
-          {player.crews?.length ? (
-            <>
-              <SectionHeader title="Crews" />
-              <View>
-                {player.crews.map((crew, i) => (
-                  <React.Fragment key={crew.id}>
-                    {i > 0 ? <Divider style={{ marginLeft: 54 }} /> : null}
-                    <ListRow
-                      leading={<Cover source={crew.logo} seed={crew.id} accent={crew.accent} style={styles.crewLogo} />}
-                      title={crew.name}
-                      onPress={() => router.push(`/crew/${crew.id}`)}
-                    />
-                  </React.Fragment>
-                ))}
-              </View>
-            </>
+        <Row gap={S.sm} style={{ marginTop: S.xs }}>
+          <View style={{ flex: 1 }}>
+            <Button title="Challenge" icon={Swords} size="lg" full onPress={challenge} />
+          </View>
+          <View style={{ flex: 1 }}>
+            {p.isFollowing ? (
+              <Button title="Following" icon={UserCheck} variant="secondary" size="lg" full loading={busy} onPress={() => unfollow.mutate(p.id)} />
+            ) : (
+              <Button title="Follow" icon={UserPlus} variant="secondary" size="lg" full loading={busy} onPress={() => follow.mutate(p.id)} />
+            )}
+          </View>
+          {p.sharedClubId ? (
+            <PressableScale onPress={message} scaleTo={0.94} accessibilityLabel="Message in your club" style={styles.msg}>
+              <MessageSquare size={20} color={C.text} />
+            </PressableScale>
           ) : null}
-        </View>
-      </Screen>
-    </View>
-  );
-}
+        </Row>
 
-function Stat({ value, hint, compact = false }) {
-  return (
-    <View style={{ flex: 1, alignItems: "flex-start" }}>
-      <AnimatedNumber value={value || 0} format={compact ? compactNumber : undefined} adjustsFontSizeToFit style={styles.statValue} />
-      <Text style={styles.statHint} numberOfLines={1}>{hint}</Text>
-    </View>
-  );
-}
+        {p.club ? (
+          <Card padding={S.md} onPress={() => router.push(`/crew/${p.club.id}`)}>
+            <Row gap={S.md}>
+              <Avatar uri={typeof p.club.logo === "string" ? p.club.logo : undefined} source={typeof p.club.logo === "string" ? undefined : p.club.logo} name={p.club.name} size={40} square />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {p.club.name}
+                </Text>
+                <Text style={styles.dim} numberOfLines={1}>
+                  {[`${p.club.memberCount} members`, p.club.area || p.club.city].filter(Boolean).join(" · ")}
+                </Text>
+              </View>
+              {p.sharedClubId ? <Text style={styles.dim}>Your club too</Text> : null}
+            </Row>
+          </Card>
+        ) : null}
+      </View>
 
-function Score({ label, value, highlight }) {
-  return (
-    <View style={{ alignItems: "center", flex: 1 }}>
-      <Text style={[styles.score, highlight && { color: C.text }]}>{value}</Text>
-      <Text style={styles.statHint} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
+      <Sheet visible={menu} onClose={() => setMenu(false)}>
+        <Text style={[styles.cardTitle, { marginBottom: S.md }]}>@{p.username}</Text>
+        <Button title="Share their profile" icon={Share2} variant="secondary" full onPress={shareProfile} />
+        {p.story ? (
+          <Button
+            title="See their story"
+            variant="secondary"
+            full
+            style={{ marginTop: S.sm }}
+            onPress={() => {
+              setMenu(false);
+              router.push(`/stories/${p.id}`);
+            }}
+          />
+        ) : null}
+      </Sheet>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: "center", paddingHorizontal: S.gutter, paddingTop: S.md, paddingBottom: S.xl },
-  ring: { padding: 3, borderRadius: 60, borderWidth: 2 },
-  name: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.6, flexShrink: 1 },
-  place: { color: C.textDim, fontSize: 13 },
-  bio: { textAlign: "center", marginTop: S.md, color: C.textDim, fontSize: 15, lineHeight: 21, maxWidth: 320 },
-  stats: { flexDirection: "row", gap: S.md, paddingTop: S.sm },
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 24, letterSpacing: -0.5 },
-  statHint: { color: C.textDim, fontSize: 13, marginTop: 2 },
-  score: { color: C.textDim, fontFamily: F.display, fontSize: 48, letterSpacing: -1 },
-  dash: { color: C.textMute, fontFamily: F.display, fontSize: 32 },
-  crewLogo: { width: 42, height: 42, borderRadius: 21 },
+  meta: { color: C.textSoft, fontFamily: F.body, fontSize: 14 },
+  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5 },
+  dim: { color: C.textDim, fontFamily: F.body, fontSize: 12.5 },
+  num: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  msg: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
 });

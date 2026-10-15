@@ -39,6 +39,33 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 | Drops | `drops`, `drop_orders`, `drop_reminders` | `reserve_drop` |
 | Staff | `audit_log` (every action below writes a line) | moderators: `verify_club`, `review_steps`, `remove_from_squad`; admins: `set_reveal_held` |
 | Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats`. UK-wide: each row is a launch city (`city_id`, plus a borough in London) or a town with one of 11 regions (`town`, `region`) |
+| Places | `city_eligible_counts` (city_id, name, region, is_live, image_path, eligible, needed, to_go), `region_eligible_counts` (region, eligible, live_places, places) | anyone reads the counts; `refresh_live_cities()` runs daily at 04:30 and sets `is_live` once a place has 100 active |
+| Points | `member_season_points` view (user_id, season_id, kind, season_name, starts_on, ends_on, points): XP earned in each season's dates, where the profile can be seen | read only |
+| Points | `member_week_points` view (user_id, week_start, points): the same, per Monday to Sunday week | read only |
+| Places | `area_leaders` view (city_id, borough_id, week_start, rank, user_id, username, display_name, avatar_path, tier, counted): top three public profiles per borough this week, signed in only | read only |
+| Clubs | `club_covers` (id, club_id, path in `club-media` under `<club_id>/covers/`, created_by), public | club staff insert and delete |
+| Clubs | `club_gallery` (id, club_id, path under `<club_id>/gallery/`, alt, created_by), public | club staff insert, update `alt`, delete |
+| Clubs | `club_invite_scans` (code, scanned_at), club staff read | anyone: `record_invite_scan(code)` returns the club id |
+| Clubs | `club_members.invite_code`: the code a member joined with | `join_club`, `join_club_by_code` |
+| Clubs | `club_invite_stats` view (code, club_id, label, uses, scans, came_to_run), club staff only | read only |
+| Clubs | `clubs.treasurer_id` (any member) | captain: `set_club_treasurer(club, user or null)`; cleared when they leave |
+| Clubs | `club_leaders` view (club_id, user_id, role, treasurer, username, display_name, avatar_path, tier), public | read only |
+| Clubs | `club_turnout_weeks` view (club_id, week_start, turnout_pct), public | read only |
+| Events | `event_crew` (event_id, user_id, role `leader` or `back_marker`), readable with the event | organisers insert, update, delete; crew can step down |
+| Club chat | `club_channels.staff_only_read`: a leaders only channel members cannot see, read or post in | club staff |
+| Money | `club_fund_totals` view (club_id, total_pence raised), public | read only |
+| Money | `club_fund_spend` (id, club_id, title, amount_pence, spent_on, receipt_path, created_by, approved_by, approved_at), club staff, treasurer and finance read | club staff or treasurer: `add_fund_spend`; treasurer or captain, never who logged it: `approve_fund_spend`; unapproved lines can be deleted |
+| Money | `locals_partners.club_response` (open, accepted, declined), `responded_by`, `responded_at`; club staff see their own offers | club staff: `respond_to_offer(partner, accept)` |
+| Money | `plans` (tier, name, monthly_pence, yearly_pence, line, features, popular, club_share_web_pence, club_share_app_pence, sort), public | migrations only |
+| Drops | `drops.making_cost_pence`, `drop_sales` view (drop_id, club_id, sold, price_pence, making_cost_pence) for club staff and finance | staff |
+| Leagues | `league_entry_history` (entry_id, fixture_id, position, points, recorded_at), public | `settle_fixture` |
+| Leagues | `squad_members.squad_number` (from the draw), `counted` and `rank` (when settled) | `draw_fixture`, `settle_fixture` |
+| Leagues | `fixture_side_stats(fixture, entry)` returns squad, average, turnout_pct, score | read only |
+| Pick-ups | `events.data` (card extras such as `open_battle`), `events.locals_partner_id` (an approved, not declined partner, set by its club's staff or a moderator) | organisers |
+| Pick-ups | `pickups_near(lat, lng, km)`: pick-ups not yet over within 0.1 to 50 km, nearest first, as the caller can see them | read only |
+| Staff | `admin_daily_active(days)` returns day, active (synced steps or saved a run) | staff only |
+| Staff | `club_verifications` (id, club_id, kind founding or claim, claim_id, evidence_paths, checks, status, created_by, decided_by, decided_at), club staff and moderators read | club staff: `request_club_verification`; moderators: `set_verification_check`, `decide_club_verification` (approving verifies the club) |
+| Helpers | `can_see_profile(user)`, `can_read_channel(channel)`, `is_club_treasurer(club)`, `can_organise_event(event)` | used by policies and views |
 
 Rules the database enforces, so no client can cheat them:
 
@@ -51,7 +78,8 @@ Rules the database enforces, so no client can cheat them:
 - Claiming a club needs proof: an Instagram or Strava page (we give a six digit code for the bio) or a booked video call. Three open claims at most. When a moderator approves, the club is made (or verified), the claimant becomes captain, and they get a year of Pro as an organiser.
 - Founding clubs go official after three meetups of six or more and ten different runners; `promote_founding_clubs()` checks nightly.
 - Routes shown to others have the first and last 200 m removed.
-- Club chat is for members only; announcements are for captains and admins.
+- Club chat is for members only; announcements are for captains and admins. A channel with `staff_only_read` is hidden from everyone but captains and admins.
+- Club fund spending needs two people: whoever logs a spend cannot approve it. A Locals offer the club declined is never shown publicly.
 - Private profiles. With `public_profile` off, the full profile and its badges are seen only by the member, staff and friends (people they follow back; a one way follow is not enough, since follows need no approval). Everyone else, signed in or not, sees only `profile_cards`: id, username, display name, avatar and the ring.
 - Clubs with `join_policy = 'request'` turn `join_club` into a request that club staff answer with `decide_join_request`; an invite code counts as an invitation and joins straight away. Club addresses change only through `rename_club`, and no club can take a slug the app or website owns. Club links (`weouthere.app/<slug>`) are letters and numbers only. The reserved words live in the `reserved_slugs` table (app and website paths, UK nations, regions and every UK city), seeded from `RESERVED_SLUGS` in `packages/core`; keep the two the same. A club made with no link chosen gets `suggest_club_slug(name, city)`: the name, then the name and city, then a number (`parksiderunners`, `parksiderunnersleeds`, `parksiderunnersleeds2`).
 - Borough totals count each person's unflagged counted steps for the borough on their profile, in Monday to Sunday London weeks. Reviewing a flagged day as fine pays what was held back, with the same keys, so nothing pays twice. A season with `reveal_held` is skipped by `settle_due_fixtures` until it is released.

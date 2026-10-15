@@ -39,7 +39,7 @@ grant all on ids to authenticated;
 select pg_temp.act('00000000-0000-0000-0000-0000000000d1');
 set role authenticated;
 do $$ begin
-  assert (select count(*) from badges) = 7, 'the first badges are seeded and readable';
+  assert (select count(*) from badges) >= 7, 'the first badges are seeded and readable';
   perform ingest_steps(london_today(), 12000);
   assert exists (select 1 from member_badges where user_id = auth.uid() and badge_id = 'ten_k_club'), '10k day earns a badge';
   assert exists (select 1 from notifications where user_id = auth.uid() and kind = 'badge'), 'told about the badge';

@@ -1,100 +1,74 @@
-// The top of the profile: a lit slab, the photo in its membership ring, name
-// and membership line, then level progress and the social counts.
+// The top of your profile: a photo slab, your photo in its membership ring
+// overlapping it, your name, level and club, and the membership line. Then
+// the level card with XP to the next level.
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pencil } from "lucide-react-native";
-import { compactNumber, formatNumber } from "@/utils/format";
-import { AnimatedNumber, Avatar, Button, C, Card, F, FadeIn, ProgressBar, Row, S } from "@/components/ui";
+import { formatNumber } from "@/utils/format";
+import { AnimatedNumber, Avatar, C, Card, F, FadeIn, PressableScale, ProgressBar, Row, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
+import { MemberLine } from "./parts";
 
-const MEMBER_LINE = {
-  free: "Free member",
-  pro: "Pro member",
-  black: "Black member",
-};
+const SLAB = 196;
 
-export function ProfileHero({ profile: p, right }) {
+export function ProfileHero({ profile: p, clubName, right, onTryPro, onAvatar }) {
   const insets = useSafeAreaInsets();
-  const words = (p.name || p.username || "").split(" ");
-  const club = p.homeClubName || null;
+  const place = clubName || p.area || p.city;
   return (
-    <View style={[styles.slab, { paddingTop: insets.top + S.sm }]}>
-      <Image source={p.tier === "black" ? PHOTOS.blackhero : PHOTOS.hero} style={[StyleSheet.absoluteFill, { opacity: 0.38 }]} contentFit="cover" />
-      <LinearGradient colors={["rgba(14,30,64,0.55)", "rgba(7,9,12,0.4)", C.bg]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
-      <Row style={{ justifyContent: "flex-end", paddingHorizontal: S.gutter }}>{right}</Row>
+    <View>
+      <View style={[styles.slab, { height: SLAB + insets.top }]}>
+        <Image source={p.tier === "black" ? PHOTOS.blackhero : PHOTOS.hero} style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} contentFit="cover" />
+        <LinearGradient colors={["rgba(14,30,64,0.45)", "rgba(7,9,12,0.2)", "rgba(7,9,12,0.85)"]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+        <Row style={{ position: "absolute", top: insets.top + S.sm, right: S.gutter }}>{right}</Row>
+      </View>
       <Row gap={S.lg} style={styles.identity}>
-        <Avatar uri={p.avatar} name={p.name || p.username} tier={p.tier} dot={p.isOutside ? "out" : null} size={104} />
-        <View style={{ flex: 1, minWidth: 0 }}>
+        <PressableScale onPress={onAvatar} scaleTo={0.96} accessibilityLabel="Edit your photo">
+          <View style={styles.avatarWell}>
+            <Avatar uri={p.avatar} name={p.name || p.username} tier={p.tier} dot={p.isOutside ? "out" : null} size={104} />
+          </View>
+        </PressableScale>
+        <View style={{ flex: 1, minWidth: 0, paddingTop: 50 }}>
           <Text style={styles.name} numberOfLines={2} adjustsFontSizeToFit>
-            {words.join("\n")}
+            {p.name || p.username}
           </Text>
           <Text style={styles.meta} numberOfLines={1}>
             Level {p.level.level}
-            {club ? ` · ${club}` : p.area ? ` · ${p.area}` : ` · ${p.city}`}
+            {place ? ` · ${place}` : ""}
           </Text>
-          <Text style={[styles.member, p.tier === "pro" && { color: C.accentHi }, p.tier === "black" && { color: "#dfe4ea" }]} numberOfLines={1}>
-            {MEMBER_LINE[p.tier] || MEMBER_LINE.free}
-            {p.foundingNumber ? ` · founding #${p.foundingNumber}` : ""}
-            {p.tier === "free" || !p.tier ? <Text style={{ color: C.accent }}> · Try Pro</Text> : null}
-          </Text>
+          <MemberLine tier={p.tier} foundingNumber={p.tier === "black" ? p.foundingNumber : null} onTryPro={onTryPro} />
         </View>
       </Row>
     </View>
   );
 }
 
-export default function PlayerCard({ profile: p, onEdit }) {
-  const { level } = p;
-  const toNext = Math.max(0, level.xpForNext - level.xpIntoLevel);
+export function LevelCard({ level, onPress }) {
   return (
     <FadeIn>
-      <Card padding={S.lg}>
-        <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+      <Card padding={S.lg} onPress={onPress}>
+        <Row style={{ justifyContent: "space-between", alignItems: "baseline" }}>
           <Text style={styles.level}>Level {level.level}</Text>
           <Row gap={4} style={{ alignItems: "baseline" }}>
-            <AnimatedNumber value={level.xpIntoLevel} format={formatNumber} style={styles.xp} />
-            <Text style={styles.xpOf}>/ {formatNumber(level.xpForNext)} XP</Text>
+            <AnimatedNumber value={level.xpIntoLevel + (level.nextLevelAt - level.xpForNext)} format={formatNumber} style={styles.xp} />
+            <Text style={styles.xpOf}>/ {formatNumber(level.nextLevelAt)} XP</Text>
           </Row>
         </Row>
-        <ProgressBar value={level.progress} height={6} style={{ marginTop: S.sm }} />
-        <Text style={styles.toNext}>
-          {formatNumber(toNext)} XP to level {level.level + 1} · {level.title}
-        </Text>
+        <ProgressBar value={level.progress} height={6} style={{ marginTop: S.md }} />
       </Card>
-
-      {p.bio ? <Text style={styles.bio}>{p.bio}</Text> : null}
-
-      <Row gap={S.xl} style={{ marginTop: S.lg }}>
-        <Count value={p.followersCount} label="Followers" />
-        <Count value={p.followingCount} label="Following" />
-        <Count value={p.crewsCount} label={p.crewsCount === 1 ? "Crew" : "Crews"} />
-        <View style={{ flex: 1 }} />
-        <Button title="Edit" icon={Pencil} size="sm" variant="secondary" onPress={onEdit} />
-      </Row>
     </FadeIn>
   );
 }
 
-const Count = ({ value, label }) => (
-  <View>
-    <Text style={{ color: C.text, fontFamily: F.display, fontSize: 22 }}>{compactNumber(value)}</Text>
-    <Text style={{ color: C.textDim, fontFamily: F.body, fontSize: 12 }}>{label}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  slab: { paddingBottom: S.xl, marginBottom: S.md, overflow: "hidden" },
-  identity: { paddingHorizontal: S.gutter, marginTop: 48, alignItems: "center" },
-  name: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 42, textTransform: "uppercase" },
-  meta: { color: C.textSoft, fontFamily: F.body, fontSize: 13, marginTop: 4 },
-  member: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginTop: 6 },
+  slab: { overflow: "hidden", borderBottomLeftRadius: 30, borderBottomRightRadius: 30, backgroundColor: "#0b0e13" },
+  identity: { paddingHorizontal: S.gutter, marginTop: -58, alignItems: "flex-start" },
+  avatarWell: { borderRadius: 60, padding: 4, backgroundColor: C.bg },
+  name: { color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 36, textTransform: "uppercase" },
+  meta: { color: C.textSoft, fontFamily: F.body, fontSize: 13, marginTop: 2 },
   level: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  xp: { color: C.text, fontFamily: F.display, fontSize: 18 },
-  xpOf: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  toNext: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: S.sm },
-  bio: { color: C.textSoft, fontFamily: F.body, fontSize: 15, lineHeight: 21, marginTop: S.lg },
+  xp: { color: C.textSoft, fontFamily: F.body, fontSize: 13 },
+  xpOf: { color: C.textDim, fontFamily: F.body, fontSize: 13 },
 });

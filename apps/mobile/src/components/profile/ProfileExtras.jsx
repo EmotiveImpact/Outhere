@@ -4,6 +4,7 @@ import React from "react";
 import { Text, View } from "react-native";
 import { ChevronRight, Play } from "lucide-react-native";
 import { formatDuration, formatKm, formatPace, tierLabel, timeAgo } from "@/utils/format";
+import { priceLabel } from "@/constants/plans";
 import { Body, C, Card, Divider, F, FadeIn, ListRow, PressableScale, R, Row, S, Skeleton, Title, tierColour } from "@/components/ui";
 
 export function RecentRuns({ runs, loading, units, onStart, onOpen }) {
@@ -46,16 +47,14 @@ export function RecentRuns({ runs, loading, units, onStart, onOpen }) {
   );
 }
 
-export function MembershipCard({ tier, blackEligible, onPress }) {
+export function MembershipCard({ tier, onPress }) {
   const edge = tier === "free" ? null : tierColour(tier);
   const line =
     tier === "free"
-      ? "Go Pro for 1.2x XP, unlimited battles and more rewards."
+      ? `Go Pro for 1.5x OUT on every km, from ${priceLabel("pro")}.`
       : tier === "pro"
-        ? blackEligible
-          ? "You've unlocked Black. Take a look."
-          : "Keep a 14 day streak to unlock Black."
-        : "Top tier. 1.5x XP and Black-only drops.";
+        ? "1.5x OUT, unlimited battles and a streak freeze a month."
+        : "2x OUT, first pick of every drop and private events.";
   return (
     <PressableScale onPress={onPress} scaleTo={0.98} accessibilityLabel="Membership">
       <Card padding={S.lg} style={{ overflow: "hidden" }}>
