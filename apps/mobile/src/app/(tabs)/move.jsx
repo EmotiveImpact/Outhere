@@ -17,7 +17,7 @@ import { Pedometer } from "expo-sensors";
 import { AnimatePresence, MotiView } from "moti";
 import { ChevronLeft, Layers, Lock, MapPin, Pause, Plus, Search, Undo2 } from "lucide-react-native";
 import { C, S, TAB_BAR_SPACE, toast } from "@/components/ui";
-import { engine, isRemote, useCrewLive, useEngineMutation, useMyCrews, useOutsideMap, useProfile, useRouteSuggestions, useSafety } from "@/data/hooks";
+import { engine, isRemote, useBattles, useCrewLive, useEngineMutation, useMyCrews, useOutsideMap, useProfile, useRouteSuggestions, useSafety } from "@/data/hooks";
 import { ghostAt, navigate, stepsFor, wayBackLabel } from "@/data/runMath";
 import { centreFor } from "@/data/seedRuns";
 import { formatDuration } from "@/utils/format";
@@ -42,6 +42,7 @@ import {
   StreetPanel,
 } from "@/components/move/LiveHud";
 import RunSummary from "@/components/move/RunSummary";
+import RaceLanes from "@/components/move/RaceLanes";
 import { ModeSwitch, RecChip, RoundGlass, TopBar, TurnBanner } from "@/components/move/parts";
 
 // expo-location's web build throws from remove() after it has already stopped
@@ -131,6 +132,8 @@ export default function MoveScreen() {
   const idle = phase === PHASE.IDLE;
   const { data: outside } = useOutsideMap(centre, focused && idle && !isPlanning);
   const { data: crew, isPending: crewLoading } = useCrewLive(centre, focused && (sheet === "crew" || phase === PHASE.COUNTDOWN));
+  // A live race that has started and still wants your time shows its lanes over the map.
+  const { data: battles } = useBattles("active");
   const { data: suggestions, isPending: pickLoading } = useRouteSuggestions(centre, pickKm, focused && sheet === "pick");
   const { data: myCrews } = useMyCrews();
   const { data: safety } = useSafety();
@@ -285,6 +288,7 @@ export default function MoveScreen() {
   const cadence = live && seconds > 30 && liveSteps ? Math.round(liveSteps / (seconds / 60)) : null;
   const goalKm = activeRoute?.distanceKm ? Math.round(activeRoute.distanceKm * 10) / 10 : DEFAULT_GOAL_KM;
   const ghostDiff = live && activeRoute?.ghost ? distanceM - ghostAt(activeRoute.ghost, seconds) : null;
+  const race = live ? (battles || []).find((b) => b.mode === "live_race" && b.phase === "live" && b.startAt && b.startAt <= Date.now() && !b.myTimeIn && b.rivalPaceSec) : null;
   const sinceFix = lastFixAt || startedAt;
   const gpsLost = phase === PHASE.ACTIVE && granted && sinceFix && Date.now() - sinceFix > GPS_LOST_MS && gpsAck < sinceFix;
   const offRoute = !!nav?.offRoute && !paused;
@@ -490,7 +494,8 @@ export default function MoveScreen() {
             <TopBar top={top} left={<RoundGlass icon={Lock} label="Lock the screen" onPress={() => setLocked(true)} />} centre={liveChip} right={<RoundGlass icon={Layers} label="Change view" onPress={cycleView} />} />
             {offRoute && banner ? <TurnBanner {...banner} style={[styles.banner, { top: top + 52 }]} /> : null}
             {view === "street" && !offRoute ? <ModeSwitch value={view} onChange={store().setView} style={[styles.modes, styles.modesAbs, { top: top + 52 }]} /> : null}
-            {ghostDiff != null && view === "map" && !gpsLost && !offRoute && !paused ? <GhostChip diffM={ghostDiff} top={top + 300} /> : null}
+            {ghostDiff != null && view === "map" && !gpsLost && !offRoute && !paused && !race ? <GhostChip diffM={ghostDiff} top={top + 300} /> : null}
+            {race && view === "map" && !gpsLost && !offRoute ? <RaceLanes battle={race} myMetres={distanceM} mySec={seconds} top={top + 56} /> : null}
             {gpsLost ? <GpsLostCard top={top + 60} /> : null}
           </>
         )
@@ -580,7 +585,7 @@ export default function MoveScreen() {
           />
         ) : null}
         {idle && !isPlanning && !sheet ? (
-          <IdleBottom bottom={idleBottom} activityType={activityType} onActivity={store().setActivityType} onPlan={() => setSheet("pick")} onSaved={() => router.push("/routes")} onStart={startFree} />
+          <IdleBottom bottom={idleBottom} activityType={activityType} onActivity={store().setActivityType} onPlan={() => setSheet("pick")} onSaved={() => router.push("/routes")} onChallenges={() => router.push("/outside/challenges")} onStart={startFree} />
         ) : null}
       </View>
 
