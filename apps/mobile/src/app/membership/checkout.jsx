@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { Lock, X } from "lucide-react-native";
 import { engine, isRemote, showEngineError, useMembershipDetails } from "@/data/hooks";
-import { Button, C, F, IconButton, Logo, R, Row, S } from "@/components/ui";
+import { Button, C, F, Logo, PressableScale, R, Row, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS, TRIAL_DAYS, priceLabel } from "@/constants/plans";
 
@@ -76,7 +76,10 @@ export default function Checkout() {
             <Text style={styles.title}>Outhere {p.name}</Text>
             <Text style={styles.sub}>{billing === "yearly" ? "Yearly" : "Monthly"} membership</Text>
           </View>
-          <IconButton icon={X} onPress={close} label="Close" style={{ backgroundColor: "#e3e6ea" }} />
+          {/* The pay sheet's own small grey close, like the system sheet */}
+          <PressableScale onPress={close} scaleTo={0.9} hitSlop={10} accessibilityLabel="Close" style={styles.close}>
+            <X size={15} color="#5b6576" strokeWidth={2.4} />
+          </PressableScale>
         </Row>
 
         <View style={styles.rows}>
@@ -108,6 +111,7 @@ export default function Checkout() {
 }
 
 const styles = StyleSheet.create({
+  close: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#e3e6ea", alignItems: "center", justifyContent: "center" },
   sheet: { backgroundColor: "#f2f4f7", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: S.xl },
   appIcon: { width: 54, height: 54, borderRadius: 14, backgroundColor: "#0b0d11", alignItems: "center", justifyContent: "center" },
   title: { color: "#0b0d11", fontFamily: F.bodySemi, fontSize: 17 },

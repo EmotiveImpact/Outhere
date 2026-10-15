@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 import { CalendarPlus, Check, Navigation } from "lucide-react-native";
 import { useEvent, useTicket } from "@/data/hooks";
-import { C, EmptyState, F, Row, S, Skeleton } from "@/components/ui";
+import { C, EmptyState, F, imageSource, PhotoBackground, Row, S, Skeleton } from "@/components/ui";
 import { BottomBar, ButtonPair, TopBar } from "@/components/arena/OutsideKit";
 import { whenWord } from "@/components/happenings/EventsScreen";
 import { openDirections } from "@/components/happenings/shared";
@@ -54,6 +54,10 @@ export default function TicketScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 70 }]}>
+      {/* .hero: the event photo behind the whole ticket, at brightness .7, faded into the floor */}
+      {event?.image ? (
+        <PhotoBackground source={imageSource(event.image)} fade={[[0, 0.72], [0.2, 0.3], [0.42, 0.3], [0.63, 0.85], [0.82, 1], [1, 1]]} to="2,5,12" focus={{ x: 0.5, y: 0.3 }} kenBurns glow={false} grain={0} />
+      ) : null}
       <View style={styles.ticket}>
         <Text style={styles.kicker}>
           Your ticket · Gate {ticket.gate}
@@ -67,7 +71,7 @@ export default function TicketScreen() {
           </Text>
         ) : null}
         <View style={styles.qrBox} accessible accessibilityLabel="Ticket QR code">
-          <QRCode value={ticket.qr} size={150} color={INK} backgroundColor="#ffffff" ecl="M" />
+          <QRCode value={ticket.qr} size={158} color={INK} backgroundColor="#ffffff" ecl="M" />
           {ticket.checkedIn ? (
             <View style={styles.done}>
               <Check size={34} color="#fff" strokeWidth={3} />
@@ -76,9 +80,9 @@ export default function TicketScreen() {
           ) : null}
         </View>
         <View style={styles.tear}>
-          <View style={[styles.notch, { left: -12 }]} />
+          <View style={[styles.notch, { left: -11 }]} />
           <View style={styles.dash} />
-          <View style={[styles.notch, { right: -12 }]} />
+          <View style={[styles.notch, { right: -11 }]} />
         </View>
         <Row style={{ justifyContent: "space-between" }}>
           <View style={{ flex: 1.4 }}>
@@ -98,10 +102,10 @@ export default function TicketScreen() {
         </Row>
       </View>
       <Text style={styles.code}>{ticket.code.toUpperCase().match(/.{1,6}/g)?.join(" ")}</Text>
-      <BottomBar>
+      <BottomBar style={{ paddingHorizontal: 22 }}>
         <ButtonPair
-          secondary={{ title: "Add to calendar", icon: CalendarPlus, onPress: () => event && addToCalendar(event) }}
-          primary={{ title: "Directions", icon: Navigation, variant: "secondary", onPress: () => event && openDirections(event.location, event.city) }}
+          secondary={{ title: "Add to calendar", icon: CalendarPlus, style: styles.footBtn, onPress: () => event && addToCalendar(event) }}
+          primary={{ title: "Directions", icon: Navigation, variant: "secondary", style: styles.footBtn, onPress: () => event && openDirections(event.location, event.city) }}
         />
         <Text style={styles.hint}>Scan at the start line to check in. Turn your screen brightness up if it won't read.</Text>
       </BottomBar>
@@ -112,18 +116,20 @@ export default function TicketScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  ticket: { marginHorizontal: S.gutter + 4, borderRadius: 26, backgroundColor: "#f2f4f7", padding: S.xl, alignItems: "stretch" },
+  footBtn: { flex: 1, height: 46, paddingHorizontal: 10 },
+  // .ticket: the white pass, lifted off the photo
+  ticket: { marginHorizontal: 22, borderRadius: 26, backgroundColor: "#f4f5f7", paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16, alignItems: "stretch", boxShadow: "0 30px 60px -10px rgba(0,0,0,0.6)" },
   kicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", textAlign: "center" },
-  title: { color: INK, fontFamily: F.display, fontSize: 34, lineHeight: 38, textTransform: "uppercase", textAlign: "center", marginTop: 6 },
-  when: { color: "#5b6576", fontFamily: F.body, fontSize: 13, textAlign: "center", marginTop: 4 },
-  qrBox: { alignSelf: "center", marginTop: S.lg, padding: 14, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e3e7ee" },
+  title: { color: "#0b1a33", fontFamily: F.display, fontSize: 32, lineHeight: 34, textTransform: "uppercase", textAlign: "center", marginTop: 6 },
+  when: { color: "#5b6576", fontFamily: F.body, fontSize: 11.5, textAlign: "center", marginTop: 4 },
+  qrBox: { alignSelf: "center", marginTop: 16, marginBottom: 4, padding: 10, borderRadius: 18, backgroundColor: "#fff", boxShadow: "0 0 0 1px #e3e6ea" },
   done: { ...StyleSheet.absoluteFillObject, borderRadius: 18, backgroundColor: "rgba(61,139,255,0.92)", alignItems: "center", justifyContent: "center", gap: 6 },
   doneText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 15 },
-  tear: { height: 34, justifyContent: "center", marginHorizontal: -S.xl },
-  dash: { marginHorizontal: S.xl, borderTopWidth: 1.5, borderStyle: "dashed", borderColor: "#c5ccd8" },
-  notch: { position: "absolute", width: 24, height: 24, borderRadius: 12, backgroundColor: C.bg, top: 5 },
-  label: { color: "#6b7585", fontFamily: F.body, fontSize: 12 },
-  value: { color: INK, fontFamily: F.bodySemi, fontSize: 16, marginTop: 2 },
-  code: { color: C.textMute, fontFamily: F.bodyMedium, fontSize: 12, letterSpacing: 2, textAlign: "center", marginTop: S.md },
-  hint: { color: C.textDim, fontFamily: F.body, fontSize: 13, textAlign: "center", marginTop: S.md, lineHeight: 18 },
+  tear: { height: 30, justifyContent: "center", marginHorizontal: -20 },
+  dash: { marginHorizontal: 0, borderTopWidth: 2, borderStyle: "dashed", borderColor: "#d5dae1" },
+  notch: { position: "absolute", width: 22, height: 22, borderRadius: 11, backgroundColor: "#0a0d12", top: 4 },
+  label: { color: "#5b6576", fontFamily: F.body, fontSize: 10 },
+  value: { color: "#0b1a33", fontFamily: F.bodySemi, fontSize: 13, marginTop: 2 },
+  code: { color: "rgba(201,211,227,0.6)", fontFamily: F.bodyMedium, fontSize: 11, letterSpacing: 2, textAlign: "center", marginTop: 12 },
+  hint: { color: "#c9d3e3", fontFamily: F.body, fontSize: 11.5, textAlign: "center", marginTop: 12, lineHeight: 16 },
 });

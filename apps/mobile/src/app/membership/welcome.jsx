@@ -2,13 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { Calendar, ShoppingBag, Swords, Zap } from "lucide-react-native";
-import { Button, C, F, Kicker, R, Row, S } from "@/components/ui";
+import { BlendImage, Button, C, F, Kicker, PhotoBackground, R, Row, S } from "@/components/ui";
 import Celebrate from "@/components/profile/Celebrate";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS } from "@/constants/plans";
@@ -39,28 +37,29 @@ export default function Welcome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Image source={plan === "black" ? PHOTOS.blackhero : PHOTOS.hero} style={[StyleSheet.absoluteFill, { opacity: 0.45 }]} contentFit="cover" />
-      <LinearGradient colors={["rgba(7,9,12,0.2)", "rgba(7,9,12,0.55)", C.bg]} locations={[0, 0.45, 0.8]} style={StyleSheet.absoluteFill} />
-      <Animated.View entering={FadeInUp.duration(700).springify().damping(16)} style={[styles.card, { marginTop: insets.top + 70 }]}>
-        <Image source={plan === "black" ? PHOTOS.blackcard : PHOTOS.procard} style={StyleSheet.absoluteFill} contentFit="cover" />
+      {/* .hero: the photo at full strength, faded into the floor from the middle down */}
+      <PhotoBackground source={plan === "black" ? PHOTOS.blackhero : PHOTOS.hero} fade={[[0, 0.6], [0.2, 0], [0.42, 0], [0.63, 0.78], [0.82, 1], [1, 1]]} to="2,5,12" focus={{ x: 0.5, y: 0.2 }} kenBurns />
+      {/* .welcome-card: the card itself, its black dropped out so it floats over the photo */}
+      <Animated.View entering={FadeInUp.duration(700).springify().damping(16)} style={[styles.card, { top: insets.top + 118 }]}>
+        <BlendImage source={plan === "black" ? PHOTOS.blackcard : PHOTOS.procard} size={300} mask="wide" float glow={220} />
       </Animated.View>
       <View style={{ flex: 1 }} />
-      <Animated.View entering={FadeInDown.delay(250).duration(500)} style={[styles.body, { paddingBottom: insets.bottom + S.xl }]}>
+      <Animated.View entering={FadeInDown.delay(250).duration(500)} style={[styles.body, { paddingBottom: insets.bottom + S.md }]}>
         <Kicker colour={C.accentHi}>Membership active</Kicker>
         <Text style={styles.h}>Welcome</Text>
         <Text style={styles.h}>
           to <Text style={{ color: C.accent }}>{PLANS[plan].name}</Text>
         </Text>
-        <Row gap={S.sm} style={{ flexWrap: "wrap", marginTop: S.lg }}>
+        <Row gap={6} style={{ flexWrap: "wrap", marginTop: 12 }}>
           {LIVE[plan].map(({ icon: Icon, label }) => (
             <Row key={label} gap={6} style={styles.chip}>
-              <Icon size={14} color={C.accentHi} />
+              <Icon size={12} color={C.accentHi} />
               <Text style={styles.chipText}>{label}</Text>
             </Row>
           ))}
         </Row>
-        <Button title="See your first drop" size="lg" full style={{ marginTop: S.xl }} onPress={() => router.replace("/(tabs)/outside/drops")} />
-        <Button title="Back to your profile" variant="ghost" full style={{ marginTop: S.sm }} onPress={() => router.replace("/(tabs)/profile")} />
+        <Button title="See your first drop" size="lg" full style={{ marginTop: 14 }} onPress={() => router.replace("/(tabs)/outside/drops")} />
+        <Button title="Back to your profile" variant="ghost" size="sm" full style={{ marginTop: 4 }} onPress={() => router.replace("/(tabs)/profile")} />
       </Animated.View>
       <Celebrate burst={burst} />
     </View>
@@ -68,9 +67,10 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  card: { alignSelf: "center", width: "82%", aspectRatio: 1, borderRadius: R.lg, overflow: "hidden", transform: [{ rotate: "-4deg" }], shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 30, shadowOffset: { width: 0, height: 20 } },
+  card: { position: "absolute", alignSelf: "center", width: 300, height: 300 },
   body: { paddingHorizontal: S.gutter },
-  h: { color: C.text, fontFamily: F.display, fontSize: 58, lineHeight: 58, textTransform: "uppercase" },
-  chip: { height: 34, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(27,31,38,0.9)" },
-  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12.5 },
+  h: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 49, textTransform: "uppercase" },
+  // .chips6.gl2: frosted glass over the photo
+  chip: { height: 28, paddingHorizontal: 10, borderRadius: R.full, backgroundColor: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.06)" },
+  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 11 },
 });

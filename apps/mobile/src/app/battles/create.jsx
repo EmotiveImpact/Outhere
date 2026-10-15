@@ -9,7 +9,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Minus, Plus, Search, Swords } from "lucide-react-native";
 import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useWallet } from "@/data/hooks";
-import { Avatar, Button, C, F, PressableScale, R, Row, S, Segment, Skeleton } from "@/components/ui";
+import { Avatar, Button, C, F, PressableScale, R, Row, S, Segment, Skeleton, Surface } from "@/components/ui";
+import { OUTSIDE_PHOTOS } from "@/constants/outsidePhotos";
 import { BottomBar, Coin, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 import { limitsText } from "@/components/arena/ArenaHero";
 import { compactNumber, formatNumber } from "@/utils/format";
@@ -60,9 +61,9 @@ export default function CreateBattle() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}>
-        <GlowHero height={200} kicker="New 1v1" top={stake ? `Put ${formatNumber(stake)} OUT` : "Just for"} bottom={stake ? "on it" : "the glory"} />
+        <GlowHero object={OUTSIDE_PHOTOS.stack} objectSize={250} objectStyle={{ right: -30, top: insets.top + 6 }} height={254} kicker="New 1v1" top={stake ? `Put ${formatNumber(stake)} OUT` : "Just for"} bottom={stake ? "on it" : "the glory"} />
         <View style={{ paddingHorizontal: S.gutter }}>
-          <SectionLabel right="Search" onRight={() => router.push("/battles/new")}>
+          <SectionLabel right="Search" onRight={() => router.push("/battles/new")} style={{ marginTop: S.lg }}>
             Pick your opponent
           </SectionLabel>
         </View>
@@ -77,7 +78,7 @@ export default function CreateBattle() {
             {list.map((r) => {
               const on = r.player.id === picked;
               return (
-                <PressableScale key={r.player.id} onPress={() => setPicked(r.player.id)} scaleTo={0.95} style={[styles.face, on && styles.faceOn]} accessibilityLabel={r.player.name}>
+                <Surface key={r.player.id} tone={on ? "blue" : "lit"} onPress={() => setPicked(r.player.id)} pressScale={0.95} radius={18} padding={null} style={styles.face} contentStyle={styles.faceIn} accessibilityLabel={r.player.name}>
                   <View>
                     <Avatar uri={r.player.avatar} name={r.player.name} size={54} tier={r.player.tier} />
                     {on ? (
@@ -90,18 +91,18 @@ export default function CreateBattle() {
                     {r.player.name.split(" ")[0]}
                   </Text>
                   <Text style={styles.faceSub}>{r.avgSteps != null ? `${compactNumber(r.avgSteps)} a day` : r.player.area || ""}</Text>
-                </PressableScale>
+                </Surface>
               );
             })}
-            <PressableScale onPress={() => router.push("/battles/new")} scaleTo={0.95} style={[styles.face, { justifyContent: "center" }]} accessibilityLabel="Find someone">
+            <Surface onPress={() => router.push("/battles/new")} pressScale={0.95} radius={18} padding={null} style={styles.face} contentStyle={[styles.faceIn, { flex: 1, justifyContent: "center" }]} accessibilityLabel="Find someone">
               <Search size={22} color={C.textDim} />
               <Text style={[styles.faceSub, { marginTop: 6 }]}>Find someone</Text>
-            </PressableScale>
+            </Surface>
           </ScrollView>
         )}
 
         <View style={{ paddingHorizontal: S.gutter }}>
-          <View style={styles.stake}>
+          <Surface radius={20} padding={null} style={{ marginTop: 12 }} contentStyle={styles.stake}>
             <PressableScale onPress={() => setStake((v) => Math.max(0, v - STEP))} disabled={stake <= 0} scaleTo={0.9} style={styles.round} accessibilityLabel="Less">
               <Minus size={18} color={C.text} />
             </PressableScale>
@@ -115,8 +116,8 @@ export default function CreateBattle() {
             <PressableScale onPress={() => setStake((v) => Math.min(MAX_STAKE, out, v + STEP))} disabled={stake + STEP > Math.min(MAX_STAKE, out)} scaleTo={0.9} style={styles.round} accessibilityLabel="More">
               <Plus size={18} color={C.text} />
             </PressableScale>
-          </View>
-          <Segment options={LENGTHS} value={hours} onChange={setHours} style={{ marginTop: S.md }} />
+          </Surface>
+          <Segment options={LENGTHS} value={hours} onChange={setHours} style={{ marginTop: 12 }} />
           <Text style={[styles.faceSub, { marginTop: S.md, textAlign: "center" }]}>
             Most steps when the clock runs out wins. You have {formatNumber(out)} OUT.{limits ? ` ${limitsText(limits)}` : ""}
           </Text>
@@ -140,12 +141,14 @@ export default function CreateBattle() {
 }
 
 const styles = StyleSheet.create({
-  face: { width: 82, paddingVertical: S.md, borderRadius: R.md, backgroundColor: C.surface, alignItems: "center", borderWidth: 1.5, borderColor: "transparent" },
-  faceOn: { borderColor: C.accent, backgroundColor: "rgba(61,139,255,0.1)" },
+  // .pk: a lit card per face; the picked one is lit blue
+  face: { width: 82 },
+  faceIn: { alignItems: "center", paddingTop: 12, paddingBottom: 10, paddingHorizontal: 4 },
   tick: { position: "absolute", right: -4, top: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   faceName: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginTop: 8 },
   faceSub: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
-  stake: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: S.lg, padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  // .bigstep
+  stake: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, paddingHorizontal: 14 },
+  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#1b1f26", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 14px -8px #000" },
   stakeValue: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 48 },
 });

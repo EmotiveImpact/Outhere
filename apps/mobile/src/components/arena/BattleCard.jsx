@@ -4,7 +4,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Avatar, Button, C, F, LiveDot, Pill, PressableScale, R, Row, S } from "@/components/ui";
+import { Avatar, Button, C, F, LiveDot, Pill, R, Row, S, Surface } from "@/components/ui";
 import { countdown, timeAgo } from "@/utils/format";
 import { battleFormat, formatScore, ME, playerName, rivalColour, standingLine } from "./shared";
 import { TugBar } from "./TugBar";
@@ -43,7 +43,7 @@ function InviteCard({ battle, onPress, onAccept, onDecline, busy, primary, style
   const { me, opponent } = battle;
   const rival = rivalColour(opponent.player);
   return (
-    <PressableScale onPress={onPress} scaleTo={0.985} style={[styles.card, style]}>
+    <Surface onPress={onPress} pressScale={0.985} radius={R.lg} padding={S.lg} style={style}>
       <Row style={{ justifyContent: "space-between" }}>
         {statusPill(battle)}
         <Text style={styles.meta}>{battleFormat(battle)}</Text>
@@ -71,7 +71,7 @@ function InviteCard({ battle, onPress, onAccept, onDecline, busy, primary, style
           </View>
         </Row>
       ) : null}
-    </PressableScale>
+    </Surface>
   );
 }
 
@@ -100,7 +100,7 @@ function LiveCard({ battle, now, onPress, style }) {
   const standing = live ? standingLine(battle, playerName(opponent.player)) : battleFormat(battle);
 
   return (
-    <PressableScale onPress={onPress} scaleTo={0.985} style={[styles.card, style]}>
+    <Surface onPress={onPress} pressScale={0.985} radius={R.lg} padding={S.lg} style={style}>
       <Row style={{ justifyContent: "space-between" }}>
         {live ? (
           <Row gap={8}>
@@ -123,7 +123,7 @@ function LiveCard({ battle, now, onPress, style }) {
         <TugBar mine={metric === "time" ? opponent.value || 0 : me.value || 0} theirs={metric === "time" ? me.value || 0 : opponent.value || 0} rival={rival} height={8} style={{ marginTop: S.lg }} />
       )}
       <Text style={[styles.standing, iLead && { color: C.text }]}>{standing}</Text>
-    </PressableScale>
+    </Surface>
   );
 }
 

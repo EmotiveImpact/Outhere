@@ -5,7 +5,9 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useOrder } from "@/data/hooks";
-import { C, EmptyState, F, R, S, Skeleton } from "@/components/ui";
+import { C, EmptyState, F, R, S, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { StackTabBar } from "@/components/AppTabBar";
+import { PHOTOS } from "@/constants/photos";
 import { GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 import { OrderItem, OrderTimeline } from "@/components/happenings/ShopParts";
 import { formatAddress, ORDER_HEADLINE } from "@/data/outsideShared";
@@ -53,11 +55,11 @@ export default function OrderScreen() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + insets.bottom + 24 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
       >
-        <GlowHero height={200} kicker={`Order ${order.ref}`} top={top} bottom={bottom} sub={arrives(order)} />
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.xl, gap: S.md }}>
+        <GlowHero object={PHOTOS.parcel} objectSize={220} objectStyle={{ right: -30, top: insets.top + 2 }} height={226} headlineSize={46} kicker={`Order ${order.ref}`} top={top} bottom={bottom} sub={arrives(order)} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: 12 }}>
           <OrderItem order={order} />
           <OrderTimeline order={order} />
           <SectionLabel style={{ marginBottom: 4 }}>Delivering to</SectionLabel>
@@ -72,6 +74,8 @@ export default function OrderScreen() {
         </View>
       </ScrollView>
       <TopBar />
+      {/* The prototype draws the order with the tab bar, Profile lit. */}
+      <StackTabBar current="profile" />
     </View>
   );
 }

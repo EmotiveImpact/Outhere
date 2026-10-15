@@ -4,11 +4,14 @@
 import React from "react";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { Calendar, ChevronRight, Layers, Lock, RotateCcw } from "lucide-react-native";
 import { engine, useEngineMutation, useMembershipDetails } from "@/data/hooks";
 import { Body, Button, C, Card, F, FadeIn, PressableScale, R, Row, S, Screen, Skeleton, toast } from "@/components/ui";
 import { Slab } from "@/components/profile/parts";
+import { StackTabBar } from "@/components/AppTabBar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS } from "@/constants/plans";
 import { formatNumber } from "@/utils/format";
@@ -18,6 +21,7 @@ const shortDate = (ms) => new Date(ms).toLocaleDateString("en-GB", { day: "numer
 
 export default function ManageMembership() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: m, isPending, refetch, isRefetching } = useMembershipDetails();
   const restore = useEngineMutation(engine.restorePurchases, { success: "Your membership is up to date" });
   const cancel = useEngineMutation(engine.cancelMembership, {
@@ -66,15 +70,18 @@ export default function ManageMembership() {
         : "None";
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <Screen padded={false} tab style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
       <Slab
         object={m.tier === "pro" ? PHOTOS.procard : PHOTOS.blackcard}
+        objectSize={250}
+        objectStyle={{ right: -46, top: insets.top + 2 }}
         kicker={free ? "Your membership" : m.since ? `Member since ${monthYear(m.since)}` : "Your membership"}
         top="Outhere"
         bottom={plan.name}
-        height={236}
+        height={222}
       />
-      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
+      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: 12 }}>
         {free ? (
           <Card padding={S.lg}>
             <Text style={styles.cardTitle}>You're on Free</Text>
@@ -85,30 +92,33 @@ export default function ManageMembership() {
           </Card>
         ) : (
           <FadeIn>
-            <Card padding={S.lg}>
+            <Card padding={14}>
               <Row style={{ justifyContent: "space-between", alignItems: "baseline" }}>
                 <Text style={styles.cardTitle}>{plan.name} earned you</Text>
                 <Text style={styles.big}>+{formatNumber(m.earned.bonus)} OUT</Text>
               </Row>
-              <Row gap={3} style={styles.earnBar}>
+              {/* .earnbar: one thick bar, what you earned from moving and the extra on top */}
+              <View style={styles.earnBar}>
                 {total ? (
                   <>
-                    <View style={{ flex: Math.max(1, m.earned.base), backgroundColor: "#3a4352", height: 8, borderRadius: 4 }} />
-                    <View style={{ flex: Math.max(1, m.earned.bonus), backgroundColor: C.accent, height: 8, borderRadius: 4 }} />
+                    <View style={[styles.earnBase, { flex: Math.max(1, m.earned.base) }]} />
+                    <View style={[styles.earnBonus, { flex: Math.max(1, m.earned.bonus) }]}>
+                      <LinearGradient colors={["#1f55d0", "#3d8bff", "#82b4ff"]} locations={[0, 0.7, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                    </View>
                   </>
                 ) : (
-                  <View style={{ flex: 1, backgroundColor: C.surfaceHigh, height: 8, borderRadius: 4 }} />
+                  <View style={[styles.earnBase, { flex: 1 }]} />
                 )}
-              </Row>
-              <Row gap={S.lg} style={{ marginTop: S.sm, flexWrap: "wrap" }}>
-                <Legend colour="#3a4352" label={`${formatNumber(m.earned.base)} OUT from moving`} />
+              </View>
+              <Row gap={S.lg} style={{ flexWrap: "wrap" }}>
+                <Legend colour="#1b1f26" label={`${formatNumber(m.earned.base)} OUT from moving`} />
                 <Legend colour={C.accent} label={`${formatNumber(m.earned.bonus)} extra from ${plan.name}`} />
               </Row>
             </Card>
           </FadeIn>
         )}
 
-        <Card padding={0} style={{ paddingHorizontal: S.lg }}>
+        <Card padding={0} style={{ paddingHorizontal: 14 }}>
           {!free ? <SetRow icon={Calendar} label={m.trialEndsAt ? "Free trial" : m.endsAt ? "Membership" : "Next payment"} value={next} /> : null}
           <SetRow icon={Layers} label="Change plan" onPress={() => router.push("/membership")} chevron />
           <SetRow icon={RotateCcw} label="Restore purchases" onPress={() => restore.mutate([])} chevron />
@@ -120,13 +130,16 @@ export default function ManageMembership() {
         <Body mute size={12}>Signed in as {m.account}</Body>
       </View>
     </Screen>
+    {/* The prototype draws the plan with the tab bar, Profile lit. */}
+    <StackTabBar current="profile" />
+    </View>
   );
 }
 
 function Legend({ colour, label }) {
   return (
     <Row gap={6}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colour }} />
+      <View style={{ width: 8, height: 8, borderRadius: 3, backgroundColor: colour, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }} />
       <Text style={{ color: C.textDim, fontFamily: F.body, fontSize: 12 }}>{label}</Text>
     </Row>
   );
@@ -159,8 +172,10 @@ function SetRow({ icon: Icon, label, value, onPress, chevron, danger }) {
 const styles = StyleSheet.create({
   cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   big: { color: C.accent, fontFamily: F.display, fontSize: 26 },
-  earnBar: { marginTop: S.md },
-  setRow: { paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border },
-  setLabel: { color: C.text, fontFamily: F.body, fontSize: 15 },
+  earnBar: { flexDirection: "row", gap: 2, height: 14, borderRadius: 7, overflow: "hidden", marginTop: 12, marginBottom: 10 },
+  earnBase: { backgroundColor: "#1b1f26", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)" },
+  earnBonus: { overflow: "hidden", boxShadow: "0 0 14px rgba(61,139,255,0.55)" },
+  setRow: { paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border },
+  setLabel: { color: C.text, fontFamily: F.body, fontSize: 14.5 },
   setValue: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },
 });

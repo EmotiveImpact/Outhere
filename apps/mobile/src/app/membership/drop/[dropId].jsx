@@ -88,7 +88,7 @@ export default function LockedDrop() {
         </Kicker>
         <Text style={styles.h}>{onBlack ? "First pick" : "Claim it"}</Text>
         <Text style={[styles.h, { color: C.accent }]}>{onBlack ? "is yours" : "before anyone"}</Text>
-        <Body dim size={14} style={{ marginTop: S.sm, lineHeight: 20 }}>
+        <Body dim size={13} style={{ marginTop: S.sm, lineHeight: 19 }}>
           {onBlack
             ? "You're Black, so you can claim it now, before it goes public."
             : "Black members get first pick of every drop. Everyone else can claim when it goes public."}
@@ -143,10 +143,10 @@ const styles = StyleSheet.create({
   lockPill: { height: 34, paddingHorizontal: 14, borderRadius: R.full, backgroundColor: "rgba(20,24,30,0.85)", borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   lockText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
   sheet: { backgroundColor: "#0d1015", borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: S.gutter, paddingTop: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  grab: { alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: C.surfaceHigh, marginBottom: S.lg },
-  h: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 46, textTransform: "uppercase" },
-  chip: { height: 34, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: C.surface },
-  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  grab: { alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: C.surfaceHigh, marginBottom: 14 },
+  h: { color: C.text, fontFamily: F.display, fontSize: 38, lineHeight: 37, textTransform: "uppercase" },
+  chip: { height: 30, paddingHorizontal: 11, borderRadius: R.full, backgroundColor: C.surface, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" },
+  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 11.5 },
   mono: { fontVariant: ["tabular-nums"] },
   fine: { color: C.textMute, fontFamily: F.body, fontSize: 12, textAlign: "center", marginTop: S.md },
 });

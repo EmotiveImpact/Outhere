@@ -4,7 +4,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { AnimatedNumber, Button, C, F, R, Row, S } from "@/components/ui";
+import { AnimatedNumber, Button, C, F, R, Row, S, Surface } from "@/components/ui";
 import { BATTLE_PRIZES } from "./shared";
 
 export const limitsText = (limits) => {
@@ -20,7 +20,7 @@ export default function ArenaHero({ record, limits, quiet = false }) {
   const rate = played ? Math.round((record.won / played) * 100) : null;
 
   return (
-    <View style={styles.card}>
+    <Surface radius={R.lg} padding={S.xl} style={styles.card}>
       <Text style={styles.title}>Battle anyone</Text>
       <Text style={styles.sub}>
         Most steps takes {BATTLE_PRIZES.win.xp} XP and {BATTLE_PRIZES.win.out} OUT.
@@ -42,7 +42,7 @@ export default function ArenaHero({ record, limits, quiet = false }) {
         style={{ marginTop: S.xl }}
       />
       {limits ? <Text style={styles.limits}>{limitsText(limits)}</Text> : null}
-    </View>
+    </Surface>
   );
 }
 
@@ -56,7 +56,7 @@ function Stat({ label, value, suffix = "" }) {
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: S.xl, padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
+  card: { marginTop: S.xl },
   title: { color: C.text, fontFamily: F.display, fontSize: 28, letterSpacing: -0.6 },
   sub: { color: C.textDim, fontSize: 15, lineHeight: 21, marginTop: 6 },
   record: { marginTop: S.xl, alignItems: "stretch" },

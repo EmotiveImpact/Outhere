@@ -39,14 +39,14 @@ export function Glow({ x = "72%", y = "24%", r = "70%", colour = "#2a6af0", opac
  * both. The text leaves room at the top for the Outside pills or the round
  * buttons.
  */
-export function GlowHero({ photo, object, objectSize, objectStyle, kicker, kickerColour = C.accentHi, top, bottom, sub, height = 300, children, after, style, center = false, glow = true, photoOpacity = 1 }) {
+export function GlowHero({ photo, photoFocus, object, objectSize, objectStyle, kicker, kickerColour = C.accentHi, top, bottom, sub, height = 300, children, after, style, center = false, glow = true, photoOpacity = 1, headlineSize }) {
   const insets = useSafeAreaInsets();
   const size = objectSize || height * 0.86;
   return (
     <View style={[styles.heroFrame, { boxShadow: SLAB_EDGE.outer }, style]}>
       <View style={[styles.hero, { minHeight: height + insets.top }]}>
         {photo ? (
-          <PhotoBackground source={photo} opacity={photoOpacity} fade="slab" to="2,5,12" kenBurns glow={glow} grain={0} />
+          <PhotoBackground source={photo} opacity={photoOpacity} focus={photoFocus} fade="slab" to="2,5,12" kenBurns glow={glow} grain={0} />
         ) : glow ? (
           <GlowBackdrop preset="slab" />
         ) : null}
@@ -56,12 +56,12 @@ export function GlowHero({ photo, object, objectSize, objectStyle, kicker, kicke
         <View style={[styles.heroText, { paddingTop: insets.top + 64 }, center && { alignItems: "center" }]}>
           {kicker ? <Text style={[styles.kicker, { color: kickerColour }, center && { textAlign: "center" }]}>{kicker}</Text> : null}
           {top != null ? (
-            <Text style={[styles.headline, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
+            <Text style={[styles.headline, headlineSize && { fontSize: headlineSize, lineHeight: headlineSize * 0.96 }, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
               {top}
             </Text>
           ) : null}
           {bottom != null ? (
-            <Text style={[styles.headline, styles.blue, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
+            <Text style={[styles.headline, styles.blue, headlineSize && { fontSize: headlineSize, lineHeight: headlineSize * 0.96 }, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
               {bottom}
             </Text>
           ) : null}
@@ -142,7 +142,7 @@ export function StatBoxes({ items, glass = false, style }) {
   return (
     <Row gap={S.sm} style={style}>
       {items.map((it) => (
-        <Surface key={it.label} tone={glass ? "glass" : "lit"} radius={R.md} padding={0} style={{ flex: 1 }} contentStyle={styles.statBox}>
+        <Surface key={it.label} tone={glass ? "glass" : "lit"} radius={R.md} padding={null} style={{ flex: 1 }} contentStyle={styles.statBox}>
           <Text style={[styles.statValue, it.accent && { color: C.accent }]} numberOfLines={1} adjustsFontSizeToFit>
             {it.value}
           </Text>

@@ -8,6 +8,8 @@ import { CalendarCheck, Check, Flame, Footprints, Gift, Layers, Route, ShoppingB
 import { useOutHistory } from "@/data/hooks";
 import { C, Card, EmptyState, F, FadeIn, R, Row, S, Screen, Segment, Skeleton } from "@/components/ui";
 import { IconWell, Slab } from "@/components/profile/parts";
+import { StackTabBar } from "@/components/AppTabBar";
+import { PHOTOS } from "@/constants/photos";
 import { formatNumber } from "@/utils/format";
 
 const KIND = {
@@ -60,8 +62,9 @@ export default function OutHistory() {
   const sub = h ? [`+${formatNumber(h.weekEarned)} this week`, h.spentOnDrops ? `${formatNumber(h.spentOnDrops)} spent on drops` : null].filter(Boolean).join(" · ") : " ";
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
-      <Slab kicker="OUT history" height={200} onBack={() => (router.canGoBack() ? router.back() : router.replace("/wallet"))}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <Screen padded={false} tab style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
+      <Slab kicker="OUT history" object={PHOTOS.coin} objectSize={204} height={212} onBack={() => (router.canGoBack() ? router.back() : router.replace("/wallet"))}>
         <Text style={styles.head}>
           {h ? formatNumber(h.balance) : " "} <Text style={{ color: C.accent }}>OUT</Text>
         </Text>
@@ -87,7 +90,7 @@ export default function OutHistory() {
               body={tab === "spent" ? "Drops and rewards you claim with OUT show up here." : "Walk, run and win battles. Every OUT you earn shows up here."}
             />
           ) : (
-            <Card padding={0} style={{ paddingHorizontal: S.lg, paddingBottom: S.sm }}>
+            <Card padding={0} style={{ paddingHorizontal: 14, paddingBottom: 6 }}>
               {groups.map((g, gi) => (
                 <View key={g.key}>
                   <Text style={[styles.day, gi === 0 && { marginTop: S.md }]}>{g.key}</Text>
@@ -96,8 +99,8 @@ export default function OutHistory() {
                     const neg = t.amount < 0;
                     return (
                       <FadeIn key={t.id} index={Math.min(i, 6)}>
-                        <Row gap={S.md} style={styles.row}>
-                          <IconWell icon={k.icon} size={40} colour={neg ? C.textSoft : C.accentHi} />
+                        <Row gap={12} style={styles.row}>
+                          <IconWell icon={k.icon} size={32} colour={neg ? C.textSoft : C.accentHi} />
                           <View style={{ flex: 1 }}>
                             <Text style={styles.title} numberOfLines={1}>
                               {t.label}
@@ -121,15 +124,18 @@ export default function OutHistory() {
         </View>
       </View>
     </Screen>
+    {/* The prototype draws the ledger with the tab bar, Profile lit. */}
+    <StackTabBar current="profile" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  head: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 52, textTransform: "uppercase" },
-  headSub: { color: C.textSoft, fontFamily: F.body, fontSize: 14, marginTop: 6 },
-  day: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", marginTop: S.lg, marginBottom: S.xs },
-  row: { paddingVertical: 10 },
-  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  sub: { color: C.textDim, fontFamily: F.body, fontSize: 12.5, marginTop: 1 },
-  amount: { color: C.accent, fontFamily: F.display, fontSize: 20 },
+  head: { color: C.text, fontFamily: F.display, fontSize: 46, lineHeight: 48, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  headSub: { color: C.textSoft, fontFamily: F.body, fontSize: 12.5, marginTop: 6 },
+  day: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", marginTop: 14, marginBottom: 2 },
+  row: { paddingVertical: 9 },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  sub: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 1 },
+  amount: { color: C.accent, fontFamily: F.display, fontSize: 18 },
 });

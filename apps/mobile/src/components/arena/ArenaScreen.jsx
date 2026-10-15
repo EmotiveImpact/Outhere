@@ -11,7 +11,7 @@ import Svg, { Circle } from "react-native-svg";
 import { Dices, EyeOff, Hexagon, Layers, Shield, Swords, Trophy } from "lucide-react-native";
 import { PHOTOS } from "@/constants/photos";
 import { useArenaNow, useBattles, useCallUp, useChallenges, useLeaderboard, usePicks, usePlaySide } from "@/data/hooks";
-import { Avatar, Body, C, EmptyState, F, PressableScale, R, Row, S, Segment, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { Avatar, Body, C, EmptyState, F, IconTile, PressableScale, R, Row, S, Segment, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 import { formatNumber } from "@/utils/format";
 import BattlesHub from "./BattlesHub";
@@ -45,7 +45,21 @@ export function ProgressRing({ value = 0, size = 76, stroke = 8, label, colour =
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#1b1f26" strokeWidth={stroke} fill="none" />
+        {/* the arc's glow (drop-shadow 0 0 5px var(--glow)) */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={colour}
+          strokeOpacity={0.22}
+          strokeWidth={stroke + 6}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${c} ${c}`}
+          strokeDashoffset={c * (1 - Math.max(0, Math.min(1, value)))}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -73,7 +87,7 @@ function LiveScoreboard({ battle, now }) {
   const gap = Math.abs(mine - theirs);
   const lead = battle.leader === "me" ? "you lead by" : battle.leader ? `${battle.opponent.player?.name} leads by` : "dead level";
   return (
-    <PressableScale onPress={() => router.push(`/battles/${battle.id}`)} scaleTo={0.98} style={styles.board}>
+    <Surface onPress={() => router.push(`/battles/${battle.id}`)} pressScale={0.98} radius={20} padding={null} contentStyle={styles.board}>
       <Row style={{ justifyContent: "space-between" }}>
         <Row gap={10}>
           <Avatar uri={battle.me.player?.avatar} name={battle.me.player?.name} tier={battle.me.player?.tier} size={44} />
@@ -101,7 +115,7 @@ function LiveScoreboard({ battle, now }) {
         </Text>
         <Text style={styles.boardFoot}>{battle.endAt ? leftLabel(battle.endAt - now) : ""}</Text>
       </Row>
-    </PressableScale>
+    </Surface>
   );
 }
 
@@ -117,13 +131,13 @@ function ChallengeRings() {
         const pct = Math.round((c.percent || 0) * 100);
         const reward = c.rewardOut && c.period !== "day" ? `+${c.rewardOut} OUT` : `+${c.rewardXp} XP`;
         return (
-          <PressableScale key={c.id} onPress={() => router.push("/outside/challenges")} scaleTo={0.96} style={styles.ringCard}>
-            <ProgressRing value={c.percent} label={`${pct}%`} />
+          <Surface key={c.id} onPress={() => router.push("/outside/challenges")} pressScale={0.96} radius={20} padding={null} style={{ flex: 1 }} contentStyle={styles.ringCard}>
+            <ProgressRing value={c.percent} label={`${pct}%`} size={66} stroke={7} />
             <Text style={styles.ringTitle} numberOfLines={1}>
               {c.title}
             </Text>
             <Text style={styles.ringReward}>{reward}</Text>
-          </PressableScale>
+          </Surface>
         );
       })}
     </Row>
@@ -153,9 +167,9 @@ function Doors() {
         const label = d.key === "map" && side?.cityId === "london" ? "Borough Cup" : d.label;
         return (
           <View key={d.key} style={styles.doorCell}>
-          <PressableScale onPress={() => router.push(d.href)} scaleTo={0.95} style={styles.door}>
+          <Surface onPress={() => router.push(d.href)} pressScale={0.95} radius={R.md} padding={S.md} style={{ flex: 1 }}>
             <View style={styles.doorIcon}>
-              <Icon size={18} color={C.accentHi} />
+              <IconTile icon={Icon} size={34} radius={11} iconSize={18} />
               {badge ? (
                 <View style={styles.doorBadge}>
                   <Text style={styles.doorBadgeText}>{badge}</Text>
@@ -168,7 +182,7 @@ function Doors() {
             <Text style={styles.doorSub} numberOfLines={1}>
               {d.sub}
             </Text>
-          </PressableScale>
+          </Surface>
           </View>
         );
       })}
@@ -181,7 +195,7 @@ function CallUpBanner() {
   const { data: call } = useCallUp();
   if (!call || call.answer) return null;
   return (
-    <PressableScale onPress={() => router.push("/cities/called-up")} scaleTo={0.98} style={styles.callUp}>
+    <Surface tone="blue" onPress={() => router.push("/cities/called-up")} pressScale={0.98} radius={R.lg} padding={S.md} style={{ marginTop: S.md }} contentStyle={styles.callUp}>
       <View style={styles.callUpNum}>
         <Text style={styles.callUpNumText}>#{call.number}</Text>
       </View>
@@ -191,7 +205,7 @@ function CallUpBanner() {
           {call.home} vs {call.away} · Saturday
         </Text>
       </View>
-    </PressableScale>
+    </Surface>
   );
 }
 
@@ -305,25 +319,24 @@ export default function ArenaScreen() {
 }
 
 const styles = StyleSheet.create({
-  board: { borderRadius: R.lg, padding: S.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)", borderTopColor: C.hairlineTop },
+  board: { paddingVertical: 14, paddingHorizontal: 16 },
   boardNum: { color: C.text, fontFamily: F.display, fontSize: 26, lineHeight: 28 },
   boardWho: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   boardFoot: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  vs: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  vs: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#1b1f26", alignItems: "center", justifyContent: "center" },
   vsText: { color: C.textDim, fontFamily: F.display, fontSize: 13 },
-  ringCard: { flex: 1, alignItems: "center", paddingVertical: S.lg, paddingHorizontal: 6, borderRadius: R.lg, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  ringCard: { alignItems: "center", paddingTop: 14, paddingBottom: 12, paddingHorizontal: 6 },
   ringText: { color: C.text, fontFamily: F.display, fontSize: 19 },
   ringTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, marginTop: S.md },
   ringReward: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
   doors: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
   doorCell: { flexBasis: "30%", flexGrow: 1 },
-  door: { flex: 1, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  doorIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center", marginBottom: S.sm },
+  doorIcon: { width: 34, height: 34, marginBottom: S.sm },
   doorBadge: { position: "absolute", top: -5, right: -7, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 2, borderColor: C.surface },
   doorBadgeText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10 },
   doorLabel: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
   doorSub: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
-  callUp: { flexDirection: "row", alignItems: "center", gap: S.md, marginTop: S.md, padding: S.md, borderRadius: R.lg, backgroundColor: "rgba(61,139,255,0.12)", borderWidth: 1, borderColor: "rgba(61,139,255,0.35)" },
+  callUp: { flexDirection: "row", alignItems: "center", gap: S.md },
   callUpNum: { width: 52, height: 52, borderRadius: 14, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
   callUpNumText: { color: C.accentHi, fontFamily: F.display, fontSize: 18 },
   callUpTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
