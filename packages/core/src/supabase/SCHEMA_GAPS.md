@@ -11,9 +11,9 @@ Every gap from the first two passes is closed and wired: `20261015101300_web_gap
 - **Health numbers.** `adminOverview().health` is empty. These belong to monitoring, not the database.
 - **Battle mode names.** `battles().modes` and `createBattle` read `BATTLE_MODES` from `mock/seed.ts`. They are product definitions both apps share.
 
-## Waiting on a decision
+## Waiting on the database thread
 
-- **Pro yearly price.** `plans.yearly_pence` is null for Pro, so on real data Pro is monthly only and the yearly switch says so. Black is £129.99 a year, also marked unconfirmed in the migration.
+- **Pro yearly price.** Edem confirmed Pro at £59.99 a year and Black at £129.99 a year (15 October). `plans.yearly_pence` for Pro is null until the database thread sets it to 5999; until then real data shows Pro as monthly only.
 
 ## Things the apps must do for the new tables to fill
 
