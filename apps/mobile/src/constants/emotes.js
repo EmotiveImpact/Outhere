@@ -13,7 +13,7 @@ export const EMOTES = [
   { id: "bolt", label: "Speed", how: "Win a battle", source: "win", stat: "wins", target: 1, art: PHOTOS.emoteBolt },
   { id: "wings", label: "Flying", how: "Win 3 in a row", source: "win", stat: "winRun", target: 3, art: PHOTOS.emoteWings, line: "You won 3 battles in a row." },
   { id: "watch", label: "Clock's ticking", how: "Season drop", source: "drop", stat: "squadCalls", target: 1, art: PHOTOS.emoteWatch, line: "This season's drop, for playing in a league fixture." },
-  { id: "crown", label: "Champion", how: "Black members and derby winners", source: "club", stat: "derbyWins", target: 1, art: PHOTOS.emoteCrown, line: "For Black members and derby winners." },
+  { id: "crown", label: "Champion", how: "Black members", source: "club", stat: "derbyWins", target: 1, art: PHOTOS.emoteCrown, line: "For Black members and derby winners." },
   { id: "inferno", label: "Inferno", how: "30 day streak", source: "streak", stat: "bestStreak", target: 30, art: PHOTOS.emoteFlame, style: "black", line: "Thirty days in a row." },
 ];
 

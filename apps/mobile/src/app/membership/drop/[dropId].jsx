@@ -73,7 +73,7 @@ export default function LockedDrop() {
         <IconButton icon={ChevronLeft} onPress={back} label="Back" />
         <Row gap={6} style={styles.lockPill}>
           <Lock size={13} color={C.text} />
-          <Text style={styles.lockText}>{isPublic ? "Now public" : "Black members first"}</Text>
+          <Text style={styles.lockText}>{isPublic ? "Now public" : onBlack ? "Your first pick" : "Black members first"}</Text>
         </Row>
         <IconButton icon={Share2} onPress={share} label="Share" />
       </Row>
@@ -101,7 +101,7 @@ export default function LockedDrop() {
           </Row>
           {price ? (
             <Row gap={6} style={styles.chip}>
-              <Image source={PHOTOS.coin} style={{ width: 16, height: 16, borderRadius: 8 }} />
+              {drop.priceOut != null ? <Image source={PHOTOS.coin} style={{ width: 16, height: 16, borderRadius: 8 }} /> : null}
               <Text style={styles.chipText}>{price}</Text>
             </Row>
           ) : null}

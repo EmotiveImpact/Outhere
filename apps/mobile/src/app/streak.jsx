@@ -6,7 +6,6 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Route, ShieldCheck } from "lucide-react-native";
 import { engine, useEngineMutation, useStreakStatus } from "@/data/hooks";
 import { AnimatedBar, Body, Button, C, Card, F, FadeIn, R, Row, S, Screen, Skeleton } from "@/components/ui";
 import { Slab } from "@/components/profile/parts";
@@ -28,7 +27,7 @@ export default function StreakRisk() {
   }
 
   const hours = s.hoursLeft;
-  const kicker = s.streak ? `${s.streak} day streak · ${s.safe ? "safe today" : `${hours} hour${hours === 1 ? "" : "s"} left`}` : "Start a streak";
+  const kicker = s.streak ? `${s.streak} day streak · ${s.safe ? "safe today" : `${hours} hour${hours === 1 ? "" : "s"} left`}` : "Your streak";
   const free = s.tier === "free";
   const f = s.freezes;
   const walk = () => router.push("/(tabs)/move");
@@ -79,26 +78,19 @@ export default function StreakRisk() {
 
         {s.safe ? (
           <Button title="Back to today" variant="secondary" size="lg" full onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))} />
+        ) : !s.streak ? (
+          <Button title="Go for a walk" size="lg" full onPress={walk} />
         ) : (
           <Row gap={S.sm}>
             <View style={{ flex: 1 }}>
               {free ? (
-                <Button title="Get freezes" variant="secondary" size="lg" full onPress={() => router.push("/membership")} />
+                <Button title="Get freezes" variant="secondary" full style={{ height: 54 }} onPress={() => router.push("/membership")} />
               ) : (
-                <Button
-                  title="Use a freeze"
-                  icon={ShieldCheck}
-                  variant="secondary"
-                  size="lg"
-                  full
-                  disabled={!f.left || !s.streak}
-                  loading={freeze.isPending}
-                  onPress={() => freeze.mutate([])}
-                />
+                <Button title="Use a freeze" variant="secondary" full style={{ height: 54 }} disabled={!f.left} loading={freeze.isPending} onPress={() => freeze.mutate([])} />
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <Button title="Go for a walk" icon={Route} size="lg" full onPress={walk} />
+              <Button title="Go for a walk" full style={{ height: 54 }} onPress={walk} />
             </View>
           </Row>
         )}

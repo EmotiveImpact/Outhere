@@ -15,7 +15,7 @@ import { badgeArt } from "@/constants/badges";
 import { EMOTE_BY_ID } from "@/constants/emotes";
 
 /** Hero slab with a back button on the left. */
-export function Slab({ back = true, onBack, right, height = 236, ...rest }) {
+export function Slab({ back = true, onBack, right, height = 236, style, ...rest }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const goBack = () => {
@@ -25,7 +25,8 @@ export function Slab({ back = true, onBack, right, height = 236, ...rest }) {
   };
   return (
     <View>
-      <Hero height={height} right={right} {...rest} />
+      {/* 3D objects are shot on black, so the slab goes black behind them. */}
+      <Hero height={height} right={right} style={[rest.object && !rest.photo ? { backgroundColor: "#000" } : null, style]} {...rest} />
       {back ? (
         <View style={{ position: "absolute", left: S.gutter, top: insets.top + S.sm }}>
           <IconButton icon={ChevronLeft} onPress={goBack} label="Back" />

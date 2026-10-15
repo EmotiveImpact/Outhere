@@ -147,6 +147,13 @@ function PersonRow({ p, index, query = "", onPress }) {
   );
 }
 
+// 8pm, 6:30am
+const clock = (d) => {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "am" : "pm"}`;
+};
+
 function EventTile({ e, query, onPress }) {
   const d = new Date(e.startAt);
   return (
@@ -161,7 +168,7 @@ function EventTile({ e, query, onPress }) {
         <View style={{ flex: 1 }} />
         <Highlight text={e.title} query={query} style={styles.name} />
         <Text style={styles.meta} numberOfLines={1}>
-          {[d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" }).replace(":00", "").replace(" ", ""), `${e.rsvpCount || 0} going`, e.location].filter(Boolean).join(" · ")}
+          {[clock(d), `${e.rsvpCount || 0} going`, e.location].filter(Boolean).join(" · ")}
         </Text>
       </View>
     </PressableScale>

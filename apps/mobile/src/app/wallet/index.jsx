@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { TrendingUp } from "lucide-react-native";
 import { useBadges, useDrops, useMembershipDetails, useOutHistory, useProfile } from "@/data/hooks";
-import { AnimatedNumber, Avatar, C, Card, F, FadeIn, LIT, PressableScale, R, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
+import { AnimatedNumber, C, Card, F, FadeIn, LIT, PressableScale, R, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
 import { BadgeTile, PillButton, Slab } from "@/components/profile/parts";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS } from "@/constants/plans";
@@ -53,7 +53,6 @@ export default function Wallet() {
         top="Your OUT"
         bottom="wallet"
         height={210}
-        right={p ? <Avatar uri={p.avatar} name={p.name} tier={tier} size={40} /> : null}
       />
       <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.lg }}>
         {!h ? (

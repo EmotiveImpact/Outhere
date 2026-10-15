@@ -4,7 +4,6 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Calendar, Check, Flame, Ghost, Layers, ShoppingBag, Swords, Zap } from "lucide-react-native";
 import { useMembershipDetails, useProfile } from "@/data/hooks";
@@ -27,7 +26,7 @@ export default function ComparePlans() {
     <Screen padded={false} style={{ paddingTop: 0 }}>
       <Slab object={PHOTOS.procard} kicker="Compare plans" top="What each" bottom="plan gets you" height={220} />
       <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
-        <Row gap={0} style={{ alignItems: "flex-end" }}>
+        <Row gap={0} style={{ alignItems: "flex-end", paddingLeft: S.md }}>
           <View style={{ flex: 1.25 }} />
           {PLAN_ORDER.map((t) => (
             <View key={t} style={[styles.head, t === "black" && styles.headOn]}>
@@ -45,7 +44,6 @@ export default function ComparePlans() {
 
         <FadeIn>
           <View style={styles.table}>
-            <LinearGradient colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.02)"]} style={styles.band} />
             {COMPARE.map((row, i) => {
               const Icon = ICONS[row.icon] || Zap;
               return (
@@ -57,7 +55,7 @@ export default function ComparePlans() {
                     </Text>
                   </Row>
                   {PLAN_ORDER.map((t) => (
-                    <View key={t} style={styles.cell}>
+                    <View key={t} style={[styles.cell, t === "black" && styles.cellOn]}>
                       <Cell value={row.cells[t]} on={t === "black"} />
                     </View>
                   ))}
@@ -109,8 +107,8 @@ const styles = StyleSheet.create({
   pop: { position: "absolute", top: -10, paddingHorizontal: 7, height: 19, borderRadius: 10, backgroundColor: C.accent, justifyContent: "center" },
   popText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10 },
   table: { backgroundColor: C.surface, borderRadius: R.lg, overflow: "hidden", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  band: { position: "absolute", right: 0, top: 0, bottom: 0, width: "21.05%" },
-  row: { paddingHorizontal: S.md, minHeight: 50 },
+  cellOn: { alignSelf: "stretch", backgroundColor: "rgba(255,255,255,0.055)" },
+  row: { paddingLeft: S.md, minHeight: 50 },
   rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   label: { color: C.textSoft, fontFamily: F.body, fontSize: 12.5, flex: 1 },
   cell: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 },

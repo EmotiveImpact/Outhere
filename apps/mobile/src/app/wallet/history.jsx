@@ -61,7 +61,12 @@ export default function OutHistory() {
 
   return (
     <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
-      <Slab kicker="OUT history" top={h ? `${formatNumber(h.balance)} OUT` : "OUT"} sub={sub} height={200} onBack={() => (router.canGoBack() ? router.back() : router.replace("/wallet"))} />
+      <Slab kicker="OUT history" height={200} onBack={() => (router.canGoBack() ? router.back() : router.replace("/wallet"))}>
+        <Text style={styles.head}>
+          {h ? formatNumber(h.balance) : " "} <Text style={{ color: C.accent }}>OUT</Text>
+        </Text>
+        <Text style={styles.headSub}>{sub}</Text>
+      </Slab>
       <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
         <Segment
           options={[
@@ -120,6 +125,8 @@ export default function OutHistory() {
 }
 
 const styles = StyleSheet.create({
+  head: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 52, textTransform: "uppercase" },
+  headSub: { color: C.textSoft, fontFamily: F.body, fontSize: 14, marginTop: 6 },
   day: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", marginTop: S.lg, marginBottom: S.xs },
   row: { paddingVertical: 10 },
   title: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },

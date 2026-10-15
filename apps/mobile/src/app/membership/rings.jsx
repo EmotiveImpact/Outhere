@@ -22,7 +22,7 @@ export default function RingKey() {
   ];
   return (
     <Screen padded={false} style={{ paddingTop: 0 }}>
-      <Slab object={PHOTOS.blackcard} kicker="Membership" top="The ring" bottom="says it all" sub="Everyone sees your ring, wherever your photo shows up." height={236} />
+      <Slab object={PHOTOS.blackcard} kicker="Membership" top="The ring" bottom="says it all" sub="Everyone sees your ring, wherever your photo shows up." height={280} />
       <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
         <Card padding={0} style={{ paddingHorizontal: S.lg, paddingVertical: S.sm }}>
           {rows.map((r, i) => (

@@ -91,8 +91,14 @@ export default function ManageMembership() {
                 <Text style={styles.big}>+{formatNumber(m.earned.bonus)} OUT</Text>
               </Row>
               <Row gap={3} style={styles.earnBar}>
-                <View style={{ flex: Math.max(1, m.earned.base), backgroundColor: "#3a4352", height: 8, borderRadius: 4 }} />
-                <View style={{ flex: Math.max(total ? m.earned.bonus : 1, 1), backgroundColor: C.accent, height: 8, borderRadius: 4 }} />
+                {total ? (
+                  <>
+                    <View style={{ flex: Math.max(1, m.earned.base), backgroundColor: "#3a4352", height: 8, borderRadius: 4 }} />
+                    <View style={{ flex: Math.max(1, m.earned.bonus), backgroundColor: C.accent, height: 8, borderRadius: 4 }} />
+                  </>
+                ) : (
+                  <View style={{ flex: 1, backgroundColor: C.surfaceHigh, height: 8, borderRadius: 4 }} />
+                )}
               </Row>
               <Row gap={S.lg} style={{ marginTop: S.sm, flexWrap: "wrap" }}>
                 <Legend colour="#3a4352" label={`${formatNumber(m.earned.base)} OUT from moving`} />
@@ -130,12 +136,14 @@ function SetRow({ icon: Icon, label, value, onPress, chevron, danger }) {
   const inner = (
     <Row gap={S.md} style={styles.setRow}>
       <Icon size={18} color={danger ? C.danger : C.textDim} />
-      <Text style={[styles.setLabel, danger && { color: C.danger }]}>{label}</Text>
-      {value ? (
-        <Text style={styles.setValue} numberOfLines={1}>
-          {value}
-        </Text>
-      ) : null}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.setLabel, danger && { color: C.danger }]}>{label}</Text>
+        {value ? (
+          <Text style={styles.setValue} numberOfLines={2}>
+            {value}
+          </Text>
+        ) : null}
+      </View>
       {chevron ? <ChevronRight size={16} color={C.textMute} /> : null}
     </Row>
   );
@@ -153,6 +161,6 @@ const styles = StyleSheet.create({
   big: { color: C.accent, fontFamily: F.display, fontSize: 26 },
   earnBar: { marginTop: S.md },
   setRow: { paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border },
-  setLabel: { color: C.text, fontFamily: F.body, fontSize: 15, flex: 1 },
-  setValue: { color: C.textDim, fontFamily: F.body, fontSize: 13, flexShrink: 1 },
+  setLabel: { color: C.text, fontFamily: F.body, fontSize: 15 },
+  setValue: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },
 });

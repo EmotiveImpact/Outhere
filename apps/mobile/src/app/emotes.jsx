@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn as FadeInAnim, ZoomIn } from "react-native-reanimated";
-import { ChevronLeft, Swords, Trophy } from "lucide-react-native";
+import { ChevronLeft, Flame, ShoppingBag, Swords, Trophy } from "lucide-react-native";
 import { engine, useEmotes, useEngineMutation } from "@/data/hooks";
 import { AnimatedBar, Body, Button, C, Card, F, FadeIn, IconButton, Kicker, PressableScale, R, Row, S, Screen, SectionHeader, Sheet, Skeleton } from "@/components/ui";
 import { EmoteTile, IconWell } from "@/components/profile/parts";
@@ -91,7 +91,7 @@ export default function Emotes() {
           <FadeIn index={3}>
             <Card padding={S.md}>
               <Row gap={S.md}>
-                <IconWell icon={Swords} size={46} />
+                <IconWell icon={{ streak: Flame, drop: ShoppingBag, club: Trophy }[data.next.source] || Swords} size={46} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle}>Next: {data.next.label}</Text>
                   <Text style={styles.cardSub}>

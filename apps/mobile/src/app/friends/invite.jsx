@@ -5,10 +5,9 @@
 import React, { useState } from "react";
 import { Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Share2, UserPlus } from "lucide-react-native";
 import { engine, useEngineMutation, useReferrals } from "@/data/hooks";
-import { AnimatedBar, Avatar, Body, Button, C, Card, F, FadeIn, LIT, R, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
+import { AnimatedBar, Avatar, Body, Button, C, Card, F, FadeIn, R, Row, S, Screen, SectionHeader, Skeleton } from "@/components/ui";
 import { PillButton, Slab } from "@/components/profile/parts";
 import { PHOTOS } from "@/constants/photos";
 import { REFERRAL } from "@/constants/plans";
@@ -74,7 +73,7 @@ export default function Invite() {
                   {count} friend{count === 1 ? "" : "s"} joined
                 </Text>
                 <Text style={styles.dim} numberOfLines={1}>
-                  {r.next ? `${r.next.left} more for ${r.next.tier ? `a free ${r.next.label}` : r.next.label}` : "All milestones done"}
+                  {r.next ? `${r.next.left} more for ${r.next.tier ? `a free ${r.next.reward}` : r.next.reward}` : "All milestones done"}
                 </Text>
               </Row>
               <View style={styles.track}>
@@ -88,7 +87,7 @@ export default function Invite() {
                         <Text style={[styles.dotText, on && { color: "#fff" }]}>{m.friends}</Text>
                       </View>
                       <Text style={[styles.nodeLabel, on && { color: C.textSoft }]} numberOfLines={1}>
-                        {m.label}
+                        {m.reward}
                       </Text>
                     </View>
                   );
@@ -162,7 +161,6 @@ export default function Invite() {
           <View style={{ marginTop: S.md }}>
             <SectionHeader title="Did a friend invite you?" />
             <View style={styles.claim}>
-              <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
               <UserPlus size={18} color={C.textDim} />
               <TextInput
                 value={code}
