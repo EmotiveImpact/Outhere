@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ChevronRight, Flame, MapPin, Share2, Swords, Trophy } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlendImage, C, F, FINISH, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, PressableScale, R, Row, S, Surface, TugBar, splitShadow, useScreenTop } from "@/components/ui";
+import { BlendImage, C, F, FINISH, LIT, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, PressableScale, R, Row, S, Surface, TugBar, splitShadow, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";
 import { useClubBattles, useMyFixture } from "@/data/hooks";
@@ -311,6 +311,18 @@ export function GlassRound({ icon: Icon, label, onPress, style }) {
   );
 }
 
+/** .round (BACK10): the lit round button on a plain screen. */
+export function LitRound({ icon: Icon, label, onPress, style }) {
+  return (
+    <PressableScale onPress={onPress} scaleTo={0.9} hitSlop={8} style={[styles.round, styles.roundLit, style]} accessibilityLabel={label}>
+      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: 19 }]} />
+      <View>
+        <Icon size={19} color={C.text} />
+      </View>
+    </PressableScale>
+  );
+}
+
 const SLAB_EDGE = splitShadow(FINISH.slabEdge);
 
 /**
@@ -375,6 +387,7 @@ export const styles = StyleSheet.create({
   panelRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 15 },
   rowTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5, marginTop: 4 },
   meta: { color: C.textSoft, fontFamily: F.body, fontSize: 12 },
+  roundLit: { backgroundColor: "transparent", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.06), 0 10px 20px -12px #000" },
   round: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10,14,20,0.45)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
   slab: { overflow: "hidden", borderBottomLeftRadius: 34, borderBottomRightRadius: 34, backgroundColor: FINISH.slab.base, justifyContent: "flex-end" },
   slabNav: { position: "absolute", left: 18, right: 18, justifyContent: "space-between" },

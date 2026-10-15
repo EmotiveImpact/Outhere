@@ -53,9 +53,9 @@ function Field({ label, children, icon: Icon, style }) {
 }
 
 /** A small choice pill: lit, or the act gradient when chosen. */
-function Pick({ on, onPress, children, label }) {
+function Pick({ on, onPress, children, label, style }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn, style]} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={label}>
       {on ? <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={[StyleSheet.absoluteFill, { borderRadius: 99 }]} /> : null}
       {children}
     </Pressable>
@@ -231,9 +231,9 @@ export default function ClaimClub() {
               <TextInput value={name} onChangeText={setName} placeholder="Southbank Runners" placeholderTextColor={C.textMute} style={styles.input} maxLength={40} accessibilityLabel="Club name" />
             </Field>
             <Field label="Meets">
-              <Row gap={5} style={{ flexWrap: "wrap", marginTop: 7 }}>
+              <Row gap={4} style={{ marginTop: 7 }}>
                 {DAYS.map(([d, label]) => (
-                  <Pick key={d} on={days.includes(d)} onPress={() => toggleDay(d)} label={label}>
+                  <Pick key={d} on={days.includes(d)} onPress={() => toggleDay(d)} label={label} style={styles.day}>
                     <Text style={[styles.chipText, days.includes(d) && styles.chipTextOn]}>{label}</Text>
                   </Pick>
                 ))}
@@ -317,6 +317,7 @@ const styles = StyleSheet.create({
   fieldLabel: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 10.5, letterSpacing: 0.2 },
   input: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, paddingVertical: 2, marginTop: 2, minHeight: 24, outlineStyle: "none" },
   chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 28, paddingHorizontal: 11, borderRadius: 99, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.06)" },
+  day: { flex: 1, paddingHorizontal: 0, justifyContent: "center" },
   chipOn: { boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 6px 16px -8px rgba(42,106,240,0.9)" },
   chipText: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 12 },
   chipTextOn: { color: "#fff" },

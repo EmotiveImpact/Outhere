@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   nav: { position: "absolute", left: 18, right: 18, justifyContent: "space-between" },
   kick: { color: "#ffd9a0", fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.7, textTransform: "uppercase", marginBottom: 8 },
   big: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 42, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
-  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 0 } },
   label: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
   value: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 12.5 },
   note: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, lineHeight: 17, marginTop: 12 },
