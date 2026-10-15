@@ -24,6 +24,8 @@ import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./tim
 import { noise, randomCode, randomId } from "./random";
 import { PHOTOS } from "@/constants/photos";
 import { makeClubs } from "./clubs";
+import { makeProfile } from "./profile";
+import { memberBonus } from "@/constants/plans";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -372,8 +374,9 @@ const computeStreak = (s) => {
   let streak = 0;
   const todayActive = isActiveDay(s.days[dayKey()]);
   for (let i = todayActive ? 0 : 1; i < 3650; i += 1) {
-    if (!isActiveDay(s.days[dayKey(addDays(new Date(), -i))])) break;
-    streak += 1;
+    const key = dayKey(addDays(new Date(), -i));
+    if (isActiveDay(s.days[key])) streak += 1;
+    else if (!s.streakFreezes?.[key]) break; // a streak freeze keeps the day without adding to it
   }
   return streak;
 };
@@ -401,7 +404,10 @@ const award = (s, { xp = 0, out = 0, label, reason, refId }) => {
   const xpAmount = Math.round(xp * mult);
   if (xpAmount) s.ledger.push({ id: randomId("tx"), type: "xp", amount: xpAmount, label, reason, refId, at });
   if (out) s.ledger.push({ id: randomId("tx"), type: "out", amount: out, label, reason, refId, at });
-  return { xp: xpAmount, out };
+  // Pro and Black earn more OUT for moving, paid as its own line (see constants/plans.js).
+  const bonus = s.me ? memberBonus(s.me.tier, out, reason) : 0;
+  if (bonus) s.ledger.push({ id: randomId("tx"), type: "out", amount: bonus, label: `${s.me.tier === "black" ? "Black" : "Pro"} bonus`, reason: "member_bonus", refId, at });
+  return { xp: xpAmount, out: out + bonus };
 };
 
 // ── Notifications ─────────────────────────────────────────────────────────────
@@ -1603,6 +1609,36 @@ export const {
   respondClubBattle,
   cancelClubBattle,
 } = clubs;
+
+// ── Profile, membership, wallet, friends, badges, emotes (see profile.js) ─────
+
+const profileArea = makeProfile({
+  read, write, touch, requireMe, notify, award, EngineError, ME, PLAYERS, ACTIVE_DAY_STEPS, STEP_KM,
+  computeStreak, computeLongestStreak, myDay, balance, myStepsBetween, playerStepsBetween, playerStreak, playerXp,
+  personView, meAsPlayer, levelFromXp,
+  eventViews: (s) => EVENTS.map((ev) => eventView(s, ev)),
+  crewBrief: (c) => ({ id: c.id, name: c.name, logo: c.logo || null, cover: c.cover || null, accent: c.accent, area: c.area || c.city, city: c.city, memberCount: c.members.length + (c.extraMembers || 0), verified: c.status === "verified", isMember: c.members.some((m) => m.id === ME) }),
+});
+export const {
+  getMembershipDetails,
+  purchaseMembership,
+  cancelMembership,
+  restorePurchases,
+  getStreakStatus,
+  spendStreakFreeze,
+  listBadges,
+  listEmotes,
+  setEmoteTray,
+  markEmoteSeen,
+  getPlayerCard,
+  searchAll,
+  suggestPeople,
+  matchContacts,
+  getReferrals,
+  recordInviteShare,
+  claimReferral,
+  getOutHistory,
+} = profileArea;
 
 // ── Runs (Move tab sessions) ──────────────────────────────────────────────────
 

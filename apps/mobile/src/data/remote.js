@@ -14,6 +14,7 @@ import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { lowerWins, modeOf, standingTarget } from "@/constants/battleModes";
 import { CLUB_MODE, clubModeOf } from "@/constants/clubModes";
 import { meetsLabel } from "./clubs";
+import { makeRemoteProfile } from "./remoteProfile";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -61,6 +62,17 @@ const MESSAGES = {
   BAD_NAME: "Club names need at least 3 characters.",
   CHECK_IN_CLOSED: "Check-in opens 30 minutes before the start.",
   EVENT_NOT_FOUND: "That club run has gone.",
+  // profile area (remoteProfile.js)
+  NOT_NEEDED: "Today's already done. Your streak is safe.",
+  ALREADY_FROZEN: "Today is already frozen.",
+  NO_STREAK: "There's no streak to protect yet.",
+  NO_FREEZES_LEFT: "You've used this month's streak freezes.",
+  TRAY_FULL: "Your tray holds 5.",
+  NOT_OWNED: "You haven't earned that one yet.",
+  SELF: "That's your own name.",
+  ALREADY_REFERRED: "You've already said who invited you.",
+  TOO_LATE: "Invites count in your first week.",
+  TOO_MANY: "Too many contacts at once.",
 };
 
 const fail = (error) => {
@@ -1637,3 +1649,26 @@ export const updateSettings = async (patch) => {
 if (supabase) {
   supabase.auth.onAuthStateChange(() => changed());
 }
+
+// ── Profile, membership, wallet, friends, badges, emotes (remoteProfile.js) ───
+
+export const {
+  getMembershipDetails,
+  purchaseMembership,
+  cancelMembership,
+  restorePurchases,
+  getStreakStatus,
+  spendStreakFreeze,
+  listBadges,
+  listEmotes,
+  setEmoteTray,
+  markEmoteSeen,
+  getPlayerCard,
+  searchAll,
+  suggestPeople,
+  matchContacts,
+  getReferrals,
+  recordInviteShare,
+  claimReferral,
+  getOutHistory,
+} = makeRemoteProfile({ supabase, run, rpc, uid, requireUid, changed, publicUrl, PERSON, playerView, peopleViews, followingSet, cityName, eventViews, levelFromXp, EngineError });
