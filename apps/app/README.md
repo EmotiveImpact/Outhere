@@ -46,6 +46,18 @@ writes `subscriptions`; the database then sets the member's ring and pays the
 club its share. Both need the `STRIPE_*` variables, and the webhook also needs
 `SUPABASE_SERVICE_ROLE_KEY`, which stays on the server.
 
+## Deploying
+
+The app runs at `app.weouthere.app`, and the website passes on any path it
+doesn't serve itself, so club pages and join links stay on `weouthere.app`.
+
+On Vercel, give the app its own project and set **Root Directory** to
+`apps/app`. The `vercel.json` at the repository root belongs to the website
+project, and a project left building from the root would pick up the website's
+routing instead of this app. Set the variables from `.env.example` on the
+project, with `SITE_URL=https://weouthere.app` in production so links and
+checkout returns point at the public address.
+
 ## Checks
 
 ```sh
