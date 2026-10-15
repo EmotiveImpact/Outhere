@@ -536,14 +536,15 @@ do $$ begin
 end $$;
 
 -- ── League history, squads and side stats ────────────────────────────────────
--- Three days of steps for both clubs; Ana's club walks more.
+-- Three days of steps for both clubs; Ana's club walks more. The fixture ends
+-- two days back, so a club run from the last hour can never fall inside it.
 insert into daily_steps (user_id, day, steps)
 select u.id::uuid, london_today() - d, u.s
 from (values ('00000000-0000-0000-0000-0000000000e1', 9000), ('00000000-0000-0000-0000-0000000000e2', 12000),
              ('00000000-0000-0000-0000-0000000000e4', 7000), ('00000000-0000-0000-0000-0000000000e5', 8000),
              ('00000000-0000-0000-0000-0000000000e3', 4000), ('00000000-0000-0000-0000-0000000000e6', 5000),
              ('00000000-0000-0000-0000-0000000000e7', 6000)) u(id, s)
-cross join generate_series(1, 3) d;
+cross join generate_series(2, 4) d;
 do $$
 declare d uuid; h uuid; a uuid; f uuid;
 begin
@@ -551,7 +552,7 @@ begin
   insert into league_entries (division_id, club_id) values (d, (select v::uuid from ids where k = 'club')) returning id into h;
   insert into league_entries (division_id, club_id) values (d, (select v::uuid from ids where k = 'club2')) returning id into a;
   insert into fixtures (division_id, week, home_id, away_id, starts_on, ends_on)
-  values (d, 1, h, a, london_today() - 3, london_today() - 1) returning id into f;
+  values (d, 1, h, a, london_today() - 4, london_today() - 2) returning id into f;
   insert into ids values ('home', h), ('away', a), ('fixture', f);
   assert draw_fixture(f, 'seed') = 3, 'equal squads of three';
   assert (select array_agg(squad_number order by squad_number) from squad_members where entry_id = h) = array[1, 2, 3], 'numbered home squad';
@@ -563,7 +564,7 @@ do $$
 declare eid uuid;
 begin
   insert into events (club_id, city_id, title, starts_at, place_name, created_by)
-  values ((select v::uuid from ids where k = 'club'), 'london', 'Sunday long', (london_today() - 2)::timestamp + interval '9 hours',
+  values ((select v::uuid from ids where k = 'club'), 'london', 'Sunday long', (london_today() - 3)::timestamp + interval '9 hours',
           'Peckham Rye', '00000000-0000-0000-0000-0000000000e1') returning id into eid;
   insert into event_rsvps (event_id, user_id, status, checked_in_at)
   select eid, user_id, 'checked_in', now() from squad_members
