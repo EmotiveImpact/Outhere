@@ -395,6 +395,11 @@ export default function MoveScreen() {
   const pickRoutes = sheet === "pick" ? (suggestions || []).map((r, i) => ({ key: r.id || `fresh${i}`, path: r.path, active: i === pickIndex })) : [];
   const mapProps = {
     userLocation: here,
+    userAvatar: profile?.avatar,
+    userName: profile?.name,
+    userTier: profile?.tier,
+    tone: paused ? "grey" : "blue",
+    blur: phase === PHASE.COUNTDOWN ? 3 : 0,
     follow: live || phase === PHASE.COUNTDOWN ? true : follow && !isPlanning && !sheet,
     camera: live ? view : "map",
     heading: heading || 0,
@@ -414,7 +419,7 @@ export default function MoveScreen() {
     onUserPan: () => follow && setFollow(false),
   };
 
-  const top = insets.top + 6;
+  const top = insets.top + 8; // .m-top: 22 from the top
   const liveChip = offRoute ? (
     <RecChip tone="danger">{`Off route · ${nav.offM} m`}</RecChip>
   ) : gpsLost ? (
@@ -444,7 +449,7 @@ export default function MoveScreen() {
   const bottomPanel = () => {
     if (!live) return null;
     const sheetInset = insets.bottom;
-    const floatBottom = insets.bottom + S.md;
+    const floatBottom = Math.max(30, insets.bottom + 14); // .fl.panel: 30 from the bottom
     if (holdOpen) {
       return (
         <HoldPanel
@@ -479,8 +484,8 @@ export default function MoveScreen() {
       <MotiView animate={{ scale: phase === PHASE.COUNTDOWN ? 1.12 : 1 }} transition={{ type: "timing", duration: 650 }} style={StyleSheet.absoluteFill}>
         <RunMap ref={mapRef} style={StyleSheet.absoluteFill} {...mapProps} />
       </MotiView>
-      {paused ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.drain]} /> : null}
-      {paused && !holdOpen ? <PausedWord seconds={seconds} km={km} top={insets.top + 190} /> : null}
+      {paused && Platform.OS !== "web" ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.drain]} /> : null}
+      {paused && !holdOpen ? <PausedWord seconds={seconds} km={km} top={top + 228} /> : null}
 
       {/* Top */}
       {live ? (
@@ -492,11 +497,11 @@ export default function MoveScreen() {
         ) : (
           <>
             <TopBar top={top} left={<RoundGlass icon={Lock} label="Lock the screen" onPress={() => setLocked(true)} />} centre={liveChip} right={<RoundGlass icon={Layers} label="Change view" onPress={cycleView} />} />
-            {offRoute && banner ? <TurnBanner {...banner} style={[styles.banner, { top: top + 52 }]} /> : null}
-            {view === "street" && !offRoute ? <ModeSwitch value={view} onChange={store().setView} style={[styles.modes, styles.modesAbs, { top: top + 52 }]} /> : null}
-            {ghostDiff != null && view === "map" && !gpsLost && !offRoute && !paused && !race ? <GhostChip diffM={ghostDiff} top={top + 300} /> : null}
+            {offRoute && banner ? <TurnBanner {...banner} style={[styles.banner, { top: top + 54 }]} /> : null}
+            {view === "street" && !offRoute ? <ModeSwitch value={view} onChange={store().setView} style={[styles.modes, styles.modesAbs, { top: top + 54 }]} /> : null}
+            {ghostDiff != null && view === "map" && !gpsLost && !offRoute && !paused && !race && !holdOpen ? <GhostChip diffM={ghostDiff} top={top + 318} /> : null}
             {race && view === "map" && !gpsLost && !offRoute ? <RaceLanes battle={race} myMetres={distanceM} mySec={seconds} top={top + 56} /> : null}
-            {gpsLost ? <GpsLostCard top={top + 60} /> : null}
+            {gpsLost ? <GpsLostCard top={top + 96} /> : null}
           </>
         )
       ) : idle && isPlanning && sheet !== "name" ? (
@@ -609,6 +614,7 @@ export default function MoveScreen() {
             ]}
             onGo={() => store().start()}
             onCancel={() => store().cancelCountdown()}
+            top={top}
           />
         ) : null}
       </AnimatePresence>
@@ -622,8 +628,9 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: C.bg },
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0 },
   drain: { backgroundColor: "rgba(40,44,52,0.55)" },
-  pilotTop: { position: "absolute", left: S.lg, right: S.lg, top: 0, gap: S.lg },
-  modes: { alignSelf: "center", width: 250 },
-  modesAbs: { position: "absolute" },
-  banner: { position: "absolute", left: S.lg, right: S.lg },
+  // .fl turn at 22, .modes at 124, 60 in from each side
+  pilotTop: { position: "absolute", left: 14, right: 14, top: 0, gap: 24 },
+  modes: { alignSelf: "center", width: 270, maxWidth: "80%" },
+  modesAbs: { position: "absolute", left: 60, right: 60, width: "auto", maxWidth: undefined },
+  banner: { position: "absolute", left: 14, right: 14 },
 });

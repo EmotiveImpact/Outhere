@@ -82,8 +82,12 @@ function Beat({ beat, go, colour, cx, cy }) {
  * colour: the beat's colour (hypeColour(n)). photo: an optional picture under
  * the veil (.hype .hbg). centreY: px from the top where the light centres
  * (defaults to 39% of the height, where the prototype puts its number).
+ * clear: no floor colour, so whatever sits behind (the run's map) shows
+ * through the veil. veil: a GLOWS preset name, or layers, for a countdown
+ * that needs its own veil (defaults to the .hype veil). backdrop: a node
+ * drawn under the veil in place of a photo (a blended crest, say).
  */
-export function Spotlight({ beat, go = false, colour, photo, photoOpacity = 1, centreY, grain = 0.07, children, style }) {
+export function Spotlight({ beat, go = false, colour, photo, photoOpacity = 1, backdrop, centreY, grain = 0.07, clear = false, veil = "hype", children, style }) {
   const [size, onLayout] = useLayoutSize();
   const flood = useSharedValue(go ? 1 : 0);
   useEffect(() => {
@@ -93,9 +97,9 @@ export function Spotlight({ beat, go = false, colour, photo, photoOpacity = 1, c
   const c = colour || (go ? HYPE_COLOURS[0] : HYPE_COLOURS[3]);
   const cy = centreY ?? (size ? size.height * 0.39 : 0);
   return (
-    <View onLayout={onLayout} style={[styles.fill, style]}>
-      {photo ? <PhotoBackground source={photo} opacity={photoOpacity} fade="none" glow={false} grain={0} /> : null}
-      <GlowBackdrop preset="hype" base={photo ? null : undefined} />
+    <View onLayout={onLayout} style={[styles.fill, clear && styles.clear, style]}>
+      {backdrop || (photo ? <PhotoBackground source={photo} opacity={photoOpacity} fade="none" glow={false} grain={0} /> : null)}
+      <GlowBackdrop preset={typeof veil === "string" ? veil : "hype"} layers={Array.isArray(veil) ? veil : undefined} base={photo || backdrop || clear ? null : undefined} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, goLight]}>
         <GlowBackdrop preset="hypeGo" />
       </Animated.View>
@@ -139,6 +143,7 @@ export function SpotlightNumber({ value, colour = HYPE_COLOURS[3], size, style }
 
 const styles = StyleSheet.create({
   fill: { flex: 1, overflow: "hidden", backgroundColor: "#03050a" },
+  clear: { backgroundColor: "transparent" },
   number: { alignItems: "center", justifyContent: "center" },
   abs: { position: "absolute", left: 0, right: 0 },
 });
