@@ -1,12 +1,13 @@
 // Settings: your profile on top, then what pings you, units, sound and haptics
 // and voice cues, a text size you can drag, then privacy, the inbox and where
-// your steps come from. Everything saves as you change it.
+// your steps come from, and previews of the watch, widgets and lock screen.
+// Everything saves as you change it.
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import Slider from "@react-native-community/slider";
-import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, Shield, Zap } from "lucide-react-native";
+import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, Shield, Watch, Zap } from "lucide-react-native";
 import { engine, isRemote, useAccount, useEngineMutation, useProfile, useSettings, useUpdateSettings } from "@/data/hooks";
 import { pingsOn } from "@/data/account";
 import { Avatar, C, F, FadeIn, PressableScale, R, S, Screen, Skeleton, TierBadge } from "@/components/ui";
@@ -109,6 +110,7 @@ export default function SettingsScreen() {
           <Row icon={Lock} title="Privacy" value={settings.privacy.ghost ? "Ghost" : null} onPress={() => router.push("/settings/privacy")} />
           <Row icon={Bell} title="Notifications" onPress={() => router.push("/notifications")} />
           <Row icon={Footprints} title="Step source" value={SOURCE_NAMES[settings.stepSource] || "This phone"} onPress={() => router.push("/settings/health")} />
+          <Row icon={Watch} title="Watch, widgets and lock screen" hint="Previews of what's coming to your watch and lock screen." onPress={() => router.push("/previews")} />
         </Group>
       </FadeIn>
 
