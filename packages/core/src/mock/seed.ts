@@ -215,7 +215,7 @@ export const NOTIFICATIONS: Notification[] = [
 export const PLANS: Plan[] = [
   { tier: "free", name: "Free", monthly: 0, yearly: 0, line: "Everything you need to play for your borough.", features: ["Walk and run for your borough", "Join any club, always free", "Club chat, feed and calendar", "Watch everyone's stories", "Battles with friends"] },
   { tier: "pro", name: "Pro", monthly: 5.99, yearly: 59.99, line: "For people who are out most days.", features: ["Post stories from your runs", "Outhere Locals perks at the till", "Early access to club kit drops", "Your full stats and history", "Your name on the Sunday reveal", "£1 a month to your club when you join here"], popular: true },
-  { tier: "black", name: "Black", monthly: 17.99, yearly: 179.99, line: "The full thing, and the most for your club.", features: ["Everything in Pro", "Members-only Black drops and events", "First places at big city events", "£3 a month to your club when you join here"] },
+  { tier: "black", name: "Black", monthly: 12.99, yearly: 129.99, line: "The full thing, and the most for your club.", features: ["Everything in Pro", "Members-only Black drops and events", "First places at big city events", "£3 a month to your club when you join here"] },
 ];
 
 export const BATTLE_MODES: BattleMode[] = [
