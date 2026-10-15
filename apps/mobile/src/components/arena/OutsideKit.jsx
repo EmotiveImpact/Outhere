@@ -160,8 +160,8 @@ export function BottomBar({ children, style }) {
 export function ButtonPair({ secondary, primary, style }) {
   return (
     <Row gap={S.sm} style={style}>
-      {secondary ? <Button variant="secondary" size="lg" style={{ flex: 1 }} {...secondary} title={secondary.title} /> : null}
-      {primary ? <Button size="lg" style={{ flex: 1 }} {...primary} /> : null}
+      {secondary ? <Button variant="secondary" size="md" style={{ flex: 1, height: 52, paddingHorizontal: 10 }} {...secondary} title={secondary.title} /> : null}
+      {primary ? <Button size="md" style={{ flex: 1, height: 52, paddingHorizontal: 10 }} {...primary} /> : null}
     </Row>
   );
 }

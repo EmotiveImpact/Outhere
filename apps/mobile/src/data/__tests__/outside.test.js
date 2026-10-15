@@ -134,6 +134,8 @@ test("swipe picks rivals near you and challenges one", async () => {
   expect(deck.length).toBeGreaterThan(3);
   expect(deck.every((c) => c.cityId === "london")).toBe(true);
   expect(deck[0].area).toBe("Southwark");
+  expect(deck.every((c) => Number.isInteger(c.level) && c.level >= 1)).toBe(true);
+  expect(deck.some((c) => c.fair)).toBe(true);
   const [first, second] = deck;
   expect(await engine.swipeRival(first.id, true)).toBe(1);
   await engine.swipeRival(second.id, false);

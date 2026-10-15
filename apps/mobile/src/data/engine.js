@@ -2034,7 +2034,8 @@ export const clearNotifications = async () =>
 
 // ── Settings, privacy, under 18 mode, your patch and your week (see account.js)
 
-const account = makeAccount({ read, write, requireMe, EngineError, ME, players: PLAYERS, resetAll, myStepsBetween, getOutsideNow });
+// Your patch picks from the same UK places as the City League (places.js).
+const account = makeAccount({ read, write, requireMe, EngineError, ME, players: PLAYERS, resetAll, myStepsBetween, getOutsideNow, listCities, listAreas });
 export const {
   getSettings,
   updateSettings,

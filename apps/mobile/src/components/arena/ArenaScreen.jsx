@@ -10,7 +10,7 @@ import { MotiView } from "moti";
 import Svg, { Circle } from "react-native-svg";
 import { Dices, EyeOff, Hexagon, Layers, Shield, Swords, Trophy } from "lucide-react-native";
 import { PHOTOS } from "@/constants/photos";
-import { useArenaNow, useBattles, useCallUp, useChallenges, useLeaderboard, usePicks } from "@/data/hooks";
+import { useArenaNow, useBattles, useCallUp, useChallenges, useLeaderboard, usePicks, usePlaySide } from "@/data/hooks";
 import { Avatar, Body, C, EmptyState, F, PressableScale, R, Row, S, Segment, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 import { formatNumber } from "@/utils/format";
@@ -135,7 +135,7 @@ const DOORS = [
   { key: "mystery", label: "Mystery", sub: "A random challenger", icon: Dices, href: "/swipe/mystery" },
   { key: "create", label: "Quick 1v1", sub: "Put OUT on it", icon: Swords, href: "/battles/create" },
   { key: "cities", label: "City League", sub: "City v city", icon: Shield, href: "/cities" },
-  { key: "map", label: "Borough Cup", sub: "The map this week", icon: Hexagon, href: "/cities/map" },
+  { key: "map", label: "Area Cup", sub: "The map this week", icon: Hexagon, href: "/cities/map" },
   { key: "season", label: "Season", sub: "Results and rewards", icon: Trophy, href: "/battles/season" },
 ];
 
@@ -143,13 +143,17 @@ function Doors() {
   const router = useRouter();
   const { data: picks } = usePicks();
   const { data: callUp } = useCallUp();
+  const side = usePlaySide().data;
+  // Three to a row; each cell holds the width so the press animation can't squash it.
   return (
     <View style={styles.doors}>
       {DOORS.map((d) => {
         const Icon = d.icon;
         const badge = d.key === "swipe" && picks?.length ? `${picks.length}` : d.key === "cities" && callUp && !callUp.answer ? "!" : null;
+        const label = d.key === "map" && side?.cityId === "london" ? "Borough Cup" : d.label;
         return (
-          <PressableScale key={d.key} onPress={() => router.push(d.href)} scaleTo={0.95} style={styles.door}>
+          <View key={d.key} style={styles.doorCell}>
+          <PressableScale onPress={() => router.push(d.href)} scaleTo={0.95} style={styles.door}>
             <View style={styles.doorIcon}>
               <Icon size={18} color={C.accentHi} />
               {badge ? (
@@ -159,12 +163,13 @@ function Doors() {
               ) : null}
             </View>
             <Text style={styles.doorLabel} numberOfLines={1}>
-              {d.label}
+              {label}
             </Text>
             <Text style={styles.doorSub} numberOfLines={1}>
               {d.sub}
             </Text>
           </PressableScale>
+          </View>
         );
       })}
     </View>
@@ -310,7 +315,8 @@ const styles = StyleSheet.create({
   ringTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, marginTop: S.md },
   ringReward: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
   doors: { flexDirection: "row", flexWrap: "wrap", gap: S.sm },
-  door: { width: "31.8%", flexGrow: 1, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  doorCell: { flexBasis: "30%", flexGrow: 1 },
+  door: { flex: 1, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
   doorIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center", marginBottom: S.sm },
   doorBadge: { position: "absolute", top: -5, right: -7, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 2, borderColor: C.surface },
   doorBadgeText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10 },

@@ -39,7 +39,7 @@ export default function SwipeSafety() {
             <View style={{ padding: S.lg }}>
               <Text style={styles.name}>{(me?.name || "You").split(" ")[0]}</Text>
               <Text style={styles.small}>
-                Level {me?.level ?? 1} · {tierLabel(me?.tier)}
+                Level {(typeof me?.level === "object" ? me.level?.level : me?.level) ?? 1} · {tierLabel(me?.tier)}
               </Text>
               <Row gap={6} style={{ marginTop: 6 }}>
                 <Crosshair size={12} color={C.accentHi} />

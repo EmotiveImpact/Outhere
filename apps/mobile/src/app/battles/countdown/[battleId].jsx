@@ -20,7 +20,8 @@ import { hapticSelection } from "@/services/haptics";
 const BLUE = "#3d8bff";
 const RED = "#ff4d55";
 
-const lineFor = (p) => [p?.level ? `Level ${p.level}` : null, (p?.wins ?? p?.record?.wins) != null ? `${formatNumber(p.wins ?? p.record.wins)} wins` : null, !p?.level ? p?.area || p?.city : null].filter(Boolean).join(" · ");
+const levelOf = (p) => (typeof p?.level === "object" ? p.level?.level : p?.level);
+const lineFor = (p) => [levelOf(p) ? `Level ${levelOf(p)}` : null, (p?.wins ?? p?.record?.wins) != null ? `${formatNumber(p.wins ?? p.record.wins)} wins` : null, !levelOf(p) ? p?.area || p?.city : null].filter(Boolean).join(" · ");
 
 export default function BattleCountdown() {
   const router = useRouter();

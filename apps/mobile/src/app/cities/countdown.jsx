@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
   seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)" },
   segOn: { backgroundColor: C.accent },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
-  count: { color: "#fff", fontFamily: F.display, fontSize: 240, lineHeight: 250, textShadowColor: "rgba(61,139,255,0.9)", textShadowRadius: 40, textShadowOffset: { width: 0, height: 0 } },
-  goText: { color: C.accent, fontFamily: F.display, fontSize: 180, lineHeight: 190, textTransform: "uppercase", textShadowColor: "rgba(61,139,255,0.9)", textShadowRadius: 40, textShadowOffset: { width: 0, height: 0 } },
+  count: { color: "#fff", fontFamily: F.display, fontSize: 330, lineHeight: 340, textShadowColor: "rgba(61,139,255,0.9)", textShadowRadius: 40, textShadowOffset: { width: 0, height: 0 } },
+  goText: { color: C.accent, fontFamily: F.display, fontSize: 220, lineHeight: 230, textTransform: "uppercase", textShadowColor: "rgba(61,139,255,0.9)", textShadowRadius: 40, textShadowOffset: { width: 0, height: 0 } },
   line: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginTop: S.sm },
   title: { color: C.text, fontFamily: F.display, fontSize: 36, textTransform: "uppercase", marginTop: 4 },
 });

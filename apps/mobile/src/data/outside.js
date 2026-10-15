@@ -55,7 +55,7 @@ export function makeOutside(h) {
     const c = myCity(s);
     return areaFor(c.id, s.me?.area) || (c.id === "london" ? UK_AREAS.find((a) => a.id === "southwark") : areasOf(c.id)[0]) || null;
   };
-  const myLevel = (s) => levelFromXp(balance(s, "xp"));
+  const myLevel = (s) => levelFromXp(balance(s, "xp")).level;
   const isMinor = (s) => {
     const me = s.me || {};
     if (me.minor === true || me.isMinor === true) return true;
