@@ -16,8 +16,9 @@ export default function Borough({ borough }: { borough: B }) {
   const n = site.stats.boroughs[borough];
   const [deep, setDeep] = useState(n);
   const first = useRef(true);
+  const shown = useRef(n);
   useEffect(() => {
-    const stop = countTo(first.current ? 0 : deep, n, setDeep, 900);
+    const stop = countTo(first.current ? 0 : shown.current, n, (v) => { shown.current = v; setDeep(v); }, 900);
     first.current = false;
     return stop;
   }, [n]);

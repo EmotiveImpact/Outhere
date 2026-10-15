@@ -36,7 +36,7 @@ export function SiteProvider({ children, defaultBorough = DEFAULT_BOROUGH }: { c
   const [ref, setRef] = useState('');
   const [dlg, setDlg] = useState<(OpenOpts & { open: boolean; key: number }) | null>(null);
   const [toastMsg, setToastMsg] = useState<{ msg: string; key: number } | null>(null);
-  const tt = useRef<number>();
+  const tt = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     setMeState(local.get<Me>('me'));

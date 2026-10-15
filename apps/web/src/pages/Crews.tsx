@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { slugify } from '@outhere/core';
 import { JoinButton } from '../components/Chrome';
 import { BoroughSelect, Choice, Honeypot, Mist } from '../components/controls';
 import { rankOf, useCopy, useSite } from '../components/Site';
@@ -9,7 +10,8 @@ import { prefersReducedMotion, titleCase, validEmail } from '../lib/format';
 import { ROLES, SIZES } from '../lib/validate';
 
 type Club = { name: string; borough: Borough; members?: number; claimed: boolean };
-const clubSlug = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+// The member app serves club pages at weouthere.app/<slug> with the same rule.
+const clubSlug = (n: string) => slugify(n).slice(0, 40);
 const H2 = { fontSize: 'clamp(40px,4.6vw,64px)' };
 
 export default function Crews() {

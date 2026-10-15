@@ -18,9 +18,9 @@ static HTML at build time, and sign-ups saved to Outhere's Supabase project.
 ## Working on it
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run check      # typecheck, unit tests and the full static build
+pnpm install                 # from the repo root
+pnpm --filter @outhere/web dev     # http://localhost:5173
+pnpm --filter @outhere/web check   # typecheck, unit tests and the full static build
 ```
 
 Without Supabase settings the site runs on **example figures**: sign-ups, club
@@ -36,11 +36,19 @@ is labelled as an example. That is also how a preview without a database behaves
    and `VITE_SITE_URL=https://weouthere.app` in the host's environment, then build.
    With them set, the figures are real and the "example" labels disappear.
 3. Host the `dist` folder. On Vercel: import the repo, set the root directory to
-   `apps/site` (framework Vite; `vercel.json` sets the rest: clean URLs, invite
-   link rewrites, caching and security headers), then add the domain.
+   `apps/web` (`vercel.json` sets the rest: pnpm, clean URLs, invite links,
+   caching, security headers, and skipping builds when the site has not changed),
+   then add the domain.
+
+The website owns `weouthere.app`. Any path it has no page for (a club link such
+as `weouthere.app/peckhampacers`, or anything else) is passed to the member app
+at `app.weouthere.app`, which serves club pages and its own not-found page. The
+member app keeps every top-level path the website uses in `RESERVED_SLUGS`
+(`packages/core/src/rules.ts`), and a test here fails if the two drift apart.
 
 Other hosts work too: serve `dist` with clean URLs (`/crews` serves
-`crews/index.html`), `404.html` for unknown paths, and rewrite `/i/*` to `/`.
+`crews/index.html`), rewrite `/i/*` to `/`, and send other paths to the member
+app (or to `404.html` without one).
 
 ## Where things live
 

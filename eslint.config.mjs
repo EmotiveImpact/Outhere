@@ -7,7 +7,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/node_modules/**", "**/build/**", "**/dist/**", "**/.react-router/**", "**/.turbo/**", "apps/mobile/**", "apps/web/**",
+    ignores: ["**/node_modules/**", "**/build/**", "**/dist/**", "**/.react-router/**", "**/.turbo/**", "apps/mobile/**", "**/dist-ssr/**",
       // Generated from the database schema.
       "packages/core/src/supabase/database.ts"],
   },

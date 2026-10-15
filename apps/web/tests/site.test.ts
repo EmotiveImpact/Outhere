@@ -62,3 +62,14 @@ describe('routes', () => {
     expect(metaFor(matchRoute('/boroughs/hackney')).canonical).toBe('https://weouthere.app/boroughs/hackney');
   });
 });
+
+describe('club links', () => {
+  // Unknown single-segment paths go to the member app as club pages, so no
+  // club may ever get a slug the website already uses.
+  it('reserves every top-level path the website serves', async () => {
+    const { readdirSync } = await import('node:fs');
+    const { isValidClubSlug } = await import('@outhere/core');
+    const tops = new Set([...ROUTES.map((r) => r.path.split('/')[1]), ...readdirSync('public'), 'assets', 'i']);
+    for (const t of tops) if (t) expect(isValidClubSlug(t), t).toBe(false);
+  });
+});

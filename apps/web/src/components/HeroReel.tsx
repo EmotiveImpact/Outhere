@@ -14,7 +14,7 @@ const EASE: Partial<Record<Move, string>> = { push: 'cubic-bezier(.2,.6,.3,1)', 
  * Connected night shots cut to a rhythm: a long hold on the hero frame, a burst of quick
  * cuts, then back round. Still for reduced motion; pauses off screen and in background tabs.
  */
-export function HeroReel({ watch }: { watch: React.RefObject<HTMLElement> }) {
+export function HeroReel({ watch }: { watch: React.RefObject<HTMLElement | null> }) {
   const reel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const root = reel.current;

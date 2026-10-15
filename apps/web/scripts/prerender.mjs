@@ -1,5 +1,6 @@
+/* global process, console */
 // Writes every route as static HTML (dist/<path>/index.html) from the SSR build,
-// plus the sitemap. Run by `npm run build` after the client and server builds.
+// plus the sitemap. Run by `pnpm build` after the client and server builds.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
