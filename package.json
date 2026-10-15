@@ -1,0 +1,22 @@
+{
+  "name": "outhere-web",
+  "private": true,
+  "description": "Workspace for the Outhere web app, admin and shared packages. apps/mobile is a separate Expo project and is not part of this workspace.",
+  "workspaces": [
+    "packages/core",
+    "packages/ui",
+    "apps/web",
+    "apps/admin"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @outhere/web",
+    "dev:admin": "npm run dev -w @outhere/admin",
+    "build": "npm run build -w @outhere/web && npm run build -w @outhere/admin",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run test && npm run build"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
