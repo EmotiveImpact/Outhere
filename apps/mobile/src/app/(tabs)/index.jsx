@@ -33,6 +33,7 @@ import OutsideCarousel from "@/components/home/OutsideCarousel";
 import { PHOTOS } from "@/constants/photos";
 import { hapticSuccess } from "@/services/haptics";
 import { dateLabel, formatKm, formatNumber, greeting, tierLabel } from "@/utils/format";
+import { Surface } from "@/components/ui/Surface";
 
 const QUICK = [
   { key: "move", icon: Route, label: "Move", hint: "Track", href: "/(tabs)/move" },
@@ -316,37 +317,37 @@ function OfflineHome({ profile, liveSteps }) {
   if (!items.length) items.push({ key: "steps", icon: Route, title: "Today's steps", sub: `${formatNumber(steps)} steps to send` });
 
   return (
-    <Screen tab padded>
-      <OfflineBanner style={{ marginTop: S.md }} />
-      <Row gap={S.md} style={{ marginTop: S.lg }}>
-        <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={46} />
+    // states/offline: the amber bar, hello, what's saved on the phone, what's waiting, and the live count greyed
+    <Screen tab padded={false} contentStyle={{ paddingHorizontal: 18, paddingTop: 8, gap: 14 }}>
+      <OfflineBanner />
+      <Row gap={12}>
+        <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={44} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.offName}>{`${greet}, ${name}`}</Text>
-          <Text style={styles.line} numberOfLines={1}>
+          <Text style={offStyles.hello}>{`${greet}, ${name}`}</Text>
+          <Text style={offStyles.helloSmall} numberOfLines={1}>
             {[tierLabel(profile.tier), `Level ${profile.level?.level ?? profile.level}`, profile.area || profile.city].filter(Boolean).join(" · ")}
           </Text>
         </View>
       </Row>
-      <View style={[styles.savedCard, { marginTop: S.lg }]}>
-        <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
+      <Surface radius={20} padding={null} contentStyle={offStyles.ring}>
         <Dial value={goal ? steps / goal : 0} size={112}>
-          <Text style={styles.savedNum}>{formatNumber(steps)}</Text>
-          <Text style={styles.savedUnit}>steps</Text>
+          <Text style={offStyles.num}>{formatNumber(steps)}</Text>
+          <Text style={offStyles.unit}>steps</Text>
         </Dial>
         <View style={{ flex: 1 }}>
-          <Text style={styles.savedTitle}>Saved on this phone</Text>
-          <Text style={styles.savedBody}>Counted from your phone's motion chip, no signal needed</Text>
+          <Text style={offStyles.title}>Saved on this phone</Text>
+          <Text style={offStyles.body}>Counted from your phone's motion chip, no signal needed</Text>
         </View>
-      </View>
-      <SyncList items={items} style={{ marginTop: S.xl }} />
-      <View style={[styles.savedCard, { marginTop: S.lg, opacity: 0.6, paddingVertical: S.lg }]}>
+      </Surface>
+      <SyncList items={items} />
+      <Surface radius={20} padding={null} style={{ opacity: 0.6 }} contentStyle={offStyles.live}>
         <View style={styles.greyDot} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.savedTitle}>Outside now</Text>
-          <Text style={styles.savedBody}>The live count comes back with your signal</Text>
+          <Text style={offStyles.title}>Outside now</Text>
+          <Text style={offStyles.body}>The live count comes back with your signal</Text>
         </View>
-        <Text style={styles.savedBody}>–</Text>
-      </View>
+        <Text style={offStyles.body}>–</Text>
+      </Surface>
     </Screen>
   );
 }
@@ -356,25 +357,38 @@ function OfflineHome({ profile, liveSteps }) {
 
 function HomeSkeleton() {
   return (
-    <Screen tab scroll={false}>
-      <Row gap={S.md} style={{ paddingTop: S.md }}>
-        <Skeleton width={48} height={48} radius={24} />
-        <View style={{ gap: 8 }}>
-          <Skeleton width={150} height={14} radius={7} />
-          <Skeleton width={100} height={10} radius={5} />
+    // states/loading: shimmer shapes in Home's own layout, 15 apart
+    <Screen tab scroll={false} padded={false} contentStyle={{ paddingHorizontal: 18, paddingTop: 8, gap: 15 }}>
+      <Row gap={12}>
+        <Skeleton width={44} height={44} radius={22} />
+        <View style={{ flex: 1, gap: 7 }}>
+          <Skeleton width="60%" height={13} radius={7} />
+          <Skeleton width="40%" height={10} radius={5} />
         </View>
       </Row>
-      <Skeleton height={250} radius={22} style={{ marginTop: S.lg }} />
-      <Row gap={S.md} style={{ marginTop: S.lg }}>
+      <Skeleton height={250} radius={26} />
+      <Row gap={8}>
         {[0, 1, 2].map((i) => (
           <Skeleton key={i} height={74} radius={18} style={{ flex: 1 }} />
         ))}
       </Row>
-      <Skeleton height={96} radius={20} style={{ marginTop: S.lg }} />
-      <Skeleton height={60} radius={18} style={{ marginTop: S.lg }} />
+      <Skeleton height={96} radius={20} />
+      <Skeleton height={60} radius={18} />
     </Screen>
   );
 }
+
+// The offline Home (.offring, .offlive, .hello).
+const offStyles = StyleSheet.create({
+  hello: { color: C.text, fontFamily: F.bodyMedium, fontSize: 13.5 },
+  helloSmall: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 11, marginTop: 2 },
+  ring: { flexDirection: "row", alignItems: "center", gap: 16, paddingTop: 14, paddingBottom: 14, paddingLeft: 14, paddingRight: 14 },
+  live: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 13, paddingBottom: 13, paddingLeft: 14, paddingRight: 14 },
+  num: { color: C.text, fontFamily: F.display, fontSize: 26, lineHeight: 28 },
+  unit: { color: C.textDim, fontFamily: F.body, fontSize: 10 },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginBottom: 3 },
+  body: { color: C.textDim, fontFamily: F.body, fontSize: 11, lineHeight: 15.5 },
+});
 
 const styles = StyleSheet.create({
   line: { color: C.textDim, fontFamily: F.body, fontSize: 13, marginTop: 2 },

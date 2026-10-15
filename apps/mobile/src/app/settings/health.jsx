@@ -8,7 +8,8 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-nativ
 import { Pedometer } from "expo-sensors";
 import { Lock } from "lucide-react-native";
 import { useSettings, useUpdateSettings } from "@/data/hooks";
-import { C, F, FadeIn, PressableScale, R, Skeleton, toast } from "@/components/ui";
+import { LinearGradient } from "expo-linear-gradient";
+import { C, F, FadeIn, FINISH, R, Skeleton, Surface, toast } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { HeroPage, Note } from "@/components/account/parts";
 
@@ -61,7 +62,7 @@ export default function HealthScreen() {
   };
 
   return (
-    <HeroPage kicker="Step source" top="Where do your" bottom="steps come from?" height={236} object={PHOTOS.watch}>
+    <HeroPage kicker="Step source" top="Where do your" bottom="steps come from?" height={248} size={42} object={PHOTOS.watch} objectSize={240} objectTop={20} objectStyle={{ right: -36 }}>
       {!settings ? (
         <Skeleton height={320} radius={R.lg} />
       ) : (
@@ -71,8 +72,9 @@ export default function HealthScreen() {
             const label = on ? "Connected" : src.soon && asked[src.id] ? "Asked" : "Connect";
             return (
               <FadeIn key={src.id} index={i}>
-                <PressableScale onPress={() => connect(src)} scaleTo={0.98} style={[styles.row, on && styles.rowOn]} accessibilityLabel={`${src.name}, ${label}`}>
+                <Surface onPress={() => connect(src)} tone={on ? "blue" : "lit"} radius={20} padding={null} contentStyle={styles.row} accessibilityLabel={`${src.name}, ${label}`}>
                   <View style={[styles.icon, on && styles.iconOn]}>
+                    {on ? <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={[StyleSheet.absoluteFill, { borderRadius: 12 }]} /> : null}
                     <Text style={[styles.iconText, on && { color: "#fff" }]}>{src.short}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -88,7 +90,7 @@ export default function HealthScreen() {
                       <Text style={styles.btnText}>{label}</Text>
                     </View>
                   )}
-                </PressableScale>
+                </Surface>
               </FadeIn>
             );
           })}
@@ -101,14 +103,14 @@ export default function HealthScreen() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 14, padding: 14, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: "transparent" },
-  rowOn: { backgroundColor: "#0f1726", borderColor: C.accent },
-  icon: { width: 42, height: 42, borderRadius: 12, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  iconOn: { backgroundColor: C.accent },
+  // .srcrow: 12 in, the two letter tile, a quiet pill on the right
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12, paddingLeft: 12, paddingRight: 12 },
+  icon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#1d222b", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" },
+  iconOn: { boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 8px 18px -8px rgba(42,106,240,0.95)" },
   iconText: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 13 },
-  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  hint: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 16, marginTop: 2 },
-  connected: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13 },
-  btn: { height: 32, paddingHorizontal: 14, borderRadius: R.full, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  btnText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  hint: { color: C.textDim, fontFamily: F.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  connected: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 12.5, textShadowColor: "rgba(61,139,255,0.6)", textShadowRadius: 10 },
+  btn: { height: 30, paddingHorizontal: 13, borderRadius: R.full, backgroundColor: "#1d222b", alignItems: "center", justifyContent: "center", boxShadow: FINISH.litEdge },
+  btnText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12 },
 });

@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Camera, Check, Flashlight, Pause } from "lucide-react-native";
-import { C, F, LiveDot, Logo } from "@/components/ui";
+import { C, F, GlowButton, LiveDot, Logo } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { formatDuration, formatNumber, formatPace } from "@/utils/format";
 import { ArcRing, Glass, PhoneFrame } from "./bits";
@@ -141,15 +141,10 @@ export function LockRun({ d }) {
             <View style={[styles.ltrackKnob, { left: `${pct * 100}%` }]} />
             <Text style={styles.ltrackGoal}>{`${v.goalKm} km goal`}</Text>
           </View>
+          {/* Pause on frosted glass, Finish on the act gradient with its glow and sheen */}
           <View style={styles.lbtns}>
-            <View style={styles.lbtn}>
-              <Pause size={14} color="#fff" />
-              <Text style={styles.lbtnText}>{v.paused ? "Resume" : "Pause"}</Text>
-            </View>
-            <View style={[styles.lbtn, { backgroundColor: C.accent }]}>
-              <Check size={14} color="#fff" />
-              <Text style={styles.lbtnText}>Finish</Text>
-            </View>
+            <GlowButton title={v.paused ? "Resume" : "Pause"} icon={Pause} variant="glass" size="sm" shine={false} style={styles.lbtn} textStyle={styles.lbtnText} />
+            <GlowButton title="Finish" icon={Check} size="sm" style={styles.lbtn} textStyle={styles.lbtnText} />
           </View>
         </Glass>
         <Flash />
@@ -257,7 +252,7 @@ const styles = StyleSheet.create({
   ltrackKnob: { position: "absolute", top: -4, width: 13, height: 13, marginLeft: -6.5, borderRadius: 7, backgroundColor: "#fff" },
   ltrackGoal: { position: "absolute", right: 0, top: 11, fontFamily: F.body, fontSize: 10, color: "rgba(255,255,255,0.65)" },
   lbtns: { flexDirection: "row", gap: 8 },
-  lbtn: { flex: 1, height: 36, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.14)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  lbtn: { flex: 1, height: 38 },
   lbtnText: { fontFamily: F.bodySemi, fontSize: 12, color: "#fff" },
 
   island11: { position: "absolute", top: 11, alignSelf: "center", zIndex: 5, height: 34, borderRadius: 20, backgroundColor: "#000", flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 12, paddingRight: 14 },

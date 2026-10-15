@@ -44,7 +44,10 @@ export function OutCoin({ size = 16 }) {
   );
 }
 
-/** A phone-sized frame, 340 by 736 like the prototype's, for a lock or home screen. */
+/**
+ * The whole screen as the lock or home screen, the way the prototype shows it:
+ * no frame, no rounded corners, just the picture filling the page.
+ */
 export function PhoneFrame({ children, style, testID }) {
   return (
     <View style={[styles.phone, style]} testID={testID}>
@@ -62,16 +65,7 @@ export function Glass({ children, tint = "rgba(14,20,32,0.5)", blur = 22, edge =
 }
 
 const styles = StyleSheet.create({
-  phone: {
-    width: 340,
-    height: 736,
-    alignSelf: "center",
-    borderRadius: 36,
-    overflow: "hidden",
-    backgroundColor: C.bg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-  },
+  phone: { flex: 1, alignSelf: "stretch", overflow: "hidden", backgroundColor: C.bg },
   homeBar: { position: "absolute", bottom: 8, alignSelf: "center", width: 112, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.55)" },
   edge: { borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
 });

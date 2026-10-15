@@ -11,7 +11,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { Bookmark, Share as ShareIcon, X } from "lucide-react-native";
-import { Button, C, EmptyState, F, Logo, PressableScale, Row, S, Skeleton, toast } from "@/components/ui";
+import { C, EmptyState, F, GlowButton, Logo, PressableScale, Row, S, Skeleton, toast } from "@/components/ui";
+import { Glow } from "@/components/account/parts";
 import { PHOTOS } from "@/constants/photos";
 import { useFixture, useMyFixture } from "@/data/hooks";
 import { formatNumber } from "@/utils/format";
@@ -87,50 +88,57 @@ export default function FixtureShareCard() {
   const share = () => Share.share({ message }).catch(() => {});
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + S.md, paddingBottom: insets.bottom + S.lg }]}>
-      <Row style={{ justifyContent: "flex-end", paddingHorizontal: S.gutter, marginBottom: S.sm }}>
-        <PressableScale onPress={close} style={styles.round} accessibilityLabel="Close">
-          <X size={20} color="#fff" />
-        </PressableScale>
-      </Row>
+    // .r11story: the card fills the screen on a soft blue light, Save and Share under it
+    <View style={[styles.screen, { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 20 }]}>
+      <Glow size={560} right={-85} top={insets.top + 40} opacity={0.2} />
       <View ref={card} collapsable={false} style={styles.card}>
-        <Image source={src(first.club?.cover) || PHOTOS.derby} style={StyleSheet.absoluteFill} contentFit="cover" />
-        <LinearGradient colors={["rgba(7,9,12,0.55)", "rgba(7,9,12,0.15)", "rgba(7,9,12,0.95)"]} locations={[0, 0.35, 0.78]} style={StyleSheet.absoluteFill} />
-        <Row gap={8} style={{ padding: S.lg }}>
+        <Image source={src(first.club?.cover) || PHOTOS.derby} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ top: "35%", left: "50%" }} />
+        <LinearGradient colors={["rgba(3,5,10,0.55)", "rgba(3,5,10,0)", "rgba(3,5,10,0.25)", "rgba(3,5,10,0.92)"]} locations={[0, 0.28, 0.5, 0.82]} style={StyleSheet.absoluteFill} />
+        <Row gap={8} style={styles.top}>
           <Logo size={18} />
           <Text style={styles.brand}>Outhere · Club v club</Text>
+          <View style={{ flex: 1 }} />
+          <PressableScale onPress={close} style={styles.round} accessibilityLabel="Close">
+            <View>
+              <X size={16} color="#fff" />
+            </View>
+          </PressableScale>
         </Row>
         <View style={{ flex: 1 }} />
-        <View style={{ padding: S.lg }}>
+        <View style={styles.m}>
           <Text style={styles.kicker}>{kicker}</Text>
           <Text style={styles.head} numberOfLines={1} adjustsFontSizeToFit>
             {top}
           </Text>
-          <Text style={[styles.head, { color: C.accent }]}>{bottom}</Text>
-          <Row gap={S.sm} style={{ alignItems: "baseline", marginTop: S.sm }}>
-            <Text style={[styles.score, { color: C.accentHi }]}>{formatNumber(first.score || 0)}</Text>
+          <Text style={[styles.head, styles.blue]}>{bottom}</Text>
+          <Row gap={10} style={{ alignItems: "baseline", marginTop: 12, marginBottom: 8 }}>
+            <Text style={[styles.score, { color: "#9cc4ff" }]}>{formatNumber(first.score || 0)}</Text>
             <Text style={styles.to}>to</Text>
-            <Text style={[styles.score, { color: C.textDim }]}>{formatNumber(second.score || 0)}</Text>
+            <Text style={[styles.score, { color: "#9aa3b2" }]}>{formatNumber(second.score || 0)}</Text>
           </Row>
           <Text style={styles.line}>{line}</Text>
         </View>
       </View>
-      <Row gap={S.md} style={{ paddingHorizontal: S.gutter, marginTop: S.lg }}>
-        <Button title="Save" icon={Bookmark} variant="secondary" onPress={save} style={{ flex: 1, height: 56 }} />
-        <Button title="Share to story" icon={ShareIcon} onPress={share} style={{ flex: 1.6, height: 56 }} />
+      <Row gap={8} style={{ marginTop: 14 }}>
+        <GlowButton title="Save" icon={Bookmark} variant="quiet" size="md" onPress={save} style={{ flex: 1, height: 52 }} textStyle={{ fontSize: 14 }} />
+        <GlowButton title="Share to story" icon={ShareIcon} size="md" onPress={share} style={{ flex: 1.6, height: 52 }} textStyle={{ fontSize: 14 }} />
       </Row>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  card: { flex: 1, marginHorizontal: S.gutter, borderRadius: 28, overflow: "hidden", backgroundColor: "#0b0e13", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
-  brand: { color: "#fff", fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" },
-  kicker: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 },
-  head: { color: C.text, fontFamily: F.display, fontSize: 58, lineHeight: 58, textTransform: "uppercase" },
-  score: { fontFamily: F.display, fontSize: 34 },
-  to: { color: C.textDim, fontFamily: F.body, fontSize: 14 },
-  line: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 19, marginTop: S.sm },
+  screen: { flex: 1, backgroundColor: "#05070b", paddingHorizontal: 22, overflow: "hidden" },
+  round: { width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(10,14,20,0.45)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)" },
+  // .card9: 26 round, a hairline of light and a deep shadow
+  card: { flex: 1, borderRadius: 26, overflow: "hidden", backgroundColor: "#0b0e13", boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 30px 60px -24px #000" },
+  top: { paddingTop: 14, paddingLeft: 16, paddingRight: 12 },
+  brand: { color: "#dfe6f0", fontFamily: F.bodySemi, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase" },
+  m: { paddingLeft: 18, paddingRight: 18, paddingBottom: 18 },
+  kicker: { color: "#9cc4ff", fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 },
+  head: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 42, textTransform: "uppercase" },
+  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+  score: { fontFamily: F.display, fontSize: 30, lineHeight: 30 },
+  to: { color: "#a9b4c6", fontFamily: F.bodyMedium, fontSize: 12 },
+  line: { color: "#c3ccda", fontFamily: F.body, fontSize: 11, lineHeight: 15.5 },
 });

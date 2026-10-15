@@ -69,7 +69,7 @@ export default function PrivacyScreen() {
   };
 
   return (
-    <HeroPage kicker="Settings" top="Your" bottom="privacy" height={210} object={PHOTOS.shield}>
+    <HeroPage kicker="Settings" top="Your" bottom="privacy" height={222} object={PHOTOS.shield} objectSize={214} objectTop={24} tab="profile">
       {!p ? (
         <>
           <Skeleton height={78} radius={R.lg} />

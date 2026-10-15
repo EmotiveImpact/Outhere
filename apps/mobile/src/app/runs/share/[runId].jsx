@@ -11,11 +11,14 @@ import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Bookmark, Camera, ImagePlus, Link2, MessageCircle, X } from "lucide-react-native";
-import { C, EmptyState, F, PressableScale, S, Skeleton, Wordmark, toast } from "@/components/ui";
+import { C, EmptyState, F, PressableScale, S, Skeleton, TOP_GAP, Wordmark, toast } from "@/components/ui";
 import { engine, useEngineMutation, useMyCrews, useProfile, useRunDetail } from "@/data/hooks";
 import { formatNumber, formatPace } from "@/utils/format";
 import { PHOTOS } from "@/constants/photos";
 import { hapticSuccess } from "@/services/haptics";
+
+// Frosted glass for the round buttons over the blurred photo.
+const GLASS = Platform.OS === "web" ? { backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } : null;
 
 // Until you pick your own photo: your city where we have one, else your people.
 const CITY_PHOTOS = { london: PHOTOS.clubrun, manchester: PHOTOS.manchester, birmingham: PHOTOS.birmingham };
@@ -54,8 +57,8 @@ function RouteLine({ route, width, height }) {
 function Action({ icon: Icon, label, onPress, busy }) {
   return (
     <PressableScale onPress={onPress} disabled={busy} accessibilityLabel={label} style={styles.action}>
-      <View style={styles.actionIcon}>
-        <Icon size={20} color={busy ? C.textDim : "#fff"} />
+      <View style={[styles.actionIcon, GLASS]}>
+        <Icon size={18} color={busy ? C.textDim : "#fff"} />
       </View>
       <Text style={styles.actionText}>{label}</Text>
     </PressableScale>
@@ -85,8 +88,9 @@ export default function ShareRun() {
 
   const close = () => (router.canGoBack() ? router.back() : router.navigate("/(tabs)/move"));
 
-  const cardW = Math.min(screen - S.gutter * 2 - 24, 330);
-  const cardH = Math.min(Math.round(cardW * 1.5), tall - insets.top - insets.bottom - 230);
+  // .sharecard: 9:16, 254 wide on a 390 screen, smaller when the screen is short
+  const cardH = Math.min(Math.round(Math.min(screen * 0.65, 300) * (16 / 9)), tall - insets.top - insets.bottom - 220);
+  const cardW = Math.round(cardH * (9 / 16));
 
   if (isPending) {
     return (
@@ -108,6 +112,7 @@ export default function ShareRun() {
   const fallback = CITY_PHOTOS[String(profile?.city || "").toLowerCase()] || PHOTOS.friends;
   const streak = profile?.streak || 0;
   const line = `${run.title}: ${km} km at ${formatPace(pace)}/km on Outhere.`;
+  const picture = photo ? { uri: photo.uri } : fallback;
 
   const pick = async () => {
     try {
@@ -148,22 +153,29 @@ export default function ShareRun() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <View style={styles.head}>
-        <PressableScale onPress={close} accessibilityLabel="Close" style={styles.close}>
-          <X size={20} color="#fff" />
+      {/* The card's own photo, blurred and dimmed, fills the screen behind it. */}
+      <Image source={picture} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={40} />
+      <LinearGradient colors={["rgba(7,9,12,0.62)", "rgba(7,9,12,0.5)", "rgba(7,9,12,0.86)"]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <View style={[styles.head, { paddingTop: TOP_GAP }]}>
+        <PressableScale onPress={close} accessibilityLabel="Close" style={[styles.close, GLASS]}>
+          <View>
+            <X size={18} color="#fff" />
+          </View>
         </PressableScale>
         <Text style={styles.headTitle}>Share your run</Text>
-        <View style={{ width: 42 }} />
+        <View style={{ width: 38 }} />
       </View>
 
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ flex: 1, alignItems: "center", paddingTop: 14 }}>
         <View style={[styles.card, { width: cardW, height: cardH }]}>
-          <Image source={photo ? { uri: photo.uri } : fallback} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Image source={picture} style={StyleSheet.absoluteFill} contentFit="cover" />
           <LinearGradient colors={["rgba(7,9,12,0.55)", "rgba(7,9,12,0.05)", "rgba(7,9,12,0.88)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
           <View style={styles.cardTop}>
             <Wordmark height={17} />
-            <PressableScale onPress={pick} accessibilityLabel="Change photo" style={styles.photoBtn}>
-              <ImagePlus size={16} color="#fff" />
+            <PressableScale onPress={pick} accessibilityLabel="Change photo" style={[styles.photoBtn, GLASS]}>
+              <View>
+                <ImagePlus size={15} color="#fff" />
+              </View>
             </PressableScale>
           </View>
           <View style={styles.cardFoot}>
@@ -196,20 +208,22 @@ export default function ShareRun() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: S.gutter, paddingTop: S.sm },
-  close: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  headTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
-  card: { borderRadius: 26, overflow: "hidden", backgroundColor: "#0b0e13", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)" },
-  cardTop: { position: "absolute", top: 16, left: 16, right: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  photoBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(18,22,30,0.7)", alignItems: "center", justifyContent: "center" },
-  cardFoot: { position: "absolute", left: 18, right: 18, bottom: 18 },
+  head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18 },
+  close: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(10,14,20,0.45)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
+  headTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  // .sharecard: 22 radius, a hairline of light and a deep drop shadow
+  card: { borderRadius: 22, overflow: "hidden", backgroundColor: "#0b0e13", boxShadow: "0 30px 60px -20px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.12)" },
+  cardTop: { position: "absolute", top: 14, left: 14, right: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  photoBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(10,14,20,0.45)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)" },
+  cardFoot: { position: "absolute", left: 16, right: 16, bottom: 16 },
   routeArt: { position: "absolute", right: -8, bottom: 30 },
-  kicker: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4, maxWidth: "60%" },
-  big: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 41, textTransform: "uppercase" },
-  meta: { flexDirection: "row", gap: 14, marginTop: 8 },
-  metaText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12.5 },
-  actions: { flexDirection: "row", justifyContent: "space-evenly", paddingTop: S.lg },
-  action: { alignItems: "center", gap: 8, width: 72 },
-  actionIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  actionText: { color: C.textSoft, fontFamily: F.body, fontSize: 12.5 },
+  kicker: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4, maxWidth: "60%" },
+  big: { color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 35, textTransform: "uppercase" },
+  meta: { flexDirection: "row", gap: 12, marginTop: 8 },
+  metaText: { color: C.text, fontFamily: F.bodySemi, fontSize: 11.5 },
+  actions: { flexDirection: "row", justifyContent: "center", gap: 4, paddingTop: 12 },
+  action: { alignItems: "center", gap: 7, width: 66 },
+  // .shacts i: 50 round frosted glass
+  actionIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.06)" },
+  actionText: { color: C.text, fontFamily: F.bodySemi, fontSize: 11 },
 });

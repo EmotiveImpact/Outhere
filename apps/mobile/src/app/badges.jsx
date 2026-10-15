@@ -2,13 +2,32 @@
 // Tap one for what it's for and how far you've got.
 
 import React, { useState } from "react";
-import { Share, StyleSheet, Text, View } from "react-native";
+import { Platform, Share, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Share2 } from "lucide-react-native";
+import { Upload } from "lucide-react-native";
 import { useBadges, useProfile } from "@/data/hooks";
-import { AnimatedBar, Body, C, F, FadeIn, IconButton, R, Row, S, Screen, Segment, Sheet, Skeleton } from "@/components/ui";
-import { BadgeTile, Slab } from "@/components/profile/parts";
+import { Body, C, F, FadeIn, Meter, Row, S, Segment, Sheet, Skeleton, Surface } from "@/components/ui";
+import { HeroPage, RoundButton } from "@/components/account/parts";
 import { badgeArt } from "@/constants/badges";
+import { PHOTOS } from "@/constants/photos";
+
+// .bg.off img: grey and dimmed until it's earned
+const LOCKED = Platform.OS === "web" ? { filter: "grayscale(1) brightness(0.55)" } : { opacity: 0.45 };
+
+/** .bg: the art on near black, its name, and Earned in blue or a thin bar. */
+function BadgeCell({ badge: b, onPress }) {
+  return (
+    <Surface onPress={onPress} radius={18} padding={null} style={{ flex: 1 }} contentStyle={styles.cell} accessibilityLabel={`${b.label}. ${b.earned ? "Earned" : b.toGo}`}>
+      <View style={styles.cellArt}>
+        <Image source={badgeArt(b.id)} style={[{ width: "100%", height: "100%" }, !b.earned && LOCKED]} contentFit="contain" />
+      </View>
+      <Text style={[styles.cellName, !b.earned && { color: C.textDim }]} numberOfLines={1}>
+        {b.label}
+      </Text>
+      {b.earned ? <Text style={styles.cellEarned}>Earned</Text> : <Meter value={b.progress} size={4} flow={false} glow={false} style={{ width: "70%", marginTop: 5 }} />}
+    </Surface>
+  );
+}
 import { formatNumber } from "@/utils/format";
 
 export default function Badges() {
@@ -26,17 +45,31 @@ export default function Badges() {
     Share.share({ message: `${data?.earnedCount || 0} of ${data?.total || 24} badges on Outhere${me ? ` as @${me.username}` : ""}.` }).catch(() => {});
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
-      <Slab
-        kicker="Badges"
-        height={190}
-        right={<IconButton icon={Share2} onPress={share} label="Share" />}
-      >
-        <Text style={styles.head}>
-          {data ? data.earnedCount : " "} <Text style={{ color: C.accent }}>{data ? `of ${data.total}` : ""}</Text>
-        </Text>
-      </Slab>
-      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
+    // .slab 212 with the medal floating on the right; the count is the headline
+    <HeroPage
+      kicker="Badges"
+      top={
+        data ? (
+          <>
+            {data.earnedCount} <Text style={styles.of}>of {data.total}</Text>
+          </>
+        ) : (
+          " "
+        )
+      }
+      height={198}
+      size={44}
+      object={PHOTOS.medal}
+      objectSize={196}
+      objectTop={12}
+      objectStyle={{ right: -30 }}
+      right={<RoundButton icon={Upload} label="Share" onPress={share} />}
+      onRefresh={refetch}
+      refreshing={isRefetching}
+      bodyStyle={{ paddingTop: 14, gap: 10 }}
+      tab="profile"
+    >
+      <View>
         <Segment
           options={[
             { value: "all", label: "All" },
@@ -46,9 +79,9 @@ export default function Badges() {
           value={tab}
           onChange={setTab}
         />
-        <View style={{ marginTop: S.md, gap: S.sm }}>
+        <View style={{ marginTop: 10, gap: 8 }}>
           {isPending ? (
-            [0, 1, 2].map((i) => <Skeleton key={i} height={150} radius={R.md} />)
+            [0, 1, 2].map((i) => <Skeleton key={i} height={110} radius={18} />)
           ) : !rows.length ? (
             <Body dim style={{ textAlign: "center", marginTop: S.xl }}>
               {tab === "earned" ? "Your first badge is a walk away." : "You've earned every one. Respect."}
@@ -56,9 +89,9 @@ export default function Badges() {
           ) : (
             rows.map((row, ri) => (
               <FadeIn key={row.map((b) => b.id).join()} index={ri}>
-                <Row gap={S.sm} style={{ alignItems: "stretch" }}>
+                <Row gap={8} style={{ alignItems: "stretch" }}>
                   {row.map((b) => (
-                    <BadgeTile key={b.id} badge={b} bar onPress={() => setOpen(b)} />
+                    <BadgeCell key={b.id} badge={b} onPress={() => setOpen(b)} />
                   ))}
                   {row.length < 3 ? Array.from({ length: 3 - row.length }).map((_, k) => <View key={k} style={{ flex: 1 }} />) : null}
                 </Row>
@@ -72,7 +105,7 @@ export default function Badges() {
         {open ? (
           <View style={{ alignItems: "center" }}>
             <View style={styles.art}>
-              <Image source={badgeArt(open.id)} style={[StyleSheet.absoluteFill, !open.earned && { opacity: 0.4 }]} contentFit="cover" />
+              <Image source={badgeArt(open.id)} style={[{ width: "100%", height: "100%" }, !open.earned && LOCKED]} contentFit="contain" />
             </View>
             <Text style={styles.name}>{open.label}</Text>
             <Body dim size={14} style={{ textAlign: "center", marginTop: 4 }}>
@@ -84,7 +117,7 @@ export default function Badges() {
               </Text>
             ) : (
               <View style={{ alignSelf: "stretch", marginTop: S.lg }}>
-                <AnimatedBar value={open.progress} height={8} colour={C.accent} track={C.surfaceHigh} />
+                <Meter value={open.progress} size={8} cap />
                 <Row style={{ justifyContent: "space-between", marginTop: 6 }}>
                   <Text style={styles.dim}>
                     {formatNumber(open.value)} of {formatNumber(open.target)}
@@ -96,13 +129,18 @@ export default function Badges() {
           </View>
         ) : null}
       </Sheet>
-    </Screen>
+    </HeroPage>
   );
 }
 
 const styles = StyleSheet.create({
-  head: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 52, textTransform: "uppercase" },
-  art: { width: 160, height: 128, borderRadius: R.md, overflow: "hidden", backgroundColor: "#0b0e13" },
+  // .display .blue on one line with the count
+  of: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+  cell: { alignItems: "center", paddingTop: 6, paddingBottom: 10, paddingLeft: 6, paddingRight: 6 },
+  cellArt: { alignSelf: "stretch", height: 62, borderRadius: 13, backgroundColor: "#05080e", overflow: "hidden", marginBottom: 7 },
+  cellName: { color: C.text, fontFamily: F.bodySemi, fontSize: 11 },
+  cellEarned: { color: C.accent, fontFamily: F.bodySemi, fontSize: 9.5, marginTop: 2 },
+  art: { width: 160, height: 128, borderRadius: 18, overflow: "hidden", backgroundColor: "#05080e" },
   name: { color: C.text, fontFamily: F.display, fontSize: 30, textTransform: "uppercase", marginTop: S.md },
   earned: { color: C.accent, fontFamily: F.bodySemi, fontSize: 14, marginTop: S.md },
   dim: { color: C.textDim, fontFamily: F.body, fontSize: 12.5 },

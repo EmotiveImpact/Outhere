@@ -2,9 +2,10 @@
 // person at the same time if you want. Crew admins and Outhere see reports.
 
 import React, { useEffect, useState } from "react";
-import { Platform, StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Lock } from "lucide-react-native";
-import { Body, Button, C, F, PressableScale, Row, S, Sheet } from "@/components/ui";
+import { C, F, GlowButton, PressableScale, Row, Sheet } from "@/components/ui";
+import { Toggle } from "@/components/account/parts";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { REPORT_REASONS } from "@/data/seedCrew";
 import { PlayerAvatar } from "./shared";
@@ -41,15 +42,14 @@ export default function ReportSheet({ target, onClose }) {
     <Sheet visible={!!target} onClose={onClose}>
       {target ? (
         <View>
-          <Row gap={S.md} style={{ marginBottom: S.lg }}>
-            <PlayerAvatar player={target.author} size={44} />
+          {/* .ah: their face, what you're reporting and who sees it */}
+          <Row gap={12} style={{ marginBottom: 6 }}>
+            <PlayerAvatar player={target.author} size={42} />
             <View style={{ flex: 1 }}>
               <Text style={styles.title} numberOfLines={1}>
                 Report {first}'s {WHAT[target.targetType] || "post"}
               </Text>
-              <Body dim size={13}>
-                {target.crewId ? "Only the crew admins and Outhere see this" : "Only Outhere sees this"}
-              </Body>
+              <Text style={styles.small}>{target.crewId ? "Only the crew admins and Outhere see this" : "Only Outhere sees this"}</Text>
             </View>
           </Row>
           {REPORT_REASONS.map((r) => {
@@ -69,29 +69,21 @@ export default function ReportSheet({ target, onClose }) {
             );
           })}
           {target.author && !target.author.isMe ? (
-            <Row gap={S.md} style={{ marginTop: S.sm, marginBottom: S.lg }}>
-              <Lock size={16} color={C.textDim} />
+            <Row gap={12} style={styles.sr2}>
+              <View>
+                <Lock size={18} color={C.textDim} />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.blockTitle}>Block {first} as well</Text>
-                <Body dim size={12}>
-                  They won't see your runs or messages
-                </Body>
+                <Text style={styles.small}>They won't see your runs or messages</Text>
               </View>
-              <Switch
-                value={block}
-                onValueChange={setBlock}
-                trackColor={{ false: C.surfaceHigh, true: C.accent }}
-                thumbColor="#fff"
-                {...(Platform.OS === "web" ? { activeThumbColor: "#fff" } : null)}
-                ios_backgroundColor={C.surfaceHigh}
-                accessibilityLabel={`Block ${first}`}
-              />
+              <Toggle value={block} onChange={setBlock} label={`Block ${first}`} />
             </Row>
           ) : (
-            <View style={{ height: S.lg }} />
+            <View style={{ height: 8 }} />
           )}
-          <Button title="Send report" size="lg" full disabled={!reason} loading={send.isPending} onPress={submit} />
-          <Button title="Cancel" variant="secondary" full onPress={onClose} style={{ marginTop: S.sm }} />
+          <GlowButton title="Send report" size="md" full disabled={!reason} loading={send.isPending} onPress={submit} style={{ marginTop: 2 }} />
+          <GlowButton title="Cancel" variant="quiet" size="md" full onPress={onClose} style={{ marginTop: 8, height: 44 }} textStyle={{ fontSize: 13 }} />
         </View>
       ) : null}
     </Sheet>
@@ -99,11 +91,14 @@ export default function ReportSheet({ target, onClose }) {
 }
 
 const styles = StyleSheet.create({
-  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
-  option: { flexDirection: "row", alignItems: "center", gap: S.md, height: 50, paddingHorizontal: S.lg, borderRadius: 14, backgroundColor: C.surfaceHigh, marginBottom: S.sm, borderWidth: 1.5, borderColor: "transparent" },
-  optionOn: { borderColor: C.accent, backgroundColor: "rgba(61,139,255,0.08)" },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  small: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
+  // .rsn: 46 tall lit rows; the chosen one ringed in blue
+  option: { flexDirection: "row", alignItems: "center", gap: 12, height: 46, paddingHorizontal: 14, borderRadius: 15, backgroundColor: "#15181e", marginTop: 8, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" },
+  optionOn: { backgroundColor: "#121a28", boxShadow: "inset 0 0 0 1.5px #3d8bff, 0 0 20px -8px rgba(61,139,255,0.8)" },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: C.textMute, alignItems: "center", justifyContent: "center" },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.accent },
-  optionText: { color: C.text, fontFamily: F.bodyMedium, fontSize: 15 },
-  blockTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.accent, boxShadow: "0 0 8px rgba(61,139,255,0.9)" },
+  optionText: { color: C.text, fontFamily: F.bodyMedium, fontSize: 13 },
+  sr2: { paddingTop: 14, paddingBottom: 12, paddingHorizontal: 2 },
+  blockTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
 });
