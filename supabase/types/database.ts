@@ -2392,6 +2392,105 @@ export type Database = {
           },
         ];
       };
+      live_positions: {
+        Row: {
+          user_id: string;
+          lat: number;
+          lng: number;
+          km: number;
+          kind: Database["public"]["Enums"]["run_kind"];
+          route_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          lat: number;
+          lng: number;
+          km?: number;
+          kind?: Database["public"]["Enums"]["run_kind"];
+          route_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          lat?: number;
+          lng?: number;
+          km?: number;
+          kind?: Database["public"]["Enums"]["run_kind"];
+          route_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "live_positions_route_id_fkey";
+            columns: ["route_id"];
+            isOneToOne: false;
+            referencedRelation: "saved_routes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "live_positions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      live_shares: {
+        Row: {
+          id: string;
+          user_id: string;
+          token: string;
+          run_id: string | null;
+          started_at: string;
+          ended_at: string | null;
+          lat: number | null;
+          lng: number | null;
+          last_at: string | null;
+          alerted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          token?: string;
+          run_id?: string | null;
+          started_at?: string;
+          ended_at?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          last_at?: string | null;
+          alerted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          token?: string;
+          run_id?: string | null;
+          started_at?: string;
+          ended_at?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          last_at?: string | null;
+          alerted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "live_shares_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "live_shares_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       locals_partners: {
         Row: {
           id: string;
@@ -3268,6 +3367,8 @@ export type Database = {
           route_public: Json | null;
           visibility: Database["public"]["Enums"]["visibility"];
           created_at: string;
+          route_id: string | null;
+          feel: number | null;
         };
         Insert: {
           id?: string;
@@ -3286,6 +3387,8 @@ export type Database = {
           route_public?: Json | null;
           visibility?: Database["public"]["Enums"]["visibility"];
           created_at?: string;
+          route_id?: string | null;
+          feel?: number | null;
         };
         Update: {
           id?: string;
@@ -3304,6 +3407,8 @@ export type Database = {
           route_public?: Json | null;
           visibility?: Database["public"]["Enums"]["visibility"];
           created_at?: string;
+          route_id?: string | null;
+          feel?: number | null;
         };
         Relationships: [
           {
@@ -3321,7 +3426,122 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "runs_route_id_fkey";
+            columns: ["route_id"];
+            isOneToOne: false;
+            referencedRelation: "saved_routes";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "runs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      safety_settings: {
+        Row: {
+          user_id: string;
+          night_auto: boolean;
+          check_in: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          night_auto?: boolean;
+          check_in?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          night_auto?: boolean;
+          check_in?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "safety_settings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      saved_routes: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          path: Json;
+          path_public: Json;
+          waypoints: Json;
+          distance_m: number;
+          climb_m: number | null;
+          hide_ends: boolean;
+          club_id: string | null;
+          city_id: string | null;
+          start_lat: number;
+          start_lng: number;
+          public_lat: number | null;
+          public_lng: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          path: Json;
+          path_public?: Json;
+          waypoints?: Json;
+          distance_m: number;
+          climb_m?: number | null;
+          hide_ends?: boolean;
+          club_id?: string | null;
+          city_id?: string | null;
+          start_lat: number;
+          start_lng: number;
+          public_lat?: number | null;
+          public_lng?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          path?: Json;
+          path_public?: Json;
+          waypoints?: Json;
+          distance_m?: number;
+          climb_m?: number | null;
+          hide_ends?: boolean;
+          club_id?: string | null;
+          city_id?: string | null;
+          start_lat?: number;
+          start_lng?: number;
+          public_lat?: number | null;
+          public_lng?: number | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "saved_routes_city_id_fkey";
+            columns: ["city_id"];
+            isOneToOne: false;
+            referencedRelation: "cities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_routes_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_routes_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
@@ -3672,6 +3892,41 @@ export type Database = {
           },
         ];
       };
+      trusted_contacts: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          phone: string;
+          mode: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          phone: string;
+          mode?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          phone?: string;
+          mode?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "trusted_contacts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       waitlist: {
         Row: {
           id: number;
@@ -3736,6 +3991,42 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "waitlist";
             referencedColumns: ["ref_code"];
+          },
+        ];
+      };
+      waves: {
+        Row: {
+          id: number;
+          from_id: string;
+          to_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          from_id: string;
+          to_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          from_id?: string;
+          to_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "waves_from_id_fkey";
+            columns: ["from_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "waves_to_id_fkey";
+            columns: ["to_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -4117,6 +4408,7 @@ export type Database = {
     };
     Functions: {
       add_fund_spend: { Args: { p_club: string; p_title: string; p_amount_pence: number; p_spent_on?: string; p_receipt_path?: string; }; Returns: Database["public"]["Tables"]["club_fund_spend"]["Row"] };
+      add_trusted_contact: { Args: { p_name: string; p_phone: string; p_mode?: string; }; Returns: Database["public"]["Tables"]["trusted_contacts"]["Row"] };
       admin_daily_active: { Args: { p_days?: number; }; Returns: { day: string; active: number; }[] };
       am_i_minor: { Args: {  }; Returns: boolean };
       approve_fund_spend: { Args: { p_spend: string; }; Returns: Database["public"]["Tables"]["club_fund_spend"]["Row"] };
@@ -4140,6 +4432,7 @@ export type Database = {
       claim_club: { Args: { p_club: string; p_size: string; p_role: string; p_email: string; p_city?: string; p_borough?: string; p_town?: string; p_region?: string; p_social?: string; }; Returns: Json };
       claim_my_club: { Args: { p_name: string; p_meeting_place: string; p_usual_times: string; p_founded?: number; p_proof_method?: string; p_proof_handle?: string; p_call_at?: string; p_club?: string; }; Returns: Json };
       claim_referral: { Args: { p_username: string; }; Returns: Json };
+      clear_live_position: { Args: {  }; Returns: undefined };
       club_battles_for: { Args: { p_club: string; }; Returns: { id: string; mode: Database["public"]["Enums"]["club_battle_mode"]; status: Database["public"]["Enums"]["club_battle_status"]; mystery: boolean; starts_at: string; ends_at: string; home: boolean; opponent_id: string; opponent_name: string; opponent_logo: string; opponent_members: number; my_score: number; their_score: number; won: boolean; squad: number; yes_votes: number; no_votes: number; my_vote: boolean; }[] };
       club_role_of: { Args: { cid: string; uid?: string; }; Returns: Database["public"]["Enums"]["club_role"] };
       club_slug_free: { Args: { p_slug: string; p_club?: string; }; Returns: boolean };
@@ -4151,6 +4444,7 @@ export type Database = {
       crew_can_join: { Args: { p_event: string; p_user: string; }; Returns: boolean };
       crew_days: { Args: { p_club: string; p_month?: string; }; Returns: { day: string; km: number; }[] };
       crew_invite_code: { Args: { p_club: string; }; Returns: string };
+      crew_live: { Args: { p_lat?: number; p_lng?: number; }; Returns: Json };
       crew_race: { Args: { p_club: string; p_period?: string; }; Returns: { user_id: string; steps: number; km: number; rank: number; }[] };
       crew_stats: { Args: { p_club: string; }; Returns: Json };
       decide_club_verification: { Args: { p_verification: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_verifications"]["Row"] };
@@ -4163,6 +4457,7 @@ export type Database = {
       fixture_side_stats: { Args: { p_fixture: string; p_entry: string; }; Returns: { squad: number; average: number; turnout_pct: number; score: number; }[] };
       fixture_view: { Args: { p_fixture: string; }; Returns: Json };
       freezes_per_month: { Args: { p_tier: Database["public"]["Enums"]["tier"]; }; Returns: number };
+      get_route: { Args: { p_route: string; }; Returns: Json };
       haversine_m: { Args: { lat1: number; lng1: number; lat2: number; lng2: number; }; Returns: number };
       ingest_steps: { Args: { p_day: string; p_steps: number; p_distance_m?: number; p_active_minutes?: number; p_source?: string; }; Returns: Database["public"]["Tables"]["daily_steps"]["Row"] };
       is_blocked: { Args: { a: string; b: string; }; Returns: boolean };
@@ -4180,6 +4475,8 @@ export type Database = {
       leave_club: { Args: { p_club: string; }; Returns: undefined };
       level_for_xp: { Args: { p_xp: number; }; Returns: number };
       link_guardian: { Args: { p_name: string; p_contact: string; p_live?: boolean; }; Returns: Database["public"]["Tables"]["guardian_links"]["Row"] };
+      list_routes: { Args: { p_scope?: string; }; Returns: Json };
+      live_share_view: { Args: { p_token: string; }; Returns: Json };
       london_today: { Args: {  }; Returns: string };
       london_week_start: { Args: {  }; Returns: string };
       mark_emote_seen: { Args: { p_emote: string; }; Returns: undefined };
@@ -4187,11 +4484,14 @@ export type Database = {
       out_available: { Args: { p_user: string; }; Returns: number };
       out_multiplier: { Args: { p_tier: Database["public"]["Enums"]["tier"]; }; Returns: number };
       outside_count: { Args: { p_city?: string; }; Returns: number };
+      outside_map: { Args: { p_lat?: number; p_lng?: number; }; Returns: Json };
       outside_now: { Args: { p_city?: string; }; Returns: { borough_id: string; out_now: number; }[] };
       patch_areas: { Args: { p_city: string; }; Returns: { id: string; name: string; out_now: number; week_steps: number; week_rank: number; }[] };
       patch_places: { Args: { p_query?: string; p_lat?: number; p_lng?: number; }; Returns: { id: string; name: string; region: string; is_live: boolean; plays_for: string; members: number; distance_km: number; }[] };
+      path_length_m: { Args: { p_path: Json; }; Returns: number };
       period_start: { Args: { p: string; }; Returns: string };
       pickups_near: { Args: { p_lat: number; p_lng: number; p_km?: number; }; Returns: Database["public"]["Tables"]["events"]["Row"][] };
+      ping_live_share: { Args: { p_lat: number; p_lng: number; p_still_s?: number; }; Returns: boolean };
       read_channel: { Args: { p_channel: string; }; Returns: undefined };
       ready_battle: { Args: { p_battle: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       record_invite_scan: { Args: { p_code: string; }; Returns: string };
@@ -4208,13 +4508,16 @@ export type Database = {
       review_club_claim: { Args: { p_claim: number; p_approve: boolean; }; Returns: string };
       review_steps: { Args: { p_user: string; p_day: string; p_ok: boolean; }; Returns: Database["public"]["Tables"]["daily_steps"]["Row"] };
       rival_deck: { Args: { p_limit?: number; }; Returns: Database["public"]["Tables"]["profiles"]["Row"][] };
+      routes_near: { Args: { p_lat: number; p_lng: number; p_km: number; p_radius_m?: number; }; Returns: Json };
       rsvp_event: { Args: { p_event: string; p_going?: boolean; }; Returns: undefined };
-      save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
+      save_route: { Args: { p_name: string; p_path: Json; p_waypoints?: Json; p_climb_m?: number; p_hide_ends?: boolean; p_share_club?: boolean; }; Returns: Database["public"]["Tables"]["saved_routes"]["Row"] };
+      save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; p_route?: string; p_climb_m?: number; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
       set_birth_date: { Args: { p_date: string; }; Returns: boolean };
       set_club_role: { Args: { p_club: string; p_user: string; p_role: Database["public"]["Enums"]["club_role"]; }; Returns: undefined };
       set_club_treasurer: { Args: { p_club: string; p_user: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       set_crew_settings: { Args: { p_club: string; p_join_policy?: string; p_weekly_goal_km?: number; p_chat_admins_only?: boolean; }; Returns: undefined };
       set_emote_tray: { Args: { p_emotes: string[]; }; Returns: Json };
+      set_live_position: { Args: { p_lat: number; p_lng: number; p_km?: number; p_kind?: Database["public"]["Enums"]["run_kind"]; p_route?: string; }; Returns: undefined };
       set_patch: { Args: { p_city: string; p_area?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       set_reveal_held: { Args: { p_season: string; p_held: boolean; }; Returns: Database["public"]["Tables"]["seasons"]["Row"] };
@@ -4222,15 +4525,19 @@ export type Database = {
       share_battle_to_crew: { Args: { p_club: string; p_battle: string; }; Returns: string };
       share_club: { Args: { a: string; b: string; }; Returns: boolean };
       slug_part: { Args: { p_text: string; }; Returns: string };
+      start_live_share: { Args: { p_run?: string; }; Returns: Database["public"]["Tables"]["live_shares"]["Row"] };
+      stop_live_share: { Args: {  }; Returns: undefined };
       streak_freeze_status: { Args: {  }; Returns: Json };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
       suggest_club_slug: { Args: { p_name: string; p_city?: string; p_club?: string; }; Returns: string };
       toggle_chat_run: { Args: { p_message: string; }; Returns: boolean };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
       unlink_guardian: { Args: {  }; Returns: undefined };
+      update_safety: { Args: { p_night_auto?: boolean; p_check_in?: boolean; }; Returns: Database["public"]["Tables"]["safety_settings"]["Row"] };
       use_streak_freeze: { Args: {  }; Returns: Json };
       verify_club: { Args: { p_club: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       vote_club_battle: { Args: { p_battle: string; p_yes: boolean; }; Returns: undefined };
+      wave_at: { Args: { p_user: string; }; Returns: boolean };
       website_stats: { Args: {  }; Returns: Json };
     };
     Enums: {
