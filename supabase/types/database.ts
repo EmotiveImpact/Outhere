@@ -122,6 +122,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      black_requests: {
+        Row: {
+          id: number;
+          name: string;
+          email: unknown;
+          borough_id: string;
+          invite_code: string | null;
+          why: string | null;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          email: unknown;
+          borough_id: string;
+          invite_code?: string | null;
+          why?: string | null;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          name?: string;
+          email?: unknown;
+          borough_id?: string;
+          invite_code?: string | null;
+          why?: string | null;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       blocks: {
         Row: {
           user_id: string;
@@ -311,6 +344,42 @@ export type Database = {
           name?: string;
           staff_only_post?: boolean;
           sort?: number;
+        };
+        Relationships: [];
+      };
+      club_claims: {
+        Row: {
+          id: number;
+          club_name: string;
+          borough_id: string;
+          size: string;
+          role: string;
+          email: unknown;
+          social: string | null;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          club_name: string;
+          borough_id: string;
+          size: string;
+          role: string;
+          email: unknown;
+          social?: string | null;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          club_name?: string;
+          borough_id?: string;
+          size?: string;
+          role?: string;
+          email?: unknown;
+          social?: string | null;
+          status?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -1551,6 +1620,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      waitlist: {
+        Row: {
+          id: number;
+          email: unknown;
+          borough_id: string;
+          moves: string;
+          club_name: string | null;
+          ref_code: string;
+          referred_by: string | null;
+          wants_black: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          email: unknown;
+          borough_id: string;
+          moves?: string;
+          club_name?: string | null;
+          ref_code: string;
+          referred_by?: string | null;
+          wants_black?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          email?: unknown;
+          borough_id?: string;
+          moves?: string;
+          club_name?: string | null;
+          ref_code?: string;
+          referred_by?: string | null;
+          wants_black?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       battle_board: {
@@ -1623,6 +1728,7 @@ export type Database = {
       challenge_value: { Args: { p_user: string; c: Database["public"]["Tables"]["challenges"]["Row"]; }; Returns: number };
       check_in_event: { Args: { p_event: string; p_code: string; }; Returns: undefined };
       claim_challenge: { Args: { p_challenge: string; }; Returns: undefined };
+      claim_club: { Args: { p_club: string; p_borough: string; p_size: string; p_role: string; p_email: string; p_social?: string; }; Returns: Json };
       club_role_of: { Args: { cid: string; uid?: string; }; Returns: Database["public"]["Enums"]["club_role"] };
       counted_steps: { Args: { raw: number; }; Returns: number };
       create_battle: { Args: { p_opponent: string; p_mode?: Database["public"]["Enums"]["battle_mode"]; p_duration_h?: number; p_distance_m?: number; p_stake_out?: number; p_route_run?: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
@@ -1638,6 +1744,7 @@ export type Database = {
       join_challenge: { Args: { p_challenge: string; }; Returns: undefined };
       join_club: { Args: { p_club: string; p_source?: Database["public"]["Enums"]["join_source"]; p_code?: string; }; Returns: undefined };
       join_club_by_code: { Args: { p_code: string; }; Returns: string };
+      join_waitlist: { Args: { p_email: string; p_borough: string; p_moves?: string; p_club?: string; p_ref?: string; p_black?: boolean; }; Returns: Json };
       leave_club: { Args: { p_club: string; }; Returns: undefined };
       level_for_xp: { Args: { p_xp: number; }; Returns: number };
       london_today: { Args: {  }; Returns: string };
@@ -1645,6 +1752,7 @@ export type Database = {
       outside_now: { Args: { p_city?: string; }; Returns: Json[] };
       period_start: { Args: { p: string; }; Returns: string };
       remove_club_member: { Args: { p_club: string; p_user: string; p_ban?: boolean; }; Returns: undefined };
+      request_black: { Args: { p_name: string; p_email: string; p_borough: string; p_code?: string; p_why?: string; }; Returns: Json };
       reserve_drop: { Args: { p_drop: string; p_size?: string; }; Returns: Database["public"]["Tables"]["drop_orders"]["Row"] };
       respond_battle: { Args: { p_battle: string; p_accept: boolean; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       rival_deck: { Args: { p_limit?: number; }; Returns: Database["public"]["Tables"]["profiles"]["Row"][] };
@@ -1654,6 +1762,7 @@ export type Database = {
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       submit_battle_result: { Args: { p_battle: string; p_run: string; p_result: number; }; Returns: undefined };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
+      website_stats: { Args: {  }; Returns: Json };
     };
     Enums: {
       tier: "free" | "pro" | "black";

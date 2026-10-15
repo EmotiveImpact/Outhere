@@ -34,6 +34,7 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 | Safety | `reports`, `blocks` | direct insert |
 | Money | `subscriptions` (sets the ring), `club_fund_entries`, `club_fund_months`, `locals_partners` | payment webhooks, scheduler: `credit_club_fund` |
 | Drops | `drops`, `drop_orders`, `drop_reminders` | `reserve_drop` |
+| Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats` |
 
 Rules the database enforces, so no client can cheat them:
 
@@ -66,7 +67,7 @@ Regenerate types after a schema change:
 ```sh
 createdb oh_types && sed '/^create role/d' supabase/tests/shim.sql | psql -d oh_types
 for f in supabase/migrations/*.sql; do psql -d oh_types -f "$f"; done
-python3 supabase/scripts/gen_types.py oh_types supabase/types/database.ts apps/mobile/src/lib/database.types.ts
+python3 supabase/scripts/gen_types.py oh_types supabase/types/database.ts
 ```
 
 Once the hosted project exists, `supabase link --project-ref <ref>` then `supabase db push` applies the migrations, and `supabase gen types typescript --linked` replaces the script.
