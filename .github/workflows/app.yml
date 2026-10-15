@@ -1,0 +1,46 @@
+name: Member app
+
+on:
+  pull_request:
+    paths:
+      - "apps/app/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - "eslint.config.mjs"
+      - ".npmrc"
+      - ".github/workflows/app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/app/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - "eslint.config.mjs"
+      - ".npmrc"
+      - ".github/workflows/app.yml"
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Typecheck, test, lint and build this app and the packages it uses.
+      - run: pnpm turbo run typecheck test lint build --filter "@outhere/app..."
