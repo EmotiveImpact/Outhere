@@ -1011,6 +1011,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      emote_trays: {
+        Row: {
+          user_id: string;
+          emotes: string[];
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          emotes?: string[];
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          emotes?: string[];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      emotes: {
+        Row: {
+          id: string;
+          label: string;
+          how: string;
+          source: string;
+          sort: number;
+        };
+        Insert: {
+          id: string;
+          label: string;
+          how: string;
+          source: string;
+          sort?: number;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          how?: string;
+          source?: string;
+          sort?: number;
+        };
+        Relationships: [];
+      };
       event_codes: {
         Row: {
           event_id: string;
@@ -1332,6 +1374,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      member_emotes: {
+        Row: {
+          user_id: string;
+          emote_id: string;
+          earned_at: string;
+          seen_at: string | null;
+        };
+        Insert: {
+          user_id: string;
+          emote_id: string;
+          earned_at?: string;
+          seen_at?: string | null;
+        };
+        Update: {
+          user_id?: string;
+          emote_id?: string;
+          earned_at?: string;
+          seen_at?: string | null;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: number;
@@ -1623,6 +1686,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      referrals: {
+        Row: {
+          referee_id: string;
+          referrer_id: string;
+          created_at: string;
+          qualified_at: string | null;
+        };
+        Insert: {
+          referee_id: string;
+          referrer_id: string;
+          created_at?: string;
+          qualified_at?: string | null;
+        };
+        Update: {
+          referee_id?: string;
+          referrer_id?: string;
+          created_at?: string;
+          qualified_at?: string | null;
+        };
+        Relationships: [];
+      };
       reports: {
         Row: {
           id: string;
@@ -1896,6 +1980,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      streak_freezes: {
+        Row: {
+          user_id: string;
+          day: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          day: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          day?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       subscriptions: {
         Row: {
           id: string;
@@ -2107,6 +2209,7 @@ export type Database = {
       claim_challenge: { Args: { p_challenge: string; }; Returns: undefined };
       claim_club: { Args: { p_club: string; p_size: string; p_role: string; p_email: string; p_city?: string; p_borough?: string; p_town?: string; p_region?: string; p_social?: string; }; Returns: Json };
       claim_my_club: { Args: { p_name: string; p_meeting_place: string; p_usual_times: string; p_founded?: number; p_proof_method?: string; p_proof_handle?: string; p_call_at?: string; p_club?: string; }; Returns: Json };
+      claim_referral: { Args: { p_username: string; }; Returns: Json };
       club_battles_for: { Args: { p_club: string; }; Returns: Json[] };
       club_role_of: { Args: { cid: string; uid?: string; }; Returns: Database["public"]["Enums"]["club_role"] };
       club_slug_free: { Args: { p_slug: string; p_club?: string; }; Returns: boolean };
@@ -2116,9 +2219,11 @@ export type Database = {
       create_battle: { Args: { p_opponent: string; p_mode?: Database["public"]["Enums"]["battle_mode"]; p_duration_h?: number; p_distance_m?: number; p_stake_out?: number; p_route_run?: string; p_stake_note?: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       create_club: { Args: { p_name: string; p_slug: string; p_city: string; p_borough?: string; p_tagline?: string; p_meeting_place?: string; p_usual_times?: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       decide_join_request: { Args: { p_request: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_join_requests"]["Row"] };
+      emote_counts: { Args: {  }; Returns: Json[] };
       finish_onboarding: { Args: { p_username: string; p_display_name?: string; p_city?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       fixture_side_score: { Args: { p_fixture: string; p_entry: string; }; Returns: number };
       fixture_view: { Args: { p_fixture: string; }; Returns: Json };
+      freezes_per_month: { Args: { p_tier: Database["public"]["Enums"]["tier"]; }; Returns: number };
       haversine_m: { Args: { lat1: number; lng1: number; lat2: number; lng2: number; }; Returns: number };
       ingest_steps: { Args: { p_day: string; p_steps: number; p_distance_m?: number; p_active_minutes?: number; p_source?: string; }; Returns: Database["public"]["Tables"]["daily_steps"]["Row"] };
       is_blocked: { Args: { a: string; b: string; }; Returns: boolean };
@@ -2134,7 +2239,10 @@ export type Database = {
       leave_club: { Args: { p_club: string; }; Returns: undefined };
       level_for_xp: { Args: { p_xp: number; }; Returns: number };
       london_today: { Args: {  }; Returns: string };
+      mark_emote_seen: { Args: { p_emote: string; }; Returns: undefined };
+      match_contacts: { Args: { p_emails: string[]; }; Returns: Json[] };
       out_available: { Args: { p_user: string; }; Returns: number };
+      out_multiplier: { Args: { p_tier: Database["public"]["Enums"]["tier"]; }; Returns: number };
       outside_now: { Args: { p_city?: string; }; Returns: Json[] };
       period_start: { Args: { p: string; }; Returns: string };
       read_channel: { Args: { p_channel: string; }; Returns: undefined };
@@ -2152,12 +2260,15 @@ export type Database = {
       rsvp_event: { Args: { p_event: string; p_going?: boolean; }; Returns: undefined };
       save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
       set_club_role: { Args: { p_club: string; p_user: string; p_role: Database["public"]["Enums"]["club_role"]; }; Returns: undefined };
+      set_emote_tray: { Args: { p_emotes: string[]; }; Returns: Json };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       set_reveal_held: { Args: { p_season: string; p_held: boolean; }; Returns: Database["public"]["Tables"]["seasons"]["Row"] };
       slug_part: { Args: { p_text: string; }; Returns: string };
+      streak_freeze_status: { Args: {  }; Returns: Json };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
       suggest_club_slug: { Args: { p_name: string; p_city?: string; p_club?: string; }; Returns: string };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
+      use_streak_freeze: { Args: {  }; Returns: Json };
       verify_club: { Args: { p_club: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       vote_club_battle: { Args: { p_battle: string; p_yes: boolean; }; Returns: undefined };
       website_stats: { Args: {  }; Returns: Json };
