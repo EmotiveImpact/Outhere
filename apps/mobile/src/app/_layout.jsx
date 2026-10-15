@@ -12,6 +12,7 @@ import { EngineBridge, useProfile } from "@/data/hooks";
 import { useStepSync } from "@/hooks/useStepSync";
 import UpgradeSheet from "@/components/ui/UpgradeSheet";
 import { ToastHost } from "@/components/ui/Toast";
+import { Grain } from "@/components/ui/Grain";
 import LaunchScreen from "@/components/ui/LaunchScreen";
 
 SplashScreen.preventAutoHideAsync();
@@ -64,6 +65,8 @@ function RootStack() {
         <Stack.Screen name="stories/club/[crewId]" options={{ animation: "fade", presentation: "fullScreenModal", contentStyle: { backgroundColor: "#000" } }} />
         <Stack.Screen name="stories/share/[fixtureId]" options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }} />
       </Stack>
+      {/* .phone::after: a whisper of film grain over every screen */}
+      <Grain amount={0.05} />
       <StepSync />
       <UpgradeSheet />
       <ToastHost />

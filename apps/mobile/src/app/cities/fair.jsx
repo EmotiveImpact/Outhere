@@ -5,8 +5,10 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCityFixture, useCityLeague } from "@/data/hooks";
-import { C, F, R, Row, S, Segment } from "@/components/ui";
+import { C, F, Meter, Row, S, Segment, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { GlowHero, TopBar } from "@/components/arena/OutsideKit";
+import { StackTabBar } from "@/components/AppTabBar";
+import { PHOTOS } from "@/constants/photos";
 import { compactNumber, formatNumber } from "@/utils/format";
 
 const RULES = [
@@ -44,8 +46,8 @@ export default function Fair() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        <GlowHero height={190} kicker="How city battles stay fair" top={small ? `${formatNumber(small.active)} can beat` : "Small can beat"} bottom={big ? formatNumber(big.active) : "big"} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_SPACE }}>
+        <GlowHero height={210} object={PHOTOS.shield} objectSize={220} objectStyle={{ right: -40, top: insets.top - 14 }} kicker="How city battles stay fair" top={small ? `${formatNumber(small.active)} can beat` : "Small can beat"} bottom={big ? formatNumber(big.active) : "big"} />
         <View style={{ paddingHorizontal: S.gutter, gap: S.md, marginTop: S.lg }}>
           <Segment
             options={[
@@ -56,24 +58,22 @@ export default function Fair() {
             onChange={setView}
           />
           {rows.length ? (
-            <View style={styles.card}>
+            <Surface padding={S.lg}>
               {rows.map(([name, v, hi]) => (
                 <Row key={name} gap={S.md} style={{ paddingVertical: 6 }}>
                   <Text style={styles.name} numberOfLines={1}>
                     {name}
                   </Text>
-                  <View style={styles.track}>
-                    <View style={{ width: `${(v / max) * 100}%`, height: "100%", borderRadius: 4, backgroundColor: hi ? C.accent : "#2f5ea8" }} />
-                  </View>
+                  <Meter value={v / max} size={10} flow={hi} cap={hi} style={[{ flex: 1 }, !hi && { opacity: 0.6 }]} />
                   <Text style={styles.value}>{view === "totals" ? compactNumber(v) : formatNumber(v)}</Text>
                 </Row>
               ))}
               <Text style={[styles.small, { marginTop: S.sm }]}>
                 {view === "totals" ? "Add up everyone's steps and the bigger place always wins. That's not a game." : "Same size squads, picked at random. Now it's about who moves more."}
               </Text>
-            </View>
+            </Surface>
           ) : null}
-          <View style={styles.card}>
+          <Surface padding={S.lg}>
             {RULES.map(([t, d], i) => (
               <Row key={t} gap={S.md} style={[{ alignItems: "flex-start", paddingVertical: 10 }, i > 0 && styles.line]}>
                 <Text style={styles.num}>{i + 1}</Text>
@@ -83,18 +83,17 @@ export default function Fair() {
                 </View>
               </Row>
             ))}
-          </View>
+          </Surface>
         </View>
       </ScrollView>
       <TopBar />
+      <StackTabBar current="outside" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
   name: { width: 96, color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
-  track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: C.surfaceHigh, overflow: "hidden" },
   value: { width: 56, textAlign: "right", color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 17, marginTop: 2 },
   line: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },

@@ -4,60 +4,52 @@
 
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import { RotateCcw, Route, WifiOff } from "lucide-react-native";
-import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
-import { PressableScale } from "./motion";
-import { C, F, LIT, R, S } from "./tokens";
+import { PHOTOS } from "@/constants/photos";
+import { BlendImage } from "./BlendImage";
+import { GlowBackdrop } from "./GlowBackdrop";
+import { GlowButton } from "./GlowButton";
+import { Grain } from "./Grain";
+import { IconTile, Surface } from "./Surface";
+import { C, F, FINISH, R, S, splitShadow } from "./tokens";
+
+const SLAB_EDGE = splitShadow(FINISH.slabEdge);
 
 const formatNumber = (n) => Math.round(Number(n) || 0).toLocaleString("en-GB");
 
 /**
- * "Couldn't load your crew": a dark slab with a red kicker and the two-tone
- * headline, a line saying the member's steps are safe, Try again, and a
- * card showing steps still counting on the phone.
+ * "Couldn't load your crew": the hero slab with the phone object, a red
+ * kicker and the two-tone headline, a line saying the member's steps are
+ * safe, Try again, and a card showing steps still counting on the phone.
  * what: the thing that failed, e.g. "your crew". steps: today's steps, or null.
  */
-// A soft blue light in the top right of the slab.
-const Glow = () => (
-  <Svg pointerEvents="none" width={420} height={420} style={{ position: "absolute", right: -120, top: -60 }}>
-    <Defs>
-      <RadialGradient id="errorGlow" cx="50%" cy="50%" r="50%">
-        <Stop offset="0" stopColor="#3d8bff" stopOpacity={0.42} />
-        <Stop offset="0.45" stopColor="#2a5fc0" stopOpacity={0.19} />
-        <Stop offset="1" stopColor="#0d1524" stopOpacity={0} />
-      </RadialGradient>
-    </Defs>
-    <Circle cx={210} cy={210} r={210} fill="url(#errorGlow)" />
-  </Svg>
-);
-
 export function ErrorState({ what = "this", body, steps, onRetry, retrying = false, right, bleed = true, style }) {
   const insets = useSafeAreaInsets();
   const padTop = bleed ? insets.top : 0;
   return (
     <View style={style}>
-      <View style={[styles.slab, { paddingTop: padTop + 120 }]}>
-        <LinearGradient colors={["#0d1524", "#080b11"]} style={StyleSheet.absoluteFill} />
-        <Glow />
-        {right ? <View style={[styles.right, { top: padTop + S.sm }]}>{right}</View> : null}
-        <Text style={styles.kicker}>Something went wrong</Text>
-        <Text style={styles.headline}>Couldn't load</Text>
-        <Text style={[styles.headline, { color: C.accent }]} numberOfLines={2} adjustsFontSizeToFit>
-          {what}
-        </Text>
-      </View>
-      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.lg }}>
-        <Text style={styles.body}>{body || "Our side had a wobble. Your steps and runs are safe on your phone and will sync once we're back."}</Text>
-        <PressableScale onPress={onRetry} disabled={retrying} scaleTo={0.97} accessibilityLabel="Try again" style={styles.retry}>
-          <LinearGradient colors={[C.accent, C.accentDeep]} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 1 }}>
-            {retrying ? <ActivityIndicator color="#fff" /> : <RotateCcw size={18} color="#fff" strokeWidth={2.2} />}
-            <Text style={styles.retryText}>Try again</Text>
+      {/* .slab with the phone, greyed a little: the app is fine, the network isn't */}
+      <View style={[styles.slabWrap, { boxShadow: SLAB_EDGE.outer }]}>
+        <View style={[styles.slab, { height: padTop + 286 }]}>
+          <GlowBackdrop preset="slab" />
+          <BlendImage source={PHOTOS.phone} size={206} grey={0.5} float style={{ position: "absolute", right: -40, top: padTop - 14 }} />
+          <Grain amount={0.06} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRadius, { boxShadow: SLAB_EDGE.inset }]} />
+          {right ? <View style={[styles.right, { top: padTop + S.sm }]}>{right}</View> : null}
+          <View style={styles.hl}>
+            <Text style={styles.kicker}>Something went wrong</Text>
+            <Text style={styles.headline}>Couldn't load</Text>
+            <Text style={[styles.headline, styles.two]} numberOfLines={2} adjustsFontSizeToFit>
+              {what}
+            </Text>
           </View>
-        </PressableScale>
+        </View>
+      </View>
+      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
+        <Text style={styles.body}>{body || "Our side had a wobble. Your steps and runs are safe on your phone and will sync once we're back."}</Text>
+        <GlowButton title="Try again" icon={RotateCcw} onPress={onRetry} loading={retrying} full />
         <StillCounting steps={steps} />
       </View>
     </View>
@@ -67,16 +59,13 @@ export function ErrorState({ what = "this", body, steps, onRetry, retrying = fal
 /** Small card: the phone keeps counting whatever the network does. */
 export function StillCounting({ steps, style }) {
   return (
-    <View style={[styles.card, styles.counting, style]}>
-      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
-      <View style={styles.countIcon}>
-        <Route size={20} color={C.accentHi} />
-      </View>
+    <Surface style={style} contentStyle={styles.counting}>
+      <IconTile icon={Route} />
       <View style={{ flex: 1 }}>
         <Text style={styles.cardTitle}>Still counting</Text>
         <Text style={styles.cardSub}>{steps != null ? `${formatNumber(steps)} steps saved today` : "Your steps save on this phone"}</Text>
       </View>
-    </View>
+    </Surface>
   );
 }
 
@@ -107,8 +96,7 @@ export function SyncList({ items = [], title = "Waiting to sync", style }) {
         <Text style={styles.syncTitle}>{title}</Text>
         <Text style={styles.syncCount}>{items.length === 1 ? "1 item" : `${items.length} items`}</Text>
       </View>
-      <View style={styles.card}>
-        <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
+      <Surface padding={0}>
         {items.map(({ key, icon: Icon, title: t, sub }, i) => (
           <View key={key} style={[styles.syncRow, i > 0 && styles.syncSep]}>
             {Icon ? <Icon size={18} color={C.textDim} /> : null}
@@ -119,22 +107,24 @@ export function SyncList({ items = [], title = "Waiting to sync", style }) {
             <ActivityIndicator size="small" color={C.accent} />
           </View>
         ))}
-      </View>
+      </Surface>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  slab: { backgroundColor: "#0b0e13", borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: "hidden", paddingHorizontal: S.gutter, paddingBottom: S.xl },
+  slabWrap: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  slab: { backgroundColor: FINISH.slab.base, borderBottomLeftRadius: 34, borderBottomRightRadius: 34, overflow: "hidden", justifyContent: "flex-end" },
+  slabRadius: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  hl: { paddingHorizontal: S.gutter, paddingBottom: 24 },
   right: { position: "absolute", right: S.gutter, flexDirection: "row", gap: S.sm },
-  kicker: { color: C.danger, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 6 },
-  headline: { color: C.text, fontFamily: F.display, fontSize: 46, lineHeight: 46, textTransform: "uppercase" },
+  // a soft red, so it reads as a wobble rather than an alarm (#ff8b95)
+  kicker: { color: "#ff8b95", fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 8 },
+  headline: { color: C.text, fontFamily: F.display, fontSize: 49, lineHeight: 46, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  two: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
   body: { color: C.textDim, fontFamily: F.body, fontSize: 14, lineHeight: 21 },
-  retry: { height: 54, borderRadius: R.full, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, shadowColor: C.accent, shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
-  retryText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 16 },
-  card: { borderRadius: R.lg, backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop, overflow: "hidden" },
   counting: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg },
-  countIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: "rgba(61,139,255,0.14)", borderWidth: 1, borderColor: "rgba(61,139,255,0.35)", alignItems: "center", justifyContent: "center" },
+  // .oh-tile: the small blue icon square
   cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   cardSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
   banner: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.lg, borderRadius: R.lg, backgroundColor: "rgba(255,181,71,0.10)", borderWidth: 1, borderColor: "rgba(255,181,71,0.35)" },

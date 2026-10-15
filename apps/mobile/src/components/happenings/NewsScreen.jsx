@@ -70,7 +70,7 @@ export default function OutsideNewsScreen() {
       ) : (
         <>
           <PressableScale onPress={() => open(top.id)} scaleTo={0.995} haptic={false} accessibilityLabel={`Read ${top.title}`}>
-            <GlowHero photo={imageSource(top.image)} photoOpacity={0.4} height={330} kicker={`${newsKicker(top.category)} · ${when(top.publishedAt)}`} top={white} bottom={blue} sub={top.summary} />
+            <GlowHero photo={imageSource(top.image)} height={396} kicker={`${newsKicker(top.category)} · ${when(top.publishedAt)}`} top={white} bottom={blue} sub={top.summary} />
           </PressableScale>
           {swipe.length ? (
             <>

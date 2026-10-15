@@ -10,11 +10,10 @@ import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "expo-image";
 import Animated, { FadeOut, ZoomIn } from "react-native-reanimated";
 import { Clock3, Share2, Swords, TrendingUp, Trophy, Zap } from "lucide-react-native";
 import { engine, useBattle, useBattleEmotes, useBattles, useEngineMutation, useHeadToHead, useProfile } from "@/data/hooks";
-import { Avatar, C, F, LiveDot, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
+import { Avatar, BlendImage, C, F, LiveDot, PressableScale, R, Row, S, Skeleton, Surface, TugBar, VersusSplit, imageSource } from "@/components/ui";
 import { BottomBar, ButtonPair, Coin, GlassChip, GlowHero, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
 import ClassicBattle from "@/components/arena/ClassicBattle";
 import Confetti from "@/components/arena/Confetti";
@@ -25,7 +24,6 @@ import { distanceLabel } from "@/constants/battleModes";
 import { formatNumber } from "@/utils/format";
 
 const BLUE = "#3d8bff";
-const RED = "#ff4d55";
 const BOOST_OUT = 20;
 
 const clockText = (ms) => {
@@ -146,7 +144,7 @@ function Burst({ code, onDone }) {
   return (
     <View style={styles.burstWrap} pointerEvents="none">
       <Animated.View entering={ZoomIn.springify().damping(9)} exiting={FadeOut.duration(250)} style={{ alignItems: "center" }}>
-        {emote ? <Image source={emote.image} style={{ width: 170, height: 170 }} contentFit="contain" /> : null}
+        {emote ? <BlendImage source={emote.image} size={190} mask="burst" glow={230} /> : null}
         <Text style={styles.burstText}>{emoteLabel(code)}</Text>
       </Animated.View>
     </View>
@@ -197,41 +195,39 @@ function LiveBattle({ battle }) {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 190 + insets.bottom }}>
-        {/* Versus header: you in blue on the left, them in red on the right. */}
-        <View style={[styles.versus, { height: 200 + insets.top }]}>
-          <LinearGradient colors={["rgba(61,139,255,0.55)", "rgba(61,139,255,0.08)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.half, { left: 0 }]} />
-          <LinearGradient colors={["rgba(255,77,85,0.08)", "rgba(255,77,85,0.5)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.half, { right: 0 }]} />
-          <LinearGradient colors={["rgba(7,9,12,0)", C.bg]} style={[StyleSheet.absoluteFill, { top: "55%" }]} />
-          <View style={styles.seam} />
-          <Text style={[styles.vsBig, { top: insets.top + 56 }]}>VS</Text>
+        {/* Versus header (.r10vsh): you lit blue on the left, them red on the right, split by a glowing seam. */}
+        <VersusSplit
+          height={200 + insets.top}
+          slant={0.08}
+          left={{ source: imageSource(b.me.player?.avatar) || PHOTOS.fighterA, tint: "rgba(42,106,240,0.35)", focus: { x: 0.5, y: 0.2 } }}
+          right={{ source: imageSource(opp?.avatar) || PHOTOS.fighterB, tint: "rgba(255,77,85,0.32)", focus: { x: 0.5, y: 0.2 } }}
+          fade="rgba(7,9,12,1)"
+          fadeFrom={0.55}
+        >
           <Text style={[styles.sideName, { left: S.gutter }]}>You</Text>
           <Text style={[styles.sideName, { right: S.gutter, textAlign: "right" }]} numberOfLines={1}>
             {oppName}
           </Text>
-        </View>
+        </VersusSplit>
 
         <View style={{ paddingHorizontal: S.gutter, marginTop: -16 }}>
-          <View style={styles.scoreCard}>
+          <Surface padding={S.lg}>
             <Row style={{ justifyContent: "space-between" }}>
               <Text style={styles.scoreLabel}>You</Text>
               <Text style={styles.scoreLabel}>{oppName}</Text>
             </Row>
             <Row style={{ justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={[styles.score, { color: "#6fa8ff" }]} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={[styles.score, styles.scoreMine]} numberOfLines={1} adjustsFontSizeToFit>
                 {formatScore(b.metric, mine)}
               </Text>
               <View style={styles.vsDot}>
                 <Text style={styles.vsDotText}>VS</Text>
               </View>
-              <Text style={[styles.score, { color: "#ff7d84", textAlign: "right" }]} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={[styles.score, styles.scoreTheirs]} numberOfLines={1} adjustsFontSizeToFit>
                 {formatScore(b.metric, theirs)}
               </Text>
             </Row>
-            <View style={styles.tug}>
-              <LinearGradient colors={["#2a6af0", BLUE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${share * 100}%`, height: "100%" }} />
-              <LinearGradient colors={[RED, "#c8323a"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, height: "100%" }} />
-              <View style={[styles.tugKnob, { left: `${share * 100}%` }]} />
-            </View>
+            <TugBar share={share} style={{ marginTop: S.lg, marginBottom: 4 }} />
             <Row style={{ justifyContent: "space-between", marginTop: S.sm }}>
               <Text style={styles.small}>
                 <Text style={{ color: C.text }}>{lead}</Text>
@@ -239,21 +235,21 @@ function LiveBattle({ battle }) {
               </Text>
               {areas ? <Text style={styles.small}>{areas}</Text> : null}
             </Row>
-          </View>
+          </Surface>
 
           <Row gap={S.sm} style={{ marginTop: S.md }}>
             <GlassChip icon={Clock3} label="Ends in" value={clockText(remaining)} tone="accent" />
             {b.isSurprise ? <GlassChip label="Mystery battle" /> : null}
           </Row>
 
-          <View style={styles.pot}>
-            <Image source={PHOTOS.coin} style={styles.potImage} contentFit="cover" />
+          <Surface padding={S.md} style={{ marginTop: S.md }} contentStyle={styles.pot}>
+            <BlendImage source={PHOTOS.coin} size={52} mask="wide" />
             <View style={{ flex: 1 }}>
               <Text style={styles.potTitle}>{pot ? `${formatNumber(pot)} OUT pot` : "Bragging rights"}</Text>
               <Text style={styles.small}>{pot ? `${formatNumber(b.stakeOut)} each · winner takes all` : "Win for 150 XP and 15 OUT"}</Text>
             </View>
             {b.boosted ? <Text style={styles.boosted}>×2 XP</Text> : null}
-          </View>
+          </Surface>
 
           {/* The set lines, newest at the bottom: theirs on the right, yours on the left. */}
           <View style={{ marginTop: S.lg, gap: S.sm }}>
@@ -264,7 +260,7 @@ function LiveBattle({ battle }) {
                 const art = BATTLE_EMOTES.find((x) => x.code === e.code)?.image;
                 return (
                   <View key={e.id} style={[styles.bubble, e.mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                    {art ? <Image source={art} style={{ width: 22, height: 22 }} contentFit="contain" /> : <Avatar uri={e.mine ? b.me.player?.avatar : opp?.avatar} name={e.mine ? b.me.player?.name || "You" : oppName} size={22} />}
+                    {art ? <BlendImage source={art} size={24} mask="tight" /> : <Avatar uri={e.mine ? b.me.player?.avatar : opp?.avatar} name={e.mine ? b.me.player?.name || "You" : oppName} size={22} />}
                     <Text style={styles.bubbleText}>{emoteLabel(e.code)}</Text>
                   </View>
                 );
@@ -284,7 +280,7 @@ function LiveBattle({ battle }) {
           ) : null}
           {BATTLE_EMOTES.map((e) => (
             <PressableScale key={e.code} onPress={() => send.mutate([b.id, e.code])} scaleTo={0.88} style={styles.emote} accessibilityLabel={e.label}>
-              <Image source={e.image} style={{ width: 40, height: 40 }} contentFit="contain" />
+              <BlendImage source={e.image} size={50} mask="tight" />
             </PressableScale>
           ))}
         </ScrollView>
@@ -425,32 +421,29 @@ const styles = StyleSheet.create({
   inviteTitle: { color: C.text, fontFamily: F.display, fontSize: 48, lineHeight: 50, textTransform: "uppercase", textAlign: "center", marginTop: S.lg },
   blueGlow: { color: C.accent, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 }, marginTop: 0 },
   warn: { color: C.warn, fontFamily: F.body, fontSize: 13, marginTop: S.md, textAlign: "center" },
-  versus: { overflow: "hidden", backgroundColor: "#07090c" },
-  half: { position: "absolute", top: 0, bottom: 0, width: "50%" },
-  seam: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.6)" },
-  vsBig: { position: "absolute", left: 0, right: 0, textAlign: "center", color: "#fff", fontFamily: F.display, fontSize: 58, fontStyle: "italic", textShadowColor: "rgba(255,255,255,0.6)", textShadowRadius: 20, textShadowOffset: { width: 0, height: 0 } },
   sideName: { position: "absolute", bottom: 26, color: "#fff", fontFamily: F.display, fontSize: 22, textTransform: "uppercase", maxWidth: "45%" },
-  scoreCard: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
   scoreLabel: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
-  score: { flex: 1, fontFamily: F.display, fontSize: 40, lineHeight: 46 },
-  vsDot: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center", marginHorizontal: S.sm },
-  vsDotText: { color: C.textSoft, fontFamily: F.display, fontSize: 13 },
-  tug: { flexDirection: "row", height: 8, borderRadius: 4, overflow: "hidden", marginTop: S.md, backgroundColor: C.surfaceHigh },
-  tugKnob: { position: "absolute", top: -4, width: 4, height: 16, marginLeft: -2, borderRadius: 2, backgroundColor: "#fff" },
+  score: { flex: 1, fontFamily: F.display, fontSize: 44, lineHeight: 48 },
+  // .oh-score .head b: blue-hi and #ff8b92, each glowing in its colour
+  scoreMine: { color: "#82b4ff", textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 26, textShadowOffset: { width: 0, height: 0 } },
+  scoreTheirs: { color: "#ff8b92", textAlign: "right", textShadowColor: "rgba(255,77,85,0.45)", textShadowRadius: 26, textShadowOffset: { width: 0, height: 0 } },
+  // .oh-score .vs: a gunmetal coin
+  vsDot: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#2b3038", alignItems: "center", justifyContent: "center", marginHorizontal: S.sm, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 1px rgba(255,255,255,0.06), 0 6px 14px -6px rgba(0,0,0,0.8)" },
+  vsDotText: { color: "#c9d0db", fontFamily: F.display, fontSize: 14, letterSpacing: 0.5 },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  pot: { flexDirection: "row", alignItems: "center", gap: S.md, marginTop: S.md, padding: S.md, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  potImage: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#000" },
+  pot: { flexDirection: "row", alignItems: "center", gap: S.md },
   potTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
   boosted: { color: C.accent, fontFamily: F.display, fontSize: 18 },
   bubble: { flexDirection: "row", alignItems: "center", gap: 8, maxWidth: "75%", paddingHorizontal: 12, height: 38, borderRadius: 19 },
-  bubbleMine: { alignSelf: "flex-start", backgroundColor: BLUE },
-  bubbleTheirs: { alignSelf: "flex-end", backgroundColor: C.surfaceHigh },
+  bubbleMine: { alignSelf: "flex-start", backgroundColor: "#2a6af0", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 10px 24px -10px rgba(42,106,240,0.9)" },
+  bubbleTheirs: { alignSelf: "flex-end", backgroundColor: "#1b1f26", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.045)" },
   bubbleText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 14 },
-  tray: { position: "absolute", left: S.md, right: S.md, paddingVertical: S.md, borderRadius: R.lg, backgroundColor: "rgba(18,21,26,0.96)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
-  emote: { width: 58, height: 58, borderRadius: 16, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  boostTile: { backgroundColor: BLUE, gap: 2 },
+  // the emote tray floats like the tab bar: frosted, lit along its edge
+  tray: { position: "absolute", left: S.md, right: S.md, paddingVertical: S.md, borderRadius: 26, backgroundColor: "rgba(18,21,26,0.94)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.06), 0 24px 50px -18px rgba(0,0,0,0.95)" },
+  emote: { width: 58, height: 58, borderRadius: 16, backgroundColor: "#15181e", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.04)" },
+  boostTile: { backgroundColor: "#2a6af0", gap: 2, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.34), inset 0 -1px 0 rgba(0,0,0,0.28), 0 10px 22px -10px rgba(42,106,240,0.9)" },
   boostText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 10 },
-  line: { height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: C.surfaceHigh, justifyContent: "center" },
+  line: { height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: "#1b1f26", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" },
   lineText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
   livePill: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(12,15,20,0.6)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)", alignSelf: "flex-end" },
   livePillText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12 },

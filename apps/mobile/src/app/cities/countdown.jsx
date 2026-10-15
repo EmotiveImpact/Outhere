@@ -6,33 +6,15 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Defs, Line, RadialGradient, Rect, Stop } from "react-native-svg";
-import Animated, { ZoomIn } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useAreaTable, useCityFixture, usePlaySide } from "@/data/hooks";
-import { Button, C, F, R, Row, S } from "@/components/ui";
+import { PHOTOS } from "@/constants/photos";
+import { Button, C, F, R, Row, S, Spotlight, SpotlightNumber, hypeColour } from "@/components/ui";
 import { StatBoxes, TopBar } from "@/components/arena/OutsideKit";
 import { compactNumber, formatNumber } from "@/utils/format";
 import { hapticSelection, hapticSuccess } from "@/services/haptics";
 
 const AREA_CUP_OUT = 400;
-
-function Rays() {
-  return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-      <Defs>
-        <RadialGradient id="cdglow" cx="50%" cy="42%" rx="55%" ry="40%">
-          <Stop offset="0" stopColor="#3d8bff" stopOpacity="0.55" />
-          <Stop offset="1" stopColor="#3d8bff" stopOpacity="0" />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#cdglow)" />
-      {Array.from({ length: 36 }, (_, i) => {
-        const a = (i / 36) * Math.PI * 2;
-        return <Line key={i} x1="50%" y1="42%" x2={`${50 + Math.cos(a) * 120}%`} y2={`${42 + Math.sin(a) * 120}%`} stroke="rgba(130,180,255,0.08)" strokeWidth={1} />;
-      })}
-    </Svg>
-  );
-}
 
 export default function CityCountdown() {
   const router = useRouter();
@@ -94,57 +76,62 @@ export default function CityCountdown() {
     ];
   }
 
+  // The prototype's .hype stage, in px from the top of the screen: the light
+  // and the number centre 330 down, the labels at 478 and 500, the stakes at 556.
+  const y = (px) => insets.top - 14 + px;
+  const colour = hypeColour(go ? 0 : n);
   return (
-    <View style={{ flex: 1, backgroundColor: "#050913" }}>
-      <Rays />
-      <View style={{ paddingTop: insets.top + 64, alignItems: "center", paddingHorizontal: S.gutter }}>
-        <View style={styles.chip}>
-          <View style={styles.dot} />
-          <Text style={styles.chipText} numberOfLines={1}>
-            {chip}
-          </Text>
+    <View style={{ flex: 1, backgroundColor: "#03050a" }}>
+      <Spotlight beat={go ? "go" : n} go={go} colour={colour} photo={PHOTOS.city} centreY={y(330)}>
+        <View style={[styles.route, { top: y(76) }]}>
+          <View style={styles.chip}>
+            <View style={styles.dot} />
+            <Text style={styles.chipText} numberOfLines={1}>
+              {chip}
+            </Text>
+          </View>
         </View>
-        <Row gap={6} style={{ marginTop: S.lg, alignSelf: "stretch" }}>
-          {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={[styles.seg, i < (go ? 4 : 4 - n) && styles.segOn]} />
-          ))}
+        <Row gap={5} style={[styles.hbar, { top: y(126) }]}>
+          {[0, 1, 2, 3].map((i) => {
+            const on = i < (go ? 4 : 4 - n);
+            return <View key={i} style={[styles.seg, on && { backgroundColor: colour, boxShadow: `0 0 8px ${colour}` }]} />;
+          })}
         </Row>
-      </View>
-      <View style={styles.centre}>
-        {go ? (
-          <Animated.Text entering={ZoomIn.springify().damping(9)} style={styles.goText}>
-            Go
-          </Animated.Text>
-        ) : (
-          <Animated.Text key={n} entering={ZoomIn.springify().damping(10)} style={styles.count}>
-            {n}
-          </Animated.Text>
-        )}
-        <Text style={styles.line}>{line}</Text>
-        <Text style={styles.title}>{title}</Text>
-      </View>
-      <View style={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + S.lg }}>
-        <StatBoxes glass items={boxes} />
-        {go ? (
-          <Button title="Out the door" size="lg" full onPress={() => router.replace(area ? "/cities/areas" : "/cities/vs")} style={{ marginTop: S.lg }} />
-        ) : (
-          <Button title="Cancel" variant="ghost" onPress={() => (router.canGoBack() ? router.back() : router.replace("/cities"))} style={{ alignSelf: "center", marginTop: S.lg }} />
-        )}
-      </View>
+        <View style={[styles.number, { top: y(330) - 150 }]} pointerEvents="none">
+          <SpotlightNumber key={go ? "go" : n} value={go ? "GO" : n} colour={colour} />
+        </View>
+        <Text style={[styles.line, { top: y(478) }]}>{line}</Text>
+        <Animated.Text key={`t${go}`} entering={FadeInDown.duration(500).delay(150)} style={[styles.title, { top: y(500) }]}>
+          {title}
+        </Animated.Text>
+        <View style={[styles.stakes, { top: y(556) }]}>
+          <StatBoxes glass items={boxes} />
+        </View>
+        <View style={{ position: "absolute", left: S.gutter, right: S.gutter, bottom: insets.bottom + S.lg }}>
+          {go ? (
+            <Button title="Out the door" size="lg" full onPress={() => router.replace(area ? "/cities/areas" : "/cities/vs")} />
+          ) : (
+            <Button title="Cancel" variant="ghost" onPress={() => (router.canGoBack() ? router.back() : router.replace("/cities"))} style={{ alignSelf: "center" }} />
+          )}
+        </View>
+      </Spotlight>
       <TopBar />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: { flexDirection: "row", alignItems: "center", gap: 8, height: 36, paddingHorizontal: 14, borderRadius: R.full, backgroundColor: "rgba(27,31,38,0.85)", maxWidth: "100%" },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#ff4d55" },
-  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
-  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)" },
-  segOn: { backgroundColor: C.accent },
-  centre: { flex: 1, alignItems: "center", justifyContent: "center" },
-  count: { color: "#fff", fontFamily: F.display, fontSize: 330, lineHeight: 340, textShadowColor: "rgba(61,139,255,0.9)", textShadowRadius: 40, textShadowOffset: { width: 0, height: 0 } },
-  goText: { color: C.accent, fontFamily: F.display, fontSize: 220, lineHeight: 230, textTransform: "uppercase", textShadowColor: "rgba(61,139,255,0.9)", textShadowRadius: 40, textShadowOffset: { width: 0, height: 0 } },
-  line: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginTop: S.sm },
-  title: { color: C.text, fontFamily: F.display, fontSize: 36, textTransform: "uppercase", marginTop: 4 },
+  // .hype .hroute: a glass chip with a live dot
+  route: { position: "absolute", left: 18, right: 18, alignItems: "center" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 7, paddingVertical: 8, paddingHorizontal: 13, borderRadius: R.full, backgroundColor: "rgba(255,255,255,0.1)", maxWidth: "100%" },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#ff5a5f", boxShadow: "0 0 8px #ff5a5f" },
+  chipText: { color: C.text, fontFamily: F.bodySemi, fontSize: 12 },
+  // .hype .hbar: four beats, lit in the beat's colour
+  hbar: { position: "absolute", left: 18, right: 18 },
+  seg: { flex: 1, height: 4, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.18)" },
+  number: { position: "absolute", left: 0, right: 0, height: 300, justifyContent: "center" },
+  // .hype .hk and .hl7
+  line: { position: "absolute", left: 0, right: 0, textAlign: "center", color: "rgba(255,255,255,0.6)", fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase" },
+  title: { position: "absolute", left: 0, right: 0, textAlign: "center", color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 36, letterSpacing: 0.5, textTransform: "uppercase" },
+  stakes: { position: "absolute", left: 18, right: 18 },
 });

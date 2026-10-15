@@ -273,9 +273,10 @@ export default function ArenaScreen() {
       refreshControl={<RefreshControl refreshing={arena.isRefetching} onRefresh={() => { arena.refetch(); battles.refetch(); }} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
     >
       <GlowHero
-        photo={PHOTOS.battle}
-        photoOpacity={0.35}
-        height={300}
+        object={PHOTOS.trophy}
+        objectSize={270}
+        objectStyle={{ right: -34, top: insets.top + 38 }}
+        height={342}
         kicker={a ? `${a.name} · Week ${a.week}` : "The Arena"}
         top="The"
         bottom="Arena"

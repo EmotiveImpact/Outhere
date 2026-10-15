@@ -1,76 +1,87 @@
 // Pieces the Outside screens share: the full bleed hero with its blue glow,
 // round glass buttons over it, glass chips, the three stat boxes, a fixed
 // bottom bar with two buttons, the OUT coin and a switch. Built from the
-// design kit in components/ui.
+// design kit in components/ui (the finish kit: see components/ui/FINISH.md).
 
 import React from "react";
 import { Platform, StyleSheet, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { ChevronLeft, MoreHorizontal, Share2, X } from "lucide-react-native";
-import { Button, C, F, LIT, PressableScale, R, Row, S } from "@/components/ui";
+import { BlendImage, Button, C, F, FINISH, GlowBackdrop, Grain, Meter, PhotoBackground, PressableScale, R, Row, S, Surface, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 
-let glowId = 0;
+const pct = (v) => (typeof v === "string" ? parseFloat(v) / 100 : v);
+const rgba = (hex, a) => {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, "$1$1") : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+const SLAB_EDGE = splitShadow(FINISH.slabEdge);
+const GLASS_EDGE = splitShadow(FINISH.glassEdge);
 
-/** A soft blue light, as if a street lamp is just off screen. */
+/** A soft blue light, as if a street lamp is just off screen. Drawn by the kit's GlowBackdrop. */
 export function Glow({ x = "72%", y = "24%", r = "70%", colour = "#2a6af0", opacity = 0.42, style }) {
-  const id = React.useMemo(() => `glow${(glowId += 1)}`, []);
-  return (
-    <Svg style={[StyleSheet.absoluteFill, style]} pointerEvents="none" width="100%" height="100%">
-      <Defs>
-        <RadialGradient id={id} cx={x} cy={y} rx={r} ry={r} fx={x} fy={y} gradientUnits="objectBoundingBox">
-          <Stop offset="0" stopColor={colour} stopOpacity={opacity} />
-          <Stop offset="0.55" stopColor={colour} stopOpacity={opacity * 0.25} />
-          <Stop offset="1" stopColor={colour} stopOpacity="0" />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+  const layers = React.useMemo(
+    () => [{ x: pct(x), y: pct(y), rx: pct(r), ry: pct(r), stops: [[0, rgba(colour, opacity)], [0.55, rgba(colour, opacity * 0.25)], [1, rgba(colour, 0)]] }],
+    [x, y, r, colour, opacity]
   );
+  return <GlowBackdrop layers={layers} base={null} style={style} />;
 }
 
 /**
- * The screen hero: full bleed under the status bar, rounded at the bottom,
- * with a kicker and a two tone headline. `photo` lays a picture underneath.
- * `top` leaves room for the Outside pills or the round buttons.
+ * The screen hero (.oh-slab): full bleed under the status bar, rounded at
+ * the bottom and lit along its lower edge, with a kicker and a two tone
+ * headline. `photo` lays a picture underneath (faded the prototype's way,
+ * with a slow push in); `object` floats a 3D object on the right with its
+ * black dropped out (objectSize, objectStyle to place it). Film grain over
+ * both. The text leaves room at the top for the Outside pills or the round
+ * buttons.
  */
-export function GlowHero({ photo, kicker, kickerColour = C.accentHi, top, bottom, sub, height = 300, children, after, style, center = false, glow = true, photoOpacity = 0.55 }) {
+export function GlowHero({ photo, object, objectSize, objectStyle, kicker, kickerColour = C.accentHi, top, bottom, sub, height = 300, children, after, style, center = false, glow = true, photoOpacity = 1 }) {
   const insets = useSafeAreaInsets();
+  const size = objectSize || height * 0.86;
   return (
-    <View style={[styles.hero, { minHeight: height + insets.top }, style]}>
-      <LinearGradient colors={["#0b1220", "#07090c"]} style={StyleSheet.absoluteFill} />
-      {photo ? <Image source={photo} style={[StyleSheet.absoluteFill, { opacity: photoOpacity }]} contentFit="cover" transition={200} /> : null}
-      {photo ? <LinearGradient colors={["rgba(7,9,12,0.35)", "rgba(7,9,12,0.2)", "rgba(7,9,12,0.94)"]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} /> : null}
-      {glow ? <Glow /> : null}
-      <View style={[styles.heroText, { paddingTop: insets.top + 64 }, center && { alignItems: "center" }]}>
-        {kicker ? <Text style={[styles.kicker, { color: kickerColour }, center && { textAlign: "center" }]}>{kicker}</Text> : null}
-        {top != null ? (
-          <Text style={[styles.headline, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
-            {top}
-          </Text>
+    <View style={[styles.heroFrame, { boxShadow: SLAB_EDGE.outer }, style]}>
+      <View style={[styles.hero, { minHeight: height + insets.top }]}>
+        {photo ? (
+          <PhotoBackground source={photo} opacity={photoOpacity} fade="slab" to="2,5,12" kenBurns glow={glow} grain={0} />
+        ) : glow ? (
+          <GlowBackdrop preset="slab" />
         ) : null}
-        {bottom != null ? (
-          <Text style={[styles.headline, styles.blue, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
-            {bottom}
-          </Text>
-        ) : null}
-        {sub ? <Text style={[styles.sub, center && { textAlign: "center" }]}>{sub}</Text> : null}
-        {children}
+        {object ? <BlendImage source={object} size={size} float glow={260} style={[{ position: "absolute", right: -24, top: insets.top + 20 }, objectStyle]} /> : null}
+        <Grain amount={0.06} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.heroRadius, { boxShadow: SLAB_EDGE.inset }]} />
+        <View style={[styles.heroText, { paddingTop: insets.top + 64 }, center && { alignItems: "center" }]}>
+          {kicker ? <Text style={[styles.kicker, { color: kickerColour }, center && { textAlign: "center" }]}>{kicker}</Text> : null}
+          {top != null ? (
+            <Text style={[styles.headline, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
+              {top}
+            </Text>
+          ) : null}
+          {bottom != null ? (
+            <Text style={[styles.headline, styles.blue, center && { textAlign: "center" }]} numberOfLines={2} adjustsFontSizeToFit>
+              {bottom}
+            </Text>
+          ) : null}
+          {sub ? <Text style={[styles.sub, center && { textAlign: "center" }]}>{sub}</Text> : null}
+          {children}
+        </View>
+        {after}
       </View>
-      {after}
     </View>
   );
 }
 
-/** Round glass button for the top of a screen. */
+/** Round glass button for the top of a screen (.oh-btn.glass.icon): frosted, lit along its edge. */
 export function GlassButton({ icon: Icon, onPress, label, size = 42, style }) {
   return (
-    <PressableScale onPress={onPress} scaleTo={0.9} hitSlop={8} accessibilityLabel={label} style={[styles.glassButton, { width: size, height: size, borderRadius: size / 2 }, style]}>
-      <Icon size={20} color={C.text} />
+    <PressableScale onPress={onPress} scaleTo={0.9} hitSlop={8} accessibilityLabel={label} style={[styles.glassButton, { width: size, height: size, borderRadius: size / 2, boxShadow: GLASS_EDGE.outer }, style]}>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: size / 2, boxShadow: GLASS_EDGE.inset }]} />
+      <View>
+        <Icon size={20} color={C.text} />
+      </View>
     </PressableScale>
   );
 }
@@ -104,8 +115,8 @@ export function TopBar({ back = true, close = false, onBack, right, onShare, onM
 export function GlassChip({ icon: Icon, label, value, dot, tone = "neutral", onPress, style }) {
   const tones = {
     neutral: [styles.chip, C.text],
-    accent: [[styles.chip, { backgroundColor: "rgba(61,139,255,0.18)", borderColor: "rgba(61,139,255,0.35)" }], C.accentHi],
-    danger: [[styles.chip, { backgroundColor: "rgba(255,77,85,0.14)", borderColor: "rgba(255,77,85,0.4)" }], "#ff8a90"],
+    accent: [[styles.chip, { backgroundColor: "rgba(61,139,255,0.18)", boxShadow: "inset 0 1px 0 rgba(130,180,255,0.45), inset 0 0 0 1px rgba(61,139,255,0.3), 0 10px 24px -14px rgba(42,106,240,0.7)" }], C.accentHi],
+    danger: [[styles.chip, { backgroundColor: "rgba(255,77,85,0.14)", boxShadow: "inset 0 1px 0 rgba(255,139,146,0.4), inset 0 0 0 1px rgba(255,77,85,0.35)" }], "#ff8a90"],
   };
   const [box, fg] = tones[tone] || tones.neutral;
   const inner = (
@@ -131,15 +142,14 @@ export function StatBoxes({ items, glass = false, style }) {
   return (
     <Row gap={S.sm} style={style}>
       {items.map((it) => (
-        <View key={it.label} style={[styles.statBox, glass && styles.statBoxGlass]}>
-          {!glass ? <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.md }]} /> : null}
+        <Surface key={it.label} tone={glass ? "glass" : "lit"} radius={R.md} padding={0} style={{ flex: 1 }} contentStyle={styles.statBox}>
           <Text style={[styles.statValue, it.accent && { color: C.accent }]} numberOfLines={1} adjustsFontSizeToFit>
             {it.value}
           </Text>
-          <Text style={styles.statLabel} numberOfLines={1}>
+          <Text style={[styles.statLabel, glass && { color: "rgba(255,255,255,0.65)" }]} numberOfLines={1}>
             {it.label}
           </Text>
-        </View>
+        </Surface>
       ))}
     </Row>
   );
@@ -195,13 +205,10 @@ export function Toggle({ value, onChange, disabled, label }) {
   );
 }
 
-/** A thin bar, filled to `value` (0 to 1). */
-export function Bar({ value = 0, colour = C.accent, track = "rgba(255,255,255,0.08)", height = 6, style }) {
-  return (
-    <View style={[{ height, borderRadius: height / 2, backgroundColor: track, overflow: "hidden" }, style]}>
-      <View style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, height: "100%", borderRadius: height / 2, backgroundColor: colour }} />
-    </View>
-  );
+/** A bar filled to `value` (0 to 1): the kit's Meter, glowing, with light flowing along it. */
+export function Bar({ value = 0, colour = C.accent, track, height = 6, cap = false, style }) {
+  const tone = colour === C.danger || colour === C.alert ? "red" : colour === C.gold || colour === C.warn ? "gold" : colour === C.textDim || colour === C.textMute ? "grey" : "blue";
+  return <Meter value={value} size={height} tone={tone} cap={cap} track={track} style={style} />;
 }
 
 /** Small letter spaced heading above a section. */
@@ -226,20 +233,21 @@ export const ks = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  hero: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: "hidden", justifyContent: "flex-end", backgroundColor: "#07090c" },
+  heroFrame: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  heroRadius: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  hero: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34, overflow: "hidden", justifyContent: "flex-end", backgroundColor: FINISH.slab.base },
   heroText: { paddingHorizontal: S.gutter, paddingBottom: S.xl },
   kicker: { fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 8 },
-  headline: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 50, textTransform: "uppercase" },
-  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.45)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 } },
+  headline: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 48, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.45)", textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } },
   sub: { color: C.textSoft, fontFamily: F.body, fontSize: 14, lineHeight: 20, marginTop: 10, maxWidth: 330 },
-  glassButton: { backgroundColor: "rgba(12,15,20,0.55)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
+  glassButton: { backgroundColor: "rgba(20,24,31,0.55)", alignItems: "center", justifyContent: "center" },
   topBar: { position: "absolute", left: S.gutter, right: S.gutter, flexDirection: "row", alignItems: "center", zIndex: 10 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", height: 32, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(27,31,38,0.8)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", height: 32, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(255,255,255,0.1)", boxShadow: FINISH.glassEdge },
   chipDot: { width: 7, height: 7, borderRadius: 4 },
   chipText: { fontFamily: F.bodySemi, fontSize: 13 },
   chipValue: { fontFamily: F.display, fontSize: 15, letterSpacing: 0.5 },
-  statBox: { flex: 1, minHeight: 64, borderRadius: R.md, paddingVertical: 10, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  statBoxGlass: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
+  statBox: { minHeight: 62, paddingVertical: 10, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   statValue: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 26 },
   statLabel: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
   bottomBar: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingTop: S.xl },

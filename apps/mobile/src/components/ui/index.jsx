@@ -22,10 +22,15 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { hapticSelection } from "@/services/haptics";
-import { AnimatedBar, PressableScale } from "./motion";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { PressableScale } from "./motion";
 import { Ring } from "./Ring";
 import { imageSource } from "./Cover";
-import { C, F, LIT, R, S } from "./tokens";
+import { GlowButton } from "./GlowButton";
+import { Meter } from "./Meter";
+import { Surface } from "./Surface";
+import { useLayoutSize } from "./layout";
+import { C, EASE, F, FINISH, LIT, R, S, splitShadow } from "./tokens";
 
 export { PressableScale, FadeIn, Skeleton, SkeletonList, AnimatedNumber, AnimatedBar, LiveDot } from "./motion";
 export { Cover, imageSource, accentFor } from "./Cover";
@@ -37,9 +42,24 @@ export { SlideToStart } from "./SlideToStart";
 export { toast, ToastHost, ModalToastHost } from "./Toast";
 export { ErrorState, OfflineBanner, StillCounting, SyncList } from "./states";
 
+// The finish kit: see FINISH.md in this folder.
+export { Surface, SURFACE_TONES, IconTile } from "./Surface";
+export { GlowButton, GLOW_BUTTONS } from "./GlowButton";
+export { Meter, METER_TONES, TugBar } from "./Meter";
+export { BlendImage } from "./BlendImage";
+export { GlowBackdrop } from "./GlowBackdrop";
+export { Grain } from "./Grain";
+export { PhotoBackground } from "./PhotoBackground";
+export { VersusSplit } from "./VersusSplit";
+export { Spotlight, SpotlightNumber, hypeColour, HYPE_COLOURS } from "./Spotlight";
+export { TabBar } from "./TabBar";
+export { GLOWS, MASKS } from "./glows";
+export { TOP_GAP, SCREEN_TOP, TAB_BAR, useScreenTop, useTabBarBottom, ScreenTop, useLayoutSize } from "./layout";
+export { useSkiaReady } from "./skia";
+
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
-export { C, F, S, R, LIT } from "./tokens";
+export { C, F, S, R, LIT, FINISH, EASE, splitShadow } from "./tokens";
 
 // Room left at the bottom of tab screens so content clears the tab bar.
 export const TAB_BAR_SPACE = 110;
@@ -156,7 +176,12 @@ export function Header({ title, subtitle, back = false, onBack, right, large = f
 
 export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, active = false, style }) => (
   <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, active && { backgroundColor: C.text }, style]}>
-    <Icon size={size} color={active ? C.bg : C.text} />
+    {active ? null : <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} />}
+    {active ? null : <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.iconButtonEdge]} />}
+    {/* Wrapped so the icon paints above the lit body on the web too. */}
+    <View>
+      <Icon size={size} color={active ? C.bg : C.text} />
+    </View>
     {badge ? (
       <View style={styles.badgeDot}>
         <Text style={styles.badgeDotText}>{badge > 9 ? "9+" : badge}</Text>
@@ -175,19 +200,16 @@ export const Spacer = ({ h = S.lg }) => <View style={{ height: h }} />;
 
 // ── Surfaces ──────────────────────────────────────────────────────────────────
 
-export function Card({ children, onPress, highlight = false, padding = S.lg, style }) {
-  const base = [styles.card, highlight && styles.cardHighlight, style];
-  const inner = (
-    <>
-      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
-      <View style={{ padding }}>{children}</View>
-    </>
-  );
-  if (!onPress) return <View style={base}>{inner}</View>;
+/**
+ * A card: the kit's lit Surface (see Surface.jsx). `highlight` tints it blue
+ * for your own row. Tappable cards sink and light up under the finger.
+ * Padding in `style` adds to `padding`, as it always has.
+ */
+export function Card({ children, onPress, highlight = false, padding = S.lg, tone, style }) {
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98} style={base}>
-      {inner}
-    </PressableScale>
+    <Surface tone={tone || (highlight ? "blue" : "lit")} padding={0} onPress={onPress} style={style}>
+      <View style={{ padding }}>{children}</View>
+    </Surface>
   );
 }
 
@@ -206,74 +228,61 @@ export const Divider = ({ style }) => <View style={[{ height: StyleSheet.hairlin
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 
-const BUTTON_VARIANTS = {
-  primary: { bg: C.accent, fg: C.accentText, gradient: [C.accent, C.accentDeep] },
-  secondary: { bg: C.surfaceHigh, fg: C.text },
-  ghost: { bg: "transparent", fg: C.text },
-  outline: { bg: C.accentDim, fg: C.accentHi },
-  danger: { bg: C.danger, fg: "#ffffff", gradient: ["#ff5c63", "#e0343d"] },
-};
-
-/** Borderless pill buttons. Primary is the blue gradient with a soft glow. */
-export function Button({ title, onPress, variant = "primary", size = "md", icon: Icon, iconRight: IconRight, loading = false, disabled = false, full = false, accessibilityLabel, style }) {
-  const v = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary;
-  const height = size === "sm" ? 36 : size === "lg" ? 58 : 48;
-  const off = disabled || loading;
-  const big = size === "lg";
+/**
+ * Pill buttons: the kit's GlowButton (see GlowButton.jsx). variant: primary
+ * (blue, acts), secondary (a lit quiet button), outline, ghost, glass, or
+ * danger / stop (red, only for End, Pause and Leave).
+ */
+export function Button({ title, onPress, variant = "primary", size = "md", icon, iconRight, lead, loading = false, disabled = false, full = false, accessibilityLabel, style }) {
   return (
-    <PressableScale
-      disabled={off}
+    <GlowButton
+      title={title}
       onPress={onPress}
-      scaleTo={0.96}
-      accessibilityLabel={accessibilityLabel || title}
-      style={[
-        styles.button,
-        { height, backgroundColor: v.gradient ? "transparent" : v.bg, paddingHorizontal: size === "sm" ? 14 : 22 },
-        v.gradient && !off && { shadowColor: v.bg, shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
-        full && { alignSelf: "stretch" },
-        off && { opacity: 0.45 },
-        style,
-      ]}
-    >
-      {v.gradient ? (
-        <LinearGradient colors={v.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
-      ) : null}
-      {loading ? (
-        <ActivityIndicator color={v.fg} />
-      ) : (
-        <>
-          {/* Wrapped so the icon paints above the gradient on the web too. */}
-          {Icon ? (
-            <View>
-              <Icon size={size === "sm" ? 15 : 18} color={v.fg} />
-            </View>
-          ) : null}
-          <Text
-            style={
-              big
-                ? { color: v.fg, fontFamily: F.display, fontSize: 20, letterSpacing: 1.6, textTransform: "uppercase" }
-                : { color: v.fg, fontFamily: F.bodySemi, fontSize: size === "sm" ? 13 : 15 }
-            }
-          >
-            {title}
-          </Text>
-          {IconRight ? (
-            <View>
-              <IconRight size={size === "sm" ? 15 : 18} color={v.fg} />
-            </View>
-          ) : null}
-        </>
-      )}
-    </PressableScale>
+      variant={variant}
+      size={size}
+      icon={icon}
+      iconRight={iconRight}
+      lead={lead}
+      loading={loading}
+      disabled={disabled}
+      full={full}
+      square={!title && !!icon}
+      accessibilityLabel={accessibilityLabel}
+      style={style}
+    />
   );
 }
 
-/** Pill tabs. options: [{ value, label }] or strings. */
+const SEG_TRACK = splitShadow(`${FINISH.litEdge}, 0 14px 28px -20px #000`);
+const SEG_THUMB = splitShadow("inset 0 1px 0 rgba(255,255,255,0.3), 0 8px 20px -8px rgba(42,106,240,0.95)");
+
+/**
+ * Pill tabs (.seg, round ten): a lit track with a blue thumb that slides to the
+ * chosen option on a spring. options: [{ value, label }] or strings.
+ */
 export function Segment({ options, value, onChange, style }) {
+  const opts = options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
+  const index = Math.max(0, opts.findIndex((o) => o.value === value));
+  const [box, onLayout] = useLayoutSize();
+  const slot = box ? (box.width - 8) / opts.length : 0;
+  const x = useSharedValue(index * slot);
+  React.useEffect(() => {
+    x.value = box ? withSpring(index * slot, EASE.thumb) : index * slot;
+  }, [index, slot, box, x]);
+  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
-    <View style={[styles.segment, style]}>
-      {options.map((o) => {
-        const opt = typeof o === "string" ? { value: o, label: o } : o;
+    <View style={[styles.segment, { boxShadow: SEG_TRACK.outer }, style]} onLayout={onLayout}>
+      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: SEG_TRACK.inset }]} />
+      {slot ? (
+        <Animated.View pointerEvents="none" style={[styles.segmentThumb, { width: slot, boxShadow: SEG_THUMB.outer }, thumb]}>
+          <View style={styles.segmentThumbBody}>
+            <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: SEG_THUMB.inset }]} />
+          </View>
+        </Animated.View>
+      ) : null}
+      {opts.map((opt) => {
         const active = opt.value === value;
         return (
           <Pressable
@@ -282,7 +291,9 @@ export function Segment({ options, value, onChange, style }) {
               hapticSelection();
               onChange(opt.value);
             }}
-            style={[styles.segmentItem, active && styles.segmentItemActive]}
+            style={styles.segmentItem}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>
               {opt.label}
@@ -343,19 +354,32 @@ export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside =
 }
 
 export const StatTile = ({ label, value, hint, accent = false, style }) => (
-  <View style={[styles.statTile, style]}>
-    <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.md }]} />
+  <Surface radius={R.md} padding={S.md} style={[{ flex: 1 }, style]} contentStyle={{ gap: 2 }}>
     <Text style={[styles.statValue, accent && { color: C.accent }]} numberOfLines={1} adjustsFontSizeToFit>
       {value}
     </Text>
     <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
     {hint ? <Body mute size={12}>{hint}</Body> : null}
-  </View>
+  </Surface>
 );
 
-export const ProgressBar = ({ value = 0, height = 8, colour = C.accent, track = C.surfaceHigh, style }) => (
-  <AnimatedBar value={value} height={height} colour={colour} track={track} style={style} />
+/**
+ * A progress bar: the kit's Meter (see Meter.jsx), a recessed track with a
+ * glowing fill. Old callers pass height and colour; red, gold and grey map
+ * to the Meter's tones.
+ */
+export const ProgressBar = ({ value = 0, height = 8, colour, tone, track, cap = false, style }) => (
+  <Meter value={value} size={Math.max(6, height)} tone={tone || toneOf(colour)} cap={cap} track={track === C.surfaceHigh ? undefined : track} style={style} />
 );
+
+const toneOf = (colour) =>
+  colour === C.danger || colour === C.alert
+    ? "red"
+    : colour === C.gold || colour === C.warn
+      ? "gold"
+      : colour === C.textDim || colour === C.textMute || colour === C.free
+        ? "grey"
+        : "blue";
 
 /** Tappable list row with leading element, title, subtitle and trailing slot. */
 export function ListRow({ leading, title, subtitle, trailing, onPress, chevron = !!onPress, style }) {
@@ -396,9 +420,9 @@ export function EmptyState({ icon: Icon, title, body, action, onAction, style })
   return (
     <View style={[{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 24 }, style]}>
       {Icon ? (
-        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center", marginBottom: S.lg }}>
-          <Icon size={28} color={C.textDim} />
-        </View>
+        <Surface radius={32} padding={0} style={{ width: 64, height: 64, marginBottom: S.lg }} contentStyle={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Icon size={28} color={C.accentHi} />
+        </Surface>
       ) : null}
       <Title size={20} style={{ textAlign: "center" }}>{title}</Title>
       {body ? <Body dim style={{ textAlign: "center", marginTop: S.sm }}>{body}</Body> : null}
@@ -411,31 +435,18 @@ const styles = StyleSheet.create({
   label: { color: C.textDim, fontSize: 11, fontFamily: F.bodySemi, letterSpacing: 1.4, textTransform: "uppercase" },
   header: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.md },
   headerRight: { flexDirection: "row", alignItems: "center", gap: S.sm },
-  iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(27,31,38,0.85)", alignItems: "center", justifyContent: "center", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
+  iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", boxShadow: FINISH.shadowCard },
+  iconButtonEdge: { borderRadius: 21, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.05)" },
   badgeDot: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   badgeDotText: { color: C.accentText, fontSize: 10, fontFamily: F.bodySemi },
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.04)",
-    borderTopColor: C.hairlineTop,
-    shadowColor: "#000",
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 4,
-  },
-  cardHighlight: { borderColor: "rgba(61,139,255,0.35)" },
-  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: S.sm, borderRadius: R.full, overflow: "visible" },
-  segment: { flexDirection: "row", backgroundColor: C.surface, borderRadius: R.full, padding: 4 },
+  segment: { flexDirection: "row", borderRadius: R.full, padding: 4 },
+  segmentThumb: { position: "absolute", top: 4, bottom: 4, left: 4, borderRadius: R.full },
+  segmentThumbBody: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
   segmentItem: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-  segmentItemActive: { backgroundColor: C.accent },
-  segmentText: { color: C.textDim, fontSize: 13, fontFamily: F.bodySemi },
-  segmentTextActive: { color: C.accentText },
+  segmentText: { color: C.textSoft, fontSize: 13, fontFamily: F.bodyMedium },
+  segmentTextActive: { color: C.accentText, fontFamily: F.bodySemi },
   pill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, height: 22, borderRadius: R.full, alignSelf: "flex-start" },
   pillText: { fontSize: 11, fontFamily: F.bodySemi, letterSpacing: 0.6 },
-  statTile: { flex: 1, backgroundColor: C.surface, borderRadius: R.md, padding: S.md, gap: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
   statValue: { color: C.text, fontFamily: F.display, fontSize: 28 },
   statLabel: { color: C.textDim, fontSize: 12, fontFamily: F.body },
 });

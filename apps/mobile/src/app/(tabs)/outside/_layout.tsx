@@ -1,12 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Slot, usePathname, useRouter } from "expo-router";
-import { Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as UI from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 
 // The kit is plain JS, so its inferred prop types are too strict for TS here.
-const { C, F, R, S } = UI as any;
+const { C, F, FINISH, R, S, splitShadow } = UI as any;
+
+// .seg.gl with the round ten finish: see-through glass lit along its edge,
+// and the act gradient thumb (.r10thumb) that springs between sections.
+const TRACK = splitShadow("inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.045), 0 14px 28px -20px #000");
+const THUMB = splitShadow("inset 0 1px 0 rgba(255,255,255,0.3), 0 8px 20px -8px rgba(42,106,240,0.95)");
 
 const SUB_TABS = [
   { key: "arena", label: "Arena", href: "/outside/arena" },
@@ -76,8 +83,20 @@ export default function OutsideLayout() {
       </View>
 
       <View style={[styles.bar, { top: insets.top + S.sm }]} pointerEvents="box-none">
-        <View style={styles.tabs}>
-          {measured ? <Animated.View style={[styles.underline, { left: underlineX, width: underlineW }]} pointerEvents="none" /> : null}
+        <View style={[styles.tabs, { boxShadow: TRACK.outer }]}>
+          <View style={styles.glass} pointerEvents="none">
+            {Platform.OS === "android" ? null : <BlurView tint="dark" intensity={40} style={StyleSheet.absoluteFill} />}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: Platform.OS === "android" ? "rgba(10,14,20,0.85)" : "rgba(10,14,20,0.5)" }]} />
+            <View style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: TRACK.inset }]} />
+          </View>
+          {measured ? (
+            <Animated.View style={[styles.underline, { left: underlineX, width: underlineW, boxShadow: THUMB.outer }]} pointerEvents="none">
+              <View style={styles.thumbBody}>
+                <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
+                <View style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: THUMB.inset }]} />
+              </View>
+            </Animated.View>
+          ) : null}
           {SUB_TABS.map((tab, index) => {
             const active = tab.key === activeTab;
             return (
@@ -106,27 +125,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   bar: { position: "absolute", left: 14, right: 14, zIndex: 20 },
   // Glass pill row: the active section sits in a blue pill that springs across.
-  tabs: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(14,17,23,0.82)",
-    borderRadius: R.full,
-    padding: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  tab: { height: 36, paddingHorizontal: 10, justifyContent: "center", alignItems: "center", flexGrow: 1, zIndex: 1 },
-  tabText: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 13 },
+  tabs: { flexDirection: "row", justifyContent: "space-between", borderRadius: R.full, padding: 4 },
+  glass: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  tab: { height: 34, paddingHorizontal: 10, justifyContent: "center", alignItems: "center", flexGrow: 1, zIndex: 1 },
+  tabText: { color: "#c9d0db", fontFamily: F.bodyMedium, fontSize: 12.5 },
   tabTextActive: { color: C.accentText, fontFamily: F.bodySemi },
-  underline: {
-    position: "absolute",
-    top: 4,
-    height: 36,
-    borderRadius: R.full,
-    backgroundColor: C.accent,
-    shadowColor: C.accent,
-    shadowOpacity: 0.55,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-  },
+  underline: { position: "absolute", top: 4, height: 34, borderRadius: R.full },
+  thumbBody: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
 });

@@ -1,61 +1,79 @@
-// The screen hero: a dark slab with its own picture, a kicker and a two-tone
-// headline, rounded at the bottom. One per screen. Pass `photo` for a full
-// bleed photograph, or `object` for a 3D object set on the right.
+// The screen hero (.oh-slab): a dark slab lit blue from the upper right,
+// with a kicker and a two-tone headline, rounded at the bottom and lit along
+// its lower edge. One per screen. Pass `photo` for a full bleed photograph
+// (darkened at the top, faded at the bottom, slow push in), or `object` for a
+// 3D object that floats on the right with its black dropped out. Both get
+// film grain.
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { C, F, S } from "./tokens";
+import { BlendImage } from "./BlendImage";
+import { GlowBackdrop } from "./GlowBackdrop";
+import { Grain } from "./Grain";
+import { PhotoBackground } from "./PhotoBackground";
+import { C, F, FINISH, S, splitShadow } from "./tokens";
 
-export function Hero({ photo, object, kicker, top, bottom, sub, height = 260, bleed = true, children, right, style }) {
+const RADIUS = 34; // --radius-slab
+const EDGE = splitShadow(FINISH.slabEdge);
+
+/**
+ * photo or object: the picture. objectSize (px, default 92% of the height)
+ * and objectStyle place the object; objectLeft puts the light and object on
+ * the left. kicker, top, bottom (the blue line), sub: the headline block.
+ * right: controls at the top right. bleed: runs up under the status bar.
+ * card: rounded on all four corners, for a hero inside a page.
+ */
+export function Hero({ photo, object, objectSize, objectStyle, objectLeft = false, kicker, top, bottom, sub, height = 260, bleed = true, card = false, children, right, style }) {
   const insets = useSafeAreaInsets();
-  const padTop = bleed ? insets.top : 0;
+  const padTop = bleed && !card ? insets.top : 0;
+  const size = objectSize || height * 0.92;
+  const radius = card ? { borderRadius: RADIUS } : { borderBottomLeftRadius: RADIUS, borderBottomRightRadius: RADIUS };
+  const place = objectLeft ? { left: -30 } : { right: -30 };
   return (
-    <View style={[styles.slab, { height: height + padTop, paddingTop: padTop }, style]}>
-      {photo ? <Image source={photo} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
-      {object ? (
-        <Image source={object} style={[styles.object, { width: height * 0.92, height: height * 0.92, top: padTop + height * 0.02 }]} contentFit="contain" />
-      ) : null}
-      <LinearGradient
-        colors={photo ? ["rgba(7,9,12,0.35)", "rgba(7,9,12,0.15)", "rgba(7,9,12,0.92)"] : ["#0d1118", "#07090c"]}
-        locations={photo ? [0, 0.4, 1] : [0, 1]}
-        style={[StyleSheet.absoluteFill, object && !photo ? { opacity: 0.0 } : null]}
-      />
-      {object && !photo ? <LinearGradient colors={["rgba(7,9,12,0)", "rgba(7,9,12,0.85)"]} start={{ x: 0.3, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
-      {right ? <View style={[styles.right, { top: padTop + S.sm }]}>{right}</View> : null}
-      <View style={styles.text}>
-        {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
-        {top ? (
-          <Text style={styles.headline} numberOfLines={2} adjustsFontSizeToFit>
-            {top}
-          </Text>
+    <View style={[radius, { boxShadow: EDGE.outer }, style]}>
+      <View style={[styles.slab, radius, { height: height + padTop, paddingTop: padTop }]}>
+        {photo ? (
+          <PhotoBackground source={photo} fade="slab" to="2,5,12" kenBurns grain={0} />
+        ) : (
+          <GlowBackdrop preset={objectLeft ? "slabLeft" : "slab"} />
+        )}
+        {object && !photo ? (
+          <BlendImage source={object} size={size} float glow={260} style={[styles.object, place, { top: padTop + (height - size) / 2 - height * 0.04 }, objectStyle]} />
         ) : null}
-        {bottom ? (
-          <Text style={[styles.headline, { color: C.accent }]} numberOfLines={2} adjustsFontSizeToFit>
-            {bottom}
-          </Text>
-        ) : null}
-        {sub ? <Text style={styles.sub}>{sub}</Text> : null}
-        {children}
+        <Grain amount={0.06} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, radius, { boxShadow: EDGE.inset }]} />
+        {right ? <View style={[styles.right, { top: padTop + S.sm }]}>{right}</View> : null}
+        <View style={styles.text}>
+          {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
+          {top ? (
+            <Text style={styles.headline} numberOfLines={2} adjustsFontSizeToFit>
+              {top}
+            </Text>
+          ) : null}
+          {bottom ? (
+            <Text style={[styles.headline, styles.two]} numberOfLines={2} adjustsFontSizeToFit>
+              {bottom}
+            </Text>
+          ) : null}
+          {sub ? <Text style={styles.sub}>{sub}</Text> : null}
+          {children}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  slab: {
-    backgroundColor: "#0b0e13",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-  },
-  object: { position: "absolute", right: -30 },
+  slab: { backgroundColor: FINISH.slab.base, overflow: "hidden", justifyContent: "flex-end" },
+  object: { position: "absolute" },
   right: { position: "absolute", right: S.gutter, flexDirection: "row", gap: S.sm },
-  text: { paddingHorizontal: S.gutter, paddingBottom: S.xl },
-  kicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 6 },
-  headline: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 50, textTransform: "uppercase" },
-  sub: { color: C.textSoft, fontFamily: F.body, fontSize: 14, lineHeight: 20, marginTop: 8, maxWidth: 320 },
+  text: { paddingHorizontal: S.gutter, paddingBottom: S.xl + 4 },
+  // .oh-slab .hl .oh-kick: blue-hi
+  kicker: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", marginBottom: 8 },
+  // .oh-slab .hl .oh-display: text-shadow 0 2px 30px rgba(0,0,0,.6)
+  headline: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 48, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  // .oh-display .oh-two: blue with a soft glow
+  two: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+  sub: { color: "rgba(255,255,255,0.78)", fontFamily: F.body, fontSize: 14, lineHeight: 20, marginTop: 10, maxWidth: 300 },
 });
