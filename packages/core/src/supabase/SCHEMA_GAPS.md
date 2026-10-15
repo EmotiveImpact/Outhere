@@ -1,6 +1,6 @@
 # Schema gaps found while writing the web data source
 
-What the web and admin apps still need that the schema on `claude/mobile-app-build-nhob8r` (PR #4, mapped at commit 7291756) does not have. `SupabaseData` returns an empty or neutral value for each read gap and throws `NOT_SUPPORTED` for each write gap.
+What the web and admin apps still need that the schema on `claude/mobile-app-build-nhob8r` (PR #4, mapped at commit 96f67b7) does not have. `SupabaseData` returns an empty or neutral value for each read gap and throws `NOT_SUPPORTED` for each write gap.
 
 Every gap from the first two passes is closed and wired: `20261015101300_web_gaps.sql`, `20261015101500_club_links.sql`, `20261015101550_city_counts.sql` and `20261015101560_web_gaps_two.sql`. The database thread's list of what each added is in `/mnt/project-files/outhere-webapp-build/schema-gaps-closed.md`.
 
@@ -11,11 +11,9 @@ Every gap from the first two passes is closed and wired: `20261015101300_web_gap
 - **Health numbers.** `adminOverview().health` is empty. These belong to monitoring, not the database.
 - **Battle mode names.** `battles().modes` and `createBattle` read `BATTLE_MODES` from `mock/seed.ts`. They are product definitions both apps share.
 
-## Waiting on the database thread
-
-- **Pro yearly price.** Edem confirmed Pro at £59.99 a year and Black at £129.99 a year (15 October). `plans.yearly_pence` for Pro is null until the database thread sets it to 5999; until then real data shows Pro as monthly only.
-
 ## Things the apps must do for the new tables to fill
+
+- **Yearly prices in Stripe.** The plans table has Pro at £59.99 and Black at £129.99 a year. Checkout needs the matching Stripe prices made in the Stripe dashboard and set as `STRIPE_PRICE_PRO_YEARLY` and `STRIPE_PRICE_BLACK_YEARLY` in the app's environment.
 
 - **Pick-ups near you.** `pickups_near` only finds events with `lat` and `lng`. The web app fills them (rounded to about a kilometre) when the poster has shared their location on the pick-ups page; the mobile app should do the same.
 - **Poster scans.** QR codes on posters and stickers link to `/join/<club>?c=<code>`. The join page calls `record_invite_scan` and `join_club` gets the code, so `club_invite_stats` can count scans and who came to a run.

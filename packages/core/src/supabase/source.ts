@@ -458,11 +458,11 @@ export class SupabaseData implements OuthereData {
   /* ---------- reference data ---------- */
 
   private boroughRows() {
-    return this.once("boroughs", async () => rows(await this.client.from("boroughs").select("id, city_id, name, tile_col, tile_row").order("name")));
+    return this.once("boroughs", async () => rows(await this.client.from("boroughs").select("id, city_id, name, kind, tile_col, tile_row").order("name")));
   }
 
   private cityRows() {
-    return this.once("cities", async () => rows(await this.client.from("cities").select("id, name, region, is_live").order("name")));
+    return this.once("cities", async () => rows(await this.client.from("cities").select("id, name, region, is_live, launch_night").order("name")));
   }
 
   private async cityNames(): Promise<Map<string, string>> {
@@ -480,10 +480,11 @@ export class SupabaseData implements OuthereData {
         id: c.id,
         name: c.name,
         region: c.region,
-        launch: c.is_live,
+        // The ten cities with a launch night; is_live is whether a place plays as itself yet.
+        launch: c.launch_night,
         clubs: clubs.filter((x) => x.city_id === c.id).length,
-        // Boroughs are London's word; every other city has areas.
-        areaWord: c.id === "london" ? "borough" : "area",
+        // London's parts are boroughs; most other places have areas.
+        areaWord: boroughs.some((b) => b.city_id === c.id && b.kind === "borough") ? "borough" : "area",
         hasMap: boroughs.some((b) => b.city_id === c.id && b.tile_col !== null && b.tile_row !== null),
       }))
       .sort((a, b) => Number(b.launch) - Number(a.launch) || b.clubs - a.clubs || a.name.localeCompare(b.name));
