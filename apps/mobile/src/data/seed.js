@@ -68,7 +68,7 @@ export const CREWS = [
     privacy: "public",
     ownerId: "p_tunde",
     members: ["p_tunde", "p_kemi", "p_lena", "p_jay", "p_rio"],
-    weeklyGoalKm: 600,
+    weeklyGoalKm: 300,
     status: "verified",
     founded: 2016,
     extraMembers: 209,

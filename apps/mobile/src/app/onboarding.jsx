@@ -1,70 +1,89 @@
-// Profile setup: an email sign-in code when the app runs on Supabase, then
-// username, city, optional crew code, a quick word on step counting, then
-// engine.createProfile and into the app.
+// Getting started, in the demo's order: sign in (Apple, Google or an email
+// code), make it yours (photo, name, username checked as you type, date of
+// birth, who sees you on the map), your daily goal, your patch (a city or
+// town, then an area in it) and one card of permissions. Nothing is saved
+// until the last step, which creates the profile and applies the rest.
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Pedometer } from "expo-sensors";
-import { AtSign, Check, ChevronLeft, Footprints, Mail, Minus, Plus, Users, X } from "lucide-react-native";
-import { engine, isRemote, showEngineError, useEngineMutation } from "@/data/hooks";
-import { CITIES } from "@/constants/theme";
+import * as Notifications from "expo-notifications";
+import { Bell, Camera, Check, Footprints, Lock, LocateFixed, Mail, Minus, Plus, User, X } from "lucide-react-native";
+import { engine, isRemote, showEngineError, useOutsideCount } from "@/data/hooks";
+import { birthDateProblem, isMinorDate } from "@/data/account";
+import { Body, Button, C, F, LiveDot, PressableScale, R, Row, S, Wordmark, toast } from "@/components/ui";
+import { GlowHero, Group, Note, OnboardingBar, Row as SettingRow, Toggle, accountStyles } from "@/components/account/parts";
+import PatchPicker, { areaWord } from "@/components/account/PatchPicker";
+import { PHOTOS } from "@/constants/photos";
+import { askLocation, roughPosition } from "@/services/locate";
+import { pickAvatarPhoto } from "@/services/photo";
 import { hapticError, hapticSelection, hapticSuccess } from "@/services/haptics";
 import { formatNumber } from "@/utils/format";
-import { AnimatedBar, Body, Button, C, F, PressableScale, R, Row, S, toast } from "@/components/ui";
 
-const LOCAL_STEPS = ["username", "goal", "city", "crew", "motion"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STEPS = ["signin", "setup", "goal", "patch", "perms"];
+const GOALS = [
+  { value: 6000, label: "6k", sub: "Easy going" },
+  { value: 10000, label: "10k", sub: "Active" },
+  { value: 15000, label: "15k", sub: "Beast mode" },
+];
 
-const randomUsername = () => `mover${Math.floor(1000 + Math.random() * 9000)}`;
+const pad2 = (s) => (s.length === 1 ? `0${s}` : s);
+const dobString = ({ d, m, y }) => (d && m && y.length === 4 ? `${y}-${pad2(m)}-${pad2(d)}` : null);
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [step, setStep] = useState(0);
-  const [username, setUsername] = useState("");
-  const [check, setCheck] = useState({ state: "idle", reason: null }); // idle | checking | ok | bad
-  const [goal, setGoal] = useState(10000);
-  const [city, setCity] = useState("London");
-  const [crewCode, setCrewCode] = useState("");
-  const [motion, setMotion] = useState("unknown"); // unknown | asking | granted | denied | unavailable
-  const [welcome, setWelcome] = useState(null); // the new profile, once created
-  const [steps, setSteps] = useState(isRemote ? ["account", ...LOCAL_STEPS] : LOCAL_STEPS);
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
-  const [authBusy, setAuthBusy] = useState(false);
-  const reqId = useRef(0);
-  const STEPS = steps;
+  const [signedIn, setSignedIn] = useState(!isRemote);
 
-  // Already signed in on this phone: skip straight to the username.
+  // Make it yours
+  const [photo, setPhoto] = useState(null);
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [check, setCheck] = useState({ state: "idle", reason: null });
+  const [dob, setDob] = useState({ d: "", m: "", y: "" });
+  const [mapVisibility, setMapVisibility] = useState("friends");
+  // Goal
+  const [goal, setGoal] = useState(10000);
+  // Patch
+  const [place, setPlace] = useState(null);
+  const [area, setArea] = useState(null);
+  const [at, setAt] = useState(null);
+  const [locating, setLocating] = useState(false);
+  // Permissions
+  const [perms, setPerms] = useState({ location: true, motion: true, notifications: false });
+  const [finishing, setFinishing] = useState(false);
+  const [welcome, setWelcome] = useState(null);
+  const reqId = useRef(0);
+
+  const key = STEPS[step];
+
+  // Already signed in on this phone (or back from Apple or Google on the web):
+  // straight to setup.
   useEffect(() => {
     if (!isRemote) return;
-    engine.signedIn().then((yes) => yes && setSteps(LOCAL_STEPS)).catch(() => {});
+    engine
+      .signedIn()
+      .then((yes) => {
+        if (yes) {
+          setSignedIn(true);
+          setStep((s) => (s === 0 ? 1 : s));
+        }
+      })
+      .catch(() => {});
   }, []);
-
-  const account = async () => {
-    setAuthBusy(true);
-    try {
-      if (!codeSent) {
-        await engine.sendSignInCode(email);
-        setCodeSent(true);
-        toast("Code sent", `Check ${email.trim()} for a 6 digit code.`);
-      } else {
-        await engine.verifySignInCode(email, code);
-        hapticSuccess();
-        setStep(step + 1);
-      }
-    } catch (e) {
-      hapticError();
-      showEngineError(e);
-    } finally {
-      setAuthBusy(false);
-    }
-  };
+  useEffect(() => {
+    if (params?.start === "setup") setStep(1);
+  }, [params?.start]);
 
   // Live username check, debounced.
   useEffect(() => {
@@ -87,208 +106,443 @@ export default function OnboardingScreen() {
     return () => clearTimeout(t);
   }, [username]);
 
-  const create = useEngineMutation(engine.createProfile, {
-    onSuccess: (profile, vars) => {
-      hapticSuccess();
-      const wanted = vars?.crewCode;
-      if (wanted && !profile?.crewsCount) {
-        toast("Crew code not found", `Nothing matched ${wanted}. Join a crew from the Crew tab.`);
-      }
-      setWelcome(profile || { username: vars?.username });
-    },
-  });
+  // A first username from the name, until they type their own.
+  const touchedUsername = useRef(false);
+  useEffect(() => {
+    if (touchedUsername.current) return;
+    const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14);
+    setUsername(base.length >= 3 ? `${base}runs`.slice(0, 20) : "");
+  }, [name]);
 
-  const finish = () => create.mutate({ username: username.trim(), city, dailyGoal: goal, crewCode: crewCode.trim() || undefined });
+  // If location is already allowed, start the patch from where they are.
+  useEffect(() => {
+    if (key !== "patch" || at) return;
+    roughPosition({ ask: false }).then((p) => p && setAt(p));
+  }, [key, at]);
 
-  const askMotion = async () => {
-    if (Platform.OS === "web") return setMotion("unavailable");
-    setMotion("asking");
+  const locate = async () => {
+    setLocating(true);
+    const p = await roughPosition({ ask: true });
+    setLocating(false);
+    if (p) setAt(p);
+    else toast("No location", "Search for your city or town instead.");
+  };
+
+  const dobValue = dobString(dob);
+  const dobProblem = dobValue ? birthDateProblem(dobValue) : null;
+  const minor = dobValue && !dobProblem ? isMinorDate(dobValue) : false;
+  useEffect(() => {
+    if (minor && mapVisibility === "everyone") setMapVisibility("friends");
+  }, [minor, mapVisibility]);
+
+  const canSetup = check.state === "ok" && !!name.trim() && !!dobValue && !dobProblem;
+
+  const go = (n) => {
+    hapticSelection();
+    setStep(n);
+  };
+  const back = () => {
+    if (step <= (signedIn && isRemote ? 1 : 0)) return router.canGoBack() ? router.back() : router.replace("/welcome");
+    go(step - 1);
+  };
+
+  const pickPhoto = async () => {
     try {
-      const available = await Pedometer.isAvailableAsync();
-      if (!available) return setMotion("unavailable");
-      const { status } = await Pedometer.requestPermissionsAsync();
-      setMotion(status === "granted" ? "granted" : "denied");
+      const uri = await pickAvatarPhoto();
+      if (uri) setPhoto(uri);
     } catch {
-      setMotion("unavailable");
+      toast("No photo", "We couldn't open your photos. You can add one later in Settings.");
     }
   };
 
-  const key = STEPS[step];
-  const canNext =
-    key === "username" ? check.state === "ok" : key === "account" ? (codeSent ? code.trim().length >= 6 : EMAIL_RE.test(email.trim())) : true;
-
-  const next = () => {
-    if (!canNext) return hapticError();
-    if (key === "account") return account();
-    if (step < STEPS.length - 1) setStep(step + 1);
-    else finish();
+  // Ask for what they left switched on, then make the profile and apply the rest.
+  const finish = async (choice = perms) => {
+    setFinishing(true);
+    const granted = { location: false, motion: false, notifications: false };
+    if (choice.location) granted.location = at ? true : await askLocation();
+    if (choice.motion && Platform.OS !== "web") {
+      try {
+        if (await Pedometer.isAvailableAsync()) granted.motion = (await Pedometer.requestPermissionsAsync()).status === "granted";
+      } catch {}
+    }
+    if (choice.notifications) {
+      try {
+        granted.notifications = (await Notifications.requestPermissionsAsync()).status === "granted";
+      } catch {}
+    }
+    try {
+      const profile = await engine.createProfile({ username: username.trim(), city: place?.name, cityId: place?.id, dailyGoal: goal });
+      const steps = [
+        () => (name.trim() ? engine.updateProfile({ name: name.trim() }) : null),
+        () => engine.setBirthDate(dobValue),
+        () => (place ? engine.setPatch({ cityId: place.id, areaId: area?.id || null }) : null),
+        () => engine.updateSettings({ privacy: { mapVisibility }, permissions: granted }),
+        () => (photo ? engine.setAvatar(photo) : null),
+      ];
+      for (const run of steps) {
+        try {
+          await run();
+        } catch (e) {
+          // The profile exists; anything that didn't stick can be fixed in Settings.
+          console.warn("[onboarding]", e?.message);
+        }
+      }
+      hapticSuccess();
+      setWelcome({ ...profile, name: name.trim() || profile?.name });
+    } catch (e) {
+      hapticError();
+      showEngineError(e);
+    } finally {
+      setFinishing(false);
+    }
   };
-  const back = () => (step === 0 ? (router.canGoBack() ? router.back() : router.replace("/welcome")) : setStep(step - 1));
 
   if (welcome) return <Success profile={welcome} onDone={() => router.replace("/(tabs)")} />;
 
+  if (key === "signin") {
+    return (
+      <SignIn
+        onDone={() => {
+          setSignedIn(true);
+          go(1);
+        }}
+        onBack={back}
+      />
+    );
+  }
+
+  const dash = step - 1;
+  const footer = (title, onPress, disabled, loading) => (
+    <View style={[styles.footer, { paddingBottom: insets.bottom + S.lg }]}>
+      <Button title={title} size="lg" full disabled={disabled} loading={loading} onPress={onPress} />
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.gutter }}>
-        <Row style={{ justifyContent: "space-between", height: 44 }}>
-          <PressableScale onPress={back} hitSlop={12} scaleTo={0.9} accessibilityLabel="Back" style={styles.back}>
-            <ChevronLeft size={22} color={C.text} />
-          </PressableScale>
-          <Text style={styles.counter}>
-            <Text style={{ color: C.text }}>{String(step + 1).padStart(2, "0")}</Text> / {String(STEPS.length).padStart(2, "0")}
-          </Text>
-          {__DEV__ && !isRemote ? (
-            <PressableScale hitSlop={12} onPress={() => create.mutate({ username: randomUsername(), city: "London" })} scaleTo={0.94} style={styles.devSkip}>
-              <Text style={{ color: C.textMute, fontSize: 12, fontWeight: "600" }}>Skip (dev)</Text>
-            </PressableScale>
-          ) : (
-            <View style={{ width: 40 }} />
-          )}
-        </Row>
-        <Row gap={6} style={{ marginTop: S.md }}>
-          {STEPS.map((s, i) => (
-            <AnimatedBar key={s} value={i <= step ? 1 : 0} height={4} track={C.surfaceHigh} style={{ flex: 1 }} />
-          ))}
-        </Row>
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.xxl + S.sm, paddingBottom: S.xl }} keyboardShouldPersistTaps="handled">
-        <MotiView key={key} from={{ opacity: 0, translateX: 28 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "spring", damping: 20, stiffness: 220 }}>
-          {key === "account" && <AccountStep n={step + 1} email={email} onEmail={setEmail} code={code} onCode={setCode} sent={codeSent} onChangeEmail={() => { setCodeSent(false); setCode(""); }} onSubmit={next} />}
-          {key === "username" && <UsernameStep n={step + 1} value={username} onChange={setUsername} check={check} onSubmit={next} />}
-          {key === "goal" && <GoalStep value={goal} onChange={setGoal} />}
-          {key === "city" && <CityStep n={step + 1} value={city} onChange={setCity} />}
-          {key === "crew" && <CrewStep n={step + 1} value={crewCode} onChange={setCrewCode} />}
-          {key === "motion" && <MotionStep n={step + 1} status={motion} onAsk={askMotion} />}
+      <StatusBar style="light" />
+      <OnboardingBar
+        index={dash}
+        top={insets.top + S.sm}
+        onBack={back}
+        onSkip={
+          key === "goal"
+            ? () => go(3)
+            : key === "patch" && place
+              ? () => {
+                  setArea(null);
+                  go(4);
+                }
+              : key === "perms"
+                ? () => {
+                    const none = { location: false, motion: false, notifications: false };
+                    setPerms(none);
+                    finish(none);
+                  }
+                : null
+        }
+      />
+      <ScrollView contentContainerStyle={{ paddingBottom: S.xl }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <MotiView key={key} from={{ opacity: 0, translateX: 24 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "timing", duration: 260 }}>
+          {key === "setup" ? (
+            <SetupStep
+              photo={photo}
+              onPhoto={pickPhoto}
+              name={name}
+              onName={setName}
+              username={username}
+              onUsername={(v) => {
+                touchedUsername.current = true;
+                setUsername(v.replace(/\s/g, "").replace(/^@/, "").toLowerCase());
+              }}
+              check={check}
+              dob={dob}
+              onDob={setDob}
+              dobProblem={dobProblem}
+              minor={minor}
+              mapVisibility={mapVisibility}
+              onMapVisibility={setMapVisibility}
+            />
+          ) : null}
+          {key === "goal" ? <GoalStep value={goal} onChange={setGoal} /> : null}
+          {key === "patch" ? (
+            <PatchStep place={place} onPlace={setPlace} area={area} onArea={setArea} at={at} locating={locating} onLocate={locate} />
+          ) : null}
+          {key === "perms" ? <PermsStep value={perms} onChange={setPerms} minor={minor} place={place} /> : null}
         </MotiView>
       </ScrollView>
+      {key === "setup" ? footer("Let's go", () => (canSetup ? go(2) : hapticError()), !canSetup) : null}
+      {key === "goal" ? footer("Continue", () => go(3)) : null}
+      {key === "patch"
+        ? footer(place ? `Join ${area ? area.name : place.name}` : "Pick your city or town", () => go(4), !place)
+        : null}
+      {key === "perms" ? footer(perms.location || perms.motion || perms.notifications ? "Allow and get out" : "Get out there", () => finish(), false, finishing) : null}
+    </KeyboardAvoidingView>
+  );
+}
 
-      <View style={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + S.lg, gap: S.sm }}>
-        <Button
-          title={key === "account" ? (codeSent ? "Sign in" : "Send my code") : key === "motion" ? "Let's go" : key === "crew" && !crewCode.trim() ? "Skip for now" : "Continue"}
-          size="lg"
-          full
-          disabled={!canNext}
-          loading={create.isPending || authBusy}
-          onPress={next}
-          variant={key === "crew" && !crewCode.trim() ? "secondary" : "primary"}
-        />
+// ── Sign in ───────────────────────────────────────────────────────────────────
+
+function SignIn({ onDone }) {
+  const insets = useSafeAreaInsets();
+  const outside = useOutsideCount(null);
+  const count = outside.data?.count;
+  const [mode, setMode] = useState("buttons"); // buttons | email | code
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(null);
+
+  const provider = async (p) => {
+    if (!isRemote) return onDone();
+    setBusy(p);
+    try {
+      const res = await engine.signInWithProvider(p);
+      if (res?.signedIn) {
+        hapticSuccess();
+        onDone();
+      }
+    } catch (e) {
+      hapticError();
+      toast(`${p === "apple" ? "Apple" : "Google"} sign in isn't ready`, "Use your email instead. We'll send you a code.");
+      setMode("email");
+      console.warn("[signin]", e?.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendCode = async () => {
+    if (!isRemote) return onDone();
+    if (!EMAIL_RE.test(email.trim())) return hapticError();
+    setBusy("email");
+    try {
+      await engine.sendSignInCode(email);
+      setMode("code");
+      toast("Code sent", `Check ${email.trim()} for a 6 digit code.`);
+    } catch (e) {
+      hapticError();
+      showEngineError(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const verify = async () => {
+    if (code.trim().length < 6) return hapticError();
+    setBusy("code");
+    try {
+      await engine.verifySignInCode(email, code);
+      hapticSuccess();
+      onDone();
+    } catch (e) {
+      hapticError();
+      showEngineError(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={styles.signin} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <StatusBar style="light" />
+      <Image source={PHOTOS.signin} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} accessibilityLabel="Runners crossing a bridge at dawn" />
+      <LinearGradient colors={["rgba(2,5,12,0.55)", "rgba(2,5,12,0)", "rgba(2,5,12,0.2)", "rgba(2,5,12,0.85)", "#02050c"]} locations={[0, 0.2, 0.4, 0.62, 0.8]} style={StyleSheet.absoluteFill} />
+      <Row style={{ paddingTop: insets.top + S.md, paddingHorizontal: S.gutter, justifyContent: "space-between" }}>
+        <Wordmark height={20} ink="#fff" sub="UK" />
+        {mode !== "buttons" ? (
+          <PressableScale onPress={() => setMode("buttons")} hitSlop={10}>
+            <Text style={styles.signinLink}>Back</Text>
+          </PressableScale>
+        ) : null}
+      </Row>
+      <View style={[styles.signinBody, { paddingBottom: insets.bottom + S.xl }]}>
+        <Row gap={8} style={styles.live}>
+          <LiveDot size={7} />
+          <Text style={styles.liveText}>
+            <Text style={{ fontFamily: F.bodySemi }}>{count != null ? formatNumber(count) : "The UK"}</Text>
+            {count != null ? " outside in the UK right now" : " is out right now"}
+          </Text>
+        </Row>
+        <Text style={styles.signinHead}>Your city</Text>
+        <Text style={[styles.signinHead, { color: C.accent, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 20 }]}>is waiting</Text>
+
+        {mode === "buttons" ? (
+          <View style={{ gap: S.md, marginTop: S.lg }}>
+            <PressableScale onPress={() => provider("apple")} disabled={!!busy} scaleTo={0.97} style={[styles.provider, { backgroundColor: "#fff" }]} accessibilityLabel="Continue with Apple">
+              <Lock size={16} color="#07090c" />
+              <Text style={[styles.providerText, { color: "#07090c" }]}>{busy === "apple" ? "Opening Apple" : "Continue with Apple"}</Text>
+            </PressableScale>
+            <PressableScale onPress={() => provider("google")} disabled={!!busy} scaleTo={0.97} style={[styles.provider, styles.providerDark]} accessibilityLabel="Continue with Google">
+              <User size={16} color="#fff" />
+              <Text style={styles.providerText}>{busy === "google" ? "Opening Google" : "Continue with Google"}</Text>
+            </PressableScale>
+            <PressableScale onPress={() => (isRemote ? setMode("email") : onDone())} hitSlop={8} style={{ alignSelf: "center", paddingVertical: 6 }}>
+              <Text style={styles.emailLink}>Use email instead</Text>
+            </PressableScale>
+            <Text style={styles.terms}>By carrying on you agree to the Terms and Privacy Policy.</Text>
+          </View>
+        ) : mode === "email" ? (
+          <View style={{ gap: S.md, marginTop: S.lg }}>
+            <Row gap={S.sm} style={styles.emailField}>
+              <Mail size={18} color={C.textDim} />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor={C.textDim}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+                returnKeyType="send"
+                onSubmitEditing={sendCode}
+                accessibilityLabel="Email address"
+                style={styles.emailInput}
+              />
+            </Row>
+            <Button title="Send my code" full size="lg" loading={busy === "email"} disabled={!EMAIL_RE.test(email.trim())} onPress={sendCode} />
+            <Text style={styles.terms}>No password. We email you a code, and the same address signs you in on any phone.</Text>
+          </View>
+        ) : (
+          <View style={{ gap: S.md, marginTop: S.lg }}>
+            <Row gap={S.sm} style={styles.emailField}>
+              <TextInput
+                value={code}
+                onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 8))}
+                placeholder="123456"
+                placeholderTextColor={C.textDim}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                autoFocus
+                onSubmitEditing={verify}
+                accessibilityLabel="Sign in code"
+                style={[styles.emailInput, { fontFamily: F.display, fontSize: 26, letterSpacing: 8 }]}
+              />
+            </Row>
+            <Button title="Sign in" full size="lg" loading={busy === "code"} disabled={code.trim().length < 6} onPress={verify} />
+            <PressableScale onPress={() => setMode("email")} hitSlop={8} style={{ alignSelf: "center" }}>
+              <Text style={styles.terms}>Sent to {email.trim()}. Wrong address? Change it</Text>
+            </PressableScale>
+          </View>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-// ── Steps ─────────────────────────────────────────────────────────────────────
+// ── Make it yours ─────────────────────────────────────────────────────────────
 
-const KICKERS = { account: "Your account", goal: "Your goal", username: "Who are you", city: "Your patch", crew: "Your people", motion: "The engine" };
-
-const StepTitle = ({ kicker, title, body }) => (
-  <View style={{ marginBottom: S.xxl }}>
-    <Text style={styles.kicker}>{KICKERS[kicker]}</Text>
-    <Text style={styles.stepTitle}>{title}</Text>
-    <Body dim size={16} style={{ marginTop: S.md, lineHeight: 23 }}>
-      {body}
-    </Body>
-  </View>
-);
-
-function AccountStep({ email, onEmail, code, onCode, sent, onChangeEmail, onSubmit }) {
+function SetupStep({ photo, onPhoto, name, onName, username, onUsername, check, dob, onDob, dobProblem, minor, mapVisibility, onMapVisibility }) {
+  const insets = useSafeAreaInsets();
+  const [focus, setFocus] = useState(null);
+  const mRef = useRef(null);
+  const yRef = useRef(null);
   return (
-    <>
-      <StepTitle kicker="account" title={sent ? "Check your email." : "Sign in with email."} body={sent ? `We sent a 6 digit code to ${email.trim()}. It keeps your streak, XP and crews safe if you change phone.` : "No password. We email you a code, and the same address signs you in on any phone."} />
-      {sent ? (
-        <>
-          <Row gap={S.sm} style={[styles.field, { borderColor: code.length >= 6 ? C.borderStrong : C.border }]}>
+    <View style={{ paddingTop: insets.top + 70, paddingHorizontal: S.gutter }}>
+      <Text style={styles.head}>Make it</Text>
+      <Text style={[styles.head, styles.blue]}>yours</Text>
+
+      <View style={{ alignItems: "center", marginVertical: S.lg }}>
+        <PressableScale onPress={onPhoto} scaleTo={0.96} accessibilityLabel="Add a photo" style={styles.photoRing}>
+          <View style={styles.photoInner}>{photo ? <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <User size={40} color={C.textMute} />}</View>
+          <View style={styles.camera}>
+            <Camera size={15} color="#fff" />
+          </View>
+        </PressableScale>
+      </View>
+
+      <View style={{ gap: 10 }}>
+        <View style={[accountStyles.field, focus === "name" && accountStyles.fieldOn]}>
+          <Text style={accountStyles.fieldLabel}>Your name</Text>
+          <TextInput value={name} onChangeText={onName} onFocus={() => setFocus("name")} onBlur={() => setFocus(null)} placeholder="Alex Morgan" placeholderTextColor={C.textMute} maxLength={40} autoCapitalize="words" style={accountStyles.input} accessibilityLabel="Your name" />
+        </View>
+
+        <View style={[accountStyles.field, (focus === "username" || check.state === "ok") && accountStyles.fieldOn, check.state === "bad" && { borderColor: C.danger }]}>
+          <Text style={accountStyles.fieldLabel}>Username</Text>
+          <Row>
             <TextInput
-              value={code}
-              onChangeText={(t) => onCode(t.replace(/\D/g, "").slice(0, 8))}
-              placeholder="123456"
+              value={username ? `@${username}` : ""}
+              onChangeText={onUsername}
+              onFocus={() => setFocus("username")}
+              onBlur={() => setFocus(null)}
+              placeholder="@yourname"
               placeholderTextColor={C.textMute}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              autoComplete="one-time-code"
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={onSubmit}
-              accessibilityLabel="Sign-in code"
-              style={{ flex: 1, color: C.text, fontSize: 26, fontFamily: F.displayMedium, letterSpacing: 8, outlineStyle: "none" }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={21}
+              style={[accountStyles.input, { flex: 1, minWidth: 0 }]}
+              accessibilityLabel="Username"
             />
+            {check.state === "ok" ? (
+              <Row gap={4}>
+                <Check size={14} color={C.accent} strokeWidth={3} />
+                <Text style={styles.available}>Available</Text>
+              </Row>
+            ) : check.state === "bad" ? (
+              <X size={16} color={C.danger} />
+            ) : check.state === "checking" ? (
+              <Text style={styles.checking}>Checking</Text>
+            ) : null}
           </Row>
-          <PressableScale onPress={onChangeEmail} hitSlop={10} style={{ marginTop: S.md }}>
-            <Body dim size={13}>Wrong address? Change it</Body>
-          </PressableScale>
-        </>
-      ) : (
-        <Row gap={S.sm} style={[styles.field, { borderColor: EMAIL_RE.test(email.trim()) ? C.borderStrong : C.border }]}>
-          <View style={{ width: 20 }}><Mail size={20} color={C.textMute} /></View>
-          <TextInput
-            value={email}
-            onChangeText={onEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={C.textMute}
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            autoComplete="email"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            returnKeyType="send"
-            onSubmitEditing={onSubmit}
-            accessibilityLabel="Email address"
-            style={{ flex: 1, color: C.text, fontSize: 20, fontFamily: F.body, outlineStyle: "none" }}
-          />
-        </Row>
-      )}
-    </>
+          {check.state === "bad" ? <Text style={styles.problem}>{check.reason}</Text> : null}
+        </View>
+
+        <View style={[accountStyles.field, focus === "dob" && accountStyles.fieldOn, dobProblem && { borderColor: C.danger }]}>
+          <Text style={accountStyles.fieldLabel}>Date of birth</Text>
+          <Row gap={6}>
+            <TextInput value={dob.d} onChangeText={(t) => { const v = t.replace(/\D/g, "").slice(0, 2); onDob({ ...dob, d: v }); if (v.length === 2) mRef.current?.focus(); }} onFocus={() => setFocus("dob")} onBlur={() => setFocus(null)} placeholder="DD" placeholderTextColor={C.textMute} keyboardType="number-pad" style={[accountStyles.input, styles.dobPart]} accessibilityLabel="Day of birth" />
+            <Text style={styles.dobSlash}>/</Text>
+            <TextInput ref={mRef} value={dob.m} onChangeText={(t) => { const v = t.replace(/\D/g, "").slice(0, 2); onDob({ ...dob, m: v }); if (v.length === 2) yRef.current?.focus(); }} onFocus={() => setFocus("dob")} onBlur={() => setFocus(null)} placeholder="MM" placeholderTextColor={C.textMute} keyboardType="number-pad" style={[accountStyles.input, styles.dobPart]} accessibilityLabel="Month of birth" />
+            <Text style={styles.dobSlash}>/</Text>
+            <TextInput ref={yRef} value={dob.y} onChangeText={(t) => onDob({ ...dob, y: t.replace(/\D/g, "").slice(0, 4) })} onFocus={() => setFocus("dob")} onBlur={() => setFocus(null)} placeholder="YYYY" placeholderTextColor={C.textMute} keyboardType="number-pad" style={[accountStyles.input, styles.dobPart, { width: 64 }]} accessibilityLabel="Year of birth" />
+          </Row>
+          <Text style={[styles.dobHint, dobProblem && { color: C.danger }]}>
+            {dobProblem ? dobProblem.message : minor ? "Under 18 mode: friends and club only, no live spot, no paid drops." : "Keeps under 18s safe. Never shown on your profile."}
+          </Text>
+        </View>
+
+        <View style={[accountStyles.field, { paddingBottom: 14 }]}>
+          <Text style={[accountStyles.fieldLabel, { marginBottom: 10 }]}>Who can see you on the map</Text>
+          <MapVisibility value={mapVisibility} onChange={onMapVisibility} minor={minor} />
+        </View>
+      </View>
+    </View>
   );
 }
 
-function UsernameStep({ n, value, onChange, check, onSubmit }) {
-  const tone = check.state === "bad" ? C.danger : check.state === "ok" ? C.borderStrong : C.border;
+export function MapVisibility({ value, onChange, minor }) {
+  const options = [
+    { value: "everyone", label: "Everyone" },
+    { value: "friends", label: "Friends" },
+    { value: "crew", label: "Crew" },
+  ];
   return (
-    <>
-      <StepTitle kicker="username" title="Pick your name." body="This is how people find you, battle you and see you on the board." />
-      <Row gap={S.sm} style={[styles.field, { borderColor: tone }]}>
-        <View style={{ width: 20 }}><AtSign size={20} color={C.textMute} /></View>
-        <TextInput
-          value={value}
-          onChangeText={(t) => onChange(t.replace(/\s/g, "").toLowerCase())}
-          placeholder="username"
-          placeholderTextColor={C.textMute}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoFocus
-          maxLength={20}
-          returnKeyType="next"
-          onSubmitEditing={onSubmit}
-          style={{ flex: 1, color: C.text, fontSize: 22, fontFamily: F.displayMedium, outlineStyle: "none" }}
-        />
-        {check.state === "ok" ? (
-          <MotiView from={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", damping: 10 }} style={styles.okBadge}>
-            <Check size={14} color={C.accentText} strokeWidth={3} />
-          </MotiView>
-        ) : check.state === "bad" ? (
-          <X size={20} color={C.danger} />
-        ) : null}
-      </Row>
-      <Body size={13} style={{ marginTop: S.sm, color: check.state === "bad" ? C.danger : check.state === "ok" ? C.textDim : C.textMute }}>
-        {check.state === "checking"
-          ? "Checking it's free..."
-          : check.state === "ok"
-            ? "Nice, that one's yours."
-            : check.state === "bad"
-              ? check.reason
-              : "3 to 20 characters: letters, numbers, dots and underscores."}
-      </Body>
-    </>
+    <View style={styles.seg3}>
+      {options.map((o) => {
+        const on = value === o.value;
+        const off = minor && o.value === "everyone";
+        return (
+          <PressableScale
+            key={o.value}
+            disabled={off}
+            onPress={() => !on && onChange(o.value)}
+            scaleTo={0.96}
+            style={[styles.seg3Item, on && styles.seg3On, off && { opacity: 0.35 }]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on, disabled: off }}
+          >
+            <Text style={[styles.seg3Text, on && { color: "#fff" }]}>{o.label}</Text>
+          </PressableScale>
+        );
+      })}
+    </View>
   );
 }
 
-const GOALS = [
-  { value: 6000, title: "Easy going", sub: "A good walk most days" },
-  { value: 10000, title: "Active", sub: "Walks plus a few runs a week" },
-  { value: 15000, title: "Beast mode", sub: "Out every day, rain or shine" },
-];
+// ── Goal ──────────────────────────────────────────────────────────────────────
 
 function GoalStep({ value, onChange }) {
   const nudge = (d) => {
@@ -296,135 +550,98 @@ function GoalStep({ value, onChange }) {
     onChange(Math.min(30000, Math.max(3000, value + d)));
   };
   return (
-    <>
-      <StepTitle kicker="goal" title="Set your daily goal." body="Hit it to earn 40 XP and 4 OUT on top of your steps. You can change it any time." />
-      <Row style={styles.stepper}>
-        <PressableScale onPress={() => nudge(-500)} scaleTo={0.9} accessibilityLabel="500 fewer steps" style={styles.stepBtn}>
-          <Minus size={22} color={C.text} />
-        </PressableScale>
-        <View style={{ alignItems: "center" }}>
-          <Text style={styles.goalNum}>{formatNumber(value)}</Text>
-          <Text style={styles.goalUnit}>steps a day</Text>
-        </View>
-        <PressableScale onPress={() => nudge(500)} scaleTo={0.9} accessibilityLabel="500 more steps" style={styles.stepBtn}>
-          <Plus size={22} color={C.text} />
-        </PressableScale>
-      </Row>
-      <View style={{ gap: 10, marginTop: S.lg }}>
-        {GOALS.map((g) => {
-          const on = g.value === value;
-          return (
-            <PressableScale
-              key={g.value}
-              onPress={() => {
-                hapticSelection();
-                onChange(g.value);
-              }}
-              scaleTo={0.98}
-              style={[styles.opt, on && styles.optOn]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-            >
-              <View style={[styles.radio, on && styles.radioOn]}>{on ? <View style={styles.radioDot} /> : null}</View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.optTitle}>{g.title}</Text>
-                <Text style={styles.optSub}>{g.sub}</Text>
-              </View>
-              <Text style={styles.optN}>{`${g.value / 1000}k`}</Text>
-            </PressableScale>
-          );
-        })}
-      </View>
-    </>
-  );
-}
-
-function CityStep({ n, value, onChange }) {
-  return (
-    <>
-      <StepTitle kicker="city" title="Where do you move?" body="Your city sets your local leaderboard, events and who's out near you." />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: S.sm }}>
-        {CITIES.map((c) => {
-          const active = c.name === value;
-          return (
-            <PressableScale key={c.name} onPress={() => onChange(c.name)} scaleTo={0.9}>
-              <MotiView
-                animate={{ scale: active ? 1.04 : 1 }}
-                transition={{ type: "spring", damping: 12, stiffness: 260 }}
-                style={[styles.city, active && styles.cityActive]}
-              >
-                {active ? <Check size={16} color={C.bg} strokeWidth={3} /> : null}
-                <Text style={[styles.cityText, active && { color: C.bg, fontWeight: "600" }]}>{c.name}</Text>
-              </MotiView>
-            </PressableScale>
-          );
-        })}
-      </View>
-    </>
-  );
-}
-
-function CrewStep({ n, value, onChange }) {
-  return (
-    <>
-      <StepTitle kicker="crew" title="Got a crew code?" body="If a mate sent you an invite code, drop it in and you'll land straight in their crew." />
-      <Row gap={S.sm} style={[styles.field, { borderColor: value ? C.borderStrong : C.border }]}>
-        <View style={{ width: 20 }}><Users size={20} color={C.textMute} /></View>
-        <TextInput
-          value={value}
-          onChangeText={(t) => onChange(t.replace(/\s/g, "").toUpperCase())}
-          placeholder="e.g. NORTH3"
-          placeholderTextColor={C.textMute}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={10}
-          style={{ flex: 1, color: C.text, fontSize: 22, fontFamily: F.displayMedium, letterSpacing: 3, outlineStyle: "none" }}
-        />
-      </Row>
-      <Body mute size={13} style={{ marginTop: S.sm }}>
-        You can join or start a crew any time from the Crew tab.
-      </Body>
-    </>
-  );
-}
-
-function MotionStep({ n, status, onAsk }) {
-  const granted = status === "granted";
-  const note = {
-    denied: "No worries. You can turn on Motion & Fitness for Outhere in your phone's settings later.",
-    unavailable: "This device doesn't have a step counter we can read. You can still log runs from the Move tab.",
-  }[status];
-  return (
-    <>
-      <StepTitle kicker="motion" title="Your steps do the work." body="Outhere reads your phone's step counter, so there's nothing to start or stop. Just carry your phone." />
-      <View style={{ gap: S.lg, marginBottom: S.xxl }}>
-        {[
-          { title: "5 XP for every 1,000 steps", text: "Plus bonuses for active days and hitting your goal." },
-          { title: "Private by default", text: "Only step counts are read. Your location is used only while you track a run." },
-        ].map(({ title, text }, i) => (
-          <View key={title}>
-            {i > 0 ? <View style={styles.sep} /> : null}
-            <Text style={styles.pointTitle}>{title}</Text>
-            <Body dim style={{ marginTop: 2 }}>
-              {text}
-            </Body>
+    <View>
+      <GlowHero
+        kicker="Step 2 of 4"
+        top="Set your"
+        bottom="daily goal"
+        height={360}
+        background={
+          <>
+            <Image source={PHOTOS.goal11} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "50%", top: "35%" }} transition={250} accessibilityLabel="A runner at sunrise, blurred with speed" />
+            <LinearGradient colors={["rgba(7,9,12,0.35)", "rgba(7,9,12,0.1)", "rgba(7,9,12,0.92)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
+          </>
+        }
+      />
+      <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: 12 }}>
+        <View style={styles.stepper}>
+          <PressableScale onPress={() => nudge(-500)} scaleTo={0.9} accessibilityLabel="500 fewer steps" style={styles.stepBtn}>
+            <Minus size={18} color={C.text} />
+          </PressableScale>
+          <View style={{ alignItems: "center" }}>
+            <Text style={styles.goalNum}>{formatNumber(value)}</Text>
+            <Text style={styles.goalUnit}>steps a day</Text>
           </View>
-        ))}
-      </View>
-      {granted ? (
-        <Row gap={S.sm}>
-          <Check size={18} color={C.accent} />
-          <Text style={{ color: C.text, fontSize: 15, fontWeight: "600" }}>Step counting is on</Text>
+          <PressableScale onPress={() => nudge(500)} scaleTo={0.9} accessibilityLabel="500 more steps" style={styles.stepBtn}>
+            <Plus size={18} color={C.text} />
+          </PressableScale>
+        </View>
+        <Row gap={10}>
+          {GOALS.map((g) => {
+            const on = g.value === value;
+            return (
+              <PressableScale key={g.value} onPress={() => { hapticSelection(); onChange(g.value); }} scaleTo={0.96} style={[styles.preset, on && styles.presetOn]} accessibilityRole="radio" accessibilityState={{ selected: on }}>
+                <Text style={[styles.presetN, on && { color: C.accent }]}>{g.label}</Text>
+                <Text style={styles.presetSub}>{g.sub}</Text>
+              </PressableScale>
+            );
+          })}
         </Row>
-      ) : (
-        <Button title="Turn on step counting" variant="secondary" full icon={Footprints} loading={status === "asking"} onPress={onAsk} style={{ borderWidth: 0 }} />
-      )}
-      {note ? (
-        <Body mute size={13} style={{ marginTop: S.md }}>
-          {note}
+        <Body dim size={13} style={{ textAlign: "center", marginTop: 4 }}>Hit it for 40 XP and 4 OUT on top of your steps.</Body>
+      </View>
+    </View>
+  );
+}
+
+// ── Patch ─────────────────────────────────────────────────────────────────────
+
+function PatchStep({ place, onPlace, area, onArea, at, locating, onLocate }) {
+  const word = areaWord(place);
+  const choose = useCallback(
+    (p) => {
+      onPlace(p);
+      onArea(null);
+    },
+    [onPlace, onArea]
+  );
+  return (
+    <View>
+      <GlowHero kicker="Step 3 of 4" top="Where's" bottom="your patch?" height={260} />
+      <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.md }}>
+        <Body dim size={14} style={{ lineHeight: 20 }}>
+          {place ? `Your ${word} is your team. Every step you take counts towards it.` : "Pick your city or town, then the area you move in. It's your team."}
         </Body>
-      ) : null}
-    </>
+        <PatchPicker
+          place={place}
+          onPlace={choose}
+          areaId={area?.id}
+          onArea={onArea}
+          at={at}
+          locating={locating}
+          onLocate={onLocate}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ── Permissions ───────────────────────────────────────────────────────────────
+
+function PermsStep({ value, onChange, minor, place }) {
+  const word = areaWord(place);
+  const set = (k) => (v) => onChange({ ...value, [k]: v });
+  return (
+    <View>
+      <GlowHero kicker="Step 4 of 4" top="Let us come" bottom="with you" height={290} />
+      <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.lg }}>
+        <Group>
+          <SettingRow icon={LocateFixed} iconColour={C.accent} title="Location" hint={minor ? "Routes only. No live spot in under 18 mode" : "Routes, and who's out near you"} right={<Toggle value={value.location} onChange={set("location")} label="Location" />} />
+          <SettingRow icon={Footprints} iconColour={C.accent} title="Motion" hint="Count steps all day" right={<Toggle value={value.motion} onChange={set("motion")} label="Motion" />} />
+          <SettingRow icon={Bell} iconColour={C.accent} title="Notifications" hint="Battles, drops and crew" right={<Toggle value={value.notifications} onChange={set("notifications")} label="Notifications" />} />
+        </Group>
+        <Note icon={Lock}>Friends only see your {word}. Your exact spot stays private unless you share a route.</Note>
+      </View>
+    </View>
   );
 }
 
@@ -448,7 +665,7 @@ function Success({ profile, onDone }) {
           </View>
         </MotiView>
         <MotiView from={{ opacity: 0, translateY: 14 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 420, delay: 260 }} style={{ alignItems: "center" }}>
-          <Text style={[styles.kicker, { marginTop: 32, marginBottom: 0 }]}>You're in</Text>
+          <Text style={[styles.kicker, { marginTop: 32 }]}>You're in</Text>
           <Text style={styles.successTitle} numberOfLines={1} adjustsFontSizeToFit>@{profile.username}</Text>
           <Body dim size={16} style={{ textAlign: "center", marginTop: S.sm }}>
             Here's something to start you off.
@@ -456,13 +673,7 @@ function Success({ profile, onDone }) {
         </MotiView>
         <Row gap={S.sm} style={{ marginTop: S.xl }}>
           {["+100 XP", "+20 OUT"].map((label, i) => (
-            <MotiView
-              key={label}
-              from={{ scale: 0.4, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", damping: 10, stiffness: 200, delay: 520 + i * 140 }}
-              style={styles.reward}
-            >
+            <MotiView key={label} from={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 10, stiffness: 200, delay: 520 + i * 140 }} style={styles.reward}>
               <Text style={styles.rewardText}>{label}</Text>
             </MotiView>
           ))}
@@ -475,32 +686,50 @@ function Success({ profile, onDone }) {
 }
 
 const styles = StyleSheet.create({
-  stepper: { justifyContent: "space-between", padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface },
-  stepBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  goalNum: { color: C.text, fontFamily: F.display, fontSize: 54, lineHeight: 54 },
-  goalUnit: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 4 },
-  opt: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: S.lg, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1.5, borderColor: "transparent" },
-  optOn: { borderColor: C.accent },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.8, borderColor: C.textMute, alignItems: "center", justifyContent: "center" },
-  radioOn: { borderColor: C.accent, backgroundColor: C.accent },
-  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" },
-  optTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
-  optSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
-  optN: { color: C.text, fontFamily: F.display, fontSize: 22 },
-  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
-  counter: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 14, letterSpacing: 1 },
-  devSkip: { paddingHorizontal: 12, height: 32, borderRadius: R.full, backgroundColor: C.surface, justifyContent: "center" },
-  kicker: { color: C.textDim, fontSize: 13, fontWeight: "600", marginBottom: S.sm },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginBottom: S.lg },
-  pointTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
-  stepTitle: { color: C.text, fontFamily: F.display, fontSize: 42, lineHeight: 44, letterSpacing: -1.2 },
-  field: { height: 64, borderRadius: R.lg, borderWidth: 1, backgroundColor: C.surface, paddingHorizontal: S.lg },
-  okBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
-  city: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: S.lg, height: 48, borderRadius: R.full, backgroundColor: C.surface },
-  cityActive: { backgroundColor: C.text },
-  cityText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  footer: { paddingHorizontal: S.gutter, paddingTop: S.sm },
+  // sign in
+  signin: { flex: 1, backgroundColor: "#02050c", overflow: "hidden" },
+  signinBody: { flex: 1, justifyContent: "flex-end", paddingHorizontal: S.gutter },
+  signinLink: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 14 },
+  live: { alignSelf: "flex-start", paddingVertical: 7, paddingLeft: 10, paddingRight: 12, borderRadius: R.full, backgroundColor: "rgba(10,16,28,0.6)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.16)", marginBottom: S.md },
+  liveText: { color: "#fff", fontFamily: F.body, fontSize: 12 },
+  signinHead: { color: "#fff", fontFamily: F.display, fontSize: 54, lineHeight: 52, textTransform: "uppercase" },
+  provider: { height: 52, borderRadius: R.full, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  providerDark: { backgroundColor: "rgba(40,44,52,0.85)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.22)" },
+  providerText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 15 },
+  emailLink: { color: "#fff", fontFamily: F.bodyMedium, fontSize: 14 },
+  terms: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 19, textAlign: "center", paddingHorizontal: S.lg },
+  emailField: { height: 56, borderRadius: R.lg, backgroundColor: "rgba(18,21,26,0.9)", paddingHorizontal: S.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
+  emailInput: { flex: 1, color: C.text, fontFamily: F.body, fontSize: 17, outlineStyle: "none" },
+  // setup
+  head: { color: C.text, fontFamily: F.display, fontSize: 48, lineHeight: 48, textTransform: "uppercase" },
+  blue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 18 },
+  kicker: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase" },
+  photoRing: { width: 104, height: 104, borderRadius: 52, borderWidth: 3, borderColor: C.accent, padding: 5, shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+  photoInner: { flex: 1, borderRadius: 46, overflow: "hidden", backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  camera: { position: "absolute", right: -4, bottom: -2, width: 32, height: 32, borderRadius: 16, backgroundColor: C.accent, borderWidth: 3, borderColor: C.bg, alignItems: "center", justifyContent: "center" },
+  available: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 12 },
+  checking: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  problem: { color: C.danger, fontFamily: F.body, fontSize: 12, marginTop: 2 },
+  dobPart: { width: 40, textAlign: "center" },
+  dobSlash: { color: C.textMute, fontFamily: F.body, fontSize: 17 },
+  dobHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 4 },
+  seg3: { flexDirection: "row", padding: 4, borderRadius: R.full, backgroundColor: "#0c0f14", borderWidth: StyleSheet.hairlineWidth, borderColor: "#2a303b" },
+  seg3Item: { flex: 1, height: 36, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
+  seg3On: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
+  seg3Text: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 14 },
+  // goal
+  stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: S.md, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  stepBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  goalNum: { color: C.text, fontFamily: F.display, fontSize: 50, lineHeight: 52 },
+  goalUnit: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  preset: { flex: 1, height: 64, borderRadius: 18, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "transparent" },
+  presetOn: { borderColor: C.accent, backgroundColor: "#13203a" },
+  presetN: { color: C.text, fontFamily: F.display, fontSize: 22, lineHeight: 24 },
+  presetSub: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
+  // success
   burst: { width: 96, height: 96, borderRadius: 48, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
-  successTitle: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -1.2, marginTop: S.xs, maxWidth: 340 },
+  successTitle: { color: C.text, fontFamily: F.display, fontSize: 44, letterSpacing: -0.5, marginTop: S.xs, maxWidth: 340 },
   reward: { flexDirection: "row", alignItems: "center", height: 40, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.surface },
   rewardText: { color: C.text, fontFamily: F.display, fontSize: 16 },
 });

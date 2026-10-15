@@ -1,5 +1,5 @@
 // First screen for someone new. One big photo, the mark, a live count of
-// who's out in London right now, one line and one action: slide to start.
+// who's out across the UK right now, one line and one action: slide to start.
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
-import { isRemote, useOutsideNow } from "@/data/hooks";
+import { isRemote, useOutsideCount } from "@/data/hooks";
 import { C, F, FadeIn, LiveDot, PressableScale, R, Row, S, SlideToStart, Wordmark } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { formatNumber } from "@/utils/format";
@@ -17,7 +17,8 @@ import { formatNumber } from "@/utils/format";
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const outside = useOutsideNow("London");
+  // Signed out, so the whole UK.
+  const outside = useOutsideCount(null);
   const count = outside.data?.count;
   const start = () => setTimeout(() => router.push("/onboarding"), 260);
 
@@ -34,7 +35,7 @@ export default function WelcomeScreen() {
       />
 
       <Row style={{ paddingTop: insets.top + S.md, paddingHorizontal: S.gutter, justifyContent: "space-between" }}>
-        <Wordmark height={20} ink="#fff" sub="LONDON" animate />
+        <Wordmark height={20} ink="#fff" sub="UK" animate />
       </Row>
 
       <View style={[styles.body, { paddingBottom: insets.bottom + S.xl }]}>
@@ -42,14 +43,14 @@ export default function WelcomeScreen() {
           <Row gap={8} style={styles.live}>
             <LiveDot size={7} />
             <Text style={styles.liveText}>
-              <Text style={{ fontFamily: F.bodySemi }}>{count != null ? formatNumber(count) : "London"}</Text>
-              {count != null ? " outside in London right now" : " is out right now"}
+              <Text style={{ fontFamily: F.bodySemi }}>{count != null ? formatNumber(count) : "The UK"}</Text>
+              {count != null ? " outside in the UK right now" : " is out right now"}
             </Text>
           </Row>
         </FadeIn>
         <FadeIn delay={420}>
           <Text style={styles.headline}>Walk. Run.</Text>
-          <Text style={[styles.headline, { color: "#4b93ff" }]}>Earn London.</Text>
+          <Text style={[styles.headline, { color: "#4b93ff" }]}>Earn your city.</Text>
           <Text style={styles.sub}>Every step turns into XP and OUT. Spend them on drops, battles and nights out across the city.</Text>
         </FadeIn>
         <FadeIn delay={560}>

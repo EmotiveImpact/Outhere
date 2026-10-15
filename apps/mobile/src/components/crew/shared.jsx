@@ -1,7 +1,7 @@
 // Small pieces shared by the Crew tab, crew detail and create screens.
 
 import React, { useState } from "react";
-import { Text, View } from "react-native";
+import { Share, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Svg, { Path } from "react-native-svg";
 import { Check, Globe, Lock } from "lucide-react-native";
@@ -38,6 +38,17 @@ export const ROLE_LABEL = { owner: "Owner", admin: "Admin", member: "Member" };
 export const crewAccent = (crew) => crew?.accent || C.accent;
 
 export const playerName = (p) => (p?.isMe ? "You" : p?.name || p?.username || "Former member");
+
+// What to say after joinCrew: in straight away, or asked and waiting.
+export const joinedToast = (crew) => (crew?.isMember ? `You're in ${crew.name}` : crew?.requested ? `Asked to join ${crew.name}` : null);
+
+/** "SBK417" reads as "SBK-417"; other codes stay as they are. */
+export const codeLabel = (code = "") => (/^[A-Z]{3}\d{3}$/i.test(code || "") ? `${code.slice(0, 3)}-${code.slice(3)}` : code || "").toUpperCase();
+
+export const shareInvite = (crew) =>
+  Share.share({
+    message: `Join ${crew.name} on Outhere. Open the Crew tab, tap Join with a code and type ${crew.inviteCode}.`,
+  }).catch(() => {});
 
 export const memberCountLabel = (n) => `${n} ${n === 1 ? "member" : "members"}`;
 

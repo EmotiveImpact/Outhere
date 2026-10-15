@@ -27,6 +27,9 @@ import { makeClubs } from "./clubs";
 import { makeOutside } from "./outside";
 import { makeProfile } from "./profile";
 import { memberBonus } from "@/constants/plans";
+import { makeCrew } from "./crew";
+import { photoFor } from "./seedCrew";
+import { makeAccount } from "./account";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -760,15 +763,27 @@ const seededStories = (pid) => {
   if (!playerIsOutside(pid) && noise(`story:${pid}:${day}`) < 0.6) return [];
   const count = 1 + Math.floor(noise(`stories:${pid}:${day}`) * 3);
   const now = Date.now();
+  const out = playerIsOutside(pid);
+  const place = playerById[pid]?.area || playerById[pid]?.city || "the park";
   return Array.from({ length: count }, (_, i) => {
     const n = noise(`story:${pid}:${day}:${i}`);
     const postedAt = Math.max(startOfDay().getTime(), now - (count - i) * 47 * 60 * 1000 - Math.round(n * 30 * 60 * 1000));
+    const last = i === count - 1;
+    // Someone out right now: their latest story shows the run as it happens.
+    const minutes = Math.max(4, Math.round((now - postedAt) / 60000) + 6);
+    const paceSec = Math.round(280 + noise(`${pid}:pace`) * 120);
+    const liveKm = Math.round(((minutes * 60) / paceSec) * 10) / 10;
+    const ranKm = Math.round((3 + noise(`km:${pid}:${day}:${i}`) * 6) * 100) / 100;
+    const withRun = !last && noise(`sticker:${pid}:${day}:${i}`) > 0.5;
     return {
       id: `${pid}:${day}:${i}`,
       authorId: pid,
       image: PHOTOS[STORY_PHOTOS[Math.floor(n * STORY_PHOTOS.length)]],
-      caption: STORY_LINES[Math.floor(noise(`line:${pid}:${day}:${i}`) * STORY_LINES.length)],
+      caption: out && last ? `${liveKm} km into a run round ${place}` : STORY_LINES[Math.floor(noise(`line:${pid}:${day}:${i}`) * STORY_LINES.length)],
       audience: "followers",
+      live: out && last ? { km: liveKm, paceSec, minutes } : null,
+      run: withRun ? { km: ranKm, paceSec, seconds: Math.round(ranKm * paceSec), title: `${place} loop` } : null,
+      stickers: withRun ? ["route"] : [],
       postedAt,
       expiresAt: postedAt + DAY_MS,
     };
@@ -776,6 +791,7 @@ const seededStories = (pid) => {
 };
 
 const storiesOf = (s, pid) => {
+  if (pid !== ME && (s.blocked || []).includes(pid)) return [];
   const list = pid === ME ? (s.myStories || []).filter((st) => st.expiresAt > Date.now()) : seededStories(pid);
   return list.map((st) => ({ ...st, seen: pid === ME || !!s.storyViews?.[st.id], emote: typeof s.storyViews?.[st.id] === "string" ? s.storyViews[st.id] : null }));
 };
@@ -800,12 +816,30 @@ export const markStoryWatched = async (pid) =>
     s.storyViews = views;
   });
 
-export const postStory = async ({ uri, caption = "", audience = "followers" }) =>
+// audience: "followers" (Friends), "club" (My club, needs clubId) or "public".
+// A run puts its distance, time and pace on the photo; stickers add the
+// route, streak, battle or club on top.
+const STORY_STICKERS = ["route", "streak", "battle", "club"];
+export const postStory = async ({ uri, caption = "", audience = "followers", clubId = null, runId = null, stickers = [] }) =>
   write((s) => {
     const me = requireMe(s);
     if (me.tier === "free") throw new EngineError("TIER_REQUIRED", "Posting stories is for Pro and Black members.", { requiredTier: "pro" });
+    if (audience === "club" && !(clubId && s.crews[clubId]?.members.some((m) => m.id === ME))) throw new EngineError("FORBIDDEN", "Join a crew to post to it.");
+    const r = runId ? s.runs.find((x) => x.id === runId) : null;
     const now = Date.now();
-    s.myStories = [...(s.myStories || []).filter((st) => st.expiresAt > now), { id: randomId("st"), authorId: ME, image: { uri }, caption: caption.trim(), audience, postedAt: now, expiresAt: now + DAY_MS }];
+    const story = {
+      id: randomId("st"),
+      authorId: ME,
+      image: { uri },
+      caption: caption.trim(),
+      audience,
+      clubId: audience === "club" ? clubId : null,
+      run: r ? { km: r.distanceKm, paceSec: r.paceSecPerKm, seconds: r.durationSec, title: r.title } : null,
+      stickers: stickers.filter((x) => STORY_STICKERS.includes(x)),
+      postedAt: now,
+      expiresAt: now + DAY_MS,
+    };
+    s.myStories = [...(s.myStories || []).filter((st) => st.expiresAt > now), story];
   });
 
 export const deleteStory = async (storyId) =>
@@ -853,7 +887,7 @@ export const unfollow = async (pid) =>
 export const getOutsideNow = async (city) =>
   read((s) => {
     const people = PLAYERS.filter((p) => (!city || p.city === city) && playerIsOutside(p.id)).map((p) => personView(s, p.id));
-    if (s.me?.isOutside && s.settings?.privacy?.showOutsideStatus !== false && (!city || s.me.city === city)) people.unshift(personView(s, ME));
+    if (s.me?.isOutside && s.settings?.privacy?.showOutsideStatus !== false && !s.settings?.privacy?.ghost && (!city || s.me.city === city)) people.unshift(personView(s, ME));
     return { count: people.length, people };
   });
 
@@ -1190,6 +1224,7 @@ export const createBattle = async ({ opponentId, mode = "most_steps", durationHo
     if (!def) throw new EngineError("BAD_MODE", "Pick a way to battle.");
     if (!playerById[opponentId]) throw new EngineError("NOT_FOUND", "Pick an opponent.");
     if (isRosterHidden(s, opponentId)) throw new EngineError("NOT_ALLOWED", "You took them off your list. Add them back first.");
+    account.guardMinor(s, "battle", opponentId);
     const rules = TIER_RULES[me.tier];
     const weekAgo = Date.now() - 7 * DAY_MS;
     if (s.battles.filter((b) => b.creatorId === ME && b.createdAt >= weekAgo).length >= rules.battlesPerWeek) {
@@ -1388,6 +1423,9 @@ const crewView = (s, crew, detailed = false) => {
     isMember: isMember(crew),
     myRole: myRole(crew),
     inviteCode: isMember(crew) ? crew.inviteCode : null,
+    joinPolicy: crew.privacy === "request" ? "request" : crew.privacy === "invite" ? "invite" : "open",
+    chatPolicy: crew.chatPolicy === "admins" ? "admins" : "everyone",
+    requested: (s.crewRequests || []).some((r) => r.crewId === crew.id && r.userId === ME && r.status === "pending"),
     ownerId: crew.ownerId,
     owner: crew.ownerId === ME ? (s.me ? meAsPlayer(s) : null) : publicPlayer(crew.ownerId),
     ...clubs.clubBits(s, crew),
@@ -1411,10 +1449,18 @@ const crewView = (s, crew, detailed = false) => {
 const joinCrewInState = (s, crew, viaCode = false) => {
   const me = requireMe(s);
   if (isMember(crew)) return;
+  crewArea.ensure(s);
   if (crew.privacy === "invite" && !viaCode) throw new EngineError("INVITE_ONLY", "This crew is invite only. Ask a member for the code.");
   const joined = Object.values(s.crews).filter((c) => isMember(c)).length;
   const limit = TIER_RULES[me.tier].maxCrewsJoined;
   if (joined >= limit) throw tierError(me.tier === "free" ? "pro" : "black", `Your membership lets you be in ${limit} crew${limit === 1 ? "" : "s"}. Upgrade to join more.`);
+  // Crews that ask first get a request; a code from the crew skips it.
+  if (crew.privacy === "request" && !viaCode) {
+    if (!s.crewRequests.some((r) => r.crewId === crew.id && r.userId === ME && r.status === "pending")) {
+      s.crewRequests.push({ id: randomId("req"), crewId: crew.id, userId: ME, at: Date.now(), status: "pending" });
+    }
+    return;
+  }
   crew.members.push({ id: ME, role: "member", joinedAt: Date.now() });
   notify(s, { type: "crews", title: `You joined ${crew.name}`, body: "Say hello in the crew chat.", link: `/crew/${crew.id}` });
 };
@@ -1508,7 +1554,10 @@ export const updateCrew = async (id, patch) =>
       if (crew.ownerId !== ME) throw new EngineError("FORBIDDEN", "Only the owner can change the logo.");
       if (!tierAtLeast(s.me.tier, "pro")) throw tierError("pro", "Crew logos are a Pro feature.");
     }
-    for (const key of ["name", "tagline", "accent", "privacy", "logo", "weeklyGoalKm", "city"]) {
+    if (patch.privacy !== undefined && !["public", "request", "invite"].includes(patch.privacy)) throw new EngineError("BAD_POLICY", "Pick who can join.");
+    if (patch.chatPolicy !== undefined && !["everyone", "admins"].includes(patch.chatPolicy)) throw new EngineError("BAD_POLICY", "Pick who can post.");
+    if (patch.weeklyGoalKm !== undefined && !(patch.weeklyGoalKm >= 10 && patch.weeklyGoalKm <= 5000)) throw new EngineError("BAD_GOAL", "Pick a goal between 10 and 5,000 km.");
+    for (const key of ["name", "tagline", "accent", "privacy", "logo", "weeklyGoalKm", "city", "chatPolicy"]) {
       if (patch[key] !== undefined) crew[key] = patch[key];
     }
     return crewView(s, crew, true);
@@ -1557,53 +1606,53 @@ export const getCrewLeaderboard = async (id, period = "week") =>
       .map((r, i) => ({ ...r, rank: i + 1, isMe: r.player.id === ME, km: Math.round(r.steps * STEP_KM * 10) / 10 }));
   });
 
-export const getCrewMessages = async (id) =>
-  read((s) => {
-    const crew = s.crews[id];
-    if (!crew || !isMember(crew)) throw new EngineError("FORBIDDEN", "Join the crew to see the chat.");
-    return (s.crewChat[id] || []).map((m) => ({ ...m, author: m.authorId === ME ? meAsPlayer(s) : publicPlayer(m.authorId), isMine: m.authorId === ME }));
-  });
+// ── Crew tab: race, goal, feed, chat, requests, reports (see crew.js) ─────────
 
-export const sendCrewMessage = async (id, text) =>
-  write((s) => {
-    const crew = s.crews[id];
-    if (!crew || !isMember(crew)) throw new EngineError("FORBIDDEN", "Join the crew to chat.");
-    const clean = (text || "").trim();
-    if (!clean) return null;
-    const msg = { id: randomId("m"), authorId: ME, text: clean.slice(0, 1000), at: Date.now() };
-    s.crewChat[id] = [...(s.crewChat[id] || []), msg].slice(-300);
-    return { ...msg, author: meAsPlayer(s), isMine: true };
-  });
-
-export const getCrewFeed = async (id) =>
-  read((s) =>
-    (s.crewFeed[id] || [])
-      .map((p) => ({ ...p, author: p.authorId === ME ? meAsPlayer(s) : publicPlayer(p.authorId), likeCount: p.likes.length, likedByMe: p.likes.includes(ME), isMine: p.authorId === ME }))
-      .sort((a, b) => b.at - a.at)
-  );
-
-export const togglePostLike = async (crewId, postId) =>
-  write((s) => {
-    const post = (s.crewFeed[crewId] || []).find((p) => p.id === postId);
-    if (!post) return;
-    post.likes = post.likes.includes(ME) ? post.likes.filter((x) => x !== ME) : [...post.likes, ME];
-  });
-
-export const shareRunToCrew = async (crewId, { runId, caption = "" }) =>
-  write((s) => {
-    const crew = s.crews[crewId];
-    if (!crew || !isMember(crew)) throw new EngineError("FORBIDDEN", "Join the crew to post.");
-    const run = s.runs.find((r) => r.id === runId);
-    if (!run) throw new EngineError("NOT_FOUND", "Run not found.");
-    const post = { id: randomId("post"), authorId: ME, km: run.distanceKm, minutes: Math.round(run.durationSec / 60), caption: caption.trim(), runId, at: Date.now(), likes: [], comments: 0 };
-    s.crewFeed[crewId] = [post, ...(s.crewFeed[crewId] || [])];
-    return post;
-  });
-
-export const deletePost = async (crewId, postId) =>
-  write((s) => {
-    s.crewFeed[crewId] = (s.crewFeed[crewId] || []).filter((p) => !(p.id === postId && p.authorId === ME));
-  });
+const crewArea = makeCrew({
+  read, write, touch, requireMe, notify, EngineError, ME,
+  publicPlayer, meAsPlayer, playerStepsBetween, myStepsBetween, myDistanceBetween, playerIsOutside,
+  storyState: (s, pid) => storyState(s, pid),
+  clubBits: (s, crew) => clubs.clubBits(s, crew),
+  STEP_KM,
+  PHOTO: photoFor,
+});
+export const {
+  getCrewHeader,
+  getCrewRace,
+  getCrewGoal,
+  getCrewDays,
+  listCrewChallenges,
+  joinCrewChallenge,
+  getCrewStats,
+  getCityBoard,
+  getCrewFeed,
+  postToCrew,
+  shareRunToCrew,
+  togglePostLike,
+  getPostComments,
+  commentOnPost,
+  deletePost,
+  getCrewMessages,
+  sendCrewMessage,
+  shareToCrewChat,
+  reactToMessage,
+  toggleChatRun,
+  getCrewUnread,
+  markCrewRead,
+  getCrewTyping,
+  listCrewsNear,
+  cancelJoinRequest,
+  listJoinRequests,
+  decideJoinRequest,
+  reportContent,
+  blockPlayer,
+  unblockPlayer,
+  listBlocked,
+  listCrewStories,
+  listClubStories,
+  cheerStory,
+  replyToStory,
+} = crewArea.api;
 
 // ── Run clubs and club v club (see clubs.js) ──────────────────────────────────
 
@@ -1875,6 +1924,7 @@ export const toggleDropReminder = async (id) =>
 export const reserveDrop = async (id, size) =>
   write((s) => {
     requireMe(s);
+    account.guardMinor(s, "drop");
     const d = DROPS.find((x) => x.id === id);
     if (!d) throw new EngineError("NOT_FOUND", "Drop not found.");
     const v = dropView(s, d);
@@ -1982,20 +2032,27 @@ export const clearNotifications = async () =>
     s.notifications = [];
   });
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── Settings, privacy, under 18 mode, your patch and your week (see account.js)
 
-export const getSettings = async () => read((s) => s.settings);
-
-export const updateSettings = async (patch) =>
-  write((s) => {
-    s.settings = {
-      ...s.settings,
-      ...patch,
-      notifications: { ...s.settings.notifications, ...(patch.notifications || {}) },
-      privacy: { ...s.settings.privacy, ...(patch.privacy || {}) },
-    };
-    return s.settings;
-  });
+const account = makeAccount({ read, write, requireMe, EngineError, ME, players: PLAYERS, resetAll, myStepsBetween, getOutsideNow });
+export const {
+  getSettings,
+  updateSettings,
+  getAccount,
+  setBirthDate,
+  linkGuardian,
+  unlinkGuardian,
+  // listBlocked, blockPlayer and unblockPlayer come from the crew area
+  exportMyData,
+  deleteAccount,
+  listPatchPlaces,
+  listPatchAreas,
+  setPatch,
+  getWeekSummary,
+  setAvatar,
+  signInWithProvider,
+  getOutsideCount,
+} = account;
 
 // Test hook: lets tests start from a clean in-memory state.
 export const __resetForTests = () => {

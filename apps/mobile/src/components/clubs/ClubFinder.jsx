@@ -10,7 +10,7 @@ import { BadgeCheck, ChevronRight, Search, X } from "lucide-react-native";
 import { Body, C, Card, EmptyState, F, FadeIn, PressableScale, R, Row, S, Segment, SkeletonList } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { engine, useEngineMutation, useFindClubs } from "@/data/hooks";
-import { useCrewFocus } from "@/components/crew/shared";
+import { joinedToast, useCrewFocus } from "@/components/crew/shared";
 import { ClubCard } from "./parts";
 
 const FILTERS = [
@@ -36,8 +36,9 @@ export default function ClubFinder({ onJoined, searchOpen = false, onCloseSearch
   const q = useDebounced(query);
   const { data, isPending } = useFindClubs(filter, q);
   const join = useEngineMutation(engine.joinCrew, {
-    success: (crew) => `You're in ${crew.name}`,
+    success: joinedToast,
     onSuccess: (crew) => {
+      if (!crew.isMember) return;
       focus(crew.id);
       onJoined?.(crew);
     },

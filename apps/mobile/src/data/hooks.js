@@ -161,3 +161,7 @@ export const useClubRoster = (clubId) => useQuery(q(["clubRoster", clubId], () =
 export * from "./hooksOutside";
 // Profile, membership, wallet, friends, badges and emotes
 export * from "./hooksProfile";
+// Crew tab and stories
+export * from "./hooksCrew";
+// The member's account (see hooksAccount.js)
+export * from "./hooksAccount";
