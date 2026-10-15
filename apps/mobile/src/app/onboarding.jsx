@@ -577,6 +577,7 @@ function GoalStep({ value, onChange }) {
         top="Set your"
         bottom="daily goal"
         height={372}
+        size={48}
         background={
           <>
             <Image source={PHOTOS.goal11} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "50%", top: "6%" }} transition={250} accessibilityLabel="A runner at sunrise, blurred with speed" />
@@ -648,7 +649,7 @@ function PatchStep({ place, onPlace, area, onArea, at, locating, onLocate }) {
   );
   return (
     <View>
-      <GlowHero kicker="Step 3 of 4" top="Where's" bottom="your patch?" height={296} background={<SlabLight object={PHOTOS.crest} size={196} top={30} right={-22} />} />
+      <GlowHero kicker="Step 3 of 4" top="Where's" bottom="your patch?" height={296} size={48} background={<SlabLight object={PHOTOS.crest} size={196} top={30} right={-22} />} />
       <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.md }}>
         <Body dim size={14} style={{ lineHeight: 20 }}>
           {place ? `Your ${word} is your team. Every step you take counts towards it.` : "Pick your city or town, then the area you move in. It's your team."}
@@ -674,7 +675,7 @@ function PermsStep({ value, onChange, minor, place }) {
   const set = (k) => (v) => onChange({ ...value, [k]: v });
   return (
     <View>
-      <GlowHero kicker="Step 4 of 4" top="Let us come" bottom="with you" height={296} background={<SlabLight object={PHOTOS.phone} size={226} top={14} right={-30} />} />
+      <GlowHero kicker="Step 4 of 4" top="Let us come" bottom="with you" height={296} size={48} background={<SlabLight object={PHOTOS.phone} size={226} top={14} right={-30} />} />
       <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.lg }}>
         <Group>
           <SettingRow icon={LocateFixed} iconColour={C.accent} title="Location" hint={minor ? "Routes only. No live spot in under 18 mode" : "Routes, and who's out near you"} right={<Toggle value={value.location} onChange={set("location")} label="Location" />} />
