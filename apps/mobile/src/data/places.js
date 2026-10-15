@@ -15,13 +15,13 @@ export const UK_REGIONS = [
   { id: "south-east", name: "South East", nation: "England" },
   { id: "south-west", name: "South West", nation: "England" },
   { id: "east-of-england", name: "East of England", nation: "England" },
-  { id: "east-midlands", name: "East Midlands", nation: "England" },
   { id: "west-midlands", name: "West Midlands", nation: "England" },
-  { id: "yorkshire", name: "Yorkshire and the Humber", nation: "England" },
+  { id: "east-midlands", name: "East Midlands", nation: "England" },
+  { id: "yorkshire", name: "Yorkshire", nation: "England" },
   { id: "north-west", name: "North West", nation: "England" },
   { id: "north-east", name: "North East", nation: "England" },
-  { id: "scotland", name: "Scotland", nation: "Scotland" },
   { id: "wales", name: "Wales", nation: "Wales" },
+  { id: "scotland", name: "Scotland", nation: "Scotland" },
   { id: "northern-ireland", name: "Northern Ireland", nation: "Northern Ireland" },
 ];
 

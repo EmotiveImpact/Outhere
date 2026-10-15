@@ -41,18 +41,20 @@ alter table public.boroughs
   add column if not exists kind text not null default 'borough' check (kind in ('borough', 'area'));
 
 -- Generated from apps/mobile/src/data/places.js. Keep the two in step.
+-- Region names match public.website_regions() (plus London), so the app, the
+-- website and the database all say the same thing.
 insert into public.regions (id, name, nation, sort) values
   ('london', 'London', 'England', 0),
   ('south-east', 'South East', 'England', 1),
   ('south-west', 'South West', 'England', 2),
   ('east-of-england', 'East of England', 'England', 3),
-  ('east-midlands', 'East Midlands', 'England', 4),
-  ('west-midlands', 'West Midlands', 'England', 5),
-  ('yorkshire', 'Yorkshire and the Humber', 'England', 6),
+  ('west-midlands', 'West Midlands', 'England', 4),
+  ('east-midlands', 'East Midlands', 'England', 5),
+  ('yorkshire', 'Yorkshire', 'England', 6),
   ('north-west', 'North West', 'England', 7),
   ('north-east', 'North East', 'England', 8),
-  ('scotland', 'Scotland', 'Scotland', 9),
-  ('wales', 'Wales', 'Wales', 10),
+  ('wales', 'Wales', 'Wales', 9),
+  ('scotland', 'Scotland', 'Scotland', 10),
   ('northern-ireland', 'Northern Ireland', 'Northern Ireland', 11)
 on conflict (id) do update set name = excluded.name, nation = excluded.nation, sort = excluded.sort;
 
@@ -61,10 +63,10 @@ insert into public.cities (id, name, region, region_id, kind, lat, lng, launch_n
   ('birmingham', 'Birmingham', 'West Midlands', 'west-midlands', 'city', 52.4862, -1.8904, true, false),
   ('manchester', 'Manchester', 'North West', 'north-west', 'city', 53.4808, -2.2426, true, false),
   ('glasgow', 'Glasgow', 'Scotland', 'scotland', 'city', 55.8642, -4.2518, true, false),
-  ('leeds', 'Leeds', 'Yorkshire and the Humber', 'yorkshire', 'city', 53.8008, -1.5491, true, false),
+  ('leeds', 'Leeds', 'Yorkshire', 'yorkshire', 'city', 53.8008, -1.5491, true, false),
   ('liverpool', 'Liverpool', 'North West', 'north-west', 'city', 53.4084, -2.9916, true, false),
   ('bristol', 'Bristol', 'South West', 'south-west', 'city', 51.4545, -2.5879, true, false),
-  ('sheffield', 'Sheffield', 'Yorkshire and the Humber', 'yorkshire', 'city', 53.3811, -1.4701, true, false),
+  ('sheffield', 'Sheffield', 'Yorkshire', 'yorkshire', 'city', 53.3811, -1.4701, true, false),
   ('edinburgh', 'Edinburgh', 'Scotland', 'scotland', 'city', 55.9533, -3.1883, true, false),
   ('newcastle', 'Newcastle', 'North East', 'north-east', 'city', 54.9783, -1.6178, true, false),
   ('nottingham', 'Nottingham', 'East Midlands', 'east-midlands', 'city', 52.9548, -1.1581, false, false),
@@ -79,12 +81,12 @@ insert into public.cities (id, name, region, region_id, kind, lat, lng, launch_n
   ('hereford', 'Hereford', 'West Midlands', 'west-midlands', 'city', 52.0565, -2.716, false, false),
   ('shrewsbury', 'Shrewsbury', 'West Midlands', 'west-midlands', 'town', 52.7073, -2.7553, false, false),
   ('telford', 'Telford', 'West Midlands', 'west-midlands', 'town', 52.6766, -2.4469, false, false),
-  ('bradford', 'Bradford', 'Yorkshire and the Humber', 'yorkshire', 'city', 53.796, -1.7594, false, false),
-  ('hull', 'Hull', 'Yorkshire and the Humber', 'yorkshire', 'city', 53.7676, -0.3274, false, false),
-  ('york', 'York', 'Yorkshire and the Humber', 'yorkshire', 'city', 53.96, -1.0873, false, false),
-  ('wakefield', 'Wakefield', 'Yorkshire and the Humber', 'yorkshire', 'city', 53.6833, -1.4977, false, false),
-  ('huddersfield', 'Huddersfield', 'Yorkshire and the Humber', 'yorkshire', 'town', 53.6458, -1.785, false, false),
-  ('harrogate', 'Harrogate', 'Yorkshire and the Humber', 'yorkshire', 'town', 53.9921, -1.5418, false, false),
+  ('bradford', 'Bradford', 'Yorkshire', 'yorkshire', 'city', 53.796, -1.7594, false, false),
+  ('hull', 'Hull', 'Yorkshire', 'yorkshire', 'city', 53.7676, -0.3274, false, false),
+  ('york', 'York', 'Yorkshire', 'yorkshire', 'city', 53.96, -1.0873, false, false),
+  ('wakefield', 'Wakefield', 'Yorkshire', 'yorkshire', 'city', 53.6833, -1.4977, false, false),
+  ('huddersfield', 'Huddersfield', 'Yorkshire', 'yorkshire', 'town', 53.6458, -1.785, false, false),
+  ('harrogate', 'Harrogate', 'Yorkshire', 'yorkshire', 'town', 53.9921, -1.5418, false, false),
   ('preston', 'Preston', 'North West', 'north-west', 'city', 53.7632, -2.7031, false, false),
   ('blackpool', 'Blackpool', 'North West', 'north-west', 'town', 53.8175, -3.0357, false, false),
   ('bolton', 'Bolton', 'North West', 'north-west', 'town', 53.5769, -2.4282, false, false),
@@ -285,6 +287,62 @@ insert into public.boroughs (id, city_id, name, kind, tile_col, tile_row) values
   ('newcastle-walker', 'newcastle', 'Walker', 'area', 3, 4)
 on conflict (id) do update set city_id = excluded.city_id, name = excluded.name, kind = excluded.kind,
   tile_col = excluded.tile_col, tile_row = excluded.tile_row;
+
+
+-- Now every UK town is a city row, a club claim from a town takes the launch city
+-- of its region first (Harrogate lands in Leeds, not Bradford). As in club_links
+-- otherwise.
+create or replace function public.review_club_claim(p_claim bigint, p_approve boolean)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  c club_claims;
+  cid uuid;
+  p profiles;
+  city text;
+begin
+  if not public.is_staff('moderator') then raise exception 'NOT_ALLOWED'; end if;
+  select * into c from club_claims where id = p_claim for update;
+  if c.id is null or c.status <> 'pending' then raise exception 'NOT_FOUND'; end if;
+  if not p_approve then
+    update club_claims set status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now() where id = p_claim;
+    if c.user_id is not null then
+      perform public.notify(c.user_id, 'club', 'We couldn''t verify ' || c.club_name,
+        'Reply to clubs@weouthere.app and we''ll take another look.', '/clubs/claim');
+    end if;
+    return null;
+  end if;
+  if c.user_id is null then raise exception 'NO_CLAIMANT'; end if;
+  select * into p from profiles where id = c.user_id;
+  cid := c.club_id;
+  if cid is null then
+    city := coalesce(c.city_id, (select city_id from boroughs where id = c.borough_id), p.city_id,
+                     (select id from cities where region = c.region order by is_live desc, launch_night desc, name limit 1), 'london');
+    insert into clubs (name, slug, city_id, borough_id, meeting_place, usual_times, founded_year,
+                       instagram, strava, created_by, status, verified_at)
+    values (c.club_name,
+            public.suggest_club_slug(c.club_name, city),
+            city, coalesce(c.borough_id, p.borough_id), c.meeting_place, c.usual_times, c.founded_year,
+            case when c.proof_method = 'instagram' then c.proof_handle end,
+            case when c.proof_method = 'strava' then c.proof_handle end,
+            c.user_id, 'verified', now())
+    returning id into cid;
+  else
+    update clubs set status = 'verified', verified_at = coalesce(verified_at, now()),
+      meeting_place = coalesce(c.meeting_place, meeting_place), usual_times = coalesce(c.usual_times, usual_times),
+      founded_year = coalesce(c.founded_year, founded_year)
+    where id = cid;
+  end if;
+  insert into club_members (club_id, user_id, role) values (cid, c.user_id, 'captain')
+  on conflict (club_id, user_id) do update set role = 'captain';
+  update profiles set home_club_id = coalesce(home_club_id, cid) where id = c.user_id;
+  insert into subscriptions (user_id, tier, source, status, provider_ref, referral_club_id, current_period_end)
+  values (c.user_id, 'pro', 'web', 'active', 'organiser:' || cid || ':' || c.user_id, cid, now() + interval '1 year')
+  on conflict (provider_ref) do nothing;
+  update club_claims set status = 'verified', club_id = cid, reviewed_by = auth.uid(), reviewed_at = now() where id = p_claim;
+  perform public.notify(c.user_id, 'club', c.club_name || ' is official',
+    'Your crew is live, your runs can take check-ins, and you have a year of Pro on us.', '/clubs/verified/' || cid);
+  return cid;
+end $$;
 
 -- ── Which side a member plays for ────────────────────────────────────────────
 

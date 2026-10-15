@@ -50,7 +50,11 @@ begin
   assert (select bool_and(n >= 12) from (select count(b.id) n from cities c left join boroughs b on b.city_id = c.id
           where c.launch_night group by c.id) x), 'every launch city has its areas';
   assert (select count(*) from boroughs where city_id = 'london' and kind = 'borough') = 33, 'London plays by borough';
-  assert (select region from cities where id = 'leeds') = 'Yorkshire and the Humber', 'region text kept for the web';
+  assert (select region from cities where id = 'leeds') = 'Yorkshire', 'region text kept for the web';
+  assert (select array_agg(name order by sort) from regions where id <> 'london') = website_regions(),
+    'region names match the website list';
+  assert not exists (select 1 from cities c where c.region not in (select name from regions)),
+    'every city names a known region';
 end $$;
 
 select pg_temp.act('00000000-0000-0000-0000-0000000000e4');
