@@ -3,9 +3,11 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Coins, Zap } from "lucide-react-native";
-import { AnimatedNumber, Avatar, C, F, FadeIn, PressableScale, R, Row, S } from "@/components/ui";
+import { AnimatedNumber, C, F, FadeIn, PressableScale, R, Row, S } from "@/components/ui";
 import { formatScore, ME, metricUnit, metricValue, playerName } from "./shared";
 import { TugBar, VsBadge } from "./BattleCard";
+import { PortraitMini } from "./BattleKit";
+import { PHOTOS } from "@/constants/photos";
 
 const pad = (n) => String(n).padStart(2, "0");
 
@@ -35,9 +37,7 @@ export function Countdown({ ms }) {
 export function Fighter({ player, value, metric, lead, colour, onPress, sealed = false }) {
   const body = (
     <View style={{ alignItems: "center" }}>
-      <View style={[styles.avatarRing, { borderColor: lead ? colour : "transparent" }]}>
-        <Avatar uri={player?.avatar} name={player?.name || ""} colour={colour} size={80} />
-      </View>
+      <PortraitMini source={player?.avatar || (player?.isMe ? PHOTOS.fighterA : null)} name={player?.isMe ? "You" : player?.name} side={colour === ME ? "left" : "right"} width={84} height={96} radius={22} style={!lead && { opacity: 0.85 }} />
       <Text style={styles.name} numberOfLines={1}>
         {playerName(player)}
       </Text>
@@ -82,7 +82,6 @@ export function FaceOffRow({ battle, rival, onOpponent }) {
         <TugBar
           mine={metric === "time" ? (opponent.value == null ? 0 : opponent.value) : me.value || 0}
           theirs={metric === "time" ? (me.value == null ? 0 : me.value) : opponent.value || 0}
-          rival={rival}
           height={12}
           style={{ marginTop: S.xl }}
         />
@@ -134,7 +133,6 @@ const styles = StyleSheet.create({
   tileValue: { color: C.text, fontFamily: F.display, fontSize: 52, letterSpacing: -1, lineHeight: 58, fontVariant: ["tabular-nums"] },
   tileLabel: { color: C.textDim, fontSize: 13, marginTop: 2 },
   colon: { color: C.textMute, fontFamily: F.display, fontSize: 36, marginTop: -20 },
-  avatarRing: { padding: 3, borderRadius: 60, borderWidth: 2 },
   name: { color: C.textDim, fontSize: 15, fontWeight: "600", marginTop: S.md, maxWidth: "90%" },
   score: { color: C.textDim, fontFamily: F.display, fontSize: 36, letterSpacing: -1, marginTop: 2, maxWidth: "100%" },
   unit: { color: C.textMute, fontSize: 13 },

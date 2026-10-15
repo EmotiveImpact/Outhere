@@ -2,13 +2,14 @@
 // set it up (how long or how far, the stake, the route) and send it.
 
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, Coins, MapPin, Search, X } from "lucide-react-native";
+import { Check, Coins, MapPin, Search, Swords, X } from "lucide-react-native";
 import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useRuns, useSearchPlayers, useWallet } from "@/data/hooks";
-import { Avatar, Body, Button, C, Card, Divider, F, FadeIn, Header, PressableScale, R, Row, S, Screen, Skeleton, TierBadge } from "@/components/ui";
+import { Avatar, Body, C, Divider, F, FadeIn, GlowBackdrop, GlowButton, PressableScale, R, Row, S, Skeleton, Surface, TierBadge, useScreenTop } from "@/components/ui";
+import { Chip, Headline, NavRow, PortraitMini } from "@/components/arena/BattleKit";
 import { CharacterSelect } from "@/components/arena/CharacterSelect";
 import { ModePicker } from "@/components/arena/ModePicker";
 import { limitsText } from "@/components/arena/ArenaHero";
@@ -33,6 +34,7 @@ const personLine = (p) => [`@${p.username}`, p.area || p.city].filter(Boolean).j
 export default function NewBattleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const screenTop = useScreenTop();
   const params = useLocalSearchParams();
   const initial = Array.isArray(params.opponent) ? params.opponent[0] : params.opponent;
   const [step, setStep] = useState("select");
@@ -105,17 +107,36 @@ export default function NewBattleScreen() {
           : `Send to ${oppName}`;
   const ctaDisabled = step === "select" ? !opponent.data : step === "setup" ? blocked || (stake > out) : false;
 
+  const stage = step === "select" && !searching;
+  const nav = (
+    <NavRow
+      onBack={back}
+      float={stage}
+      glass={stage}
+      right={
+        <>
+          {opponent.data && step !== "select" ? <Chip tone="glass" icon={Swords} label={`vs ${opponent.data.name}`} /> : null}
+          <Chip tone="glass">
+            <StepDots step={step} />
+          </Chip>
+        </>
+      }
+    />
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen
-        header={<Header back onBack={back} title={step === "select" ? "Character select" : step === "mode" ? "Pick a mode" : "Set it up"} subtitle={opponent.data && step !== "select" ? `vs ${opponent.data.name}` : undefined} right={<StepDots step={step} />} />}
-        contentStyle={{ paddingBottom: 150 + insets.bottom }}
-      >
+      <GlowBackdrop preset="screen" style={StyleSheet.absoluteFill} />
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 150 + insets.bottom }}>
+        {stage ? null : <View style={{ paddingHorizontal: S.gutter }}>{nav}</View>}
         {step === "select" ? (
           searching ? (
-            <FindSomeone query={query} setQuery={setQuery} results={search.data || []} loading={search.isPending} onPick={(p) => { setOpponentId(p.id); setSearching(false); setQuery(""); }} />
+            <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg }}>
+              <Headline kick="Character select" top="Find" bottom="someone" size={40} />
+              <FindSomeone query={query} setQuery={setQuery} results={search.data || []} loading={search.isPending} onPick={(p) => { setOpponentId(p.id); setSearching(false); setQuery(""); }} />
+            </View>
           ) : roster.isPending ? (
-            <Skeleton height={520} radius={20} />
+            <Skeleton height={screenTop + 300} radius={0} />
           ) : (
             <FadeIn>
               <CharacterSelect
@@ -125,6 +146,7 @@ export default function NewBattleScreen() {
                 onRandom={() => random.mutate()}
                 randomBusy={random.isPending}
                 onSearch={() => setSearching(true)}
+                stageTop={screenTop + 30}
                 onHide={(pid) => {
                   if (pid === opponentId) setOpponentId(null);
                   hide.mutate(pid);
@@ -135,12 +157,10 @@ export default function NewBattleScreen() {
           )
         ) : null}
 
+        <View style={{ paddingHorizontal: S.gutter }}>
         {step === "mode" ? (
           <FadeIn>
-            <Text style={styles.kick}>Choose your battle</Text>
-            <Text style={styles.big}>
-              Pick a <Text style={{ color: C.accent }}>mode</Text>
-            </Text>
+            <Headline kick="Choose your battle" top="Pick a" bottom="mode" size={46} style={{ marginTop: S.xl }} />
             <View style={{ marginTop: S.lg }}>
               <ModePicker value={mode} onChange={(m) => { setMode(m); setDuration(null); setDistance(null); }} />
             </View>
@@ -149,13 +169,14 @@ export default function NewBattleScreen() {
 
         {step === "setup" ? (
           <FadeIn>
-            <Row gap={S.md} style={styles.summary}>
-              {opponent.data ? <Avatar uri={opponent.data.avatar} name={opponent.data.name} tier={opponent.data.tier} dot={opponent.data.dot} size={48} /> : null}
+            <Headline kick="Set it up" top={def.name} bottom={`vs ${oppName}`} size={40} style={{ marginTop: S.xl }} />
+            <Surface padding={S.md} style={{ marginTop: S.lg }} contentStyle={styles.summary}>
+              {opponent.data ? <PortraitMini source={opponent.data.avatar} name={opponent.data.name} side="right" width={52} height={52} radius={15} /> : null}
               <View style={{ flex: 1 }}>
-                <Text style={styles.summaryKick}>{def.name}</Text>
-                <Text style={styles.summaryName}>vs {oppName}</Text>
+                <Text style={styles.summaryKick}>{modeOf(mode).name}</Text>
+                <Text style={styles.summaryLine}>{modeOf(mode).line}</Text>
               </View>
-            </Row>
+            </Surface>
 
             {def.kind === "window" ? (
               <>
@@ -188,7 +209,7 @@ export default function NewBattleScreen() {
               {stake ? `You both put in ${stake} OUT. The winner takes ${stake * 2}, a draw hands it back.` : "Just the win, the XP and the bragging rights."}
             </Body>
 
-            <Card style={{ marginTop: S.xl, borderWidth: 0 }} padding={S.lg}>
+            <Surface style={{ marginTop: S.xl }} padding={S.lg}>
               {RULES[mode]().map((line, i) => (
                 <Row key={i} gap={S.sm} style={{ alignItems: "flex-start", marginTop: i ? S.sm : 0 }}>
                   <View style={styles.tick}>
@@ -197,9 +218,9 @@ export default function NewBattleScreen() {
                   <Body size={13.5} style={{ flex: 1 }}>{line}</Body>
                 </Row>
               ))}
-            </Card>
+            </Surface>
 
-            <Card style={{ marginTop: S.md, borderWidth: 0 }} padding={S.lg}>
+            <Surface style={{ marginTop: S.md }} padding={S.lg}>
               <Row style={{ justifyContent: "space-between" }}>
                 <Text style={styles.limitsTitle}>Your limits</Text>
                 {lim ? <TierBadge tier={lim.tier} /> : null}
@@ -207,16 +228,25 @@ export default function NewBattleScreen() {
               <Body dim size={13} style={{ marginTop: S.sm }}>
                 {lim ? limitsText(lim) : "Checking..."}
               </Body>
-              {blocked && lim?.tier !== "black" ? <Button title="See membership" variant="secondary" size="sm" onPress={() => router.push("/membership")} style={{ marginTop: S.md, alignSelf: "flex-start" }} /> : null}
-            </Card>
+              {blocked && lim?.tier !== "black" ? <GlowButton title="See membership" variant="quiet" size="sm" onPress={() => router.push("/membership")} style={{ marginTop: S.md, alignSelf: "flex-start" }} /> : null}
+            </Surface>
           </FadeIn>
         ) : null}
-      </Screen>
+        </View>
+      </ScrollView>
+      {stage ? nav : null}
 
       {!searching ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + S.md }]} pointerEvents="box-none">
           <LinearGradient colors={["rgba(7,9,12,0)", "rgba(7,9,12,0.92)", C.bg]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
-          <Button title={cta} size="lg" full disabled={ctaDisabled} loading={create.isPending} onPress={next} />
+          {step === "select" ? (
+            // .r11fg .lock: the slanted LOCK IN
+            <View style={{ transform: [{ skewX: "-10deg" }], marginHorizontal: 6 }}>
+              <GlowButton title={cta} size="lg" full disabled={ctaDisabled} onPress={next} textStyle={styles.lockText} style={{ borderRadius: 14 }} />
+            </View>
+          ) : (
+            <GlowButton title={cta} size="lg" full disabled={ctaDisabled} loading={create.isPending} onPress={next} />
+          )}
           <Text style={styles.footNote}>
             {step === "setup" ? `Winner takes ${BATTLE_PRIZES.win.xp} XP and ${BATTLE_PRIZES.win.out + stake * 2} OUT.` : step === "mode" ? modeOf(mode).line : "Your record, their best day and their numbers, side by side."}
           </Text>
@@ -323,18 +353,17 @@ function FindSomeone({ query, setQuery, results, loading, onPick }) {
 }
 
 const styles = StyleSheet.create({
-  kick: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginTop: S.sm },
-  big: { color: C.text, fontFamily: F.display, fontSize: 40, lineHeight: 40, textTransform: "uppercase", marginTop: 6 },
-  summary: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, marginTop: S.sm },
-  summaryKick: { color: C.accent, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
-  summaryName: { color: C.text, fontFamily: F.display, fontSize: 26, textTransform: "uppercase", marginTop: 2 },
+  summary: { flexDirection: "row", alignItems: "center", gap: S.md },
+  summaryKick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
+  summaryLine: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 18, marginTop: 3 },
+  lockText: { fontFamily: F.display, fontSize: 22, letterSpacing: 2, textTransform: "uppercase", fontStyle: "italic" },
   stepTitle: { color: C.text, fontFamily: F.display, fontSize: 20, textTransform: "uppercase", letterSpacing: 0.3 },
   wallet: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: C.surface },
-  chipOn: { backgroundColor: C.accent },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 16, borderRadius: R.full, backgroundColor: "#171b22", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.06), 0 10px 22px -14px #000" },
+  chipOn: { backgroundColor: "#2a6af0", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 24px -10px rgba(42,106,240,0.9)" },
   chipText: { color: C.textSoft, fontFamily: F.bodySemi, fontSize: 14 },
   list: { gap: S.sm },
-  route: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.md, borderRadius: R.md, backgroundColor: C.surface, borderWidth: 1.5, borderColor: "transparent" },
+  route: { flexDirection: "row", alignItems: "center", gap: S.md, padding: S.md, borderRadius: R.md, backgroundColor: "#141820", borderWidth: 1.5, borderColor: "transparent", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" },
   routeIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: C.accentDim, alignItems: "center", justifyContent: "center" },
   routeTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   routeSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 1 },
@@ -346,7 +375,7 @@ const styles = StyleSheet.create({
   dotOn: { width: 26, backgroundColor: C.accent },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: S.gutter, paddingTop: S.xxl },
   footNote: { color: C.textDim, fontFamily: F.body, fontSize: 12, textAlign: "center", marginTop: S.sm },
-  search: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 50, paddingHorizontal: S.lg, borderRadius: R.full, backgroundColor: C.surface, marginTop: S.sm },
+  search: { flexDirection: "row", alignItems: "center", gap: S.sm, height: 50, paddingHorizontal: S.lg, borderRadius: R.full, backgroundColor: "#141820", marginTop: S.lg, boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.06)" },
   input: { flex: 1, color: C.text, fontSize: 15, height: "100%", outlineStyle: "none" },
   person: { flexDirection: "row", alignItems: "center", gap: S.md, minHeight: 64, paddingVertical: S.md },
   personName: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },

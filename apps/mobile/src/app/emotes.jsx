@@ -2,24 +2,28 @@
 // you can send in battles and stories. A new one arrives full screen with
 // "Add to my tray". Emotes are earned by wins, streaks, each season's drop
 // and derby wins for your club; Black members get their own.
+//
+// The prototype's .r10grid: lit tiles with the art's black dropped out
+// (BlendImage), the rare ones edged in blue, locked ones dimmed; the next
+// one to unlock as a nudge card; the drop (.r11drop) over turning rays.
 
-import React, { useEffect, useMemo, useState } from "react";
-import { Modal, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import React, { useMemo, useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeIn as FadeInAnim, ZoomIn } from "react-native-reanimated";
-import { ChevronLeft, Flame, ShoppingBag, Swords, Trophy } from "lucide-react-native";
+import Animated, { FadeIn as FadeInAnim, FadeInDown, ZoomIn } from "react-native-reanimated";
+import { Flame, ShoppingBag, Swords, Trophy } from "lucide-react-native";
 import { engine, useEmotes, useEngineMutation } from "@/data/hooks";
-import { AnimatedBar, Body, Button, C, Card, F, FadeIn, IconButton, Kicker, PressableScale, R, Row, S, Screen, SectionHeader, Sheet, Skeleton } from "@/components/ui";
-import { EmoteTile, IconWell } from "@/components/profile/parts";
+import { C, F, GlowBackdrop, GlowButton, IconTile, Meter, PressableScale, R, Row, S, Sheet, Skeleton, Surface, TAB_BAR } from "@/components/ui";
+import { StackTabBar } from "@/components/AppTabBar";
+import { Chip, EmoteTile, Facts, Headline, NavRow, TurningRays } from "@/components/arena/BattleKit";
 import { EMOTE_BY_ID, TRAY_SIZE, emoteLine } from "@/constants/emotes";
 
 export default function Emotes() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const { data, isPending, refetch, isRefetching } = useEmotes();
+  const { data, isPending } = useEmotes();
   const [open, setOpen] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const setTray = useEngineMutation(engine.setEmoteTray);
@@ -45,100 +49,88 @@ export default function Emotes() {
   for (let i = 0; i < (data?.items.length || 0); i += 4) rows.push(data.items.slice(i, i + 4));
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
-      <View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.gutter }}>
-        <Row style={{ justifyContent: "space-between" }}>
-          <IconButton icon={ChevronLeft} onPress={back} label="Back" />
-          {data ? (
-            <Row gap={6} style={styles.count}>
-              <Trophy size={14} color={C.accentHi} />
-              <Text style={styles.countText}>
-                {data.ownedCount} of {data.total}
-              </Text>
-            </Row>
-          ) : null}
-        </Row>
-        <Kicker style={{ marginTop: S.lg }}>Your collection</Kicker>
-        <Text style={styles.h}>Emotes</Text>
-        <Text style={[styles.h, { color: C.accent }]}>you've earned</Text>
-      </View>
+    <View style={styles.screen}>
+      <GlowBackdrop preset="screen" style={StyleSheet.absoluteFill} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: insets.bottom + TAB_BAR.height + 60 }}>
+        <NavRow onBack={back} right={data ? <Chip icon={Trophy} label={`${data.ownedCount} of ${data.total}`} /> : null} />
+        <Animated.View entering={FadeInDown.duration(450)} style={{ marginTop: S.xl }}>
+          <Headline kick="Your collection" top="Emotes" bottom="you've earned" size={46} />
+        </Animated.View>
 
-      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
-        {isPending || !data ? (
-          <Skeleton height={260} radius={R.lg} />
-        ) : (
-          rows.map((row, ri) => (
-            <FadeIn key={ri} index={ri}>
-              <Row gap={S.sm} style={{ alignItems: "flex-start" }}>
-                {row.map((e) => (
-                  <PressableScale key={e.id} onPress={() => setOpen(e)} scaleTo={0.94} style={{ flex: 1, alignItems: "center" }} accessibilityLabel={`${e.label}. ${e.owned ? "Owned" : e.how}`}>
-                    <EmoteTile id={e.id} size={72} locked={!e.owned} glow={e.inTray} />
-                    <Text style={styles.label} numberOfLines={2}>
-                      {e.label}
-                    </Text>
-                    <Text style={styles.sub} numberOfLines={2}>
-                      {e.owned ? (e.inTray ? "In your tray" : "Owned") : e.how}
-                    </Text>
-                  </PressableScale>
-                ))}
-                {row.length < 4 ? Array.from({ length: 4 - row.length }).map((_, k) => <View key={k} style={{ flex: 1 }} />) : null}
-              </Row>
-            </FadeIn>
-          ))
-        )}
+        <View style={{ marginTop: S.lg, gap: S.lg }}>
+          {isPending || !data ? (
+            <Skeleton height={260} radius={R.lg} />
+          ) : (
+            rows.map((row, ri) => (
+              <Animated.View key={ri} entering={FadeInDown.delay(80 + ri * 90).duration(450)}>
+                <Row gap={10} style={{ alignItems: "flex-start" }}>
+                  {row.map((e) => (
+                    <PressableScale key={e.id} onPress={() => setOpen(e)} scaleTo={0.94} style={{ flex: 1, alignItems: "center" }} accessibilityLabel={`${e.label}. ${e.owned ? "Owned" : e.how}`}>
+                      <EmoteTile id={e.id} size={82} radius={24} locked={!e.owned} glow={e.inTray} />
+                      <Text style={styles.label} numberOfLines={2}>
+                        {e.label}
+                      </Text>
+                      <Text style={styles.sub} numberOfLines={2}>
+                        {e.owned ? (e.inTray ? "In your tray" : "Owned") : e.how}
+                      </Text>
+                    </PressableScale>
+                  ))}
+                  {row.length < 4 ? Array.from({ length: 4 - row.length }).map((_, k) => <View key={k} style={{ flex: 1 }} />) : null}
+                </Row>
+              </Animated.View>
+            ))
+          )}
 
-        {data?.next ? (
-          <FadeIn index={3}>
-            <Card padding={S.md}>
-              <Row gap={S.md}>
-                <IconWell icon={{ streak: Flame, drop: ShoppingBag, club: Trophy }[data.next.source] || Swords} size={46} />
+          {data?.next ? (
+            <Animated.View entering={FadeInDown.delay(300).duration(450)}>
+              <Surface padding={S.md} onPress={() => setOpen(data.items.find((e) => e.id === data.next.id) || null)} contentStyle={styles.next}>
+                <IconTile icon={{ streak: Flame, drop: ShoppingBag, club: Trophy }[data.next.source] || Swords} size={46} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle}>Next: {data.next.label}</Text>
                   <Text style={styles.cardSub}>
                     {data.next.how} · {Math.min(data.next.value, data.next.target)} of {data.next.target}
                   </Text>
-                  <AnimatedBar value={data.next.progress} height={6} colour={C.accent} track={C.surfaceHigh} style={{ marginTop: S.sm, width: "80%" }} />
+                  <Meter value={data.next.progress} size="md" style={{ marginTop: S.sm, width: "86%" }} />
                 </View>
-              </Row>
-            </Card>
-          </FadeIn>
-        ) : null}
+              </Surface>
+            </Animated.View>
+          ) : null}
 
-        {data ? (
-          <View>
-            <SectionHeader title="Your tray" action={`${tray.length} of ${TRAY_SIZE}`} />
-            <Card padding={S.md}>
+          {data ? (
+            <Surface padding={S.md}>
+              <Row style={{ justifyContent: "space-between", marginBottom: S.md }}>
+                <Text style={styles.cardTitle}>Your tray</Text>
+                <Text style={styles.cardSub}>
+                  {tray.length} of {TRAY_SIZE}
+                </Text>
+              </Row>
               <Row gap={S.sm} style={{ justifyContent: "space-between" }}>
                 {Array.from({ length: TRAY_SIZE }).map((_, i) =>
                   tray[i] ? (
-                    <PressableScale key={tray[i]} onPress={() => setOpen(data.items.find((e) => e.id === tray[i]))} scaleTo={0.92} accessibilityLabel={EMOTE_BY_ID[tray[i]]?.label}>
-                      <EmoteTile id={tray[i]} size={52} />
-                    </PressableScale>
+                    <EmoteTile key={tray[i]} id={tray[i]} size={54} radius={17} onPress={() => setOpen(data.items.find((e) => e.id === tray[i]))} accessibilityLabel={EMOTE_BY_ID[tray[i]]?.label} />
                   ) : (
                     <View key={`empty${i}`} style={styles.slot} />
                   ),
                 )}
               </Row>
-              <Body dim size={12.5} style={{ marginTop: S.sm }}>
-                These are the five you can send in battles and on stories. Tap any emote to swap it in.
-              </Body>
-            </Card>
-          </View>
-        ) : null}
-      </View>
+              <Text style={[styles.cardSub, { marginTop: S.md }]}>These are the five you can send in battles and on stories. Tap any emote to swap it in.</Text>
+            </Surface>
+          ) : null}
+        </View>
+      </ScrollView>
 
       <Sheet visible={!!open && !fresh} onClose={() => setOpen(null)}>
         {open ? (
           <View style={{ alignItems: "center" }}>
-            <EmoteTile id={open.id} size={120} locked={!open.owned} glow={open.owned} />
+            <EmoteTile id={open.id} size={128} radius={38} locked={!open.owned} glow={open.owned} />
             <Text style={styles.sheetName}>{open.label}</Text>
-            <Body dim size={14} style={{ textAlign: "center" }}>
+            <Text style={styles.sheetLine}>
               {open.owned ? emoteLine(EMOTE_BY_ID[open.id]) : open.how}
               {open.rarity ? ` ${open.rarity} runners has this one.` : ""}
-            </Body>
+            </Text>
             {!open.owned && open.target ? (
               <View style={{ alignSelf: "stretch", marginTop: S.lg }}>
-                <AnimatedBar value={open.progress} height={8} colour={C.accent} track={C.surfaceHigh} />
+                <Meter value={open.progress} size="lg" />
                 <Text style={[styles.cardSub, { marginTop: 6 }]}>
                   {Math.min(open.value, open.target)} of {open.target}
                 </Text>
@@ -146,9 +138,9 @@ export default function Emotes() {
             ) : null}
             {open.owned ? (
               (data?.tray || []).includes(open.id) ? (
-                <Button title="Take out of my tray" variant="secondary" full style={{ marginTop: S.lg }} loading={setTray.isPending} onPress={() => (removeFromTray(open.id), setOpen(null))} />
+                <GlowButton title="Take out of my tray" variant="quiet" full style={{ marginTop: S.lg }} loading={setTray.isPending} onPress={() => (removeFromTray(open.id), setOpen(null))} />
               ) : (
-                <Button title="Add to my tray" full style={{ marginTop: S.lg }} loading={setTray.isPending} onPress={() => addToTray(open.id, () => setOpen(null))} />
+                <GlowButton title="Add to my tray" full style={{ marginTop: S.lg }} loading={setTray.isPending} onPress={() => addToTray(open.id, () => setOpen(null))} />
               )
             ) : null}
           </View>
@@ -168,29 +160,24 @@ export default function Emotes() {
           />
         ) : null}
       </Modal>
-    </Screen>
+      <StackTabBar current="profile" />
+    </View>
   );
 }
-
-const RAYS = Array.from({ length: 18 }, (_, i) => i * 20);
 
 function EmoteDrop({ emote, onLater, onAdd, busy }) {
   const insets = useSafeAreaInsets();
   const e = EMOTE_BY_ID[emote.id];
   return (
     <View style={[styles.drop, { paddingTop: insets.top + S.lg, paddingBottom: insets.bottom + S.lg }]}>
-      <Animated.View entering={FadeInAnim.duration(600)} style={styles.rays} pointerEvents="none">
-        {RAYS.map((deg) => (
-          <View key={deg} style={[styles.ray, { transform: [{ rotate: `${deg}deg` }] }]}>
-            <LinearGradient colors={["rgba(61,139,255,0)", "rgba(61,139,255,0.35)", "rgba(61,139,255,0)"]} style={{ flex: 1 }} />
-          </View>
-        ))}
-        <View style={styles.halo} />
+      <Animated.View entering={FadeInAnim.duration(700)} style={styles.rays} pointerEvents="none">
+        <TurningRays size={900} count={20} duty={0.34} colour="rgba(79,155,255,0.3)" period={30000} />
+        <GlowBackdrop preset="orb" breathe style={styles.orb} />
       </Animated.View>
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Kicker colour={C.accentHi}>New emote</Kicker>
+        <Text style={styles.dropKick}>New emote</Text>
         <Animated.View entering={ZoomIn.duration(500).springify().damping(12)} style={{ marginTop: S.md }}>
-          <EmoteTile id={emote.id} size={150} glow />
+          <EmoteTile id={emote.id} size={172} radius={50} glow />
         </Animated.View>
         <Text style={styles.dropName}>{emote.label}</Text>
         <Text style={styles.dropLine}>
@@ -198,49 +185,38 @@ function EmoteDrop({ emote, onLater, onAdd, busy }) {
           {emote.rarity ? ` Only ${emote.rarity} runners has this one.` : ""}
         </Text>
       </View>
-      <View style={styles.ways}>
-        {[
-          ["Win", "Streaks and seasons"],
-          ["Drop", "Each season's set"],
-          ["Club", "Derby winners"],
-        ].map(([t, b], i) => (
-          <View key={t} style={[styles.way, i > 0 && styles.wayLine]}>
-            <Text style={styles.wayTitle}>{t}</Text>
-            <Text style={styles.waySub}>{b}</Text>
-          </View>
-        ))}
-      </View>
+      <Surface padding={S.md}>
+        <Facts
+          size={18}
+          items={[
+            { value: "Win", label: "Streaks and seasons", colour: C.accentHi },
+            { value: "Drop", label: "Each season's set", colour: C.accentHi },
+            { value: "Club", label: "Derby winners", colour: C.accentHi },
+          ]}
+        />
+      </Surface>
       <Row gap={S.sm} style={{ marginTop: S.md }}>
-        <View style={{ flex: 1 }}>
-          <Button title="Later" variant="secondary" size="lg" full onPress={onLater} />
-        </View>
-        <View style={{ flex: 1.4 }}>
-          <Button title="Add to my tray" size="lg" full loading={busy} onPress={onAdd} />
-        </View>
+        <GlowButton title="Later" variant="quiet" size="lg" onPress={onLater} style={{ flex: 1 }} />
+        <GlowButton title="Add to my tray" size="lg" loading={busy} onPress={onAdd} style={{ flex: 1.5 }} />
       </Row>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  count: { height: 34, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
-  countText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
-  h: { color: C.text, fontFamily: F.display, fontSize: 46, lineHeight: 48, textTransform: "uppercase" },
-  label: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, marginTop: 8, textAlign: "center" },
+  screen: { flex: 1, backgroundColor: C.bg },
+  label: { color: C.text, fontFamily: F.bodySemi, fontSize: 13, marginTop: 9, textAlign: "center" },
   sub: { color: C.textDim, fontFamily: F.body, fontSize: 11.5, marginTop: 2, textAlign: "center" },
+  next: { flexDirection: "row", alignItems: "center", gap: S.md },
   cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  cardSub: { color: C.textDim, fontFamily: F.body, fontSize: 12.5, marginTop: 2 },
-  slot: { width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderStyle: "dashed", borderColor: C.borderStrong },
+  cardSub: { color: C.textDim, fontFamily: F.body, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
+  slot: { width: 54, height: 54, borderRadius: 17, borderWidth: 1, borderStyle: "dashed", borderColor: C.borderStrong },
   sheetName: { color: C.text, fontFamily: F.display, fontSize: 34, textTransform: "uppercase", marginTop: S.md },
-  drop: { flex: 1, backgroundColor: "rgba(5,7,10,0.97)", paddingHorizontal: S.gutter },
-  rays: { position: "absolute", top: "12%", left: 0, right: 0, height: 520, alignItems: "center", justifyContent: "center" },
-  ray: { position: "absolute", width: 26, height: 620 },
-  halo: { width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: "rgba(130,180,255,0.35)", backgroundColor: "rgba(20,40,80,0.35)", shadowColor: C.accent, shadowOpacity: 0.8, shadowRadius: 50, shadowOffset: { width: 0, height: 0 } },
-  dropName: { color: C.text, fontFamily: F.display, fontSize: 52, textTransform: "uppercase", marginTop: S.lg },
-  dropLine: { color: C.textSoft, fontFamily: F.body, fontSize: 14.5, lineHeight: 21, textAlign: "center", maxWidth: 300, marginTop: 4 },
-  ways: { flexDirection: "row", backgroundColor: C.surface, borderRadius: R.md, paddingVertical: S.md, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
-  way: { flex: 1, alignItems: "center" },
-  wayLine: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: C.border },
-  wayTitle: { color: C.accentHi, fontFamily: F.display, fontSize: 18 },
-  waySub: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
+  sheetLine: { color: C.textDim, fontFamily: F.body, fontSize: 14, lineHeight: 20, textAlign: "center" },
+  drop: { flex: 1, backgroundColor: "rgba(4,6,10,0.98)", paddingHorizontal: S.gutter, overflow: "hidden" },
+  rays: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center", marginTop: -170 },
+  orb: { position: "absolute", width: 420, height: 420 },
+  dropKick: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 12, letterSpacing: 2, textTransform: "uppercase" },
+  dropName: { color: C.text, fontFamily: F.display, fontSize: 60, lineHeight: 62, textTransform: "uppercase", marginTop: S.lg, textShadowColor: "rgba(61,139,255,0.45)", textShadowRadius: 24, textShadowOffset: { width: 0, height: 0 } },
+  dropLine: { color: C.textSoft, fontFamily: F.body, fontSize: 15, lineHeight: 22, textAlign: "center", maxWidth: 310, marginTop: 6 },
 });

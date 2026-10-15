@@ -6,9 +6,17 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAreaTable, useClubWeekTable, useFriendsWeek, usePlaySide } from "@/data/hooks";
-import { C, EmptyState, F, R, Row, S, Segment, Skeleton } from "@/components/ui";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { C, EmptyState, F, GlowBackdrop, Grain, R, Row, S, Segment, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { TopBar } from "@/components/arena/OutsideKit";
 import { HexMap, RankRows } from "@/components/arena/CityParts";
+import { StackTabBar } from "@/components/AppTabBar";
+
+// The dark street map the hexes sit on (.hexmap's background).
+const STREETS = require("../../../assets/images/oh/map.jpg");
+// Blue light pooled under the hexes.
+const MAP_GLOW = [{ x: 0.5, y: 0.45, rx: 0.75, ry: 0.5, stops: [[0, "rgba(42,106,240,0.28)"], [0.6, "rgba(42,106,240,0.07)"], [1, "rgba(42,106,240,0)"]] }];
 
 const daysLeft = () => {
   const d = new Date().getDay();
@@ -46,8 +54,12 @@ export default function AreaMap() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_SPACE }}>
         <View style={[styles.mapBox, { paddingTop: insets.top + 64 }]}>
+          <Image source={STREETS} style={[StyleSheet.absoluteFill, { opacity: 0.85 }]} contentFit="cover" />
+          <GlowBackdrop layers={MAP_GLOW} base={null} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={["rgba(7,9,12,0.75)", "rgba(7,9,12,0.1)", "rgba(7,9,12,0.05)", "rgba(7,9,12,0.85)"]} locations={[0, 0.22, 0.7, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+          <Grain amount={0.05} />
           <View style={{ paddingHorizontal: S.gutter }}>
             <Segment
               options={[
@@ -70,6 +82,7 @@ export default function AreaMap() {
           )}
         </View>
         <View style={styles.sheet}>
+          <LinearGradient colors={["#161a22", C.bg]} locations={[0, 0.5]} style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 26, borderTopRightRadius: 26 }]} pointerEvents="none" />
           <View style={styles.handle} />
           <Row style={{ justifyContent: "space-between", marginBottom: S.sm }}>
             <Text style={styles.title}>{view === "areas" ? `${london ? "Borough" : "Area"} Cup · this week` : view === "clubs" ? "Clubs this week" : "Friends this week"}</Text>
@@ -79,14 +92,16 @@ export default function AreaMap() {
         </View>
       </ScrollView>
       <TopBar />
+      <StackTabBar current="outside" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  mapBox: { backgroundColor: "#0b0e13", paddingBottom: S.xl },
-  sheet: { marginTop: -16, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: C.bg, paddingHorizontal: S.gutter, paddingTop: S.md },
-  handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: C.borderStrong, marginBottom: S.md },
-  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 16 },
+  mapBox: { backgroundColor: "#0b0e13", paddingBottom: S.xxl + 8, overflow: "hidden" },
+  // the table slides up over the map: lit along its top edge
+  sheet: { marginTop: -22, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: C.bg, paddingHorizontal: S.gutter, paddingTop: S.md, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 -18px 40px -12px rgba(0,0,0,0.85)" },
+  handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.22)", marginBottom: S.md },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
   small: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
 });

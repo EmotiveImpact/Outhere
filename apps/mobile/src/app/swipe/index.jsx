@@ -13,15 +13,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { Ban, Crosshair, Layers, ShieldCheck, Swords, X, Zap } from "lucide-react-native";
+import { Chip, NoPhoto, RoundAction } from "@/components/arena/BattleKit";
 import { engine, useCityLeague, useEngineMutation, useMysterySettings, usePicks, usePlaySide, useProfile, useSwipeDeck } from "@/data/hooks";
-import { C, EmptyState, F, imageSource, PressableScale, R, Row, S, Segment, Skeleton } from "@/components/ui";
-import { GlassChip, GlowHero, TopBar } from "@/components/arena/OutsideKit";
+import { C, EmptyState, F, imageSource, R, Row, S, Segment, Skeleton } from "@/components/ui";
+import { GlassButton, GlassChip, GlowHero, TopBar } from "@/components/arena/OutsideKit";
 import { compactNumber, formatNumber } from "@/utils/format";
 import { divisionName } from "@/data/outsideShared";
 import { hapticSelection } from "@/services/haptics";
 
 const RING = { pro: "#3d8bff", black: "#8d97a5", free: "rgba(255,255,255,0.18)" };
 const FLING = 420;
+// The prototype's card is 256 x 346 on a 340 phone: slimmer than the screen.
+const CARD_W = 294;
+const CARD_H = 400;
 
 export function RivalStats({ card }) {
   const pct = card.played ? Math.round((card.wins / card.played) * 100) : 0;
@@ -42,10 +46,13 @@ export function RivalStats({ card }) {
 }
 
 function CardFace({ card }) {
+  const [failed, setFailed] = useState(false);
   return (
     <View style={[styles.card, { borderColor: RING[card.tier] || RING.free }, card.tier === "pro" && styles.cardGlow]}>
-      {card.avatar ? <Image source={imageSource(card.avatar)} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
-      <LinearGradient colors={["rgba(7,9,12,0.15)", "rgba(7,9,12,0.1)", "rgba(7,9,12,0.95)"]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
+      {card.avatar && !failed ? <Image source={imageSource(card.avatar)} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ top: "18%", left: "50%" }} transition={150} onError={() => setFailed(true)} /> : <NoPhoto side="left" name={card.name} size={150} />}
+      {/* the side light and the floor, as on the prototype's .r10card */}
+      <LinearGradient colors={["rgba(42,106,240,0.28)", "rgba(42,106,240,0)"]} start={{ x: 0, y: 0.6 }} end={{ x: 0.6, y: 0.4 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["rgba(7,9,12,0.25)", "rgba(7,9,12,0)", "rgba(7,9,12,0.96)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
       <Row style={{ justifyContent: "space-between", padding: S.md }}>
         {card.dot === "out" ? <GlassChip dot={C.accent} label="Out now" /> : <View />}
         {card.fair ? <GlassChip icon={Zap} label="Fair match" /> : null}
@@ -145,11 +152,11 @@ export default function SwipeScreen() {
         {settings?.minor ? (
           <EmptyState icon={ShieldCheck} title="Swipe opens at 18" body="Under 18s can battle friends and their club. Strangers can't find you here." />
         ) : deck.isPending ? (
-          <Skeleton height={380} radius={28} />
+          <Skeleton height={CARD_H} width={CARD_W} radius={28} style={{ alignSelf: "center" }} />
         ) : !top ? (
           <EmptyState title="That's everyone for now" body={scope === "near" ? "Try your city or your league, or come back tomorrow for new faces." : "New faces land every day."} action={picks.length ? `See your ${picks.length} picks` : undefined} onAction={() => router.push("/swipe/picks")} />
         ) : (
-          <View style={{ height: 400 }}>
+          <View style={{ height: CARD_H, width: CARD_W, alignSelf: "center" }}>
             {cards[2] ? <View style={[StyleSheet.absoluteFill, styles.behind2]}><CardFace card={cards[2]} /></View> : null}
             {cards[1] ? <View style={[StyleSheet.absoluteFill, styles.behind1]}><CardFace card={cards[1]} /></View> : null}
             <SwipeCard key={top.id} card={top} onDone={done} />
@@ -158,42 +165,27 @@ export default function SwipeScreen() {
       </View>
 
       {top && !settings?.minor ? (
-        <Row gap={S.xl} style={[styles.actions, { paddingBottom: insets.bottom + S.lg }]}>
-          <PressableScale
+        <Row gap={S.lg} style={[styles.actions, { paddingBottom: insets.bottom + S.lg }]}>
+          <RoundAction
+            icon={Ban}
+            size={44}
             onPress={() => {
               setGone((g) => [...g, top.id]);
               block.mutate(top.id);
             }}
-            scaleTo={0.9}
-            style={styles.small}
             accessibilityLabel={`Block ${top.name}`}
-          >
-            <Ban size={18} color={C.textSoft} />
-          </PressableScale>
-          <PressableScale onPress={() => done(top, false)} scaleTo={0.9} style={styles.pass} accessibilityLabel="Pass">
-            <X size={24} color={C.text} />
-          </PressableScale>
-          <PressableScale onPress={() => done(top, true)} scaleTo={0.9} style={styles.pick} accessibilityLabel={`Pick ${top.name}`}>
-            <Swords size={30} color="#fff" />
-          </PressableScale>
-          <PressableScale onPress={() => router.push("/swipe/mystery")} scaleTo={0.9} style={styles.small} accessibilityLabel="Mystery challengers">
-            <Layers size={18} color={C.textSoft} />
-          </PressableScale>
+          />
+          <RoundAction icon={X} size={60} onPress={() => done(top, false)} accessibilityLabel="Pass" />
+          <RoundAction icon={Swords} size={78} go onPress={() => done(top, true)} accessibilityLabel={`Pick ${top.name}`} />
+          <RoundAction icon={Layers} size={44} onPress={() => router.push("/swipe/mystery")} accessibilityLabel="Mystery challengers" />
         </Row>
       ) : null}
 
       <TopBar
         right={
           <>
-            <PressableScale onPress={() => router.push("/swipe/safety")} scaleTo={0.94} style={styles.pill} accessibilityLabel="Safety">
-              <ShieldCheck size={15} color={C.text} />
-            </PressableScale>
-            <PressableScale onPress={() => router.push("/swipe/picks")} scaleTo={0.94} style={[styles.pill, picks.length && styles.pillBlue]}>
-              <Swords size={15} color="#fff" />
-              <Text style={styles.pillText}>
-                {formatNumber(picks.length)} {picks.length === 1 ? "pick" : "picks"}
-              </Text>
-            </PressableScale>
+            <GlassButton icon={ShieldCheck} size={38} onPress={() => router.push("/swipe/safety")} label="Safety" />
+            <Chip tone={picks.length ? "blue" : "glass"} icon={Swords} label={`${formatNumber(picks.length)} ${picks.length === 1 ? "pick" : "picks"}`} onPress={() => router.push("/swipe/picks")} style={{ height: 38 }} />
           </>
         }
       />
@@ -202,14 +194,14 @@ export default function SwipeScreen() {
 }
 
 const styles = StyleSheet.create({
-  stage: { flex: 1, paddingHorizontal: S.gutter + 8, paddingTop: S.xl, justifyContent: "flex-start" },
+  stage: { flex: 1, paddingHorizontal: S.gutter, paddingTop: S.lg, justifyContent: "flex-start" },
   card: { flex: 1, borderRadius: 28, overflow: "hidden", backgroundColor: "#0b0e13", borderWidth: 2 },
-  cardGlow: { shadowColor: "#3d8bff", shadowOpacity: 0.55, shadowRadius: 20, shadowOffset: { width: 0, height: 0 } },
-  behind1: { transform: [{ rotate: "5deg" }, { translateX: 18 }, { scale: 0.96 }], opacity: 0.55 },
-  behind2: { transform: [{ rotate: "-6deg" }, { translateX: -20 }, { scale: 0.93 }], opacity: 0.3 },
-  cardName: { color: "#fff", fontFamily: F.display, fontSize: 46, lineHeight: 48, textTransform: "uppercase" },
+  cardGlow: { boxShadow: "0 0 34px -6px rgba(61,139,255,0.7), 0 30px 60px -24px #000" },
+  behind1: { transform: [{ translateX: 150 }, { rotate: "6deg" }, { scale: 0.92 }], opacity: 0.35 },
+  behind2: { transform: [{ translateX: -150 }, { rotate: "-6deg" }, { scale: 0.92 }], opacity: 0.3 },
+  cardName: { color: "#fff", fontFamily: F.display, fontSize: 48, lineHeight: 50, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 18 },
   cardWhere: { color: C.textSoft, fontFamily: F.body, fontSize: 13 },
-  stat: { flex: 1, padding: 10, borderRadius: R.md, backgroundColor: "rgba(255,255,255,0.08)" },
+  stat: { flex: 1, padding: 10, borderRadius: R.md, backgroundColor: "rgba(255,255,255,0.09)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.07)" },
   statValue: { color: "#fff", fontFamily: F.display, fontSize: 22, lineHeight: 24 },
   statLabel: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" },
   tag: { position: "absolute", top: 70, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 3 },
@@ -217,10 +209,4 @@ const styles = StyleSheet.create({
   tagPass: { right: 22, borderColor: "#fff", transform: [{ rotate: "12deg" }] },
   tagText: { color: "#fff", fontFamily: F.display, fontSize: 28, textTransform: "uppercase" },
   actions: { justifyContent: "center", alignItems: "center", paddingTop: S.md },
-  pass: { width: 58, height: 58, borderRadius: 29, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  pick: { width: 76, height: 76, borderRadius: 38, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 18, shadowOffset: { width: 0, height: 0 } },
-  small: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
-  pill: { flexDirection: "row", alignItems: "center", gap: 6, height: 38, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(12,15,20,0.6)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
-  pillBlue: { backgroundColor: "rgba(61,139,255,0.35)", borderColor: "rgba(61,139,255,0.6)" },
-  pillText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 13 },
 });

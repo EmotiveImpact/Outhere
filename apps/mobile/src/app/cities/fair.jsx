@@ -28,8 +28,10 @@ export default function Fair() {
   const big = f ? (f.home.active >= f.away.active ? f.home : f.away) : sides.slice().sort((a, b) => b.active - a.active)[0];
   const small = f ? (f.home.active >= f.away.active ? f.away : f.home) : sides.slice().sort((a, b) => a.active - b.active)[0];
   // A squad's number is its average steps; a total is roughly that times everyone active.
-  const bigSquad = big ? big.squadAvg || big.score : 0;
-  const smallSquad = small ? small.squadAvg || small.score : 0;
+  // Before Saturday a fixture side has no squad average yet, so use its week in the league.
+  const week = (x) => sides.find((y) => y.kind === x.kind && y.id === x.id)?.score || 0;
+  const bigSquad = big ? big.squadAvg || big.score || week(big) : 0;
+  const smallSquad = small ? small.squadAvg || small.score || week(small) : 0;
   const rows =
     big && small
       ? view === "totals"
@@ -47,7 +49,7 @@ export default function Fair() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_SPACE }}>
-        <GlowHero height={210} object={PHOTOS.shield} objectSize={220} objectStyle={{ right: -40, top: insets.top - 14 }} kicker="How city battles stay fair" top={small ? `${formatNumber(small.active)} can beat` : "Small can beat"} bottom={big ? formatNumber(big.active) : "big"} />
+        <GlowHero height={230} object={PHOTOS.shield} objectSize={240} objectStyle={{ right: -44, top: insets.top - 16 }} kicker="How city battles stay fair" top={small ? `${formatNumber(small.active)} can beat` : "Small can beat"} bottom={big ? formatNumber(big.active) : "big"} />
         <View style={{ paddingHorizontal: S.gutter, gap: S.md, marginTop: S.lg }}>
           <Segment
             options={[
@@ -60,11 +62,11 @@ export default function Fair() {
           {rows.length ? (
             <Surface padding={S.lg}>
               {rows.map(([name, v, hi]) => (
-                <Row key={name} gap={S.md} style={{ paddingVertical: 6 }}>
+                <Row key={name} gap={S.md} style={{ paddingVertical: 7 }}>
                   <Text style={styles.name} numberOfLines={1}>
                     {name}
                   </Text>
-                  <Meter value={v / max} size={10} flow={hi} cap={hi} style={[{ flex: 1 }, !hi && { opacity: 0.6 }]} />
+                  <Meter value={v / max} size={12} flow={hi} cap={hi} style={[{ flex: 1 }, !hi && { opacity: 0.6 }]} />
                   <Text style={styles.value}>{view === "totals" ? compactNumber(v) : formatNumber(v)}</Text>
                 </Row>
               ))}

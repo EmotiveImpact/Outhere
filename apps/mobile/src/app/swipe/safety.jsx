@@ -4,11 +4,10 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { Check, Crosshair, Lock } from "lucide-react-native";
 import { engine, useEngineMutation, useMysterySettings, useProfile } from "@/data/hooks";
-import { C, F, imageSource, R, Row, S } from "@/components/ui";
+import { C, F, GlowBackdrop, IconTile, PhotoBackground, R, Row, S, Surface, imageSource } from "@/components/ui";
+import { PHOTOS } from "@/constants/photos";
 import { GlowHero, Toggle, TopBar } from "@/components/arena/OutsideKit";
 import { tierLabel } from "@/utils/format";
 
@@ -30,10 +29,11 @@ export default function SwipeSafety() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
         <GlowHero height={130} kicker="Swipe to battle" top="What strangers" bottom="can see" />
         <View style={{ paddingHorizontal: S.gutter, gap: S.md, marginTop: S.md }}>
-          <View style={styles.preview}>
-            {me?.avatar ? <Image source={imageSource(me.avatar)} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
-            <LinearGradient colors={["rgba(7,9,12,0)", "rgba(7,9,12,0.9)"]} locations={[0.3, 1]} style={StyleSheet.absoluteFill} />
+          {/* .r11safe: you, as a stranger sees you, on a lit photo card */}
+          <Surface padding={null} radius={26} style={styles.preview} contentStyle={{ flex: 1, justifyContent: "flex-end" }}>
+            <PhotoBackground source={imageSource(me?.avatar) || PHOTOS.fighterA} fade="card" focus={{ x: 0.5, y: 0.2 }} glow />
             <View style={styles.about}>
+              <GlowBackdrop preset="orb" style={[StyleSheet.absoluteFill, { borderRadius: 44 }]} />
               <Text style={styles.aboutText}>About here</Text>
             </View>
             <View style={{ padding: S.lg }}>
@@ -43,26 +43,24 @@ export default function SwipeSafety() {
               </Text>
               <Row gap={6} style={{ marginTop: 6 }}>
                 <Crosshair size={12} color={C.accentHi} />
-                <Text style={[styles.small, { color: C.accentHi }]}>{me?.area || me?.city || "Your area"}</Text>
+                <Text style={[styles.small, { color: C.accentHi }]}>{me?.area || me?.city || "Your area"} · about 1 km</Text>
               </Row>
             </View>
-          </View>
+          </Surface>
 
-          <View style={styles.card}>
+          <Surface padding={S.lg} contentStyle={{ paddingVertical: 6 }}>
             {POINTS.map(([t, d], i) => (
               <Row key={t} gap={S.md} style={[{ alignItems: "flex-start", paddingVertical: 10 }, i > 0 && styles.line]}>
-                <View style={styles.tick}>
-                  <Check size={12} color={C.accent} strokeWidth={3} />
-                </View>
+                <IconTile icon={Check} size={26} radius={13} iconSize={13} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.title}>{t}</Text>
                   <Text style={styles.small}>{d}</Text>
                 </View>
               </Row>
             ))}
-          </View>
+          </Surface>
 
-          <View style={[styles.card, on && styles.cardOn]}>
+          <Surface tone={on ? "blue" : "lit"} padding={S.lg}>
             <Row gap={S.md}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>Show me on Swipe</Text>
@@ -70,7 +68,7 @@ export default function SwipeSafety() {
               </View>
               <Toggle value={on} disabled={set?.minor || toggle.isPending} onChange={(v) => toggle.mutate(v)} label="Show me on Swipe" />
             </Row>
-          </View>
+          </Surface>
           {set?.minor ? (
             <Row gap={S.sm}>
               <Lock size={14} color={C.textDim} />
@@ -85,10 +83,10 @@ export default function SwipeSafety() {
 }
 
 const styles = StyleSheet.create({
-  preview: { height: 190, borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface, justifyContent: "flex-end", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)" },
-  about: { position: "absolute", right: 16, top: 16, width: 76, height: 76, borderRadius: 38, borderWidth: 1.5, borderColor: "rgba(130,180,255,0.7)", backgroundColor: "rgba(61,139,255,0.18)", alignItems: "center", justifyContent: "center" },
+  preview: { height: 214 },
+  about: { position: "absolute", right: 18, top: 18, width: 88, height: 88, borderRadius: 44, borderWidth: 1.5, borderColor: "rgba(130,180,255,0.75)", backgroundColor: "rgba(61,139,255,0.16)", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: "0 0 30px rgba(61,139,255,0.45)" },
   aboutText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 11 },
-  name: { color: "#fff", fontFamily: F.display, fontSize: 28 },
+  name: { color: "#fff", fontFamily: F.display, fontSize: 34, lineHeight: 36, textTransform: "uppercase" },
   card: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
   cardOn: { backgroundColor: "rgba(61,139,255,0.1)", borderColor: "rgba(61,139,255,0.4)" },
   line: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
