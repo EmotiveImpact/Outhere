@@ -1,18 +1,27 @@
+// One event. The route, start time and reward sit on one map card, with your
+// crew going underneath. Going gets you a ticket; at the start line you check
+// in (with the organiser's code where there is one) and the server pays out.
+
 import React, { useState } from "react";
-import { RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { CalendarClock, Check, Lock, MapPin, UserRound } from "lucide-react-native";
-import { engine, useEngineMutation, useEvent, useProfile, useSearchPlayers } from "@/data/hooks";
-import { AnimatedNumber, Body, Button, C, EmptyState, F, FadeIn, Header, ProgressBar, Row, S, Screen, Title, toast } from "@/components/ui";
-import { EventPills } from "@/components/happenings/EventCard";
-import { HeroScreen, HeroSkeleton, dayLabel, openDirections } from "@/components/happenings/shared";
-import { AvatarStack, InfoRow, detailStyles, useAttendees } from "@/components/happenings/DetailParts";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Check, ChevronRight, Lock, MapPin, QrCode, UserRound } from "lucide-react-native";
+import { engine, useEngineMutation, useEvent, useEventGoing } from "@/data/hooks";
+import { Avatar, Body, Button, C, Cover, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton, toast } from "@/components/ui";
+import { BottomBar, ButtonPair, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
+import { splitTitle, whenWord } from "@/components/happenings/EventsScreen";
+import { openDirections } from "@/components/happenings/shared";
 import Celebration from "@/components/happenings/Celebration";
-import { countdown, formatNumber, tierLabel, timeLabel } from "@/utils/format";
+import { formatNumber, tierLabel, timeLabel } from "@/utils/format";
 
-const HOSTS = { outhere: "Official Outhere event", crew: "Crew-run event", partner: "Partner event" };
+const HOSTS = { outhere: "Official Outhere event", crew: "Run by a club", partner: "Partner event" };
 
-// Live events ask for the organiser's code so nobody checks in from the sofa.
+const hours = (e) => {
+  const h = Math.round(((e.endAt - e.startAt) / 3_600_000) * 2) / 2;
+  return h >= 1 ? `${h} ${h === 1 ? "hr" : "hrs"}` : `${Math.round(h * 60)} min`;
+};
+
 function CodeCheckIn({ event, checkIn }) {
   const [code, setCode] = useState("");
   return (
@@ -20,7 +29,7 @@ function CodeCheckIn({ event, checkIn }) {
       <TextInput
         value={code}
         onChangeText={setCode}
-        placeholder="Check-in code"
+        placeholder="Code from the organiser"
         placeholderTextColor={C.textMute}
         autoCapitalize="none"
         autoCorrect={false}
@@ -32,69 +41,36 @@ function CodeCheckIn({ event, checkIn }) {
   );
 }
 
-function ActionBar({ event, rsvp, checkIn }) {
-  const locked = !event.canAttend;
-  if (locked) {
-    return <Button full size="lg" icon={Lock} title={`Unlock with ${tierLabel(event.tierRequired)}`} loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, true])} />;
-  }
-  if (event.checkInOpen && !event.checkedIn && event.needsCode) return <CodeCheckIn event={event} checkIn={checkIn} />;
-  if (event.checkInOpen && !event.checkedIn) {
-    return <Button full size="lg" icon={MapPin} title="I'm here, check me in" loading={checkIn.isPending} onPress={() => checkIn.mutate(event.id)} />;
+function Action({ event, rsvp, checkIn }) {
+  const router = useRouter();
+  const ticket = () => router.push(`/events/ticket/${event.id}`);
+  if (!event.canAttend) {
+    return <Button full size="lg" icon={Lock} title={`For ${tierLabel(event.tierRequired)} members`} onPress={() => router.push("/membership")} />;
   }
   if (event.checkedIn) {
-    return (
-      <Row gap={S.md} style={styles.barRow}>
-        <View style={styles.tick}>
-          <Check size={18} color={C.text} strokeWidth={2.5} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.barTitle}>Checked in</Text>
-          <Text style={styles.barSub}>{`+${formatNumber(event.rewardXp)} XP and +${formatNumber(event.rewardOut)} OUT earned`}</Text>
-        </View>
-      </Row>
-    );
+    return <Button full size="lg" variant="secondary" icon={Check} title={`Checked in · +${formatNumber(event.rewardXp)} XP`} disabled />;
+  }
+  if (event.checkInOpen && event.needsCode) return <CodeCheckIn event={event} checkIn={checkIn} />;
+  if (event.checkInOpen && event.isGoing) {
+    return <ButtonPair secondary={{ title: "Ticket", icon: QrCode, onPress: ticket }} primary={{ title: "I'm here", icon: MapPin, loading: checkIn.isPending, onPress: () => checkIn.mutate(event.id) }} />;
   }
   if (event.isGoing) {
-    return (
-      <Row gap={S.md} style={styles.barRow}>
-        <View style={styles.tick}>
-          <Check size={18} color={C.text} strokeWidth={2.5} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.barTitle}>{"You're going"}</Text>
-          <Text style={styles.barSub}>Check-in opens an hour before</Text>
-        </View>
-        <Button size="sm" variant="secondary" title="Cancel" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, false])} />
-      </Row>
-    );
+    return <ButtonPair secondary={{ title: "Can't go", loading: rsvp.isPending, onPress: () => rsvp.mutate([event.id, false]) }} primary={{ title: "Your ticket", icon: QrCode, onPress: ticket }} />;
   }
   if (event.isFull) return <Button full size="lg" variant="secondary" title="Event full" disabled />;
-  return (
-    <Row gap={S.md}>
-      <View>
-        <Text style={styles.barTitle}>{`+${formatNumber(event.rewardXp)} XP`}</Text>
-        <Text style={styles.barSub}>for showing up</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Button full size="lg" title="I'm going" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, true])} />
-      </View>
-    </Row>
-  );
+  return <Button full size="lg" icon={Check} title="I'm going" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, true])} />;
 }
 
-export default function EventDetailScreen() {
+export default function EventScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { eventId } = useLocalSearchParams();
   const id = Array.isArray(eventId) ? eventId[0] : eventId;
   const { data: event, isPending, error, refetch, isRefetching } = useEvent(id);
-  const { data: players } = useSearchPlayers("");
-  const { data: profile } = useProfile();
+  const going = useEventGoing(id).data;
   const [party, setParty] = useState(0);
-  const attendees = useAttendees(event, players, profile);
 
-  const rsvp = useEngineMutation(engine.rsvpEvent, {
-    onSuccess: (v) => (v?.isGoing ? toast.success("You're going", "We'll remind you before it starts") : toast("RSVP cancelled")),
-  });
+  const rsvp = useEngineMutation(engine.rsvpEvent, { success: (v) => (v?.isGoing ? "You're going. Your ticket is ready" : "RSVP cancelled") });
   const checkIn = useEngineMutation(engine.checkInEvent, {
     onSuccess: (v) => {
       toast.success("Checked in", `+${formatNumber(v?.rewardXp)} XP and +${formatNumber(v?.rewardOut)} OUT`);
@@ -102,126 +78,119 @@ export default function EventDetailScreen() {
     },
   });
 
-  if (isPending) return <HeroSkeleton />;
+  if (isPending) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Skeleton height={330 + insets.top} radius={30} />
+        <View style={{ padding: S.gutter, gap: S.md }}>
+          <Skeleton height={150} radius={R.lg} />
+          <Skeleton width={220} height={28} />
+        </View>
+        <TopBar />
+      </View>
+    );
+  }
   if (error || !event) {
     return (
-      <Screen header={<Header back title="Event" />}>
+      <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top + 80 }}>
         <EmptyState title="Event not found" body="It may have been moved or cancelled." action="See all events" onAction={() => router.replace("/outside/events")} />
-      </Screen>
+        <TopBar />
+      </View>
     );
   }
 
+  const [top, bottom] = splitTitle(event.title);
   const live = event.status === "live";
-  const locked = !event.canAttend;
-  const fill = event.capacity ? event.rsvpCount / event.capacity : 0;
-  const shown = attendees.length;
-  const names = attendees.slice(0, 2).map((p) => (p.id === "me" ? "You" : p.name));
-  const othersCount = Math.max(0, event.rsvpCount - names.length);
-  const goingLine = names.length ? `${names.join(", ")}${othersCount ? ` and ${formatNumber(othersCount)} others` : ""}` : "Be the first in";
-
-  const overlay = (
-    <>
-      <EventPills event={event} />
-      <Title size={34} style={{ marginTop: S.sm, lineHeight: 38, letterSpacing: -0.8 }}>
-        {event.title}
-      </Title>
-    </>
-  );
+  const who = event.tierRequired === "free" ? "Free for everyone" : event.tierRequired === "black" ? "Black members" : "Pro and Black";
+  const kicker = `${live ? "On now" : whenWord(event.startAt)} · ${who}`;
+  const crew = going?.clubCount ? `, ${formatNumber(going.clubCount)} from ${going.clubName || "your club"}` : going?.friends ? `, ${going.friends} you follow` : "";
+  const share = () => Share.share({ message: `${event.title}, ${whenWord(event.startAt).toLowerCase()} at ${timeLabel(event.startAt)}, ${event.location}. Come out with me on Outhere.` }).catch(() => {});
 
   return (
-    <View style={{ flex: 1 }}>
-      <HeroScreen
-        source={event.image}
-        seed={event.id}
-        overlay={overlay}
-        footer={<ActionBar event={event} rsvp={rsvp} checkIn={checkIn} />}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} />}
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
       >
-        <FadeIn>
-          <InfoRow
-            icon={CalendarClock}
-            title={`${dayLabel(event.startAt)}, ${timeLabel(event.startAt)} to ${timeLabel(event.endAt)}`}
-            sub={live ? `Live now until ${timeLabel(event.endAt)}` : `Starts in ${countdown(event.startAt)}`}
-          />
-          <InfoRow icon={MapPin} title={event.location} sub={event.city} trailing="Directions" onPress={() => openDirections(event.location, event.city)} />
-          <InfoRow icon={UserRound} title={`Hosted by ${event.organiser}`} sub={HOSTS[event.organiserType] || "Community event"} />
-        </FadeIn>
-
-        {locked ? (
-          <FadeIn index={1}>
-            <View style={[detailStyles.card, { marginTop: S.lg }]}>
-              <Row gap={S.md}>
-                <Lock size={20} color={event.tierRequired === "black" ? C.black : C.pro} />
-                <Body dim size={14} style={{ flex: 1 }}>
-                  {`${event.tierRequired === "black" ? "Black members only." : "For Pro and Black members."} Upgrade to RSVP.`}
-                </Body>
-              </Row>
-            </View>
-          </FadeIn>
-        ) : null}
-
-        <FadeIn index={2}>
-          <View style={[detailStyles.card, { marginTop: 32 }]}>
-            <Row style={{ justifyContent: "space-between" }}>
-              <Text style={styles.cardTitle}>{"Who's going"}</Text>
-              <Text style={styles.small}>
-                {event.isFull ? "Full" : `${event.spotsLeft} spot${event.spotsLeft === 1 ? "" : "s"} left`}
-              </Text>
+        <GlowHero photo={imageSource(event.image)} photoOpacity={0.35} height={290} kicker={kicker} top={top} bottom={bottom} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
+          <PressableScale onPress={() => openDirections(event.location, event.city)} scaleTo={0.98} style={styles.mapCard} accessibilityLabel="Directions">
+            <Cover seed={event.id} style={StyleSheet.absoluteFill} />
+            <View style={styles.mapShade} />
+            <Row style={styles.mapStats}>
+              {[
+                [event.distanceKm ? `${event.distanceKm} km` : hours(event), event.paceLabel || (event.distanceKm ? "Easy pace" : "Together")],
+                [timeLabel(event.startAt), "Start"],
+                [`+${formatNumber(event.rewardXp)}`, "XP"],
+              ].map(([v, l], i) => (
+                <View key={l + i} style={{ flex: 1 }}>
+                  <Text style={[styles.mapValue, i === 2 && { color: C.accentHi }]}>{v}</Text>
+                  <Text style={styles.mapLabel}>{l}</Text>
+                </View>
+              ))}
             </Row>
-            <Row gap={6} style={{ alignItems: "flex-end", marginTop: S.md, marginBottom: S.md }}>
-              <AnimatedNumber value={event.rsvpCount} style={styles.big} />
-              <Text style={[styles.small, { marginBottom: 10 }]}>{`of ${formatNumber(event.capacity)}`}</Text>
-            </Row>
-            <ProgressBar value={fill} height={6} />
-            <Row gap={S.md} style={{ marginTop: S.lg }}>
-              {shown ? <AvatarStack people={attendees} extra={Math.min(99, event.rsvpCount - shown)} /> : null}
-              <Text style={[styles.small, { flex: 1 }]} numberOfLines={2}>
-                {goingLine}
-              </Text>
-            </Row>
-          </View>
-        </FadeIn>
+          </PressableScale>
 
-        <FadeIn index={3}>
-          <Text style={styles.sectionTitle}>The plan</Text>
-          <Body dim size={16} style={{ lineHeight: 25 }}>
+          <PressableScale onPress={() => router.push(`/events/going/${event.id}`)} scaleTo={0.98} style={styles.goingRow}>
+            <Row gap={0}>
+              {(going?.people || []).slice(0, 4).map((p, i) => (
+                <Avatar key={p.id} uri={p.avatar} name={p.name} size={28} style={[styles.face, i > 0 && { marginLeft: -9 }]} />
+              ))}
+            </Row>
+            <Text style={styles.goingText} numberOfLines={1}>
+              {formatNumber(going?.count ?? event.rsvpCount)} going{crew}
+            </Text>
+            <ChevronRight size={16} color={C.textMute} />
+          </PressableScale>
+
+          <SectionLabel>The plan</SectionLabel>
+          <Body dim size={15} style={{ lineHeight: 23 }}>
             {event.description}
           </Body>
-        </FadeIn>
 
-        <FadeIn index={4}>
-          <Text style={styles.sectionTitle}>Show up and earn</Text>
-          <Row gap={S.xxl}>
-            <View>
-              <Text style={styles.rewardValue}>+{formatNumber(event.rewardXp)}</Text>
-              <Text style={styles.small}>XP</Text>
-            </View>
-            <View>
-              <Text style={styles.rewardValue}>+{formatNumber(event.rewardOut)}</Text>
-              <Text style={styles.small}>OUT</Text>
-            </View>
-          </Row>
-          {event.checkedIn ? (
-            <Body dim size={13} style={{ marginTop: S.md }}>
-              Banked. Nice one for showing up.
-            </Body>
-          ) : null}
-        </FadeIn>
-      </HeroScreen>
+          <View style={{ marginTop: S.xl, gap: S.md }}>
+            <PressableScale onPress={() => openDirections(event.location, event.city)} scaleTo={0.98}>
+              <Row gap={S.md}>
+                <MapPin size={18} color={C.accent} />
+                <Text style={styles.info} numberOfLines={1}>
+                  {event.location}, {event.city}
+                </Text>
+                <Text style={styles.link}>Directions</Text>
+              </Row>
+            </PressableScale>
+            <Row gap={S.md}>
+              <UserRound size={18} color={C.textDim} />
+              <Text style={styles.info}>
+                {event.organiser} · {HOSTS[event.organiserType] || "Community event"}
+              </Text>
+            </Row>
+            <Text style={styles.small}>
+              {event.isFull ? "Full." : `${formatNumber(event.spotsLeft)} of ${formatNumber(event.capacity)} places left.`} Show up and check in for +{formatNumber(event.rewardXp)} XP and +{formatNumber(event.rewardOut)} OUT.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+      <BottomBar>
+        <Action event={event} rsvp={rsvp} checkIn={checkIn} />
+      </BottomBar>
+      <TopBar onShare={share} />
       <Celebration trigger={party} title={`+${formatNumber(event.rewardXp)} XP`} subtitle={`and +${formatNumber(event.rewardOut)} OUT`} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  code: { flex: 1, height: 56, borderRadius: 16, paddingHorizontal: S.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, color: C.text, fontFamily: F.bodySemi, fontSize: 17, letterSpacing: 2 },
-  small: { color: C.textDim, fontSize: 13, fontWeight: "600" },
-  big: { color: C.text, fontFamily: F.display, fontSize: 56, lineHeight: 60, letterSpacing: -1 },
-  cardTitle: { color: C.text, fontSize: 15, fontWeight: "600" },
-  sectionTitle: { color: C.text, fontFamily: F.display, fontSize: 20, marginTop: 32, marginBottom: S.md },
-  rewardValue: { color: C.text, fontFamily: F.display, fontSize: 30, letterSpacing: -0.8 },
-  barRow: { minHeight: 56 },
-  barTitle: { color: C.text, fontFamily: F.display, fontSize: 18 },
-  barSub: { color: C.textDim, fontSize: 12, marginTop: 1 },
-  tick: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  mapCard: { height: 150, borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface, justifyContent: "flex-end" },
+  mapShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(7,9,12,0.25)" },
+  mapStats: { padding: S.lg, alignItems: "flex-end" },
+  mapValue: { color: "#fff", fontFamily: F.display, fontSize: 24, lineHeight: 26 },
+  mapLabel: { color: "rgba(255,255,255,0.75)", fontFamily: F.body, fontSize: 12 },
+  goingRow: { flexDirection: "row", alignItems: "center", gap: S.md, marginTop: S.lg },
+  face: { borderWidth: 2, borderColor: C.bg },
+  goingText: { flex: 1, color: C.textSoft, fontFamily: F.body, fontSize: 13 },
+  info: { flex: 1, color: C.text, fontFamily: F.bodyMedium, fontSize: 14 },
+  link: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13 },
+  small: { color: C.textDim, fontFamily: F.body, fontSize: 13, lineHeight: 19 },
+  code: { flex: 1, height: 56, borderRadius: 16, paddingHorizontal: S.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, color: C.text, fontFamily: F.bodySemi, fontSize: 16, letterSpacing: 1 },
 });

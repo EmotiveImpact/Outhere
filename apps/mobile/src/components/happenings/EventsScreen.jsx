@@ -26,7 +26,7 @@ const weekStart = (ms) => {
 };
 
 /** "Tonight", "Today", "Tomorrow" or "Sat". */
-const whenWord = (ms) => {
+export const whenWord = (ms) => {
   const days = Math.round((dayStart(ms) - dayStart(Date.now())) / DAY);
   if (days === 0) return new Date(ms).getHours() >= 17 ? "Tonight" : "Today";
   if (days === 1) return "Tomorrow";
