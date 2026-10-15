@@ -24,6 +24,7 @@ import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./tim
 import { noise, randomCode, randomId } from "./random";
 import { PHOTOS } from "@/constants/photos";
 import { makeClubs } from "./clubs";
+import { makeRuns } from "./runs";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -1604,6 +1605,33 @@ export const {
   cancelClubBattle,
 } = clubs;
 
+// ── Move and runs: routes, history, live and safety (see runs.js) ────────────
+
+const runsArea = makeRuns({ read, write, touch, requireMe, notify, EngineError, ME, publicPlayer, playerIsOutside, PLAYERS });
+export const {
+  listRoutes,
+  getRoute,
+  saveRoute,
+  renameRoute,
+  deleteRoute,
+  suggestRoutes,
+  listRunHistory,
+  getRunDetail,
+  rateRun,
+  getOutsideMap,
+  getCrewLive,
+  waveAt,
+  setLivePosition,
+  getSafety,
+  addTrustedContact,
+  updateTrustedContact,
+  removeTrustedContact,
+  updateSafety,
+  startLiveShare,
+  stopLiveShare,
+  pingLiveShare,
+} = runsArea;
+
 // ── Runs (Move tab sessions) ──────────────────────────────────────────────────
 
 export const saveRun = async (run) =>
@@ -1622,13 +1650,18 @@ export const saveRun = async (run) =>
       paceSecPerKm: distanceKm > 0 ? Math.round(durationSec / distanceKm) : null,
       calories: run.calories ?? Math.round(distanceKm * 62),
       route: Array.isArray(run.route) ? run.route.filter((_, i, arr) => arr.length <= 500 || i % Math.ceil(arr.length / 500) === 0) : [],
+      routeId: run.routeId || null,
+      steps: Math.max(0, Math.round(Number(run.steps) || 0)) || null,
+      climbM: Number.isFinite(run.climbM) ? Math.round(run.climbM) : null,
+      feel: null,
     };
     s.runs = [saved, ...s.runs.filter((r) => r.id !== saved.id)];
     const xp = Math.round(saved.distanceKm * 10);
-    if (xp > 0) award(s, { xp, out: Math.floor(saved.distanceKm), label: `${saved.distanceKm} km ${saved.type}`, reason: "run", refId: saved.id });
+    const earned = xp > 0 ? award(s, { xp, out: Math.floor(saved.distanceKm), label: `${saved.distanceKm} km ${saved.type}`, reason: "run", refId: saved.id }) : { xp: 0, out: 0 };
     const battles = applyRunToBattles(s, saved);
     settleBattles(s);
-    return { ...saved, battles };
+    if (s.me) s.me.isOutside = false;
+    return { ...saved, battles, earned };
   });
 
 const defaultRunTitle = (ms) => {
