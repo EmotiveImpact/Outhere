@@ -2,17 +2,20 @@
 // crew going underneath. Going gets you a ticket; at the start line you check
 // in (with the organiser's code where there is one) and the server pays out.
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, ChevronRight, Lock, MapPin, QrCode, UserRound } from "lucide-react-native";
 import { engine, useEngineMutation, useEvent, useEventGoing } from "@/data/hooks";
-import { Avatar, Body, Button, C, Cover, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton, toast } from "@/components/ui";
+import { Avatar, Body, Button, C, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton, toast } from "@/components/ui";
 import { BottomBar, ButtonPair, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 import { splitTitle, whenWord } from "@/components/happenings/EventsScreen";
 import { openDirections } from "@/components/happenings/shared";
 import Celebration from "@/components/happenings/Celebration";
+import RouteArt from "@/components/crew/RouteArt";
+import { loopAround } from "@/data/runMath";
+import { centreFor } from "@/data/seedRuns";
 import { formatNumber, tierLabel, timeLabel } from "@/utils/format";
 
 const HOSTS = { outhere: "Official Outhere event", crew: "Run by a club", partner: "Partner event" };
@@ -69,6 +72,11 @@ export default function EventScreen() {
   const { data: event, isPending, error, refetch, isRefetching } = useEvent(id);
   const going = useEventGoing(id).data;
   const [party, setParty] = useState(0);
+  // The route as a line on the map card, seeded per event so it stays put.
+  const line = useMemo(
+    () => (event ? loopAround(centreFor(event.city), event.distanceKm || 3, event.id).map((p) => [p.latitude, p.longitude]) : null),
+    [event?.id, event?.city, event?.distanceKm],
+  );
 
   const rsvp = useEngineMutation(engine.rsvpEvent, { success: (v) => (v?.isGoing ? "You're going. Your ticket is ready" : "RSVP cancelled") });
   const checkIn = useEngineMutation(engine.checkInEvent, {
@@ -116,7 +124,7 @@ export default function EventScreen() {
         <GlowHero photo={imageSource(event.image)} photoOpacity={0.35} height={290} kicker={kicker} top={top} bottom={bottom} />
         <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg }}>
           <PressableScale onPress={() => openDirections(event.location, event.city)} scaleTo={0.98} style={styles.mapCard} accessibilityLabel="Directions">
-            <Cover seed={event.id} style={StyleSheet.absoluteFill} />
+            <RouteArt points={line} seed={event.id} radius={0} style={StyleSheet.absoluteFill} />
             <View style={styles.mapShade} />
             <Row style={styles.mapStats}>
               {[
