@@ -1129,8 +1129,9 @@ returns json language sql stable security definer set search_path = public as $$
 $$;
 revoke execute on function public.rival_card(public.profiles, int) from public, anon, authenticated;
 
--- The deck: 'near' is your area (or city with no area), 'city' your city,
--- 'division' the other sides in your City League division. Blocks, passes,
+-- The deck: 'near' is your city, nearest areas first (by the hex map),
+-- 'city' your city by level, 'division' the other sides in your City League
+-- division. Blocks, passes,
 -- picks, open battles and anyone hidden from Swipe are left out. Under 18s
 -- only ever see under 18s.
 create or replace function public.swipe_deck(p_scope text default 'near', p_limit integer default 20)
@@ -1160,14 +1161,17 @@ begin
                           and ((b.challenger_id = me.id and b.opponent_id = p.id)
                             or (b.opponent_id = me.id and b.challenger_id = p.id)))
         and case p_scope
-              when 'near' then (case when me.borough_id is not null then p.borough_id = me.borough_id else p.city_id = me.city_id end)
+              when 'near' then p.city_id = me.city_id
               when 'city' then p.city_id = me.city_id
               when 'division' then p.city_id <> me.city_id and exists (
                 select 1 from public.side_of(p.id) s
                 join public.league_sides() ls on ls.side_kind = s.kind and ls.side_id = s.id
                 where ls.division = coalesce(my_div, 'rising'))
               else false end
-      order by abs(p.level - me.level), random()
+      order by case when p_scope = 'near' then coalesce(
+                 (select abs(a.tile_col - b.tile_col) + abs(a.tile_row - b.tile_row)
+                  from boroughs a, boroughs b where a.id = p.borough_id and b.id = me.borough_id), 99) else 0 end,
+               abs(p.level - me.level), random()
       limit least(greatest(p_limit, 1), 50)) x), '[]'::json);
 end $$;
 revoke execute on function public.swipe_deck(text, integer) from public, anon;
@@ -2038,6 +2042,8 @@ returns json language sql stable security definer set search_path = public as $$
     'count', (select count(*) from event_rsvps where event_id = p_event),
     'friends', (select count(*) from going where following),
     'club_count', (select count(*) from going where same_club),
+    'club_name', (select c.name from club_members m join clubs c on c.id = m.club_id
+                  where m.user_id = auth.uid() order by m.joined_at limit 1),
     'people', coalesce((select json_agg(json_build_object(
                  'id', g.user_id, 'display_name', g.display_name, 'username', g.username, 'avatar_path', g.avatar_path,
                  'tier', g.tier, 'following', g.following, 'club', g.club, 'wave', g.wave, 'same_club', g.same_club)

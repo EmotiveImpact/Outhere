@@ -24,6 +24,7 @@ import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./tim
 import { noise, randomCode, randomId } from "./random";
 import { PHOTOS } from "@/constants/photos";
 import { makeClubs } from "./clubs";
+import { makeOutside } from "./outside";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -1019,6 +1020,7 @@ const battleValue = (s, b, pid) => {
   if (mode === "most_steps") {
     const steps = pid === ME ? myStepsBetween(s, b.startAt, to) : playerStepsBetween(pid, b.startAt, to);
     if (b.metric === "distance") return Math.round((pid === ME ? myDistanceBetween(s, b.startAt, to) : steps * STEP_KM) * 100) / 100;
+    if (b.metric === "minutes") return Math.round(steps / (pid === ME ? 100 : 110));
     return steps;
   }
   if (mode === "last_one_standing") return standing(s, b, pid).days;
@@ -1053,12 +1055,19 @@ const settleOne = (s, b) => {
   b.completedAt = Date.now();
   const player = playerById[opp];
   const stake = b.stakeOut || 0;
+  // A boost (Outside) doubles the XP you take from the battle.
+  const boost = b.boosted ? 2 : 1;
   if (b.winnerId === ME) {
-    b.prize = award(s, { xp: 150, out: 15 + stake * 2, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
-    notify(s, { type: "battles", title: `You beat ${player?.name} 🏆`, body: `150 XP and ${15 + stake * 2} OUT are yours.`, link: `/battles/${b.id}` });
+    b.prize = award(s, { xp: 150 * boost, out: 15 + stake * 2, label: `Beat ${player?.name || "rival"}`, reason: "battle_win", refId: b.id });
+    notify(s, { type: "battles", title: `You beat ${player?.name} 🏆`, body: `${150 * boost} XP and ${15 + stake * 2} OUT are yours.`, link: `/battles/${b.id}` });
+    // Simulated rivals sometimes want a rematch straight away.
+    if (player && noise(`rematch:${b.id}`) > 0.4) {
+      s.battles.push({ id: randomId("b"), mode, metric: b.metric, creatorId: opp, opponentId: ME, durationHours: b.durationHours || 24, distanceM: b.distanceM || null, stakeOut: stake, status: "pending", rematchOf: b.id, createdAt: Date.now() });
+      notify(s, { type: "battles", title: `${player.name} wants a rematch`, body: stake ? `${stake} OUT each, winner takes ${stake * 2}.` : "Same again?", link: "/(tabs)/outside/arena" });
+    }
   } else {
-    b.prize = award(s, { xp: 25, out: b.winnerId ? 0 : stake, label: b.winnerId ? "Battle played" : "Battle drawn", reason: "battle", refId: b.id });
-    notify(s, { type: "battles", title: b.winnerId ? `${player?.name} won this one` : "Battle drawn", body: "25 XP for showing up. Run it back?", link: `/battles/${b.id}` });
+    b.prize = award(s, { xp: 25 * boost, out: b.winnerId ? 0 : stake, label: b.winnerId ? "Battle played" : "Battle drawn", reason: "battle", refId: b.id });
+    notify(s, { type: "battles", title: b.winnerId ? `${player?.name} won this one` : "Battle drawn", body: `${25 * boost} XP for showing up. Run it back?`, link: `/battles/${b.id}` });
   }
 };
 
@@ -1126,6 +1135,11 @@ const battleView = (s, b) => {
     winnerId: b.winnerId ?? null,
     forfeit: !!b.forfeit,
     result: done ? (b.winnerId === ME ? "won" : b.winnerId ? "lost" : "draw") : null,
+    // Outside extras: mystery battles, boosts and rematches.
+    isSurprise: !!b.isSurprise,
+    boosted: !!b.boosted,
+    rematchOf: b.rematchOf || null,
+    completedAt: b.completedAt || null,
   };
 };
 
@@ -1242,6 +1256,11 @@ export const respondToBattle = async (id, accept) =>
     const b = s.battles.find((x) => x.id === id);
     if (!b || b.status !== "pending") throw new EngineError("NOT_FOUND", "That challenge has gone.");
     if (accept) {
+      // An incoming challenge with a stake holds yours too.
+      if (b.stakeOut && b.creatorId !== ME) {
+        if (balance(s, "out") < b.stakeOut) throw new EngineError("NOT_ENOUGH_OUT", "You don't have that much OUT to stake.");
+        award(s, { out: -b.stakeOut, label: "Battle stake held", reason: "battle_stake", refId: b.id });
+      }
       b.status = "active";
       if (legacyMode(b) === "live_race") {
         b.phase = "lobby";
@@ -1628,7 +1647,9 @@ export const saveRun = async (run) =>
     if (xp > 0) award(s, { xp, out: Math.floor(saved.distanceKm), label: `${saved.distanceKm} km ${saved.type}`, reason: "run", refId: saved.id });
     const battles = applyRunToBattles(s, saved);
     settleBattles(s);
-    return { ...saved, battles };
+    // Fair play: a stretch that looks like a bus or a bike is held for review.
+    const review = outside.reviewRun(s, saved, run.route);
+    return { ...saved, battles, underReview: !!review };
   });
 
 const defaultRunTitle = (ms) => {
@@ -1880,6 +1901,21 @@ export const getNews = async (id) =>
     if (!n) throw new EngineError("NOT_FOUND", "Story not found.");
     return newsView(s, n);
   });
+
+// ── Outside: cities, swipe, battle extras, drops, tickets, fair play (see outside.js)
+
+const outside = makeOutside({
+  read, write, touch, requireMe, notify, award, balance, EngineError, ME, PLAYERS, EVENTS, publicPlayer, myDay, myStepsBetween,
+  playerDayTotal, playerStepsBetween, playerIsOutside, levelFromXp, tierAtLeast, createBattle, eventView,
+});
+export const {
+  listCities, listAreas, getPlaySide, getCityLeague, getCityFixture, getCallUp, respondCallUp, getRising, claimFoundingMedal,
+  getCityInvite, redeemCityInvite, getAreaTable, getClubWeekTable, getFriendsWeek, getSwipeDeck, swipeRival, listPicks,
+  challengePick, setShowOnSwipe, getMysterySettings, setMysterySettings, findMysteryChallenger, getMysteryOffer, answerMystery,
+  sendBattleEmote, listBattleEmotes, boostBattle, rematchBattle, getHeadToHead, getArenaNow, getSeasonResults,
+  claimSeasonRewards, listDropShop, getDropItem, getDeliveryAddress, claimDrop, listOrders, getOrder, getTicket,
+  getEventGoing, getRunReview, answerRunReview,
+} = outside;
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 

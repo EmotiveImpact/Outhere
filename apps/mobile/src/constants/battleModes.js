@@ -12,7 +12,7 @@ export const BATTLE_MODES = [
     short: "Steps",
     line: "Most counted steps before the clock runs out.",
     kind: "window",
-    durations: [2, 6, 24, 168],
+    durations: [2, 6, 24, 72, 168],
     defaultDuration: 24,
     unit: "steps",
   },
