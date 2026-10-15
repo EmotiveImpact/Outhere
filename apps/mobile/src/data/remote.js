@@ -18,6 +18,7 @@ import { makeRemoteOutside } from "./remoteOutside";
 import { makeRemoteProfile } from "./remoteProfile";
 import { makeRemoteCrew } from "./remoteCrew";
 import { makeRemoteAccount } from "./remoteAccount";
+import { makeRemoteRuns } from "./remoteRuns";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -89,6 +90,15 @@ const MESSAGES = {
   BAD_DATE: "That date doesn't look right.",
   ALREADY_SET: "Your date of birth is set. Support can correct it.",
   BAD_GUARDIAN: "Add their name and a phone number or email.",
+  // Move and runs
+  ROUTE_NAME: "Give the route a name of 2 to 30 characters.",
+  ROUTE_TOO_SHORT: "Add a few more points first.",
+  TOO_MANY_ROUTES: "That's 200 routes. Delete one to save another.",
+  CONTACT_NAME: "Add their name.",
+  BAD_PHONE: "Add a phone number we can text.",
+  TOO_MANY_CONTACTS: "Up to 5 trusted contacts.",
+  NO_CONTACTS: "Add a trusted contact first.",
+  UNREALISTIC_PACE: "That pace looks like wheels, so it wasn't saved as a run.",
 };
 
 const fail = (error) => {
@@ -1500,7 +1510,15 @@ const runView = (r) => ({
   paceSecPerKm: r.avg_pace_s_per_km,
   calories: Math.round((r.distance_m / 1000) * 62),
   route: (r.route_public || []).map((p) => (Array.isArray(p) ? { latitude: p[0], longitude: p[1] } : p)),
+  routeId: r.route_id || null,
+  steps: r.steps || null,
+  climbM: r.elevation_m ?? null,
+  feel: r.feel ?? null,
 });
+
+// [lat, lng, t, alt] as saved by save_run.
+const pointFromRow = (p) =>
+  Array.isArray(p) ? { latitude: p[0], longitude: p[1], ...(Number.isFinite(p[2]) ? { t: p[2] } : null), ...(Number.isFinite(p[3]) ? { alt: p[3] } : null) } : p;
 
 export const saveRun = async (r) => {
   const durationSec = Math.max(0, Math.round(Number(r.durationSec) || 0));
@@ -1510,13 +1528,19 @@ export const saveRun = async (r) => {
     p_ended_at: new Date(endedAt).toISOString(),
     p_distance_m: Math.round((Number(r.distanceKm) || 0) * 1000),
     p_moving_s: durationSec,
-    p_points: (r.route || []).map((p) => [p.latitude, p.longitude, p.t ?? p.timestamp ?? null]),
+    p_points: (r.route || []).map((p) => [p.latitude, p.longitude, p.t ?? p.timestamp ?? null, Number.isFinite(p.alt) ? Math.round(p.alt * 10) / 10 : null]),
     p_kind: r.type === "walk" ? "walk" : "run",
     p_title: r.title || null,
+    p_steps: Math.max(0, Math.round(Number(r.steps) || 0)),
+    p_route: r.routeId || null,
+    p_climb_m: Number.isFinite(r.climbM) ? Math.round(r.climbM) : null,
   });
   const battles = await applyRunToBattles(saved);
+  const paid = await run(supabase.from("ledger").select("currency, amount").eq("ref_type", "run").eq("ref_id", saved.id));
+  const earned = { xp: 0, out: 0 };
+  for (const l of paid || []) earned[l.currency] = (earned[l.currency] || 0) + l.amount;
   changed();
-  return { ...runView(saved), battles };
+  return { ...runView(saved), battles, earned };
 };
 
 export const listRuns = async ({ limit = 50 } = {}) => {
@@ -1530,7 +1554,7 @@ export const getRun = async (id) => {
   if (!r) return null;
   const route = await run(supabase.from("run_routes").select("points").eq("run_id", id).maybeSingle());
   const view = runView(r);
-  if (route?.points) view.route = route.points.map((p) => (Array.isArray(p) ? { latitude: p[0], longitude: p[1] } : p));
+  if (route?.points) view.route = route.points.map(pointFromRow);
   return view;
 };
 
@@ -1538,6 +1562,10 @@ export const deleteRun = async (id) => {
   await run(supabase.from("runs").delete().eq("id", id));
   changed();
 };
+
+// ── Move and runs: routes, history, live and safety (see remoteRuns.js) ──────
+
+export const { listRoutes, getRoute, saveRoute, renameRoute, deleteRoute, suggestRoutes, listRunHistory, getRunDetail, rateRun, getOutsideMap, getCrewLive, waveAt, setLivePosition, getSafety, addTrustedContact, updateTrustedContact, removeTrustedContact, updateSafety, startLiveShare, stopLiveShare, pingLiveShare } = makeRemoteRuns({ supabase, run, rpc, uid, requireUid, publicUrl, cityName, changed, EngineError });
 
 // ── Events ────────────────────────────────────────────────────────────────────
 

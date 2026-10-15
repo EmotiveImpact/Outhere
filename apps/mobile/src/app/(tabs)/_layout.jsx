@@ -91,7 +91,7 @@ function FloatingTabBar({ state, navigation, profile, hidden }) {
 
 export default function TabLayout() {
   const { data: profile, isPending } = useProfile();
-  const isFocusMode = useMoveStore((s) => s.sessionPhase !== "idle");
+  const isFocusMode = useMoveStore((s) => s.sessionPhase !== "idle" || s.hideTabs);
 
   // Not signed in or no profile yet: send them to the start.
   if (!isPending && !profile) return <Redirect href="/welcome" />;
