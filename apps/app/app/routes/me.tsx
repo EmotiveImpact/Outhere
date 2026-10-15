@@ -36,7 +36,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           {viewer.tier !== "free" && <span className="pill blue">{viewer.tier.toUpperCase()}</span>}
         </div>
         <h1 className="disp" style={{ fontSize: "clamp(60px,8vw,120px)", marginTop: 14 }}>{first}<br /><span className="b">{rest.join(" ")}</span></h1>
-        <p style={{ color: "#dfe5ee", marginTop: 10 }}>{viewer.borough} · {me.clubRole}, {me.clubName} · level {viewer.level} · {viewer.streakDays} day streak</p>
+        <p style={{ color: "#dfe5ee", marginTop: 10 }}>{[viewer.borough, viewer.city].filter(Boolean).join(", ")} · {me.clubRole}, {me.clubName} · level {viewer.level} · {viewer.streakDays} day streak</p>
         <div className="acts mt">
           <button
             type="button"

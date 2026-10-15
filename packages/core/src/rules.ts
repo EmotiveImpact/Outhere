@@ -1,3 +1,4 @@
+import { RESERVED_SLUGS } from "./reserved";
 import type { BattleMode, Tier, OutState, Viewer, Role } from "./types";
 
 /* ---------- formatting ---------- */
@@ -112,14 +113,7 @@ export function battleLengths(mode: BattleMode): { question: string; options: st
  * Top level paths the app owns. Club pages live at weouthere.app/<slug>, so no
  * club may take one of these.
  */
-export const RESERVED_SLUGS = new Set([
-  "home", "feed", "battles", "pickups", "chat", "calendar", "league", "clubs", "me", "locals",
-  "membership", "hq", "join", "admin", "api", "app", "login", "logout", "settings", "help",
-  "about", "privacy", "terms", "search", "assets", "img", "signin", "signout", "auth", "act", "webhooks",
-  // The website (apps/web) owns these on weouthere.app and passes everything else to this app.
-  "crews", "black", "boroughs", "i", "404", "sitemap.xml", "robots.txt", "og.jpg", "favicon.svg", "site.webmanifest",
-  "apple-touch-icon.png", "icon-192.png", "icon-512.png", "_app",
-]);
+export { RESERVED_SLUGS };
 
 export function slugify(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -127,6 +121,23 @@ export function slugify(input: string): string {
 
 export function isValidClubSlug(slug: string): boolean {
   return /^[a-z0-9]{3,40}$/.test(slug) && !RESERVED_SLUGS.has(slug);
+}
+
+/**
+ * The link a new club is offered. Two clubs can share a name but never a link:
+ * when the plain name is reserved or taken, the club's city goes on the end
+ * (parksiderunnersleeds), then a number.
+ */
+export function suggestClubSlug(name: string, city: string, taken: (slug: string) => boolean): string {
+  const base = slugify(name).slice(0, 40).padEnd(3, "0");
+  const free = (s: string) => isValidClubSlug(s) && !taken(s);
+  if (free(base)) return base;
+  const withCity = `${base.slice(0, 40 - slugify(city).length)}${slugify(city)}`;
+  if (free(withCity)) return withCity;
+  for (let n = 2; ; n++) {
+    const s = `${withCity.slice(0, 40 - String(n).length)}${n}`;
+    if (free(s)) return s;
+  }
 }
 
 /* ---------- roles ---------- */

@@ -24,7 +24,7 @@ export function Seasons() {
           <p>Squads are drawn at random from eligible walkers every Friday at 18:00. The seed is published, so anyone can check a draw was fair.</p>
         </div>
         <div className="acts">
-          <button className="btn btn-q" type="button" onClick={() => toast("Dry run: 14 cities, 212 clubs, 0 problems")}>
+          <button className="btn btn-q" type="button" onClick={() => toast("Dry run: 22 cities, 2 regions, 212 clubs, 0 problems")}>
             Dry run next draw
           </button>
         </div>

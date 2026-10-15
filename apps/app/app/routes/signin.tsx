@@ -57,7 +57,7 @@ export default function SignIn({ loaderData, actionData }: Route.ComponentProps)
           <ol className="note3">
             <li><b>Type your email.</b> The one you use in the Outhere app, if you have it.</li>
             <li><b>Open the link we send.</b> On this phone or computer, in the next hour.</li>
-            <li><b>You're back where you were.</b> Your club, your battles, your borough.</li>
+            <li><b>You're back where you were.</b> Your club, your battles, your city.</li>
           </ol>
         </div>
         <div className="phone">

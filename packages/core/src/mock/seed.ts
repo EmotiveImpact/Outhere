@@ -4,7 +4,7 @@
  * web app mockup (Version 12) so the build matches what Edem signed off.
  */
 import type {
-  Battle, BattleMode, Borough, CalendarEvent, ChatChannel, Challenge, Club, ClubRun, FairPlayFlag,
+  Battle, BattleMode, Borough, CalendarEvent, City, ChatChannel, Challenge, Club, ClubRun, FairPlayFlag,
   FeedPost, JoinRequest, LocalOffer, Member, Notification, Person, Pickup, Plan, Story,
   VerificationRequest, Viewer, AuditEntry,
 } from "../types";
@@ -41,6 +41,8 @@ export const PEOPLE: Person[] = [
 export const VIEWER: Viewer = {
   ...(PEOPLE[0] as Person),
   handle: "kemi",
+  cityId: "london",
+  city: "London",
   borough: "Southwark",
   roles: ["member", "captain", "staff"],
   homeClubId: "peckham-pacers",
@@ -51,7 +53,36 @@ export const VIEWER: Viewer = {
   publicProfile: true,
 };
 
-const club = (c: Omit<Club, "slug"> & { slug?: string }): Club => ({ ...c, slug: c.slug ?? c.id.replace(/-/g, "") });
+/** Anyone in the UK can join on day one. Launch nights happen in the ten biggest cities; towns under 100 active play for their region. */
+export const CITIES: Omit<City, "clubs">[] = (
+  [
+    ["london", "London", "London", true], ["birmingham", "Birmingham", "West Midlands", true], ["manchester", "Manchester", "North West", true],
+    ["glasgow", "Glasgow", "Scotland", true], ["leeds", "Leeds", "Yorkshire", true], ["liverpool", "Liverpool", "North West", true],
+    ["newcastle", "Newcastle", "North East", true], ["sheffield", "Sheffield", "Yorkshire", true], ["bristol", "Bristol", "South West", true],
+    ["edinburgh", "Edinburgh", "Scotland", true], ["cardiff", "Cardiff", "Wales", false], ["nottingham", "Nottingham", "East Midlands", false],
+    ["brighton", "Brighton", "South East", false], ["leicester", "Leicester", "East Midlands", false], ["southampton", "Southampton", "South East", false],
+    ["belfast", "Belfast", "Northern Ireland", false], ["oxford", "Oxford", "South East", false], ["bath", "Bath", "South West", false],
+    ["york", "York", "Yorkshire", false], ["cambridge", "Cambridge", "East of England", false], ["norwich", "Norwich", "East of England", false],
+    ["exeter", "Exeter", "South West", false], ["reading", "Reading", "South East", false], ["plymouth", "Plymouth", "South West", false],
+    ["harrogate", "Harrogate", "Yorkshire", false],
+  ] as const
+).map(([id, name, region, launch]) => ({ id, name, region, launch, areaWord: id === "london" ? "borough" : "area", hasMap: id === "london" }));
+
+/** Areas of the cities with example clubs outside London, for the area lists. */
+export const CITY_AREAS: Record<string, string[]> = {
+  manchester: ["Ancoats", "Northern Quarter", "Hulme", "Chorlton", "Didsbury", "Salford Quays"],
+  birmingham: ["Digbeth", "Jewellery Quarter", "Moseley", "Edgbaston", "Kings Heath"],
+  leeds: ["Kirkstall", "Headingley", "Chapel Allerton", "Roundhay", "City Centre"],
+  glasgow: ["West End", "Southside", "Merchant City", "Dennistoun", "Partick"],
+  bristol: ["Harbourside", "Clifton", "Bedminster", "Stokes Croft", "Easton"],
+  newcastle: ["Quayside", "Jesmond", "Heaton", "Ouseburn"],
+  brighton: ["Seafront", "Kemptown", "Hove", "Preston Park"],
+};
+
+const club = (c: Omit<Club, "slug" | "cityId" | "city"> & { slug?: string; cityId?: string }): Club => {
+  const cityId = c.cityId ?? "london";
+  return { ...c, slug: c.slug ?? c.id.replace(/-/g, ""), cityId, city: CITIES.find((x) => x.id === cityId)?.name ?? "" };
+};
 
 export const CLUBS: Club[] = [
   club({ id: "peckham-pacers", name: "Peckham Pacers", nameTop: "Peckham", nameBottom: "Pacers", borough: "Southwark", cover: img("clubhero"), crest: img("pacers"), verified: true, founding: false, members: 412, nextRun: "Tue 19:00 · Rye Lane", tags: ["All paces", "Women-led", "Coffee after"], filters: ["eve", "wkd", "beg", "women"], division: "Club Premier", position: 2, since: 2019, tagline: "No one gets left behind on Rye Lane. Three pace groups, a back marker on every run, coffee after." }),
@@ -65,6 +96,14 @@ export const CLUBS: Club[] = [
   club({ id: "walthamstow-dawn", name: "Walthamstow Dawn Walkers", nameTop: "Walthamstow", nameBottom: "Dawn Walkers", borough: "Waltham Forest", cover: img("dawn"), crest: img("founding"), verified: false, founding: true, members: 24, nextRun: "Sat 07:00 · The Wetlands", tags: ["Walking", "Over 50s"], filters: ["walk", "morn", "wkd", "beg"], division: "Founding", position: 0, since: 2026, tagline: "Founding club, 2 of 3 meetups done. Come and make it official." }),
   club({ id: "southbank-social", name: "Southbank Social", nameTop: "Southbank", nameBottom: "Social", borough: "Lambeth", cover: img("tealclub"), crest: crestSvg("SBS", 195), verified: true, founding: false, members: 377, nextRun: "Thu 18:30 · National Theatre", tags: ["Social", "5k"], filters: ["eve", "beg"], division: "Club Premier", position: 6, since: 2016, tagline: "5k along the river, then the pub." }),
   club({ id: "wembley-way", name: "Wembley Way Runners", nameTop: "Wembley", nameBottom: "Way", borough: "Brent", cover: img("lcrew"), crest: crestSvg("WWR", 230), verified: true, founding: false, members: 143, nextRun: "Tue 19:00 · Wembley Park", tags: ["Beginners welcome", "Women-led"], filters: ["eve", "beg", "women"], division: "Club Championship", position: 5, since: 2021, tagline: "Couch to 5k groups start every month." }),
+  club({ id: "ancoats-run", cityId: "manchester", name: "Ancoats Run Club", nameTop: "Ancoats", nameBottom: "Run Club", borough: "Ancoats", cover: img("manc"), crest: crestSvg("ARC", 205), verified: true, founding: false, members: 364, nextRun: "Wed 18:30 · Cutting Room Square", tags: ["All paces", "Social"], filters: ["eve", "beg"], division: "Club Premier", position: 1, since: 2019, tagline: "Canal miles and a pint after. Every pace has a group." }),
+  club({ id: "chorlton-walkers", cityId: "manchester", name: "Chorlton Water Park Walkers", nameTop: "Chorlton", nameBottom: "Walkers", borough: "Chorlton", cover: img("walk"), crest: crestSvg("CWW", 120), verified: true, founding: false, members: 132, nextRun: "Sat 09:30 · Chorlton Water Park", tags: ["Walking", "Dogs welcome"], filters: ["walk", "wkd", "morn", "beg"], division: "Club Championship", position: 3, since: 2022, tagline: "Two laps of the lake, dogs and buggies welcome." }),
+  club({ id: "digbeth-dusk", cityId: "birmingham", name: "Digbeth Dusk Runners", nameTop: "Digbeth", nameBottom: "Dusk Runners", borough: "Digbeth", cover: img("clubhero2"), crest: crestSvg("DDR", 15), verified: true, founding: false, members: 251, nextRun: "Thu 19:00 · Custard Factory", tags: ["Night runs", "Women-led"], filters: ["eve", "night", "women"], division: "Club Premier", position: 2, since: 2020, tagline: "Street art, canals and the best night run in Brum." }),
+  club({ id: "kirkstall-trail", cityId: "leeds", name: "Kirkstall Trail Crew", nameTop: "Kirkstall", nameBottom: "Trail Crew", borough: "Kirkstall", cover: img("heath"), crest: crestSvg("KTC", 95), verified: true, founding: false, members: 176, nextRun: "Sun 08:30 · Kirkstall Abbey", tags: ["Trail", "Hills"], filters: ["wkd", "morn"], division: "Club Premier", position: 3, since: 2018, tagline: "Abbey to the canal and back up the hill." }),
+  club({ id: "kelvin-riverside", cityId: "glasgow", name: "Kelvin Riverside Runners", nameTop: "Kelvin", nameBottom: "Riverside", borough: "West End", cover: img("bridge"), crest: crestSvg("KRR", 245), verified: true, founding: false, members: 298, nextRun: "Tue 18:45 · Kelvingrove bandstand", tags: ["5k and 10k", "Beginners welcome"], filters: ["eve", "beg"], division: "Club Premier", position: 1, since: 2017, tagline: "Rain or shine along the Kelvin. Mostly rain." }),
+  club({ id: "harbourside-social", cityId: "bristol", name: "Harbourside Social", nameTop: "Harbourside", nameBottom: "Social", borough: "Harbourside", cover: img("tealside"), crest: crestSvg("HS", 180), verified: true, founding: false, members: 219, nextRun: "Wed 18:30 · M Shed", tags: ["Social", "All paces"], filters: ["eve", "beg"], division: "Club Premier", position: 2, since: 2021, tagline: "A loop of the harbour, then the ferry back if you've earned it." }),
+  club({ id: "quayside-striders", cityId: "newcastle", name: "Quayside Striders", nameTop: "Quayside", nameBottom: "Striders", borough: "Quayside", cover: img("dawn"), crest: crestSvg("QS", 0), verified: false, founding: true, members: 28, nextRun: "Sat 08:00 · Millennium Bridge", tags: ["Founding club", "Seven bridges"], filters: ["wkd", "morn"], division: "Founding", position: 0, since: 2026, tagline: "Founding club. Seven bridges, two meetups done." }),
+  club({ id: "seafront-social", cityId: "brighton", name: "Seafront Social Brighton", nameTop: "Seafront", nameBottom: "Social", borough: "Seafront", cover: img("sun"), crest: crestSvg("SSB", 50), verified: true, founding: false, members: 87, nextRun: "Sun 09:00 · Palace Pier", tags: ["Run and walk", "Sea swim after"], filters: ["wkd", "walk", "beg"], division: "Club League One", position: 4, since: 2023, tagline: "Pier to pier, then in the sea. Brighton plays for the South East." }),
   club({ id: "deptford-docks", name: "Deptford Docks RC", nameTop: "Deptford", nameBottom: "Docks", borough: "Lewisham", cover: img("roof"), crest: crestSvg("DD", 35), verified: false, founding: true, members: 31, nextRun: "Sun 10:00 · Deptford Creek", tags: ["Founding club", "All paces"], filters: ["wkd", "beg"], division: "Founding", position: 0, since: 2026, tagline: "Founding club. One more meetup to go official." }),
 ];
 
@@ -122,15 +161,15 @@ export const BATTLES: Battle[] = [
 
 export const FEED: FeedPost[] = [
   { id: "p-derby", kind: "derby", scopes: ["club", "borough"], derby: DERBY },
-  { id: "p-recap", kind: "recap", scopes: ["club"], image: img("clubrun"), title: ["31 Pacers ran", "Rye Lane"], runners: 31, km: 155, firstTimers: 3, boroughPoints: 1240, impact: "That run put <b>Peckham back in front of Brixton</b> in the derby.", withIds: ["dami", "zain", "mei", "tobi", "hannah", "priya"], withLine: "Dami, Zain, Mei and 28 others", reactions: rx(86, 31, 40), comments: [], commentCount: 14 },
+  { id: "p-recap", kind: "recap", scopes: ["club"], image: img("clubrun"), title: ["31 Pacers ran", "Rye Lane"], runners: 31, km: 155, firstTimers: 3, borough: "Southwark", boroughPoints: 1240, impact: "That run put <b>Peckham back in front of Brixton</b> in the derby.", withIds: ["dami", "zain", "mei", "tobi", "hannah", "priya"], withLine: "Dami, Zain, Mei and 28 others", reactions: rx(86, 31, 40), comments: [], commentCount: 14 },
   { id: "p-first", kind: "first-run", scopes: ["club", "follow"], personId: "lena", text: "2.4k with the walk-run group. Back marker Priya says she smiled the whole way.", welcomes: 47, welcomed: false },
-  { id: "p-zain", kind: "run", scopes: ["follow", "borough"], personId: "zain", meta: "Steady group · Peckham · 1 hour ago", title: "Rye Lane loop with the steady lot", km: "8.2", pace: "5:41", time: "46:38", boroughPoints: 38, route: "rye", impact: "Southwark passed <b>Lambeth</b> during this run. 3rd in London this week.", withIds: ["mei", "tobi", "hannah"], withLine: "with Mei, Tobi and Hannah", reactions: rx(24, 9, 5), comments: [{ personId: "mei", text: "Legs are gone but worth it" }, { personId: "tobi", text: "Zain set off like it was a race again" }], commentCount: 5 },
+  { id: "p-zain", kind: "run", scopes: ["follow", "borough"], personId: "zain", meta: "Steady group · Peckham · 1 hour ago", title: "Rye Lane loop with the steady lot", km: "8.2", pace: "5:41", time: "46:38", borough: "Southwark", boroughPoints: 38, route: "rye", impact: "Southwark passed <b>Lambeth</b> during this run. 3rd in London this week.", withIds: ["mei", "tobi", "hannah"], withLine: "with Mei, Tobi and Hannah", reactions: rx(24, 9, 5), comments: [{ personId: "mei", text: "Legs are gone but worth it" }, { personId: "tobi", text: "Zain set off like it was a race again" }], commentCount: 5 },
   { id: "p-battle", kind: "battle", scopes: ["follow"], battle: BATTLES[0] as Battle },
   { id: "p-hannah", kind: "photo", scopes: ["follow"], personId: "hannah", meta: "Walk group · Peckham Rye Park · 3 hours ago", text: "Couldn't see the end of the path this morning. Went anyway. Thursday walk group meets at 7 if you fancy the next one.", image: img("dawn"), alt: "A runner on a misty riverside path at dawn", reactions: rx(41, 6, 22), comments: [], commentCount: 7 },
   { id: "p-borough", kind: "borough", scopes: ["borough"], borough: "Southwark", place: "3rd", line: "in London, up two places since Monday. 4,812 people walking and running for Southwark.", leaders: [{ name: "Kemi Adeyemi", steps: 78265 }, { name: "Zain Hussain", steps: 74910 }, { name: "Mei Chen", steps: 71002 }] },
   { id: "p-memory", kind: "memory", scopes: ["follow"], then: "31:40", now: "24:12", line: "7 minutes faster, 212 runs later. Peckham Rye was there for every one." },
   { id: "p-reveal", kind: "reveal", scopes: ["club"], match: "London v Manchester", line: "Who walked further this week? Find out live on Sunday at 20:00.", image: img("event") },
-  { id: "p-kemi", kind: "run", scopes: ["follow", "borough"], personId: "kemi", meta: "Long run · Peckham to Southbank · Saturday", title: "Long Saturday along the river", km: "14.1", pace: "6:02", time: "1:25:07", boroughPoints: 61, route: "river", withIds: ["dami", "priya", "zain", "lena"], withLine: "with Dami, Priya, Zain and Lena", reactions: rx(37, 12, 8), comments: [], commentCount: 4 },
+  { id: "p-kemi", kind: "run", scopes: ["follow", "borough"], personId: "kemi", meta: "Long run · Peckham to Southbank · Saturday", title: "Long Saturday along the river", km: "14.1", pace: "6:02", time: "1:25:07", borough: "Southwark", boroughPoints: 61, route: "river", withIds: ["dami", "priya", "zain", "lena"], withLine: "with Dami, Priya, Zain and Lena", reactions: rx(37, 12, 8), comments: [], commentCount: 4 },
   { id: "p-fund", kind: "club-post", scopes: ["club"], personId: "kemi", meta: "Captain · Peckham Pacers · 2 days ago", text: "Club fund update. This month it paid for a first aid course for four run leaders and head torches for the night group. Every penny is on the fund page.", fund: { raised: "£858 raised since September", line: "From Pro members, Peckham Physio and the autumn kit drop" }, reactions: rx(29, 4, 18), comments: [], commentCount: 2 },
 ];
 
@@ -174,11 +213,11 @@ export const CHAT: ChatChannel[] = [
 const WEEK: Omit<CalendarEvent, "id" | "date">[][] = [
   [{ time: "All week", title: "Southwark v Lambeth", where: "Borough battle starts", scope: "mine", kind: "battle" }, { time: "19:30", title: "Run leaders catch-up", where: "The Gowlett, upstairs", scope: "club" }],
   [{ time: "19:00", title: "Rye Lane 5k", where: "Peckham Rye station", scope: "mine", kind: "going" }],
-  [{ time: "18:30", title: "Free strength class", where: "Copeland Park Gym · Locals perk", scope: "club" }, { time: "20:00", title: "Thames night walk", where: "Southbank to Tower Bridge", scope: "london" }],
+  [{ time: "18:30", title: "Free strength class", where: "Copeland Park Gym · Locals perk", scope: "club" }, { time: "20:00", title: "Thames night walk", where: "Southbank to Tower Bridge", scope: "city" }],
   [{ time: "18:30", title: "Intervals", where: "Burgess Park lake gate", scope: "club" }, { time: "19:00", title: "Walk group", where: "Peckham Rye Park cafe", scope: "club" }],
-  [{ time: "12:00", title: "Black winter jacket drop", where: "In the app", scope: "london" }, { time: "23:59", title: "Your battle with Tobi ends", where: "You lead by 2,140 steps", scope: "mine", kind: "battle" }],
-  [{ time: "08:00", title: "Long run, 14k", where: "Peckham Rye to Southbank", scope: "mine", kind: "going" }, { time: "11:00", title: "Burgess Park clean-up", where: "Bring gloves, coffee after", scope: "london" }],
-  [{ time: "18:00", title: "Peckham v Brixton ends", where: "Club derby final whistle", scope: "mine", kind: "battle" }, { time: "20:00", title: "London v Manchester reveal", where: "Watch it live in the app", scope: "london", global: true }],
+  [{ time: "12:00", title: "Black winter jacket drop", where: "In the app", scope: "city", global: true }, { time: "23:59", title: "Your battle with Tobi ends", where: "You lead by 2,140 steps", scope: "mine", kind: "battle" }],
+  [{ time: "08:00", title: "Long run, 14k", where: "Peckham Rye to Southbank", scope: "mine", kind: "going" }, { time: "11:00", title: "Burgess Park clean-up", where: "Bring gloves, coffee after", scope: "city" }],
+  [{ time: "18:00", title: "Peckham v Brixton ends", where: "Club derby final whistle", scope: "mine", kind: "battle" }, { time: "20:00", title: "Sunday reveal", where: "London v Manchester, live in the app", scope: "city", global: true }],
 ];
 
 export const TODAY = 20;
@@ -192,11 +231,11 @@ export function calendarEvents(): CalendarEvent[] {
   [2, 9, 16, 30].forEach((d) => add(d, { time: "18:30", title: "Intervals", where: "Burgess Park lake gate", scope: "club" }));
   [4, 11, 18].forEach((d) => add(d, { time: "08:00", title: "Long run", where: "Peckham Rye, all paces", scope: "club" }));
   add(3, { time: "12:00", title: "Club kit drop", where: "Peckham Pacers autumn tees", scope: "club" });
-  add(8, { time: "20:00", title: "Thames night walk", where: "Southbank to Tower Bridge", scope: "london" });
-  add(12, { time: "18:00", title: "Season 3 begins", where: "The draw goes live in the app", scope: "london", global: true });
+  add(8, { time: "20:00", title: "Thames night walk", where: "Southbank to Tower Bridge", scope: "city" });
+  add(12, { time: "18:00", title: "Season 3 begins", where: "The draw goes live in the app", scope: "city", global: true });
   add(15, { time: "23:59", title: "Your battle with Mei ends", where: "You won by 4,310 steps", scope: "mine", kind: "battle" });
   add(19, { time: "18:00", title: "Peckham v Camberwell ends", where: "Peckham won the derby", scope: "mine", kind: "battle" });
-  add(29, { time: "09:00", title: "Winter Night Run sign-ups", where: "3,000 places, Pro gets early access", scope: "london" });
+  add(29, { time: "09:00", title: "Winter Night Run sign-ups", where: "3,000 places, Pro gets early access", scope: "city" });
   add(31, { time: "19:00", title: "Halloween night run", where: "Fancy dress, Peckham Rye", scope: "club" });
   const key = (t: string) => (/^\d/.test(t) ? t : "00:00"); // "All week" goes first
   return out.sort((a, b) => a.date - b.date || (key(a.time) < key(b.time) ? -1 : 1));
@@ -215,7 +254,7 @@ export const NOTIFICATIONS: Notification[] = [
 export const PLANS: Plan[] = [
   { tier: "free", name: "Free", monthly: 0, yearly: 0, line: "Everything you need to play for your borough.", features: ["Walk and run for your borough", "Join any club, always free", "Club chat, feed and calendar", "Watch everyone's stories", "Battles with friends"] },
   { tier: "pro", name: "Pro", monthly: 5.99, yearly: 59.99, line: "For people who are out most days.", features: ["Post stories from your runs", "Outhere Locals perks at the till", "Early access to club kit drops", "Your full stats and history", "Your name on the Sunday reveal", "£1 a month to your club when you join here"], popular: true },
-  { tier: "black", name: "Black", monthly: 17.99, yearly: 179.99, line: "The full thing, and the most for your club.", features: ["Everything in Pro", "Members-only Black drops and events", "First places at big city events", "£3 a month to your club when you join here"] },
+  { tier: "black", name: "Black", monthly: 12.99, yearly: 129.99, line: "The full thing, and the most for your club.", features: ["Everything in Pro", "Members-only Black drops and events", "First places at big city events", "£3 a month to your club when you join here"] },
 ];
 
 export const BATTLE_MODES: BattleMode[] = [
@@ -270,13 +309,14 @@ export const VERIFICATIONS: VerificationRequest[] = [
   { id: "v2", clubId: "deptford-docks", organiser: "Marcus T.", age: "19h", evidence: [img("roof"), img("crew"), img("event")], claim: false, checks: autoChecks(FOUNDING_CHECKS), verified: false },
   { id: "v3", clubId: "stratford-striders", organiser: "Funmi O.", age: "7h", evidence: [img("event"), img("clubhero2"), img("lcrew")], claim: true, checks: autoChecks(CLAIM_CHECKS), verified: false },
   { id: "v4", clubId: "croydon-hills", organiser: "Rob D.", age: "2h", evidence: [img("hill"), img("heath"), img("sun")], claim: true, checks: autoChecks(CLAIM_CHECKS), verified: false },
+  { id: "v5", clubId: "quayside-striders", organiser: "Callum B.", age: "4h", evidence: [img("dawn"), img("bridge"), img("crew")], claim: false, checks: autoChecks(FOUNDING_CHECKS), verified: false },
 ];
 
 export const FLAGS: FairPlayFlag[] = [
-  { id: "f1", user: "41…a2", severity: "High", reason: "62,000 steps at 2am, no movement on GPS", steps: [9, 10, 11, 9, 12, 10, 11, 9, 10, 62, 58, 10, 11, 9], trust: "New" },
-  { id: "f2", user: "7c…19", severity: "High", reason: "Same phone in two squads", steps: [8, 9, 8, 10, 9, 11, 10, 9, 8, 9, 10, 9, 10, 11], trust: "New" },
-  { id: "f3", user: "19…f0", severity: "Low", reason: "Cadence of 240 for 3 hours", steps: [12, 13, 11, 14, 12, 30, 31, 12, 13, 14, 12, 13, 15, 14], trust: "Verified" },
-  { id: "f4", user: "b2…7e", severity: "Low", reason: "Steps without the phone moving", steps: [7, 8, 9, 7, 8, 9, 18, 19, 8, 7, 9, 8, 7, 8], trust: "Verified" },
+  { id: "f1", user: "41…a2", severity: "High", city: "London", reason: "62,000 steps at 2am, no movement on GPS", steps: [9, 10, 11, 9, 12, 10, 11, 9, 10, 62, 58, 10, 11, 9], trust: "New" },
+  { id: "f2", user: "7c…19", severity: "High", city: "Manchester", reason: "Same phone in two squads", steps: [8, 9, 8, 10, 9, 11, 10, 9, 8, 9, 10, 9, 10, 11], trust: "New" },
+  { id: "f3", user: "19…f0", severity: "Low", city: "Glasgow", reason: "Cadence of 240 for 3 hours", steps: [12, 13, 11, 14, 12, 30, 31, 12, 13, 14, 12, 13, 15, 14], trust: "Verified" },
+  { id: "f4", user: "b2…7e", severity: "Low", city: "Bristol", reason: "Steps without the phone moving", steps: [7, 8, 9, 7, 8, 9, 18, 19, 8, 7, 9, 8, 7, 8], trust: "Verified" },
 ];
 
 export const AUDIT: AuditEntry[] = [
@@ -315,8 +355,8 @@ export const CITY_LEAGUE_ONE = [
   { city: "Norwich", image: img("dawn"), points: 7, form: "lwdww", eligible: 214 },
   { city: "Exeter", image: img("roof"), points: 5, form: "dlwlw", eligible: 190 },
   { city: "Reading", image: img("streaks"), points: 4, form: "lwldw", eligible: 176 },
-  { city: "Plymouth", image: img("manc"), points: 3, form: "lldwl", eligible: 158 },
-  { city: "Derby", image: img("hill"), points: 1, form: "llldl", eligible: 131 },
+  { city: "South East", region: true, image: img("sun"), points: 3, form: "lldwl", eligible: 158 },
+  { city: "North Wales", region: true, image: img("hill"), points: 1, form: "llldl", eligible: 131 },
 ];
 
 export const SEED = "7f3a…c91e";

@@ -31,6 +31,10 @@ export interface Person {
 
 export interface Viewer extends Person {
   handle: string;
+  /** Home city id and name. Anyone in the UK can join, so this is any city or town. */
+  cityId: string;
+  city: string;
+  /** The viewer's borough in London, or area elsewhere. */
   borough: string;
   roles: Role[];
   /** The club this person captains or belongs to first. */
@@ -52,6 +56,9 @@ export interface Club {
   /** Display name split over two lines on heroes: first line, then the blue line. */
   nameTop: string;
   nameBottom: string;
+  cityId: string;
+  city: string;
+  /** Borough in London, area elsewhere. Empty when the club hasn't set one. */
   borough: string;
   cover: string;
   crest: string;
@@ -68,10 +75,27 @@ export interface Club {
   tagline: string;
 }
 
+/** A UK city or town Outhere knows about. */
+export interface City {
+  id: string;
+  name: string;
+  /** "North West", "Scotland". Towns under 100 active play for their region. */
+  region: string;
+  /** One of the launch-night cities. */
+  launch: boolean;
+  /** Verified and founding clubs in the city. */
+  clubs: number;
+  /** What the city's parts are called: boroughs in London, areas elsewhere. */
+  areaWord: "borough" | "area";
+  /** Whether its areas have places on a tile map. Without one the app shows a ranked list. */
+  hasMap: boolean;
+}
+
+/** A borough in London, an area in other cities. */
 export interface Borough {
   name: string;
   code: string;
-  /** Column and row on the London tile map. */
+  /** Column and row on the city's tile map, when it has one. */
   col: number;
   row: number;
 }
@@ -156,6 +180,8 @@ export type FormLetter = "w" | "d" | "l";
 
 export interface CityRow {
   city: string;
+  /** A region side: smaller towns playing together until one reaches 100 active. */
+  region?: boolean;
   image: string;
   points: number;
   form: string;
@@ -168,8 +194,11 @@ export interface LeagueView {
   match: CityMatch;
   /** City League tables, top division first. */
   divisions: { name: string; rows: CityRow[] }[];
-  rising: { city: string; eligible: number; needed: number };
-  /** London club league, in table order. */
+  /** A town closing in on 100 active, when it can play as itself instead of for its region. */
+  rising: { city: string; cityId: string; region: string; eligible: number; needed: number };
+  /** The city the club table and areas are for. */
+  city: City;
+  /** That city's clubs in league order. */
   clubTable: { club: Club; form: string; points: number; me?: boolean }[];
   /** The viewer's club derby this week. */
   derby: Derby;
@@ -211,6 +240,8 @@ export type FeedPost =
       km: number;
       firstTimers: number;
       boroughPoints: number;
+      /** The borough or area the points went to. */
+      borough: string;
       impact: string;
       withIds: string[];
       withLine: string;
@@ -234,6 +265,8 @@ export type FeedPost =
       pace: string;
       time: string;
       boroughPoints: number;
+      /** The borough or area the points went to. */
+      borough: string;
       route: RouteShape;
       impact?: string;
       withIds: string[];
@@ -345,7 +378,7 @@ export interface ChatView {
 
 /* ---------- calendar ---------- */
 
-export type CalendarScope = "mine" | "club" | "london";
+export type CalendarScope = "mine" | "club" | "city";
 
 export interface CalendarEvent {
   id: string;
@@ -356,7 +389,7 @@ export interface CalendarEvent {
   where: string;
   scope: CalendarScope;
   kind?: "going" | "battle" | "done";
-  /** Big city-wide moment, added to everyone's calendar. */
+  /** Big moment for the whole of the UK, added to everyone's calendar. */
   global?: boolean;
 }
 
@@ -370,6 +403,8 @@ export interface CalendarView {
   /** First day of the current week (Monday). */
   weekStart: number;
   events: CalendarEvent[];
+  /** The viewer's city, for "All of Leeds". */
+  city: string;
   bigMoments: { image: string; date: string; title: string; line: string }[];
   clubName: string;
 }
@@ -387,7 +422,7 @@ export interface Notification {
 }
 
 export interface SearchItem {
-  group: "Clubs" | "People" | "Boroughs" | "Go to";
+  group: "Clubs" | "People" | "Cities" | "Boroughs" | "Go to";
   name: string;
   sub: string;
   href: string | null;
@@ -419,6 +454,7 @@ export type PublicProfile =
       handle: string;
       visible: true;
       person: Person;
+      city: string;
       borough: string;
       trust: Trust;
       foundingNumber?: number;
@@ -544,7 +580,7 @@ export interface NewPickup {
 
 /* ---------- club HQ ---------- */
 
-/** A club run or walk a captain adds from Club HQ. Date and time are London local. */
+/** A club run or walk a captain adds from Club HQ. Date and time are UK local time. */
 export interface NewRun {
   clubId: string;
   /** YYYY-MM-DD */
@@ -606,7 +642,7 @@ export interface ClubHqView {
   turnoutLabels: string[];
   checkin: CheckinRun;
   needs: NeedsYou[];
-  /** "Club Premier, London south" */
+  /** "Club Premier, Leeds" */
   league: string;
   table: ClubTableRow[];
 }
@@ -757,6 +793,7 @@ export interface VerificationRequest {
 export interface FairPlayFlag {
   id: string;
   user: string;
+  city: string;
   severity: "High" | "Low";
   reason: string;
   steps: number[];

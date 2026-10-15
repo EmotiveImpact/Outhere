@@ -5,7 +5,7 @@ import { nextReveal } from "../mock/source";
 // Product definitions (battle modes and plan prices), not example data. See SCHEMA_GAPS.md.
 import { BATTLE_MODES, PLANS } from "../mock/seed";
 import type {
-  AdminOverview, AuditEntry, Battle, BattleModeKey, BattlesView, BoroughMetric, BoroughStat, CalendarEvent,
+  AdminOverview, AuditEntry, Battle, BattleModeKey, BattlesView, BoroughMetric, BoroughStat, CalendarEvent, City,
   CalendarView, ChatChannel, ChatItem, ChatView, CheckinRun, Club, FormLetter, JoinInput, MeView, PickupsView, PublicProfile, ClubHqView, ClubPagePatch, ClubPageView, ClubRun,
   Derby, FairPlayFlag, FairPlayView, FeedComment, FeedPost, FeedScope, FeedView, FundView, HomeView, IconName,
   KitView, LeagueView, Member, MembersView, NeedsYou, NewBattle, NewPickup, NewRun, Notification, OutNowEntry,
@@ -15,7 +15,7 @@ import type {
 import type { Database, Enums, Json, Tables } from "./database";
 import { DataError, counted, done, one, rows, toDataError } from "./errors";
 import {
-  addDays, ago, chatDay, dateLabel, dayCaps, daysInMonth, duration, endsLabel, hhmm, london, londonMidnight,
+  addDays, ago, chatDay, dateLabel, dayCaps, daysInMonth, duration, endsLabel, hhmm, ukTime, ukMidnight,
   mondayOf, MONTHS, shortDay, weekdayOf, whenLabel,
 } from "./time";
 
@@ -89,6 +89,8 @@ interface FixtureInfo {
 
 interface Standing {
   division: string;
+  /** Division order, top first. */
+  divisionSort: number;
   position: number;
   points: number;
   entryId: string;
@@ -267,9 +269,10 @@ export class SupabaseData implements OuthereData {
   async viewer(): Promise<Viewer> {
     const ctx = await this.ctx();
     const p = ctx.profile;
-    const [dot, boroughs] = await Promise.all([
+    const [dot, boroughs, cities] = await Promise.all([
       this.client.from("member_dots").select("dot").eq("user_id", ctx.me).maybeSingle().then(one),
       this.boroughNames(),
+      this.cityNames(),
     ]);
     const roles: Role[] = ["member"];
     if (ctx.memberships.some((m) => m.role === "captain" || m.role === "admin")) roles.push("captain");
@@ -283,6 +286,8 @@ export class SupabaseData implements OuthereData {
       tier: p.tier,
       ...outNow(dot?.dot),
       handle: p.username,
+      cityId: ctx.cityId,
+      city: cities.get(ctx.cityId) ?? "",
       borough: (p.borough_id && boroughs.get(p.borough_id)) || "",
       roles,
       homeClubId: ctx.homeClubId ?? "",
@@ -375,13 +380,48 @@ export class SupabaseData implements OuthereData {
     return this.once("boroughs", async () => rows(await this.client.from("boroughs").select("id, city_id, name, tile_col, tile_row").order("name")));
   }
 
+  private cityRows() {
+    return this.once("cities", async () => rows(await this.client.from("cities").select("id, name, region, is_live").order("name")));
+  }
+
+  private async cityNames(): Promise<Map<string, string>> {
+    return new Map((await this.cityRows()).map((c) => [c.id, c.name]));
+  }
+
+  async cities(): Promise<City[]> {
+    const [cities, boroughs, clubs] = await Promise.all([
+      this.cityRows(),
+      this.boroughRows(),
+      this.client.from("clubs").select("city_id").neq("status", "suspended").limit(20000).then(rows),
+    ]);
+    return cities
+      .map((c): City => ({
+        id: c.id,
+        name: c.name,
+        region: c.region,
+        launch: c.is_live,
+        clubs: clubs.filter((x) => x.city_id === c.id).length,
+        // Boroughs are London's word; every other city has areas.
+        areaWord: c.id === "london" ? "borough" : "area",
+        hasMap: boroughs.some((b) => b.city_id === c.id && b.tile_col !== null && b.tile_row !== null),
+      }))
+      .sort((a, b) => Number(b.launch) - Number(a.launch) || b.clubs - a.clubs || a.name.localeCompare(b.name));
+  }
+
+  private async cityOf(cityId?: string): Promise<City> {
+    const all = await this.cities();
+    const fallback = (await this.uid()) ? (await this.ctx()).cityId : this.defaultCity;
+    const found = all.find((c) => c.id === cityId) ?? all.find((c) => c.id === fallback);
+    return found ?? { id: fallback, name: "", region: "", launch: false, clubs: 0, areaWord: "area", hasMap: false };
+  }
+
   private async boroughNames(): Promise<Map<string, string>> {
     return new Map((await this.boroughRows()).map((b) => [b.id, b.name]));
   }
 
   private currentSeason(kind: Enums<"league_kind">) {
     return this.once(`season:${kind}`, async () => {
-      const today = london(this.now()).date;
+      const today = ukTime(this.now()).date;
       return one(
         await this.client.from("seasons").select("id, name, number, starts_on, ends_on")
           .eq("kind", kind).lte("starts_on", today).gte("ends_on", today)
@@ -415,7 +455,7 @@ export class SupabaseData implements OuthereData {
 
   private async toClubs(clubRows: ClubRow[]): Promise<Club[]> {
     const ids = clubRows.map((c) => c.id);
-    const [boroughs, next, standings] = await Promise.all([this.boroughNames(), this.nextClubRuns(ids), this.clubStandings(ids)]);
+    const [boroughs, cities, next, standings] = await Promise.all([this.boroughNames(), this.cityNames(), this.nextClubRuns(ids), this.clubStandings(ids)]);
     return clubRows.map((c) => {
       const words = c.name.split(" ");
       const n = next.get(c.id);
@@ -426,13 +466,15 @@ export class SupabaseData implements OuthereData {
         name: c.name,
         nameTop: nameTop(c.name),
         nameBottom: words.slice(1).join(" "),
+        cityId: c.city_id,
+        city: cities.get(c.city_id) ?? "",
         borough: (c.borough_id && boroughs.get(c.borough_id)) || "",
         cover: this.media("club-media", c.cover_path),
         crest: this.media("club-media", c.logo_path),
         verified: c.status === "verified",
         founding: c.status === "founding",
         members: c.member_count,
-        nextRun: n ? `${shortDay(london(n.starts_at).date)} ${hhmm(n.starts_at)} · ${n.place_name}` : (c.usual_times ?? ""),
+        nextRun: n ? `${shortDay(ukTime(n.starts_at).date)} ${hhmm(n.starts_at)} · ${n.place_name}` : (c.usual_times ?? ""),
         tags: [],
         filters: [],
         division: s?.division ?? (c.status === "founding" ? "Founding" : ""),
@@ -461,9 +503,10 @@ export class SupabaseData implements OuthereData {
     const out = new Map<string, Standing>();
     const season = clubIds.length ? await this.currentSeason("club") : null;
     if (!season) return out;
-    const divisions = rows(await this.client.from("divisions").select("id, name").eq("season_id", season.id));
+    const divisions = rows(await this.client.from("divisions").select("id, name, sort").eq("season_id", season.id));
     if (!divisions.length) return out;
     const divName = new Map(divisions.map((d) => [d.id, d.name]));
+    const divSort = new Map(divisions.map((d) => [d.id, d.sort]));
     const mine = rows(await this.client.from("league_entries").select("id, division_id, club_id").in("club_id", clubIds).in("division_id", [...divName.keys()]));
     const divIds = unique(mine.map((e) => e.division_id));
     if (!divIds.length) return out;
@@ -472,29 +515,31 @@ export class SupabaseData implements OuthereData {
       if (!e.club_id) continue;
       const div = table.filter((t) => t.division_id === e.division_id);
       const at = div.findIndex((t) => t.id === e.id);
-      out.set(e.club_id, { division: divName.get(e.division_id) ?? "", position: at + 1, points: div[at]?.points ?? 0, entryId: e.id });
+      out.set(e.club_id, { division: divName.get(e.division_id) ?? "", divisionSort: divSort.get(e.division_id) ?? 99, position: at + 1, points: div[at]?.points ?? 0, entryId: e.id });
     }
     return out;
   }
 
   async clubs(query: ClubQuery = {}): Promise<Club[]> {
     const q = (query.q ?? "").trim().toLowerCase();
-    const all = await this.loadClubs();
+    const all = await this.loadClubs(query.city ? { cityId: query.city } : {});
     const list = all.filter(
       (c) =>
         (!query.borough || c.borough === query.borough) &&
         (query.filters ?? []).every((f) => c.filters.includes(f)) &&
-        (!q || `${c.name} ${c.borough} ${c.nextRun}`.toLowerCase().includes(q)),
+        (!q || `${c.name} ${c.borough} ${c.city} ${c.nextRun}`.toLowerCase().includes(q)),
     );
     if (query.sort === "biggest") list.sort((a, b) => b.members - a.members);
     else if (query.sort === "newest") list.sort((a, b) => b.since - a.since);
     else if (query.sort === "closest") {
-      // Distance on the borough tile map from the viewer's borough; clubs with no borough go last.
+      // The viewer's own city first, then distance on the borough tile map; clubs with no borough go last.
       const tiles = await this.boroughRows();
-      const mine = (await this.uid()) ? (await this.ctx()).profile.borough_id : null;
+      const ctx = (await this.uid()) ? await this.ctx() : null;
+      const mine = ctx?.profile.borough_id ?? null;
       const here = tiles.find((b) => b.id === mine);
       const away = (c: Club) => {
-        const t = tiles.find((b) => b.name === c.borough);
+        if (ctx && c.cityId !== ctx.cityId) return 1000;
+        const t = tiles.find((b) => b.city_id === c.cityId && b.name === c.borough);
         return here && t ? Math.hypot((t.tile_col ?? 0) - (here.tile_col ?? 0), (t.tile_row ?? 0) - (here.tile_row ?? 0)) : 99;
       };
       list.sort((a, b) => away(a) - away(b));
@@ -519,7 +564,7 @@ export class SupabaseData implements OuthereData {
 
   private toRun(e: EventRow, rsvps: RsvpRow[], me: string | null): ClubRun {
     const mine = rsvps.filter((r) => r.event_id === e.id);
-    const p = london(e.starts_at);
+    const p = ukTime(e.starts_at);
     return {
       id: e.id,
       clubId: e.club_id ?? "",
@@ -567,7 +612,7 @@ export class SupabaseData implements OuthereData {
     eq = isClub ? eq.eq("club_id", side.clubId) : eq.eq("city_id", side.cityId);
     const entry = one(await eq.limit(1).maybeSingle());
     if (!entry) return null;
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const fixture = one(
       await this.client.from("fixtures").select(FIXTURE).eq("division_id", entry.division_id)
         .or(`home_id.eq.${entry.id},away_id.eq.${entry.id}`)
@@ -672,7 +717,7 @@ export class SupabaseData implements OuthereData {
   /* ---------- steps ---------- */
 
   private async weekSteps(me: string): Promise<{ days: number[]; counted: number }> {
-    const monday = mondayOf(london(this.now()).date);
+    const monday = mondayOf(ukTime(this.now()).date);
     const found = rows(await this.client.from("daily_steps").select("day, steps, counted").eq("user_id", me).gte("day", monday).lte("day", addDays(monday, 6)));
     const days = Array.from({ length: 7 }, (_, i) => found.find((d) => d.day === addDays(monday, i))?.steps ?? 0);
     return { days, counted: found.reduce((n, d) => n + (d.counted ?? 0), 0) };
@@ -808,6 +853,8 @@ export class SupabaseData implements OuthereData {
     const battles = await this.battleViews(battleRows, ctx.me);
     const following = new Set(follows.map((f) => f.followee_id));
     const author = new Map(authors.map((a) => [a.id, a]));
+    const areaNames = await this.boroughNames();
+    const areaOf = (uid: string) => areaNames.get(author.get(uid)?.borough_id ?? "") ?? "";
     const clubName = new Map(clubs.map((c) => [c.id, c.name]));
     const nameOf = await this.names([...list.flatMap((p) => strs(p.data, "with_ids")), ...checkins.map((c) => c.user_id)]);
     authors.forEach((a) => nameOf.set(a.id, a.display_name));
@@ -858,6 +905,7 @@ export class SupabaseData implements OuthereData {
             pace: run.avg_pace_s_per_km ? duration(run.avg_pace_s_per_km) : "",
             time: duration(run.moving_s),
             boroughPoints: num(p.data, "borough_points") ?? 0,
+            borough: str(p.data, "borough") ?? areaOf(p.author_id),
             route: (["rye", "river", "park"] as RouteShape[]).find((r) => r === route) ?? "park",
             ...(impact ? { impact } : {}),
             ...withFor(p),
@@ -879,6 +927,7 @@ export class SupabaseData implements OuthereData {
             km: num(p.data, "km") ?? 0,
             firstTimers: num(p.data, "first_timers") ?? 0,
             boroughPoints: num(p.data, "borough_points") ?? 0,
+            borough: str(p.data, "borough") ?? areaOf(p.author_id),
             impact: str(p.data, "impact") ?? body,
             withIds,
             withLine: withLine(withIds.map((id) => nameOf.get(id) ?? ""), runners),
@@ -946,8 +995,8 @@ export class SupabaseData implements OuthereData {
   }
 
   private async feedWeek(ctx: Ctx): Promise<FeedView["week"]> {
-    const monday = mondayOf(london(this.now()).date);
-    const start = londonMidnight(monday);
+    const monday = mondayOf(ukTime(this.now()).date);
+    const start = ukMidnight(monday);
     const [steps, checkins, xp] = await Promise.all([
       this.weekSteps(ctx.me),
       this.client.from("event_rsvps").select("event_id").eq("user_id", ctx.me).eq("status", "checked_in").gte("checked_in_at", start).then(rows),
@@ -1103,12 +1152,12 @@ export class SupabaseData implements OuthereData {
   async calendar(): Promise<CalendarView> {
     const ctx = await this.ctx();
     const now = this.now();
-    const t = london(now);
+    const t = ukTime(now);
     const first = `${t.date.slice(0, 7)}-01`;
     const days = daysInMonth(t.year, t.month);
     const next = addDays(first, days);
-    const from = londonMidnight(first);
-    const to = londonMidnight(next);
+    const from = ukMidnight(first);
+    const to = ukMidnight(next);
     const [events, battles, moments, club] = await Promise.all([
       this.client.from("events").select(EVENT).eq("city_id", ctx.cityId).is("cancelled_at", null).gte("starts_at", from).lt("starts_at", to).order("starts_at").limit(500).then(rows),
       this.client.from("battle_board").select(BATTLE).in("status", ["accepted", "live", "finished"]).gte("ends_at", from).lt("ends_at", to).then(rows),
@@ -1122,10 +1171,10 @@ export class SupabaseData implements OuthereData {
     const out: CalendarEvent[] = events.map((e) => {
       const r = mine.find((m) => m.event_id === e.id);
       const past = e.starts_at < now.toISOString();
-      const scope = r ? "mine" : e.club_id && ctx.clubIds.includes(e.club_id) ? "club" : "london";
+      const scope = r ? "mine" : e.club_id && ctx.clubIds.includes(e.club_id) ? "club" : "city";
       return {
         id: e.id,
-        date: london(e.starts_at).day,
+        date: ukTime(e.starts_at).day,
         time: hhmm(e.starts_at),
         title: e.title,
         where: e.place_name,
@@ -1139,7 +1188,7 @@ export class SupabaseData implements OuthereData {
       const other = b.challenger_id === ctx.me ? b.opponent_id : b.challenger_id;
       out.push({
         id: `battle-${b.id}`,
-        date: london(b.ends_at).day,
+        date: ukTime(b.ends_at).day,
         time: hhmm(b.ends_at),
         title: `Your battle with ${firstName(opponentNames.get(other ?? "") ?? "")} ends`,
         where: modeName(b.mode, b.distance_m),
@@ -1157,6 +1206,7 @@ export class SupabaseData implements OuthereData {
       events: out.sort((a, b) => a.date - b.date || (a.time < b.time ? -1 : 1)),
       bigMoments: moments.map((e) => ({ image: this.media("club-media", e.cover_path), date: dateLabel(e.starts_at), title: e.title, line: e.description ?? e.place_name })),
       clubName: club?.name ?? "",
+      city: (await this.cityNames()).get(ctx.cityId) ?? "",
     };
   }
 
@@ -1169,13 +1219,13 @@ export class SupabaseData implements OuthereData {
     if (!valid.length) return [];
     const users = unique(valid.flatMap((b) => [b.challenger_id, b.opponent_id]));
     const stepBattles = valid.filter((b) => STEP_MODES.includes(b.mode) && b.starts_at);
-    const firstDay = stepBattles.map((b) => london(b.starts_at ?? "").date).sort()[0];
+    const firstDay = stepBattles.map((b) => ukTime(b.starts_at ?? "").date).sort()[0];
     const [names, steps, entries] = await Promise.all([
       this.names(users),
       firstDay ? this.client.from("daily_steps").select("user_id, day, counted").in("user_id", users).gte("day", firstDay).then(rows) : [],
       this.client.from("battle_entries").select("battle_id, user_id, result").in("battle_id", valid.map((b) => b.id)).then(rows),
     ]);
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     return valid.map((b): Battle => {
       const iAmChallenger = b.challenger_id === me;
       const other = iAmChallenger ? b.opponent_id : b.challenger_id;
@@ -1190,8 +1240,8 @@ export class SupabaseData implements OuthereData {
           const stored = uid === b.challenger_id ? b.challenger_result : b.opponent_result;
           if (stored !== null && b.status === "finished") return stored;
           if (!b.starts_at) return 0;
-          const from = london(b.starts_at).date;
-          const to = b.ends_at ? london(b.ends_at).date : today;
+          const from = ukTime(b.starts_at).date;
+          const to = b.ends_at ? ukTime(b.ends_at).date : today;
           return steps.filter((s) => s.user_id === uid && s.day >= from && s.day <= to).reduce((n, s) => n + (s.counted ?? 0), 0);
         };
         const us = sum(me);
@@ -1429,7 +1479,7 @@ export class SupabaseData implements OuthereData {
     const club = one(await this.client.from("clubs").select("id, city_id").eq("id", input.clubId).maybeSingle());
     if (!club) throw new DataError("NO_SUCH_CLUB");
     const [h, m] = input.time.split(":").map(Number);
-    const startsAt = new Date(new Date(londonMidnight(input.date)).getTime() + ((h ?? 0) * 60 + (m ?? 0)) * 60_000).toISOString();
+    const startsAt = new Date(new Date(ukMidnight(input.date)).getTime() + ((h ?? 0) * 60 + (m ?? 0)) * 60_000).toISOString();
     if (startsAt < this.now().toISOString()) throw new DataError("BAD_TIME");
     // The events policy only lets club staff add club events, so the database refuses anyone else.
     done(
@@ -1449,15 +1499,15 @@ export class SupabaseData implements OuthereData {
 
   /* ---------- league, boroughs, plans ---------- */
 
-  async league(): Promise<LeagueView> {
+  async league(cityId?: string): Promise<LeagueView> {
     const ctx = await this.ctx();
-    const [season, cityFixture, myClubs, derby] = await Promise.all([
+    const [season, cityFixture, city, derby] = await Promise.all([
       this.currentSeason("city"),
       this.currentFixture({ cityId: ctx.cityId }),
-      ctx.homeClubId ? this.clubStandings([ctx.homeClubId]) : new Map<string, Standing>(),
+      this.cityOf(cityId),
       this.homeDerby(ctx),
     ]);
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
 
     // City League: every division this season, top first.
     const divisions = season ? rows(await this.client.from("divisions").select("id, name, sort").eq("season_id", season.id).order("sort")) : [];
@@ -1469,18 +1519,15 @@ export class SupabaseData implements OuthereData {
       this.forms(entries.map((e) => e.id)),
     ]);
 
-    // The viewer's club division, in table order.
-    const standing = ctx.homeClubId ? myClubs.get(ctx.homeClubId) : undefined;
-    let clubTable: LeagueView["clubTable"] = [];
-    if (standing) {
-      const division = await this.entryDivision(standing.entryId);
-      const table = division ? await this.divisionTable(division) : [];
-      const [clubs, forms] = await Promise.all([this.loadClubs({ ids: table.flatMap((e) => (e.club_id ? [e.club_id] : [])) }), this.forms(table.map((e) => e.id))]);
-      clubTable = table.flatMap((e) => {
-        const club = clubs.find((c) => c.id === e.club_id);
-        return club ? [{ club, form: forms.get(e.id) ?? "", points: e.points, ...(club.id === ctx.homeClubId ? { me: true } : {}) }] : [];
-      });
-    }
+    // The city's clubs in league order: top division first, then position.
+    const cityClubs = (await this.loadClubs({ cityId: city.id })).filter((c) => c.verified);
+    const standings = await this.clubStandings(cityClubs.map((c) => c.id));
+    const placed = cityClubs.filter((c) => standings.has(c.id));
+    const clubForms = await this.forms(placed.map((c) => standings.get(c.id)!.entryId));
+    const clubTable: LeagueView["clubTable"] = placed
+      .map((club) => ({ club, s: standings.get(club.id)! }))
+      .sort((a, b) => a.s.divisionSort - b.s.divisionSort || a.s.position - b.s.position)
+      .map(({ club, s }) => ({ club, form: clubForms.get(s.entryId) ?? "", points: s.points, ...(club.id === ctx.homeClubId ? { me: true } : {}) }));
 
     const home = cityFixture ? (cityFixture.usHome ? cityFixture.us : cityFixture.them) : null;
     const away = cityFixture ? (cityFixture.usHome ? cityFixture.them : cityFixture.us) : null;
@@ -1513,11 +1560,25 @@ export class SupabaseData implements OuthereData {
             ...(e.city_id === ctx.cityId ? { me: true } : {}),
           })),
       })),
-      rising: { city: "", eligible: 0, needed: 100 },
+      // Eligible counts per town are not readable yet; see SCHEMA_GAPS.md.
+      rising: { city: "", cityId: "", region: "", eligible: 0, needed: 100 },
+      city,
       clubTable,
       derby: derby.derby,
       reveal: this.reveal(shortSeed(cityFixture?.row.draw_seed ?? null)),
     };
+  }
+
+  /** This week's City League matches in every division. */
+  private async cityWeek(today: string): Promise<FixtureRow[]> {
+    const season = await this.currentSeason("city");
+    if (!season) return [];
+    const divisions = rows(await this.client.from("divisions").select("id").eq("season_id", season.id));
+    if (!divisions.length) return [];
+    return rows(
+      await this.client.from("fixtures").select(FIXTURE).in("division_id", divisions.map((d) => d.id))
+        .lte("starts_on", today).gte("ends_on", today).limit(1000),
+    );
   }
 
   private async entryDivision(entryId: string): Promise<string | null> {
@@ -1551,9 +1612,8 @@ export class SupabaseData implements OuthereData {
     return out;
   }
 
-  async boroughs(metric: BoroughMetric): Promise<BoroughStat[]> {
-    const uid = await this.uid();
-    const city = uid ? (await this.ctx()).cityId : this.defaultCity;
+  async boroughs(metric: BoroughMetric, cityId?: string): Promise<BoroughStat[]> {
+    const city = cityId ?? ((await this.uid()) ? (await this.ctx()).cityId : this.defaultCity);
     const [boroughs, clubs] = await Promise.all([
       this.boroughRows(),
       metric === "clubs" ? this.client.from("clubs").select("borough_id").eq("city_id", city).neq("status", "suspended").limit(5000).then(rows) : [],
@@ -1572,7 +1632,7 @@ export class SupabaseData implements OuthereData {
 
   async me(): Promise<MeView> {
     const ctx = await this.ctx();
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const monday = mondayOf(today);
     const from = addDays(monday, -7 * 11);
     const monthStart = `${today.slice(0, 7)}-01`;
@@ -1581,12 +1641,12 @@ export class SupabaseData implements OuthereData {
       this.client.from("daily_steps").select("day, counted").eq("user_id", ctx.me).gte("day", from).then(rows),
       this.client.from("wallets").select("xp, out_available, out_held").eq("user_id", ctx.me).maybeSingle().then(one),
       this.client.from("event_rsvps").select("event_id, checked_in_at").eq("user_id", ctx.me).eq("status", "checked_in")
-        .gte("checked_in_at", londonMidnight(from < monthStart ? from : monthStart)).then(rows),
+        .gte("checked_in_at", ukMidnight(from < monthStart ? from : monthStart)).then(rows),
     ]);
     const runs = checkins.length
       ? rows(await this.client.from("events").select("id, starts_at").in("id", checkins.map((c) => c.event_id)).eq("kind", "club_run"))
       : [];
-    const runDays = runs.map((r) => london(r.starts_at).date);
+    const runDays = runs.map((r) => ukTime(r.starts_at).date);
     const weekStarts = Array.from({ length: 12 }, (_, i) => addDays(from, i * 7));
     const inWeek = (day: string, start: string) => day >= start && day < addDays(start, 7);
     const weekSteps = weekStarts.map((w) => steps.filter((d) => inWeek(d.day, w)).reduce((n, d) => n + (d.counted ?? 0), 0));
@@ -1640,6 +1700,7 @@ export class SupabaseData implements OuthereData {
       handle: p.username,
       visible: true as const,
       person: { id: p.id, name: p.display_name, photo: avatar, avatar, tier: p.tier, ...outNow(dot?.dot) },
+      city: (p.city_id && (await this.cityNames()).get(p.city_id)) || "",
       borough: (p.borough_id && boroughs.get(p.borough_id)) || "",
       trust: TRUST[p.trust],
       ...(p.founding_number !== null ? { foundingNumber: p.founding_number } : {}),
@@ -1657,13 +1718,13 @@ export class SupabaseData implements OuthereData {
     // Steps and check-ins are only visible to signed in members.
     if (!me) return { ...base, ...where, stats: [levelKpi, streak] };
 
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const monday = mondayOf(today);
     const monthStart = `${today.slice(0, 7)}-01`;
     const [steps, checkins] = await Promise.all([
       this.client.from("daily_steps").select("counted").eq("user_id", p.id).gte("day", monday).then(rows),
       this.client.from("event_rsvps").select("event_id").eq("user_id", p.id).eq("status", "checked_in")
-        .gte("checked_in_at", londonMidnight(monthStart)).then(rows),
+        .gte("checked_in_at", ukMidnight(monthStart)).then(rows),
     ]);
     const runs = checkins.length
       ? counted(await this.client.from("events").select("id", { count: "exact", head: true })
@@ -1804,12 +1865,12 @@ export class SupabaseData implements OuthereData {
 
   async searchIndex(): Promise<SearchItem[]> {
     const me = await this.uid();
-    const [clubs, people, boroughs] = await Promise.all([this.loadClubs(), this.people(), this.boroughRows()]);
+    const [clubs, people, boroughs, cities] = await Promise.all([this.loadClubs(), this.people(), this.boroughRows(), this.cities()]);
     const homes = rows(await this.client.from("profiles").select("id, home_club_id").in("id", Object.keys(people).slice(0, 500)));
     const clubName = new Map(clubs.map((c) => [c.id, c.name]));
     const homeOf = new Map(homes.map((h) => [h.id, h.home_club_id]));
     return [
-      ...clubs.map((c): SearchItem => ({ group: "Clubs", name: c.name, sub: `${c.borough} · ${c.members} members`, href: `/${c.slug}`, image: c.crest })),
+      ...clubs.map((c): SearchItem => ({ group: "Clubs", name: c.name, sub: `${[c.borough, c.city].filter(Boolean).join(", ")} · ${c.members} members`, href: `/${c.slug}`, image: c.crest })),
       ...Object.values(people).map((p): SearchItem => ({
         group: "People",
         name: p.name,
@@ -1817,7 +1878,11 @@ export class SupabaseData implements OuthereData {
         href: p.id === me ? "/me" : null,
         image: p.avatar,
       })),
-      ...boroughs.map((b): SearchItem => ({ group: "Boroughs", name: b.name, sub: "Borough league", href: "/league", icon: "pin" })),
+      ...cities.map((c): SearchItem => ({ group: "Cities", name: c.name, sub: `${c.clubs} clubs · ${c.region}`, href: `/clubs?c=${c.id}`, icon: "pin" })),
+      ...boroughs.map((b): SearchItem => {
+        const city = cities.find((c) => c.id === b.city_id);
+        return { group: "Boroughs", name: b.name, sub: city ? `${city.areaWord === "borough" ? "Borough" : "Area"} in ${city.name}` : "", href: `/league?tab=boroughs&c=${b.city_id}`, icon: "pin" };
+      }),
     ];
   }
 
@@ -1834,7 +1899,8 @@ export class SupabaseData implements OuthereData {
       this.clubStandings([club.id]),
       this.client.from("club_members").select("user_id, role").eq("club_id", club.id).in("role", ["captain", "admin"]).then(rows),
       this.client.from("locals_partners").select("business_name, category, perk").eq("club_id", club.id).then(rows),
-      boroughId ? this.loadClubs({ boroughId, limit: 4 }).then((all) => all.filter((c) => c.id !== club.id).slice(0, 3)) : [],
+      // Same borough or area first; a club without one gets others in its city.
+      this.loadClubs(boroughId ? { boroughId, limit: 4 } : { cityId: club.cityId, limit: 4 }).then((all) => all.filter((c) => c.id !== club.id).slice(0, 3)),
       this.client.from("posts").select("media_paths").eq("club_id", club.id).eq("kind", "photo").is("hidden_at", null).order("created_at", { ascending: false }).limit(5).then(rows),
       this.turnoutSeries(club.id, club.members, 4),
       club.founding ? this.client.from("club_founding_progress").select("qualifying_meetups, meetups_needed").eq("club_id", club.id).maybeSingle().then(one) : null,
@@ -1902,17 +1968,17 @@ export class SupabaseData implements OuthereData {
 
   /** Club run turnout for the last n weeks, oldest first, as a percentage of members. */
   private async turnoutSeries(clubId: string, members: number, weeks: number): Promise<number[]> {
-    const monday = mondayOf(london(this.now()).date);
+    const monday = mondayOf(ukTime(this.now()).date);
     const from = addDays(monday, -7 * (weeks - 1));
     const events = rows(
       await this.client.from("events").select("id, starts_at").eq("club_id", clubId).eq("kind", "club_run").is("cancelled_at", null)
-        .gte("starts_at", londonMidnight(from)).lte("starts_at", this.now().toISOString()),
+        .gte("starts_at", ukMidnight(from)).lte("starts_at", this.now().toISOString()),
     );
     const checkins = (await this.rsvpsFor(events.map((e) => e.id))).filter((r) => r.status === "checked_in");
     return Array.from({ length: weeks }, (_, i) => {
       const start = addDays(from, i * 7);
       const end = addDays(start, 7);
-      const ids = new Set(events.filter((e) => london(e.starts_at).date >= start && london(e.starts_at).date < end).map((e) => e.id));
+      const ids = new Set(events.filter((e) => ukTime(e.starts_at).date >= start && ukTime(e.starts_at).date < end).map((e) => e.id));
       const people = new Set(checkins.filter((c) => ids.has(c.event_id)).map((c) => c.user_id));
       return members ? Math.round((people.size / members) * 100) : 0;
     });
@@ -1922,7 +1988,7 @@ export class SupabaseData implements OuthereData {
 
   /** The club's next run today or later, for the live check-in card. */
   private async checkinRun(clubId: string): Promise<CheckinRun> {
-    const today = londonMidnight(london(this.now()).date);
+    const today = ukMidnight(ukTime(this.now()).date);
     const next = one(
       await this.client.from("events").select(EVENT).eq("club_id", clubId).in("kind", ["club_run", "walk"]).is("cancelled_at", null)
         .gte("starts_at", today).order("starts_at").limit(1).maybeSingle(),
@@ -1944,7 +2010,7 @@ export class SupabaseData implements OuthereData {
 
   /** Month initials under the first week of each month, blank elsewhere. */
   private turnoutLabels(weeks: number): string[] {
-    const monday = mondayOf(london(this.now()).date);
+    const monday = mondayOf(ukTime(this.now()).date);
     return Array.from({ length: weeks }, (_, i) => {
       const start = addDays(monday, -7 * (weeks - 1 - i));
       const day = Number(start.slice(8, 10));
@@ -1954,7 +2020,7 @@ export class SupabaseData implements OuthereData {
 
   async clubHq(clubId: string): Promise<ClubHqView> {
     const club = await this.loadClub(clubId);
-    const monthStart = londonMidnight(`${london(this.now()).date.slice(0, 7)}-01`);
+    const monthStart = ukMidnight(`${ukTime(this.now()).date.slice(0, 7)}-01`);
     const [turnout, joins, invites, fund, checkin, fixture, progress, standings] = await Promise.all([
       this.turnoutSeries(clubId, club.members, 12),
       this.client.from("club_members").select("source").eq("club_id", clubId).gte("joined_at", monthStart).then(rows),
@@ -2016,7 +2082,7 @@ export class SupabaseData implements OuthereData {
       turnoutLabels: this.turnoutLabels(turnout.length),
       checkin,
       needs,
-      league: [club.division, club.borough].filter(Boolean).join(", "),
+      league: [club.division, club.city].filter(Boolean).join(", "),
       table,
     };
   }
@@ -2027,18 +2093,18 @@ export class SupabaseData implements OuthereData {
       this.client.from("club_members").select("user_id, role, joined_at").eq("club_id", clubId).order("joined_at").limit(2000).then(rows),
     ]);
     const ids = list.map((m) => m.user_id);
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const monthStart = `${today.slice(0, 7)}-01`;
     const windowStart = addDays(mondayOf(today), -7 * 7);
     const since = new Date(this.now().getTime() - 60 * 86_400_000).toISOString();
     const [trust, events, paces] = await Promise.all([
       this.trustOf(ids),
       this.client.from("events").select("id, kind, starts_at").eq("club_id", clubId).in("kind", ["club_run", "walk"])
-        .gte("starts_at", londonMidnight(windowStart < monthStart ? windowStart : monthStart)).lte("starts_at", this.now().toISOString()).then(rows),
+        .gte("starts_at", ukMidnight(windowStart < monthStart ? windowStart : monthStart)).lte("starts_at", this.now().toISOString()).then(rows),
       this.paces(ids, since),
     ]);
     const checkins = (await this.rsvpsFor(events.map((e) => e.id))).filter((r) => r.status === "checked_in");
-    const eventOf = new Map(events.map((e) => [e.id, { kind: e.kind, date: london(e.starts_at).date }]));
+    const eventOf = new Map(events.map((e) => [e.id, { kind: e.kind, date: ukTime(e.starts_at).date }]));
     const dayMs = 86_400_000;
     /** A club run counts 1 and a walk half, per week for the last 8 weeks. */
     const weekly = (uid: string) =>
@@ -2053,7 +2119,7 @@ export class SupabaseData implements OuthereData {
     /** Days since their last check-in; with none in the window, at least the time since the window or their join. */
     const daysSince = (uid: string, joinedAt: string) => {
       const last = checkins.filter((c) => c.user_id === uid).map((c) => eventOf.get(c.event_id)?.date ?? "").sort().pop();
-      const from = last || [windowStart, london(joinedAt).date].sort().pop() || today;
+      const from = last || [windowStart, ukTime(joinedAt).date].sort().pop() || today;
       return Math.max(0, Math.round((Date.parse(today) - Date.parse(from)) / dayMs));
     };
     const ROLE: Record<Enums<"club_role">, Member["role"]> = { captain: "Captain", admin: "Run leader", member: "Member" };
@@ -2107,11 +2173,11 @@ export class SupabaseData implements OuthereData {
 
   async runsWeek(clubId: string): Promise<RunsWeekView> {
     const club = await this.loadClub(clubId);
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const monday = mondayOf(today);
     const [week, past, leaders, checkin] = await Promise.all([
       this.client.from("events").select(EVENT).eq("club_id", clubId).is("cancelled_at", null)
-        .gte("starts_at", londonMidnight(monday)).lt("starts_at", londonMidnight(addDays(monday, 7))).order("starts_at").then(rows),
+        .gte("starts_at", ukMidnight(monday)).lt("starts_at", ukMidnight(addDays(monday, 7))).order("starts_at").then(rows),
       this.client.from("events").select(EVENT).eq("club_id", clubId).eq("kind", "club_run").is("cancelled_at", null)
         .lt("starts_at", this.now().toISOString()).order("starts_at", { ascending: false }).limit(4).then(rows),
       this.client.from("club_members").select("user_id, role").eq("club_id", clubId).in("role", ["captain", "admin"]).then(rows),
@@ -2119,7 +2185,7 @@ export class SupabaseData implements OuthereData {
     ]);
     const rsvps = await this.rsvpsFor([...week.map((e) => e.id), ...past.map((e) => e.id)]);
     const names = await this.names(leaders.map((l) => l.user_id));
-    const p = london(monday);
+    const p = ukTime(monday);
     const focus = week.find((e) => e.starts_at >= this.now().toISOString());
     const goingLeaders = focus ? leaders.filter((l) => rsvps.some((r) => r.event_id === focus.id && r.user_id === l.user_id)) : [];
     // Who to ask to lead: leaders not yet going, then people already going to that run.
@@ -2136,10 +2202,10 @@ export class SupabaseData implements OuthereData {
         const date = addDays(monday, i);
         return {
           day: shortDay(date),
-          date: london(`${date}T12:00:00Z`).day,
+          date: ukTime(`${date}T12:00:00Z`).day,
           today: date === today,
           runs: week
-            .filter((e) => london(e.starts_at).date === date)
+            .filter((e) => ukTime(e.starts_at).date === date)
             .map((e) => ({
               time: hhmm(e.starts_at),
               title: e.title,
@@ -2158,7 +2224,7 @@ export class SupabaseData implements OuthereData {
         : { title: "", badge: "", crew: [], askIds: [] },
       lastRuns: past
         .reverse()
-        .map((e) => ({ label: shortDay(london(e.starts_at).date), checkedIn: rsvps.filter((r) => r.event_id === e.id && r.status === "checked_in").length })),
+        .map((e) => ({ label: shortDay(ukTime(e.starts_at).date), checkedIn: rsvps.filter((r) => r.event_id === e.id && r.status === "checked_in").length })),
       checkin,
     };
   }
@@ -2267,7 +2333,7 @@ export class SupabaseData implements OuthereData {
   async adminOverview(): Promise<AdminOverview> {
     await this.requireStaff();
     const now = this.now();
-    const today = london(now).date;
+    const today = ukTime(now).date;
     const monthStart = `${today.slice(0, 7)}-01`;
     const [moving, verified, founding, flags, reports, paid, requests, auditRows, cityFixture] = await Promise.all([
       this.client.from("daily_steps").select("user_id", { count: "exact", head: true }).eq("day", today).gte("steps", 3000).then(counted),
@@ -2278,11 +2344,14 @@ export class SupabaseData implements OuthereData {
       this.client.from("club_fund_months").select("amount_pence, club_id").eq("month", monthStart).then(rows),
       this.verifications(),
       this.audit(6),
-      this.currentFixture({ cityId: this.defaultCity }),
+      this.cityWeek(today),
     ]);
     const ready = requests.filter((r) => r.checks.filter((c) => c.auto).every((c) => c.done)).length;
-    const drawn = cityFixture?.row.drawn_at;
-    const revealed = cityFixture?.row.revealed_at;
+    const n = cityFixture.length;
+    const drawn = cityFixture.filter((f) => f.drawn_at).length;
+    const revealed = cityFixture.filter((f) => f.revealed_at).length;
+    const scored = cityFixture.filter((f) => (f.home_score ?? 0) + (f.away_score ?? 0) > 0).length;
+    const all = (k: number) => (k === n ? "done" : k ? "running" : "waiting");
     return {
       kpis: [
         { label: "Moving today", value: moving, delta: "3,000 steps or more" },
@@ -2293,11 +2362,12 @@ export class SupabaseData implements OuthereData {
       // A daily movers series needs a server side aggregate; see SCHEMA_GAPS.md.
       daily: [],
       dailyLabels: [],
-      weekend: cityFixture
+      // Every City League match this week, across the UK.
+      weekend: n
         ? [
-            { title: drawn ? "Friday draw done" : "Friday draw", line: drawn ? `seed ${shortSeed(cityFixture.row.draw_seed)}` : "Not drawn yet", state: drawn ? "done" : "waiting" },
-            { title: "Scores", line: `${cityFixture.us.name} ${formatNumber(cityFixture.us.score)}, ${cityFixture.them.name} ${formatNumber(cityFixture.them.score)}`, state: revealed ? "done" : "running" },
-            { title: "National reveal", line: "Sunday 20:00", state: revealed ? "done" : "waiting" },
+            { title: drawn === n ? "Friday draw done" : "Friday draw", line: `${drawn} of ${n} match${n === 1 ? "" : "es"} drawn`, state: all(drawn) },
+            { title: "Scores", line: `${scored} of ${n} match${n === 1 ? "" : "es"} scoring`, state: revealed === n ? "done" : "running" },
+            { title: "National reveal", line: `Sunday 20:00 · ${revealed} of ${n} revealed`, state: all(revealed) },
           ]
         : [],
       health: [],
@@ -2307,7 +2377,7 @@ export class SupabaseData implements OuthereData {
         ...(reports ? [{ icon: "eye" as const, title: `${reports} open report${reports === 1 ? "" : "s"}`, line: "From members", href: "/fair-play" }] : []),
       ],
       audit: auditRows,
-      reveal: this.reveal(shortSeed(cityFixture?.row.draw_seed ?? null)),
+      reveal: this.reveal(shortSeed(cityFixture.find((f) => f.draw_seed)?.draw_seed ?? null)),
     };
   }
 
@@ -2360,22 +2430,26 @@ export class SupabaseData implements OuthereData {
 
   async fairPlay(): Promise<FairPlayView> {
     await this.requireStaff();
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const [stepFlags, reports] = await Promise.all([
       this.client.from("daily_steps").select("user_id, day, steps").eq("flagged", true).gte("day", addDays(today, -14)).order("day", { ascending: false }).limit(100).then(rows),
       this.client.from("reports").select("id, target_type, target_id, reason, detail, created_at").eq("status", "open").in("reason", ["cheating", "impersonation"]).order("created_at").limit(100).then(rows),
     ]);
     const users = unique([...stepFlags.map((f) => f.user_id), ...reports.filter((r) => r.target_type === "profile" || r.target_type === "steps").map((r) => r.target_id)]);
-    const [trust, history] = await Promise.all([
+    const [trust, history, homes, cities] = await Promise.all([
       this.trustOf(users),
       users.length ? this.client.from("daily_steps").select("user_id, day, steps").in("user_id", users).gte("day", addDays(today, -13)).then(rows) : [],
+      users.length ? this.client.from("profiles").select("id, city_id").in("id", users).then(rows) : [],
+      this.cityNames(),
     ]);
+    const cityOf = (uid: string) => cities.get(homes.find((h) => h.id === uid)?.city_id ?? "") ?? "";
     const fortnight = (uid: string) =>
       Array.from({ length: 14 }, (_, i) => Math.round((history.find((h) => h.user_id === uid && h.day === addDays(today, i - 13))?.steps ?? 0) / 1000));
     const flags: FairPlayFlag[] = [
       ...stepFlags.map((f): FairPlayFlag => ({
         id: `steps:${f.user_id}:${f.day}`,
         user: shortId(f.user_id),
+        city: cityOf(f.user_id),
         severity: "High",
         reason: `${formatNumber(f.steps)} steps on ${dateLabel(`${f.day}T12:00:00Z`)}, held for review`,
         steps: fortnight(f.user_id),
@@ -2386,6 +2460,7 @@ export class SupabaseData implements OuthereData {
         return {
           id: `report:${r.id}`,
           user: uid ? shortId(uid) : `${r.target_type} ${shortId(r.target_id)}`,
+          city: uid ? cityOf(uid) : "",
           severity: "Low",
           reason: r.detail ? `Reported for ${r.reason}: ${r.detail}` : `Reported for ${r.reason}`,
           steps: uid ? fortnight(uid) : [],
@@ -2425,7 +2500,7 @@ export class SupabaseData implements OuthereData {
       ? rows(await this.client.from("fixtures").select(FIXTURE).in("division_id", divisions.map((d) => d.id)).not("drawn_at", "is", null).order("week", { ascending: false }))
       : [];
     const weeks = Math.ceil(((Date.parse(season.ends_on) - Date.parse(season.starts_on)) / 86_400_000 + 1) / 7);
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     const currentWeek = Math.min(weeks, Math.floor((Date.parse(today) - Date.parse(season.starts_on)) / (7 * 86_400_000)) + 1);
     const byWeek = new Map<number, FixtureRow[]>();
     fixtures.forEach((f) => byWeek.set(f.week, [...(byWeek.get(f.week) ?? []), f]));
@@ -2454,7 +2529,7 @@ export class SupabaseData implements OuthereData {
     await this.requireStaff();
     const list = rows(await this.client.from("audit_log").select("id, actor_id, action, target_type, target_id, detail, created_at").order("created_at", { ascending: false }).limit(limit));
     const actors = await this.names(list.flatMap((a) => (a.actor_id ? [a.actor_id] : [])));
-    const today = london(this.now()).date;
+    const today = ukTime(this.now()).date;
     return list.map((a) => {
       const [first, last] = (a.actor_id ? (actors.get(a.actor_id) ?? "") : "").split(" ");
       return {
@@ -2462,7 +2537,7 @@ export class SupabaseData implements OuthereData {
         actor: a.actor_id ? `${first ?? ""}${last ? ` ${last[0]}` : ""}` : "system",
         action: a.action,
         target: str(a.detail, "name") ?? [a.target_type, a.target_id ? shortId(a.target_id) : ""].filter(Boolean).join(" "),
-        at: london(a.created_at).date === today ? hhmm(a.created_at) : `${shortDay(london(a.created_at).date)} ${hhmm(a.created_at)}`,
+        at: ukTime(a.created_at).date === today ? hhmm(a.created_at) : `${shortDay(ukTime(a.created_at).date)} ${hhmm(a.created_at)}`,
       };
     });
   }
@@ -2522,7 +2597,7 @@ export function parseWhen(when: string, now: Date): string | null {
   if (/^\d{4}-\d{2}-\d{2}T/.test(text) && !Number.isNaN(Date.parse(text))) return new Date(text).toISOString();
   const time = /(\d{1,2})[:.](\d{2})/.exec(text);
   if (!time) return null;
-  const today = london(now).date;
+  const today = ukTime(now).date;
   let date = today;
   const lower = text.toLowerCase();
   if (lower.startsWith("tomorrow")) date = addDays(today, 1);
@@ -2530,7 +2605,7 @@ export function parseWhen(when: string, now: Date): string | null {
     const day = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].findIndex((d) => lower.startsWith(d));
     if (day >= 0) date = addDays(today, (day - weekdayOf(today) + 7) % 7);
   }
-  const at = Date.parse(londonMidnight(date)) + (Number(time[1]) * 60 + Number(time[2])) * 60_000;
+  const at = Date.parse(ukMidnight(date)) + (Number(time[1]) * 60 + Number(time[2])) * 60_000;
   // A time earlier today means the same time next week for a named day, or is simply in the past.
   return new Date(at).toISOString();
 }

@@ -26,7 +26,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   const { club: c, publicUrl, origin } = loaderData;
   return shareMeta({
     title: `Join ${c.name}`,
-    description: `${c.tagline} ${c.borough} · ${c.nextRun}. Free to join.`,
+    description: `${c.tagline} ${[c.borough, c.city].filter(Boolean).join(", ")} · ${c.nextRun}. Free to join.`,
     url: `${publicUrl}/join/${c.slug}`,
     image: absolute(c.cover, origin),
     imageAlt: `${c.name} out on a run`,

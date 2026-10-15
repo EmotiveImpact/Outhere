@@ -201,7 +201,7 @@ export function Post({ post, viewerId, boroughStats, onReveal }: { post: FeedPos
             <Stat v={post.runners} l="runners" />
             <Stat v={post.km} l="km together" />
             <Stat v={post.firstTimers} l="first timers" />
-            <Stat v={`+${formatNumber(post.boroughPoints)}`} l="for Southwark" blue />
+            <Stat v={`+${formatNumber(post.boroughPoints)}`} l={post.borough ? `for ${post.borough}` : "for your area"} blue />
           </div>
           <div className="fp-impact"><Icon name="trophy" /><span dangerouslySetInnerHTML={{ __html: post.impact }} /></div>
           <div className="fp-with"><Faces ids={post.withIds} more={25} /><span className="muted">{post.withLine}</span></div>
@@ -219,7 +219,7 @@ export function Post({ post, viewerId, boroughStats, onReveal }: { post: FeedPos
             <Stat v={post.km} l="km" />
             <Stat v={post.pace} l="per km" />
             <Stat v={post.time} l="time" />
-            <Stat v={`+${post.boroughPoints}`} l="for Southwark" blue />
+            <Stat v={`+${post.boroughPoints}`} l={post.borough ? `for ${post.borough}` : "for your area"} blue />
           </div>
           <RouteMap shape={post.route}>
             <span className="pill glass fp-priv"><Icon name="lock" />Start and finish hidden</span>
@@ -254,7 +254,8 @@ export function Post({ post, viewerId, boroughStats, onReveal }: { post: FeedPos
                 ))}
               </div>
             </div>
-            <BoroughMap stats={boroughStats} metric="steps" home={post.borough} id="fmap" className="fb-map bmap" />
+            {/* Only cities with a tile map get one; elsewhere the leaders list stands alone. */}
+            {boroughStats.some((b) => b.col || b.row) && <BoroughMap stats={boroughStats} metric="steps" home={post.borough} id="fmap" className="fb-map bmap" />}
           </div>
         </article>
       );
