@@ -1061,6 +1061,14 @@ export const updateCrew = async (id, patch) => {
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.tagline !== undefined) row.tagline = patch.tagline;
   if (patch.accent !== undefined) row.accent = patch.accent;
+  // A new crest from the phone goes to the club's folder in club-media.
+  if (typeof patch.logo === "string" && !/^https?:/.test(patch.logo)) {
+    const blob = await (await fetch(await prepareStoryPhoto(patch.logo))).blob();
+    const path = `${id}/logo-${Date.now().toString(36)}.webp`;
+    const { error } = await supabase.storage.from("club-media").upload(path, blob, { contentType: "image/webp" });
+    if (error) throw new EngineError("UPLOAD", "The crest didn't upload. Try again.");
+    row.logo_path = path;
+  }
   if (Object.keys(row).length) await run(supabase.from("clubs").update(row).eq("id", id));
   // The database knows open and ask first; invite only asks first too, and a
   // crew code always lets people straight in.

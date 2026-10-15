@@ -53,7 +53,7 @@ test("the header knows the crew's city rank and who is out", async () => {
 test("crew goal adds up by member, crew days mark the daily target", async () => {
   await inSouthbank();
   const goal = await engine.getCrewGoal("c_southbank");
-  expect(goal.goalKm).toBe(600);
+  expect(goal.goalKm).toBe(300);
   const sum = goal.contributors.reduce((a, c) => a + c.km, 0);
   expect(Math.abs(sum - goal.km)).toBeLessThan(0.6);
   expect(goal.daysLeft).toBe(4);
@@ -62,7 +62,7 @@ test("crew goal adds up by member, crew days mark the daily target", async () =>
   expect(days.firstDow).toBe(3); // 1 October 2026 is a Thursday
   expect(days.days.filter((d) => !d.future)).toHaveLength(15);
   expect(days.hits).toBe(days.days.filter((d) => d.hit).length);
-  expect(days.targetKm).toBeCloseTo(600 / 7, 0);
+  expect(days.targetKm).toBeCloseTo(300 / 7, 0);
 });
 
 test("crew challenges can be joined and left this week", async () => {

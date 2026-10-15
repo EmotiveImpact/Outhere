@@ -457,7 +457,7 @@ export const makeCrew = (h) => {
     at: p.at,
     likeCount: p.likes.length,
     likedByMe: p.likes.includes(ME),
-    likers: p.likes.slice(-3).map((pid) => playerOf(s, pid)).filter(Boolean),
+    likers: p.likes.map((pid) => playerOf(s, pid)).filter(Boolean).sort((a, b) => (b.avatar ? 1 : 0) - (a.avatar ? 1 : 0)).slice(0, 3),
     comments: (p.commentList || []).length || (typeof p.comments === "number" ? p.comments : 0),
     isMine: p.authorId === ME,
     runId: p.runId || null,

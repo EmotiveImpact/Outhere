@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Flame,
   MapPin,
+  Share2,
   Swords,
   Trophy,
 } from "lucide-react-native";
@@ -432,6 +433,19 @@ export function ClubPanel({ club, onRunAction }) {
           onPress={() => router.push(`/clubs/fixture/${fx.id}`)}
         />
       ) : null}
+      {fx ? (
+        <PressableScale
+          onPress={() => router.push(`/stories/share/${fx.id}`)}
+          scaleTo={0.96}
+          style={styles.shareCard}
+          accessibilityLabel="Share the club v club card"
+        >
+          <Share2 size={14} color={C.accentHi} />
+          <Text style={styles.shareCardText}>
+            {fx.revealed ? "Share the result card" : "Share the live card"}
+          </Text>
+        </PressableScale>
+      ) : null}
       {club.verified && club.isMember ? <FriendliesRow club={club} /> : null}
       {club.verified && club.isMember && club.inLeague !== false ? (
         <Card
@@ -474,6 +488,8 @@ export const ordinal = (n) =>
   `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"}`;
 
 export const styles = StyleSheet.create({
+  shareCard: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: C.accentDim, marginTop: S.sm },
+  shareCardText: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 12 },
   facesLabel: {
     color: C.textDim,
     fontFamily: F.bodyMedium,

@@ -3,7 +3,7 @@
 // (crew_race, crew_days, crew_stats, city_crew_board, area_board); anything
 // that changes something goes through a table policy or a database function
 // (toggle_chat_run, share_battle_to_crew, report_content, join_crew_challenge,
-// decide_join_request). See supabase/migrations/20261015101800_crew.sql.
+// decide_join_request). See supabase/migrations/20261015101730_crew.sql.
 
 import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { CREW_CHALLENGES, photoFor } from "./seedCrew";

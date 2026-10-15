@@ -58,6 +58,8 @@ function RootStack() {
         <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
         <Stack.Screen name="stories/[authorId]" options={{ animation: "fade", presentation: "fullScreenModal", contentStyle: { backgroundColor: "#000" } }} />
         <Stack.Screen name="stories/new" options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }} />
+        <Stack.Screen name="stories/club/[crewId]" options={{ animation: "fade", presentation: "fullScreenModal", contentStyle: { backgroundColor: "#000" } }} />
+        <Stack.Screen name="stories/share/[fixtureId]" options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }} />
       </Stack>
       <StepSync />
       <UpgradeSheet />
