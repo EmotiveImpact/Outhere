@@ -5,11 +5,12 @@
 import React, { useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { MessageSquare, MoreHorizontal, Share2, Swords, UserCheck, UserPlus } from "lucide-react-native";
+import { MessageSquare, MoreHorizontal, Share2, Swords, UserPlus } from "lucide-react-native";
 import { engine, useEngineMutation, usePlayerCard } from "@/data/hooks";
-import { AnimatedBar, Avatar, Body, Button, C, Card, EmptyState, F, FadeIn, Header, IconButton, LiveDot, PressableScale, R, Row, S, Screen, Sheet, Skeleton, imageSource, toast } from "@/components/ui";
+import { AnimatedBar, Avatar, Button, C, EmptyState, F, FadeIn, GlowButton, Header, LiveDot, R, Row, S, Screen, Sheet, Skeleton, Surface, imageSource, toast } from "@/components/ui";
+import { StackTabBar } from "@/components/AppTabBar";
 import { useCrewFocus } from "@/components/crew/shared";
-import { Slab, StatTrio } from "@/components/profile/parts";
+import { RoundGlass, Slab, StatTrio } from "@/components/profile/parts";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS, inviteLink } from "@/constants/plans";
 import { compactNumber } from "@/utils/format";
@@ -59,6 +60,7 @@ function PlayerProfile({ id }) {
   const busy = follow.isPending || unfollow.isPending;
   const challenge = () => router.push({ pathname: "/battles/new", params: { opponent: p.id } });
   const message = () => {
+    if (!p.sharedClubId) return toast(`You can message ${first} once you share a club.`);
     focusClub(p.sharedClubId);
     router.push("/(tabs)/club");
   };
@@ -68,42 +70,50 @@ function PlayerProfile({ id }) {
   };
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <Screen tab padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
+      {/* .slab.photo 300: the whole runner in frame (focus high), first name only. */}
       <Slab
         photo={imageSource(p.avatar) || PHOTOS.walk}
+        focus={{ x: 0.5, y: 0.18 }}
         kicker={kicker}
         top={first}
         bottom={last || undefined}
-        height={300}
+        height={286}
         onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/outside"))}
-        right={<IconButton icon={MoreHorizontal} onPress={() => setMenu(true)} label="More" />}
+        right={<RoundGlass icon={MoreHorizontal} onPress={() => setMenu(true)} label="More" />}
       >
-        <Row gap={6} style={{ marginTop: 8 }}>
+        <Row gap={6} style={{ marginTop: 6 }}>
           {p.isOutside ? <LiveDot size={6} /> : null}
           <Text style={styles.meta}>{p.isOutside ? `Out now · ${meta}` : meta}</Text>
         </Row>
+        {p.bio ? (
+          <Text style={styles.bio} numberOfLines={1}>
+            {p.bio}
+          </Text>
+        ) : null}
       </Slab>
 
-      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
-        {p.bio ? <Body dim size={14}>{p.bio}</Body> : null}
+      <View style={{ paddingHorizontal: 18, paddingTop: 14, gap: 10 }}>
         <FadeIn>
-          <Card padding={S.lg}>
+          {/* .card.vs: you and them this week, a thin blue bar between the two totals */}
+          <Surface radius={20} padding={null} contentStyle={styles.vs}>
             <Row style={{ justifyContent: "space-between" }}>
               <Text style={styles.cardTitle}>You and {first} this week</Text>
               <Text style={styles.dim}>
                 {w.battles ? `${w.battles} battle${w.battles === 1 ? "" : "s"} · ${share}` : share}
               </Text>
             </Row>
-            <Row gap={S.sm} style={{ marginTop: S.md }}>
-              <Avatar uri={p.me?.avatar} name={p.me?.name} tier={p.me?.tier} size={30} />
+            <Row gap={8} style={{ marginTop: 9 }}>
+              <Avatar uri={p.me?.avatar} name={p.me?.name} size={26} />
               <Text style={styles.num}>{compactNumber(w.mine)}</Text>
               <View style={{ flex: 1 }}>
-                <AnimatedBar value={total ? w.mine / total : 0.5} height={8} colour={C.accent} track={C.surfaceHigh} />
+                <AnimatedBar value={total ? w.mine / total : 0.5} height={6} colour={C.accent} track="rgba(255,255,255,0.08)" />
               </View>
               <Text style={styles.num}>{compactNumber(w.theirs)}</Text>
-              <Avatar uri={p.avatar} name={p.name} tier={p.tier} size={30} />
+              <Avatar uri={p.avatar} name={p.name} size={26} />
             </Row>
-          </Card>
+          </Surface>
         </FadeIn>
 
         <FadeIn index={1}>
@@ -116,28 +126,21 @@ function PlayerProfile({ id }) {
           />
         </FadeIn>
 
-        <Row gap={S.sm} style={{ marginTop: S.xs }}>
-          <View style={{ flex: 1 }}>
-            <Button title="Challenge" icon={Swords} size="lg" full onPress={challenge} />
-          </View>
-          <View style={{ flex: 1 }}>
-            {p.isFollowing ? (
-              <Button title="Following" icon={UserCheck} variant="secondary" size="lg" full loading={busy} onPress={() => unfollow.mutate(p.id)} />
-            ) : (
-              <Button title="Follow" icon={UserPlus} variant="secondary" size="lg" full loading={busy} onPress={() => follow.mutate(p.id)} />
-            )}
-          </View>
-          {p.sharedClubId ? (
-            <PressableScale onPress={message} scaleTo={0.94} accessibilityLabel="Message in your club" style={styles.msg}>
-              <MessageSquare size={20} color={C.text} />
-            </PressableScale>
-          ) : null}
+        {/* .row3: Challenge (the act button, glowing), Follow or Following (quiet), and a message square */}
+        <Row gap={8} style={{ marginTop: 2 }}>
+          <GlowButton title="Challenge" icon={Swords} size="md" onPress={challenge} style={[styles.btn, { flex: 1 }]} textStyle={styles.btnText} />
+          {p.isFollowing ? (
+            <GlowButton title="Following" variant="quiet" size="md" loading={busy} onPress={() => unfollow.mutate(p.id)} style={[styles.btn, { flex: 1 }]} textStyle={styles.btnText} />
+          ) : (
+            <GlowButton title="Follow" icon={UserPlus} variant="quiet" size="md" loading={busy} onPress={() => follow.mutate(p.id)} style={[styles.btn, { flex: 1 }]} textStyle={styles.btnText} />
+          )}
+          <GlowButton icon={MessageSquare} square variant="quiet" size="md" onPress={message} accessibilityLabel={p.sharedClubId ? "Message in your club" : `Message ${first}`} style={styles.btn} />
         </Row>
 
         {p.club ? (
-          <Card padding={S.md} onPress={() => router.push(`/crew/${p.club.id}`)}>
-            <Row gap={S.md}>
-              <Avatar uri={typeof p.club.logo === "string" ? p.club.logo : undefined} source={typeof p.club.logo === "string" ? undefined : p.club.logo} name={p.club.name} size={40} square />
+          <Surface radius={20} padding={null} contentStyle={styles.club} onPress={() => router.push(`/crew/${p.club.id}`)} accessibilityLabel={p.club.name}>
+            <Row gap={12}>
+              <Avatar uri={typeof p.club.logo === "string" ? p.club.logo : undefined} source={typeof p.club.logo === "string" ? undefined : p.club.logo} name={p.club.name} size={38} square />
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {p.club.name}
@@ -148,7 +151,7 @@ function PlayerProfile({ id }) {
               </View>
               {p.sharedClubId ? <Text style={styles.dim}>Your club too</Text> : null}
             </Row>
-          </Card>
+          </Surface>
         ) : null}
       </View>
 
@@ -169,13 +172,20 @@ function PlayerProfile({ id }) {
         ) : null}
       </Sheet>
     </Screen>
+    {/* Someone else's profile sits under Crew in the prototype. */}
+    <StackTabBar current="club" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  meta: { color: C.textSoft, fontFamily: F.body, fontSize: 14 },
-  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5 },
-  dim: { color: C.textDim, fontFamily: F.body, fontSize: 12.5 },
-  num: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
-  msg: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
+  meta: { color: "rgba(255,255,255,0.78)", fontFamily: F.body, fontSize: 12.5 },
+  bio: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 4, maxWidth: 300 },
+  vs: { paddingTop: 12, paddingBottom: 12, paddingLeft: 14, paddingRight: 14 },
+  club: { paddingTop: 11, paddingBottom: 11, paddingLeft: 12, paddingRight: 14 },
+  cardTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  dim: { color: C.textDim, fontFamily: F.body, fontSize: 11.5 },
+  num: { color: C.text, fontFamily: F.bodySemi, fontSize: 12.5 },
+  btn: { height: 48, paddingHorizontal: 16 },
+  btnText: { fontSize: 14.5 },
 });

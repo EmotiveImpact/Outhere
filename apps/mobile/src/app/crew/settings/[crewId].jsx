@@ -5,12 +5,16 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Camera, ChevronsRight, DoorOpen, Inbox, Lock, MessageSquare, ShieldMinus, ShieldPlus, Trash2, Trophy, UserPlus, UserRound, UserX } from "lucide-react-native";
-import { Body, Button, C, Card, EmptyState, F, Header, PressableScale, Row, S, Screen, Skeleton } from "@/components/ui";
+import { Camera, ChevronLeft, ChevronsRight, DoorOpen, Inbox, Lock, MessageSquare, ShieldMinus, ShieldPlus, Trash2, Trophy, UserPlus, UserRound, UserX } from "lucide-react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { Body, Button, C, EmptyState, F, FINISH, GlowButton, Header, PressableScale, Row, S, Screen, Skeleton, Surface, TOP_GAP } from "@/components/ui";
+import { StackTabBar } from "@/components/AppTabBar";
+import { RoundGlass } from "@/components/profile/parts";
 import { engine, useBlocked, useCrew, useEngineMutation, useJoinRequests } from "@/data/hooks";
 import ActionSheet from "@/components/crew/ActionSheet";
 import { pickPhoto } from "@/components/crew/pickPhoto";
-import { CrewLogo, PlayerAvatar, ROLE_LABEL, codeLabel, playerName, shareInvite, useCrewFocus } from "@/components/crew/shared";
+import { PlayerAvatar, ROLE_LABEL, codeLabel, playerName, shareInvite, useCrewFocus } from "@/components/crew/shared";
 
 const JOIN = [
   { value: "public", label: "Anyone", hint: "People join straight away" },
@@ -42,11 +46,43 @@ const confirm = (title, body, action, onPress, destructive = false) => {
 function SettingRow({ icon: Icon, label, value, onPress, first, disabled }) {
   return (
     <PressableScale onPress={onPress} disabled={disabled} scaleTo={0.985} style={[styles.row, !first && styles.divider]} accessibilityLabel={`${label}: ${value}`}>
-      <Icon size={18} color={C.textDim} />
+      <View>
+        <Icon size={18} color={C.textDim} />
+      </View>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.rowValue}>{value}</Text>
-      {!disabled ? <ChevronsRight size={16} color={C.textMute} /> : null}
+      {!disabled ? (
+        <View>
+          <ChevronsRight size={14} color={C.textDim} />
+        </View>
+      ) : null}
     </PressableScale>
+  );
+}
+
+/** .hdr: a round glass back button, the title centred, Save on the right. */
+function Bar({ right }) {
+  const router = useRouter();
+  return (
+    <View style={[styles.hdr, { paddingTop: TOP_GAP }]}>
+      <RoundGlass icon={ChevronLeft} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.dismissTo("/(tabs)/club"))} />
+      <Text style={styles.hdrTitle}>Crew settings</Text>
+      <View style={styles.hdrRight}>{right}</View>
+    </View>
+  );
+}
+
+/** .cr3: the crest on near black, 66 square, its black falling into the tile. */
+function Crest({ crew, logo }) {
+  const src = logo ? { uri: logo } : crew.logo || crew.cover;
+  return (
+    <View style={styles.crest}>
+      {src ? (
+        <Image source={src} style={{ width: 80, height: 80 }} contentFit="cover" />
+      ) : (
+        <Text style={[styles.crestText, { color: crew.accent || C.accentHi }]}>{(crew.name || "?").slice(0, 1).toUpperCase()}</Text>
+      )}
+    </View>
   );
 }
 
@@ -139,11 +175,13 @@ export default function CrewSettingsScreen() {
   }
 
   return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
     <Screen
+      tab
+      padded={false}
+      contentStyle={{ paddingHorizontal: 18, gap: 14 }}
       header={
-        <Header
-          back
-          title="Crew settings"
+        <Bar
           right={
             staff ? (
               <Pressable onPress={submit} disabled={!dirty || save.isPending} hitSlop={10} accessibilityRole="button" accessibilityLabel="Save">
@@ -154,12 +192,15 @@ export default function CrewSettingsScreen() {
         />
       }
     >
-      <Row gap={S.lg} style={{ marginBottom: S.lg }}>
+      <Row gap={14}>
         <View>
-          {form.logo ? <CrewLogo crew={{ ...crew, logo: form.logo }} size={84} radius={22} ring={false} /> : <CrewLogo crew={crew} size={84} radius={22} ring={false} />}
+          <Crest crew={crew} logo={form.logo} />
           {owner ? (
             <PressableScale onPress={crest} scaleTo={0.88} style={styles.camera} accessibilityLabel="Change the crest">
-              <Camera size={16} color="#fff" />
+              <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
+              <View>
+                <Camera size={15} color="#fff" />
+              </View>
             </PressableScale>
           ) : null}
         </View>
@@ -169,27 +210,28 @@ export default function CrewSettingsScreen() {
           ) : (
             <Text style={styles.name}>{crew.name}</Text>
           )}
-          <Body dim size={13}>
+          <Text style={styles.idSmall}>
             {crew.inviteCode ? `Code ${codeLabel(crew.inviteCode)} · ` : ""}
             {crew.memberCount} members
-          </Body>
+          </Text>
         </View>
       </Row>
 
-      <Card padding={0}>
+      {/* .setlist: the lit card, rows 12 tall padding, 13px labels and muted values */}
+      <Surface radius={20} padding={null} contentStyle={styles.list}>
         <SettingRow first icon={Lock} label="Who can join" value={JOIN.find((j) => j.value === form.privacy)?.label || "Anyone"} onPress={() => setPicker("privacy")} disabled={!staff} />
         <SettingRow icon={Trophy} label="Weekly crew goal" value={`${form.weeklyGoalKm.toLocaleString("en-GB")} km`} onPress={() => setPicker("weeklyGoalKm")} disabled={!staff} />
         <SettingRow icon={MessageSquare} label="Chat" value={CHAT.find((c) => c.value === form.chatPolicy)?.label || "Everyone"} onPress={() => setPicker("chatPolicy")} disabled={!staff} />
         {staff ? <SettingRow icon={Inbox} label="Join requests" value={asks ? `${asks} waiting` : "None"} onPress={() => router.push(`/crew/requests/${crew.id}`)} /> : null}
-      </Card>
+      </Surface>
 
-      <Row style={{ justifyContent: "space-between", marginTop: S.xxl, marginBottom: S.md }}>
+      <View style={styles.calhead}>
         <Text style={styles.h}>Members and roles</Text>
-        <Body dim size={13}>
+        <Text style={styles.hint}>
           {admins} {admins === 1 ? "admin" : "admins"}
-        </Body>
-      </Row>
-      <Card padding={0}>
+        </Text>
+      </View>
+      <Surface radius={20} padding={null} contentStyle={styles.list}>
         {members.map((m, i) => {
           const me = m.player.isMe;
           const manageable = staff && !me && m.role !== "owner" && (owner || m.role === "member");
@@ -200,17 +242,16 @@ export default function CrewSettingsScreen() {
               scaleTo={0.985}
               style={[styles.member, i > 0 && styles.divider]}
             >
-              <PlayerAvatar player={m.player} size={40} outside={m.isOutside} />
+              <PlayerAvatar player={m.player} size={32} outside={m.isOutside} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {me ? m.player.name || "You" : playerName(m.player)}
                 </Text>
-                <Body dim size={12}>
-                  {me ? "You" : joinedLabel(m.joinedAt)}
-                </Body>
+                <Text style={styles.memberSmall}>{me ? "You" : joinedLabel(m.joinedAt)}</Text>
               </View>
               {m.role === "owner" ? (
-                <View style={[styles.role, { backgroundColor: C.accent }]}>
+                <View style={[styles.role, styles.roleOwn]}>
+                  <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
                   <Text style={[styles.roleText, { color: "#fff" }]}>Owner</Text>
                 </View>
               ) : m.role === "admin" ? (
@@ -220,30 +261,34 @@ export default function CrewSettingsScreen() {
               ) : (
                 <Row gap={2}>
                   <Text style={[styles.roleText, { color: C.textDim }]}>{ROLE_LABEL.member}</Text>
-                  {manageable ? <ChevronsRight size={15} color={C.textMute} /> : null}
+                  {manageable ? (
+                    <View>
+                      <ChevronsRight size={12} color={C.textDim} />
+                    </View>
+                  ) : null}
                 </Row>
               )}
             </PressableScale>
           );
         })}
-      </Card>
+      </Surface>
 
       {blocked.data?.length ? (
         <>
-          <Text style={[styles.h, { marginTop: S.xxl, marginBottom: S.md }]}>Blocked</Text>
-          <Card padding={0}>
+          <Text style={styles.h}>Blocked</Text>
+          <Surface radius={20} padding={null} contentStyle={styles.list}>
             {blocked.data.map((p, i) => (
               <Row key={p.id} gap={S.md} style={[styles.member, i > 0 && styles.divider]}>
                 <PlayerAvatar player={p} size={36} />
                 <Text style={[styles.memberName, { flex: 1 }]}>{playerName(p)}</Text>
-                <Button title="Unblock" size="sm" variant="secondary" onPress={() => unblock.mutate(p.id)} />
+                <GlowButton title="Unblock" size="sm" variant="quiet" shine={false} onPress={() => unblock.mutate(p.id)} style={{ height: 30 }} textStyle={{ fontSize: 12 }} />
               </Row>
             ))}
-          </Card>
+          </Surface>
         </>
       ) : null}
 
-      <Button title="Invite people" icon={UserPlus} variant="secondary" full onPress={() => shareInvite(crew)} style={{ marginTop: S.xxl }} />
+      <GlowButton title="Invite people" icon={UserPlus} variant="quiet" size="md" full onPress={() => shareInvite(crew)} style={{ marginTop: 6, height: 48 }} textStyle={{ fontSize: 14 }} />
       <Button
         title="Leave crew"
         icon={DoorOpen}
@@ -259,7 +304,7 @@ export default function CrewSettingsScreen() {
             true,
           )
         }
-        style={{ marginTop: S.sm }}
+        style={{ height: 44 }}
       />
       {owner ? (
         <Button
@@ -269,7 +314,7 @@ export default function CrewSettingsScreen() {
           full
           loading={destroy.isPending}
           onPress={() => confirm(`Delete ${crew.name}?`, "The crew, its chat and its feed go for good.", "Delete crew", () => destroy.mutate(crew.id), true)}
-          style={{ marginTop: S.sm }}
+          style={{ height: 44 }}
         />
       ) : null}
 
@@ -287,20 +332,36 @@ export default function CrewSettingsScreen() {
         onClose={() => setMember(null)}
       />
     </Screen>
+    {/* The prototype draws crew settings with the tab bar, Crew lit. */}
+    <StackTabBar current="club" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  save: { color: C.accent, fontFamily: F.bodySemi, fontSize: 16 },
-  camera: { position: "absolute", right: -6, bottom: -6, width: 34, height: 34, borderRadius: 17, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: C.bg },
-  name: { color: C.text, fontFamily: F.display, fontSize: 30, textTransform: "uppercase", padding: 0, outlineStyle: "none" },
-  row: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, height: 56 },
+  hdr: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingBottom: 14 },
+  hdrTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  hdrRight: { minWidth: 38, alignItems: "flex-end" },
+  save: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13 },
+  crest: { width: 66, height: 66, borderRadius: 20, backgroundColor: "#05080e", overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  crestText: { fontFamily: F.display, fontSize: 30 },
+  // .cr3 .cam: 32 round on the act gradient, ringed in the page colour
+  camera: { position: "absolute", right: -2, bottom: 2, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: "0 0 0 3px #07090c, 0 6px 14px -4px rgba(42,106,240,0.9)" },
+  name: { color: C.text, fontFamily: F.display, fontSize: 22, lineHeight: 24, padding: 0, outlineStyle: "none" },
+  idSmall: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 3 },
+  list: { paddingLeft: 14, paddingRight: 14 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  rowLabel: { flex: 1, color: C.text, fontFamily: F.bodyMedium, fontSize: 15 },
-  rowValue: { color: C.textDim, fontFamily: F.body, fontSize: 14 },
-  h: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },
-  member: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.lg, paddingVertical: S.md },
-  memberName: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  role: { height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
-  roleText: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  rowLabel: { flex: 1, color: C.text, fontFamily: F.bodyMedium, fontSize: 13 },
+  rowValue: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  calhead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 2 },
+  h: { color: C.text, fontFamily: F.bodySemi, fontSize: 13 },
+  hint: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
+  member: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+  memberName: { color: C.text, fontFamily: F.bodyMedium, fontSize: 13 },
+  memberSmall: { color: C.textDim, fontFamily: F.body, fontSize: 10.5, marginTop: 2 },
+  // .role: a small pill; the owner's on the act gradient
+  role: { height: 24, paddingHorizontal: 10, borderRadius: 12, backgroundColor: "#1d222b", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  roleOwn: { boxShadow: "0 4px 12px -4px rgba(42,106,240,0.9)" },
+  roleText: { color: C.text, fontFamily: F.bodySemi, fontSize: 11 },
 });

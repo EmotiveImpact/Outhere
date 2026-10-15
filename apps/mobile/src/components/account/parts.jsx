@@ -3,7 +3,7 @@
 // toggle and a small segmented control, all in the demo's style.
 
 import React from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
@@ -115,7 +115,7 @@ const SLAB_EDGE = splitShadow(FINISH.slabEdge);
  * black dropped out and a breathing glow behind it. `background` replaces
  * the light with your own picture (a photo and its shade).
  */
-export function GlowHero({ kicker, top, bottom, height = 300, size = 44, background, object, objectSize, objectTop, objectStyle, children, style }) {
+export function GlowHero({ kicker, kickerColor, top, bottom, height = 300, size = 44, background, object, objectSize, objectTop, objectStyle, objectProps, children, style }) {
   const insets = useSafeAreaInsets();
   const obj = objectSize || Math.round(height * 0.9);
   return (
@@ -123,12 +123,12 @@ export function GlowHero({ kicker, top, bottom, height = 300, size = 44, backgro
       <View style={[styles.slab, { height: height + insets.top }]}>
         {background || <GlowBackdrop preset="slab" />}
         {object ? (
-          <BlendImage source={object} size={obj} float glow={Math.round(obj * 1.2)} style={[{ position: "absolute", right: -30, top: objectTop != null ? insets.top + objectTop - 14 : insets.top + (height - obj) / 2 - 6 }, objectStyle]} />
+          <BlendImage source={object} size={obj} float glow={Math.round(obj * 1.2)} {...objectProps} style={[{ position: "absolute", right: -30, top: objectTop != null ? insets.top + objectTop - 14 : insets.top + (height - obj) / 2 - 6 }, objectStyle]} />
         ) : null}
         <Grain amount={0.06} />
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRound, { boxShadow: SLAB_EDGE.inset }]} />
         <View style={styles.heroText}>
-          {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
+          {kicker ? <Text style={[styles.kicker, kickerColor ? { color: kickerColor } : null]}>{kicker}</Text> : null}
           {top ? (
             <Text style={[styles.headline, { fontSize: size, lineHeight: size * 0.96 }]} numberOfLines={2} adjustsFontSizeToFit>
               {top}
@@ -150,12 +150,17 @@ export function GlowHero({ kicker, top, bottom, height = 300, size = 44, backgro
  * A settings page whose top is the glowing slab: back on the left, an
  * optional round button on the right, then the body under it.
  */
-export function HeroPage({ kicker, top, bottom, height = 210, size, right, background, object, objectSize, objectTop, objectStyle, children, bodyStyle, footer, tab }) {
+export function HeroPage({ kicker, kickerColor, top, bottom, height = 210, size, right, background, object, objectSize, objectTop, objectStyle, objectProps, children, bodyStyle, footer, tab, onRefresh, refreshing = false }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + (tab ? 120 : 40) }}>
-        <GlowHero kicker={kicker} top={top} bottom={bottom} height={height} size={size} background={background} object={object} objectSize={objectSize} objectTop={objectTop} objectStyle={objectStyle} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: insets.bottom + (tab ? 120 : 40) }}
+        refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} progressViewOffset={insets.top} /> : undefined}
+      >
+        <GlowHero kicker={kicker} kickerColor={kickerColor} objectProps={objectProps} top={top} bottom={bottom} height={height} size={size} background={background} object={object} objectSize={objectSize} objectTop={objectTop} objectStyle={objectStyle} />
         <View style={[{ paddingHorizontal: 18, paddingTop: 16, gap: 12 }, bodyStyle]}>{children}</View>
       </ScrollView>
       <View style={[styles.heroBar, { top: insets.top + TOP_GAP }]}>

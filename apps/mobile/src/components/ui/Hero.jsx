@@ -18,13 +18,13 @@ const RADIUS = 34; // --radius-slab
 const EDGE = splitShadow(FINISH.slabEdge);
 
 /**
- * photo or object: the picture. objectSize (px, default 92% of the height)
+ * photo or object: the picture (focus: the { x, y } of the photo to keep in frame). objectSize (px, default 92% of the height)
  * and objectStyle place the object; objectLeft puts the light and object on
  * the left. kicker, top, bottom (the blue line), sub: the headline block.
  * right: controls at the top right. bleed: runs up under the status bar.
  * card: rounded on all four corners, for a hero inside a page.
  */
-export function Hero({ photo, object, objectSize, objectStyle, objectLeft = false, kicker, top, bottom, sub, height = 260, bleed = true, card = false, children, right, style }) {
+export function Hero({ photo, focus, object, objectSize, objectStyle, objectLeft = false, kicker, top, bottom, sub, height = 260, bleed = true, card = false, children, right, style }) {
   const insets = useSafeAreaInsets();
   const padTop = bleed && !card ? insets.top : 0;
   const size = objectSize || height * 0.92;
@@ -34,7 +34,7 @@ export function Hero({ photo, object, objectSize, objectStyle, objectLeft = fals
     <View style={[radius, { boxShadow: EDGE.outer }, style]}>
       <View style={[styles.slab, radius, { height: height + padTop, paddingTop: padTop }]}>
         {photo ? (
-          <PhotoBackground source={photo} fade="slab" to="2,5,12" kenBurns grain={0} />
+          <PhotoBackground source={photo} focus={focus} fade="slab" to="2,5,12" kenBurns grain={0} />
         ) : (
           <GlowBackdrop preset={objectLeft ? "slabLeft" : "slab"} />
         )}

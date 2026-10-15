@@ -8,7 +8,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Search } from "lucide-react-native";
 import { useProfile, useSearchAll, useSuggestedPeople } from "@/data/hooks";
-import { Avatar, C, Card, EmptyState, F, FadeIn, PressableScale, R, Row, S, Screen, SectionHeader, Segment, Skeleton } from "@/components/ui";
+import { Avatar, C, EmptyState, F, FadeIn, PressableScale, Row, Screen, Segment, Skeleton, Surface, TOP_GAP } from "@/components/ui";
+import { StackTabBar } from "@/components/AppTabBar";
 import { CrewLogo, FollowButton, Highlight, SearchField } from "@/components/profile/PeopleBits";
 import { PillButton } from "@/components/profile/parts";
 
@@ -41,23 +42,24 @@ export default function SearchScreen() {
   const cap = (list) => (tab === "all" ? list.slice(0, 3) : list);
 
   return (
-    <Screen padded={false} style={{ paddingTop: 0 }}>
-      <View style={{ paddingTop: insets.top + S.md, paddingHorizontal: S.gutter }}>
-        <Row gap={S.md}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <Screen tab padded={false} style={{ paddingTop: 0 }}>
+      <View style={{ paddingTop: insets.top + TOP_GAP + 6, paddingHorizontal: 18 }}>
+        <Row gap={12}>
           <SearchField value={text} onChangeText={setText} placeholder="People, crews and events" autoFocus focused style={{ flex: 1 }} />
           <PressableScale onPress={close} accessibilityLabel="Cancel">
             <Text style={styles.cancel}>Cancel</Text>
           </PressableScale>
         </Row>
-        <Segment options={TABS} value={tab} onChange={setTab} style={{ marginTop: S.md }} />
+        <Segment options={TABS} value={tab} onChange={setTab} style={{ marginTop: 12 }} />
       </View>
 
-      <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.lg }}>
+      <View style={{ paddingHorizontal: 18, paddingTop: 14, gap: 14 }}>
         {!query ? (
           suggested?.length ? (
             <View>
-              <SectionHeader title={me?.area || me?.city ? `People near ${me.area || me.city}` : "People you might know"} />
-              <View style={{ gap: S.sm }}>
+              <SecHead title={me?.area || me?.city ? `People near ${me.area || me.city}` : "People you might know"} />
+              <View style={{ gap: 8 }}>
                 {suggested.slice(0, 6).map((p, i) => (
                   <PersonRow key={p.id} p={p} index={i} onPress={() => router.push(`/player/${p.id}`)} />
                 ))}
@@ -67,29 +69,30 @@ export default function SearchScreen() {
             <EmptyState icon={Search} title="Search Outhere" body="Find people by name or @username, crews near you and events coming up." />
           )
         ) : !r ? (
-          <Skeleton height={220} radius={R.lg} />
+          <Skeleton height={220} radius={20} />
         ) : !total ? (
           <EmptyState icon={Search} title={`Nothing for "${query}"`} body="Try a name, a @username, a crew or a place." />
         ) : (
           <>
             {show("crews") && r.crews.length ? (
               <View>
-                <SectionHeader title="Crews" action={tab === "all" && r.crews.length > 3 ? `See ${r.crews.length}` : undefined} onAction={() => setTab("crews")} />
-                <View style={{ gap: S.sm }}>
+                <SecHead title="Crews" action={tab === "all" && r.crews.length > 3 ? `See ${r.crews.length}` : undefined} onAction={() => setTab("crews")} />
+                <View style={{ gap: 8 }}>
                   {cap(r.crews).map((c, i) => (
                     <FadeIn key={c.id} index={i}>
-                      <Card padding={S.md} onPress={() => router.push(`/crew/${c.id}`)}>
-                        <Row gap={S.md}>
-                          <CrewLogo crew={c} />
+                      {/* .res: crest, name with the match in blue, and a quiet pill (Joined, or View) */}
+                      <Surface radius={20} padding={null} contentStyle={styles.res}>
+                        <PressableScale onPress={() => router.push(`/crew/${c.id}`)} scaleTo={0.98} accessibilityLabel={c.name} style={styles.who}>
+                          <CrewLogo crew={c} size={42} />
                           <View style={{ flex: 1 }}>
                             <Highlight text={c.name} query={query} style={styles.name} />
                             <Text style={styles.meta} numberOfLines={1}>
                               {[`${c.memberCount} member${c.memberCount === 1 ? "" : "s"}`, c.area || c.city].filter(Boolean).join(" · ")}
                             </Text>
                           </View>
-                          <PillButton title={c.isMember ? "Joined" : "View"} ghost={c.isMember} onPress={() => router.push(`/crew/${c.id}`)} />
-                        </Row>
-                      </Card>
+                        </PressableScale>
+                        <PillButton title={c.isMember ? "Joined" : "View"} ghost onPress={() => router.push(`/crew/${c.id}`)} />
+                      </Surface>
                     </FadeIn>
                   ))}
                 </View>
@@ -98,8 +101,8 @@ export default function SearchScreen() {
 
             {show("events") && r.events.length ? (
               <View>
-                <SectionHeader title="Events" action={tab === "all" && r.events.length > 2 ? `See ${r.events.length}` : undefined} onAction={() => setTab("events")} />
-                <View style={{ gap: S.sm }}>
+                <SecHead title="Events" action={tab === "all" && r.events.length > 2 ? `See ${r.events.length}` : undefined} onAction={() => setTab("events")} />
+                <View style={{ gap: 8 }}>
                   {(tab === "all" ? r.events.slice(0, 2) : r.events).map((e, i) => (
                     <FadeIn key={e.occurrenceId || e.id} index={i}>
                       <EventTile e={e} query={query} onPress={() => router.push(`/events/${e.id}`)} />
@@ -111,8 +114,8 @@ export default function SearchScreen() {
 
             {show("people") && r.people.length ? (
               <View>
-                <SectionHeader title="People" action={tab === "all" && r.people.length > 3 ? `See ${r.people.length}` : undefined} onAction={() => setTab("people")} />
-                <View style={{ gap: S.sm }}>
+                <SecHead title="People" action={tab === "all" && r.people.length > 3 ? `See ${r.people.length}` : undefined} onAction={() => setTab("people")} />
+                <View style={{ gap: 8 }}>
                   {cap(r.people).map((p, i) => (
                     <PersonRow key={p.id} p={p} index={i} query={query} onPress={() => router.push(`/player/${p.id}`)} />
                   ))}
@@ -126,6 +129,23 @@ export default function SearchScreen() {
         )}
       </View>
     </Screen>
+    {/* Search opens from Home in the prototype, so Home stays lit. */}
+    <StackTabBar current="index" />
+    </View>
+  );
+}
+
+/** .sec: 13.5px title, the See link in blue. */
+function SecHead({ title, action, onAction }) {
+  return (
+    <Row style={{ justifyContent: "space-between", marginBottom: 9 }}>
+      <Text style={styles.secHead}>{title}</Text>
+      {action ? (
+        <PressableScale onPress={onAction} accessibilityLabel={action}>
+          <Text style={styles.secLink}>{action}</Text>
+        </PressableScale>
+      ) : null}
+    </Row>
   );
 }
 
@@ -133,16 +153,16 @@ function PersonRow({ p, index, query = "", onPress }) {
   const place = p.area || p.city;
   return (
     <FadeIn index={index}>
-      <Card padding={S.md} onPress={onPress}>
-        <Row gap={S.md}>
-          <Avatar uri={p.avatar} name={p.name} tier={p.tier} outside={p.isOutside} size={48} />
+      <Surface radius={20} padding={null} contentStyle={styles.res}>
+        <PressableScale onPress={onPress} scaleTo={0.98} accessibilityLabel={p.name} style={styles.who}>
+          <Avatar uri={p.avatar} name={p.name} tier={p.tier} outside={p.isOutside} size={42} />
           <View style={{ flex: 1 }}>
             <Highlight text={place ? `${p.name} · ${place}` : p.name} query={query} style={styles.name} />
             <Highlight text={`@${p.username}${p.level ? ` · Level ${p.level}` : ""}`} query={query} style={styles.meta} />
           </View>
-          <FollowButton person={p} />
-        </Row>
-      </Card>
+        </PressableScale>
+        <FollowButton person={p} />
+      </Surface>
     </FadeIn>
   );
 }
@@ -176,11 +196,16 @@ function EventTile({ e, query, onPress }) {
 }
 
 const styles = StyleSheet.create({
-  cancel: { color: C.accent, fontFamily: F.bodySemi, fontSize: 15 },
-  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 15.5 },
-  meta: { color: C.textDim, fontFamily: F.body, fontSize: 12.5, marginTop: 2 },
-  event: { height: 130, borderRadius: R.lg, overflow: "hidden", padding: S.md, backgroundColor: C.surface },
-  date: { alignSelf: "flex-start", alignItems: "center", backgroundColor: "rgba(7,9,12,0.6)", borderRadius: R.sm, paddingHorizontal: 8, paddingVertical: 4 },
-  dow: { color: C.text, fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 1 },
-  dom: { color: C.text, fontFamily: F.display, fontSize: 22, lineHeight: 24 },
+  cancel: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13.5 },
+  secHead: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  secLink: { color: C.accent, fontFamily: F.bodySemi, fontSize: 12 },
+  res: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, paddingBottom: 10, paddingLeft: 12, paddingRight: 12 },
+  who: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  name: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5 },
+  meta: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
+  // .evt: the photo, a date chip and the title over a dark fade
+  event: { height: 118, borderRadius: 20, overflow: "hidden", padding: 12, backgroundColor: "#11151c", boxShadow: "0 14px 30px -14px rgba(0,0,0,0.9)" },
+  date: { alignSelf: "flex-start", alignItems: "center", backgroundColor: "rgba(7,9,12,0.6)", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
+  dow: { color: C.text, fontFamily: F.bodySemi, fontSize: 9, letterSpacing: 1 },
+  dom: { color: C.text, fontFamily: F.display, fontSize: 19, lineHeight: 21 },
 });

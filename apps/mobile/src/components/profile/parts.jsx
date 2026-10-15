@@ -164,8 +164,8 @@ export function PillTag({ title, style }) {
 }
 
 /** Small pill button used inside cards ('Open', 'Add', 'Share'): the act gradient (.pill-go), or quiet. */
-export function PillButton({ title, onPress, ghost = false, disabled = false, style }) {
-  return <GlowButton title={title} onPress={onPress} disabled={disabled} variant={ghost ? "quiet" : "primary"} size="sm" shine={false} style={[{ height: 32, paddingHorizontal: 14 }, style]} />;
+export function PillButton({ title, onPress, ghost = false, disabled = false, style, textStyle }) {
+  return <GlowButton title={title} onPress={onPress} disabled={disabled} variant={ghost ? "quiet" : "primary"} size="sm" shine={false} style={[{ height: 32, paddingHorizontal: 14 }, style]} textStyle={textStyle} />;
 }
 
 const styles = StyleSheet.create({
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   tag: { height: 32, paddingLeft: 14, paddingRight: 14, borderRadius: 999, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   tagText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 12, letterSpacing: -0.15 },
   // .grid3 .card b: the display face at 24, line height .9
-  statValue: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 24 },
+  statValue: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 24, textTransform: "uppercase" },
   statLabel: { color: C.textDim, fontFamily: F.body, fontSize: 10.5, marginTop: 4 },
   // .bdg3 div: padding 8 6 11
   badge: { alignItems: "center", paddingTop: 8, paddingBottom: 11, paddingLeft: 6, paddingRight: 6 },
