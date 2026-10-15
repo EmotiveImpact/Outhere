@@ -18,24 +18,26 @@ Outhere needs its **own** Supabase project in London (eu-west-2). The project al
 
 | Area | Tables and views | Write through |
 |---|---|---|
-| People | `profiles` (public face, tier = ring), `profile_private`, `staff`, `audit_log` | `finish_onboarding` (name, city, welcome bonus once), then own row update (limited columns) |
+| People | `profiles` (public face, tier = ring, `public_profile` switch), `profile_cards` view (the basics, always public), `profile_private`, `staff`, `audit_log` | `finish_onboarding` (name, city, welcome bonus once), then own row update (limited columns) |
+| Badges | `badges` (the set), `member_badges` | server only: `award_badge`, called from triggers on runs, steps and profiles |
 | Places | `cities`, `boroughs` | seed, staff |
-| Clubs | `clubs`, `club_members`, `club_bans`, `club_invites`, `club_founding_progress` | `create_club`, `join_club`, `join_club_by_code`, `leave_club`, `remove_club_member`, `set_club_role` |
-| Events | `events` (club runs, open runs, pick-ups, city moments), `event_rsvps`, `event_codes` | `rsvp_event`, `check_in_event` |
-| Movement | `daily_steps` (raw and counted), `runs` (trimmed public route), `run_routes` (owner only) | `ingest_steps`, `save_run` |
+| Clubs | `clubs` (with `tags`, `filters`, `join_policy`), `club_members` (with `pace_group`), `club_join_requests`, `club_bans`, `club_invites`, `club_founding_progress` | `create_club`, `join_club` (returns `joined` or `requested`), `join_club_by_code`, `decide_join_request`, `rename_club`, `leave_club`, `remove_club_member`, `set_club_role` |
+| Events | `events` (club runs, open runs, pick-ups, city moments; `activity` is run, walk or race), `event_rsvps`, `event_codes` | `rsvp_event`, `check_in_event` |
+| Movement | `daily_steps` (raw and counted), `runs` (trimmed public route), `run_routes` (owner only), `borough_week_steps` view (signed in only) | `ingest_steps`, `save_run` |
 | The dot | `presence`, `member_dots` view, `outside_now()` | `set_presence('out' or 'stopped')` |
 | Ledger | `ledger` (XP and OUT, unique keys, 24h OUT hold), `wallets` view | server only |
-| Battles | `battles` (six modes), `battle_entries` (sealed blind results), `battle_board` view, `blocks`, `rival_passes`, `rival_deck()` | `create_battle`, `respond_battle`, `ready_battle`, `cancel_battle`, `submit_battle_result(battle, run)` |
+| Battles | `battles` (six modes, `stake_note` for stakes in words, 1 hour to 7 days including 5), `battle_entries` (sealed blind results), `battle_board` view, `blocks`, `rival_passes`, `rival_deck()` | `create_battle`, `respond_battle`, `ready_battle`, `cancel_battle`, `submit_battle_result(battle, run)` |
 | Challenges | `challenges`, `challenge_progress` | `join_challenge`, `claim_challenge` |
 | Leagues | `seasons`, `divisions`, `league_entries`, `fixtures`, `squad_members` | scheduler: `draw_fixture`, `fixture_side_score`, `settle_due_fixtures`; read: `fixture_view(fixture)` |
 | Club v club | `club_battles` (friendlies in five modes, turf war next season), `club_battle_votes` | captains: `challenge_club` (no opponent = mystery club), `respond_club_battle`, `cancel_club_battle`; members: `vote_club_battle`; read: `club_battles_for(club)` |
 | Club claims | `club_claims` (website and in app) | in app: `claim_my_club`; moderators: `review_club_claim` |
 | Social | `follows`, `posts`, `post_reactions`, `post_comments`, `stories`, `story_views` | direct insert under RLS |
-| Club chat | `club_channels` (general, announcements), `club_messages`, `poll_votes` | direct insert under RLS |
-| Notifications | `notifications` | server writes, member marks read |
+| Club chat | `club_channels` (general, announcements, with `description`), `club_messages`, `poll_votes`, `club_message_reactions`, `club_channel_reads` | direct insert under RLS; `read_channel`, `club_unread(club)` |
+| Notifications | `notifications` (`actor_id` is who it is about) | server writes, member marks read |
 | Safety | `reports`, `blocks` | direct insert |
 | Money | `subscriptions` (sets the ring), `club_fund_entries`, `club_fund_months`, `locals_partners` | payment webhooks, scheduler: `credit_club_fund` |
 | Drops | `drops`, `drop_orders`, `drop_reminders` | `reserve_drop` |
+| Staff | `audit_log` (every action below writes a line) | moderators: `verify_club`, `review_steps`, `remove_from_squad`; admins: `set_reveal_held` |
 | Website | `waitlist`, `club_claims`, `black_requests` (no direct access) | anon: `join_waitlist`, `claim_club`, `request_black`, `website_stats` |
 
 Rules the database enforces, so no client can cheat them:
@@ -50,6 +52,9 @@ Rules the database enforces, so no client can cheat them:
 - Founding clubs go official after three meetups of six or more and ten different runners; `promote_founding_clubs()` checks nightly.
 - Routes shown to others have the first and last 200 m removed.
 - Club chat is for members only; announcements are for captains and admins.
+- Private profiles. With `public_profile` off, the full profile and its badges are seen only by the member, staff and friends (people they follow back; a one way follow is not enough, since follows need no approval). Everyone else, signed in or not, sees only `profile_cards`: id, username, display name, avatar and the ring.
+- Clubs with `join_policy = 'request'` turn `join_club` into a request that club staff answer with `decide_join_request`; an invite code counts as an invitation and joins straight away. Club addresses change only through `rename_club`, and no club can take a slug the app or website owns (`is_reserved_slug`, copied from `RESERVED_SLUGS` in `packages/core` rules.ts).
+- Borough totals count each person's unflagged counted steps for the borough on their profile, in Monday to Sunday London weeks. Reviewing a flagged day as fine pays what was held back, with the same keys, so nothing pays twice. A season with `reveal_held` is skipped by `settle_due_fixtures` until it is released.
 - Error codes are raised as the exception message (`TIER_REQUIRED`, `NOT_ENOUGH_OUT`, `EVENT_FULL`, `FUTURE_DAY` ...), so clients can switch on them.
 
 Storage buckets (paths start with the owner's id, or the club's id for club media): `avatars`, `club-media`, `drops` are public; `posts` is for signed in members.

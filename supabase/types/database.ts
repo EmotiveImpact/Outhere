@@ -35,6 +35,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      badges: {
+        Row: {
+          id: string;
+          label: string;
+          description: string | null;
+          art_path: string | null;
+          sort: number;
+        };
+        Insert: {
+          id: string;
+          label: string;
+          description?: string | null;
+          art_path?: string | null;
+          sort?: number;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          description?: string | null;
+          art_path?: string | null;
+          sort?: number;
+        };
+        Relationships: [];
+      };
       battle_entries: {
         Row: {
           battle_id: string;
@@ -81,6 +105,7 @@ export type Database = {
           finished_at: string | null;
           challenger_ready_at: string | null;
           opponent_ready_at: string | null;
+          stake_note: string | null;
         };
         Insert: {
           id?: string;
@@ -103,6 +128,7 @@ export type Database = {
           finished_at?: string | null;
           challenger_ready_at?: string | null;
           opponent_ready_at?: string | null;
+          stake_note?: string | null;
         };
         Update: {
           id?: string;
@@ -125,6 +151,7 @@ export type Database = {
           finished_at?: string | null;
           challenger_ready_at?: string | null;
           opponent_ready_at?: string | null;
+          stake_note?: string | null;
         };
         Relationships: [];
       };
@@ -401,6 +428,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      club_channel_reads: {
+        Row: {
+          channel_id: string;
+          user_id: string;
+          read_at: string;
+        };
+        Insert: {
+          channel_id: string;
+          user_id: string;
+          read_at?: string;
+        };
+        Update: {
+          channel_id?: string;
+          user_id?: string;
+          read_at?: string;
+        };
+        Relationships: [];
+      };
       club_channels: {
         Row: {
           id: string;
@@ -408,6 +453,7 @@ export type Database = {
           name: string;
           staff_only_post: boolean;
           sort: number;
+          description: string | null;
         };
         Insert: {
           id?: string;
@@ -415,6 +461,7 @@ export type Database = {
           name: string;
           staff_only_post?: boolean;
           sort?: number;
+          description?: string | null;
         };
         Update: {
           id?: string;
@@ -422,6 +469,7 @@ export type Database = {
           name?: string;
           staff_only_post?: boolean;
           sort?: number;
+          description?: string | null;
         };
         Relationships: [];
       };
@@ -560,6 +608,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      club_join_requests: {
+        Row: {
+          id: string;
+          club_id: string;
+          user_id: string;
+          pace_group: string | null;
+          found_via: string | null;
+          source: Database["public"]["Enums"]["join_source"];
+          status: string;
+          created_at: string;
+          decided_by: string | null;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          user_id: string;
+          pace_group?: string | null;
+          found_via?: string | null;
+          source?: Database["public"]["Enums"]["join_source"];
+          status?: string;
+          created_at?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          user_id?: string;
+          pace_group?: string | null;
+          found_via?: string | null;
+          source?: Database["public"]["Enums"]["join_source"];
+          status?: string;
+          created_at?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+        };
+        Relationships: [];
+      };
       club_members: {
         Row: {
           club_id: string;
@@ -567,6 +654,7 @@ export type Database = {
           role: Database["public"]["Enums"]["club_role"];
           source: Database["public"]["Enums"]["join_source"];
           joined_at: string;
+          pace_group: string | null;
         };
         Insert: {
           club_id: string;
@@ -574,6 +662,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["club_role"];
           source?: Database["public"]["Enums"]["join_source"];
           joined_at?: string;
+          pace_group?: string | null;
         };
         Update: {
           club_id?: string;
@@ -581,6 +670,28 @@ export type Database = {
           role?: Database["public"]["Enums"]["club_role"];
           source?: Database["public"]["Enums"]["join_source"];
           joined_at?: string;
+          pace_group?: string | null;
+        };
+        Relationships: [];
+      };
+      club_message_reactions: {
+        Row: {
+          message_id: string;
+          user_id: string;
+          emoji: string;
+          created_at: string;
+        };
+        Insert: {
+          message_id: string;
+          user_id: string;
+          emoji: string;
+          created_at?: string;
+        };
+        Update: {
+          message_id?: string;
+          user_id?: string;
+          emoji?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -651,6 +762,9 @@ export type Database = {
           paces: string | null;
           distances: string | null;
           beginners: boolean;
+          tags: string[];
+          filters: string[];
+          join_policy: string;
         };
         Insert: {
           id?: string;
@@ -679,6 +793,9 @@ export type Database = {
           paces?: string | null;
           distances?: string | null;
           beginners?: boolean;
+          tags?: string[];
+          filters?: string[];
+          join_policy?: string;
         };
         Update: {
           id?: string;
@@ -707,6 +824,9 @@ export type Database = {
           paces?: string | null;
           distances?: string | null;
           beginners?: boolean;
+          tags?: string[];
+          filters?: string[];
+          join_policy?: string;
         };
         Relationships: [];
       };
@@ -721,6 +841,8 @@ export type Database = {
           source: string | null;
           flagged: boolean;
           updated_at: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
         };
         Insert: {
           user_id: string;
@@ -731,6 +853,8 @@ export type Database = {
           source?: string | null;
           flagged?: boolean;
           updated_at?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
         };
         Update: {
           user_id?: string;
@@ -741,6 +865,8 @@ export type Database = {
           source?: string | null;
           flagged?: boolean;
           updated_at?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
         };
         Relationships: [];
       };
@@ -926,6 +1052,7 @@ export type Database = {
           cancelled_at: string | null;
           created_at: string;
           pace_groups: string[] | null;
+          activity: string;
         };
         Insert: {
           id?: string;
@@ -949,6 +1076,7 @@ export type Database = {
           cancelled_at?: string | null;
           created_at?: string;
           pace_groups?: string[] | null;
+          activity?: string;
         };
         Update: {
           id?: string;
@@ -972,6 +1100,7 @@ export type Database = {
           cancelled_at?: string | null;
           created_at?: string;
           pace_groups?: string[] | null;
+          activity?: string;
         };
         Relationships: [];
       };
@@ -1164,6 +1293,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      member_badges: {
+        Row: {
+          user_id: string;
+          badge_id: string;
+          earned_at: string;
+        };
+        Insert: {
+          user_id: string;
+          badge_id: string;
+          earned_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          badge_id?: string;
+          earned_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: number;
@@ -1174,6 +1321,7 @@ export type Database = {
           link: string | null;
           read_at: string | null;
           created_at: string;
+          actor_id: string | null;
         };
         Insert: {
           id?: number;
@@ -1184,6 +1332,7 @@ export type Database = {
           link?: string | null;
           read_at?: string | null;
           created_at?: string;
+          actor_id?: string | null;
         };
         Update: {
           id?: number;
@@ -1194,6 +1343,7 @@ export type Database = {
           link?: string | null;
           read_at?: string | null;
           created_at?: string;
+          actor_id?: string | null;
         };
         Relationships: [];
       };
@@ -1402,6 +1552,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           onboarded_at: string | null;
+          public_profile: boolean;
         };
         Insert: {
           id: string;
@@ -1424,6 +1575,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           onboarded_at?: string | null;
+          public_profile?: boolean;
         };
         Update: {
           id?: string;
@@ -1446,6 +1598,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           onboarded_at?: string | null;
+          public_profile?: boolean;
         };
         Relationships: [];
       };
@@ -1589,6 +1742,7 @@ export type Database = {
           name: string;
           starts_on: string;
           ends_on: string;
+          reveal_held: boolean;
         };
         Insert: {
           id?: string;
@@ -1597,6 +1751,7 @@ export type Database = {
           name: string;
           starts_on: string;
           ends_on: string;
+          reveal_held?: boolean;
         };
         Update: {
           id?: string;
@@ -1605,6 +1760,7 @@ export type Database = {
           name?: string;
           starts_on?: string;
           ends_on?: string;
+          reveal_held?: boolean;
         };
         Relationships: [];
       };
@@ -1813,6 +1969,16 @@ export type Database = {
         };
         Relationships: [];
       };
+      borough_week_steps: {
+        Row: {
+          city_id: string | null;
+          borough_id: string | null;
+          week_start: string | null;
+          counted: number | null;
+          people: number | null;
+        };
+        Relationships: [];
+      };
       club_founding_progress: {
         Row: {
           club_id: string | null;
@@ -1838,6 +2004,17 @@ export type Database = {
           dot: string | null;
           borough_id: string | null;
           changed_at: string | null;
+        };
+        Relationships: [];
+      };
+      profile_cards: {
+        Row: {
+          id: string | null;
+          username: string | null;
+          display_name: string | null;
+          avatar_path: string | null;
+          tier: Database["public"]["Enums"]["tier"] | null;
+          public_profile: boolean | null;
         };
         Relationships: [];
       };
@@ -1868,9 +2045,11 @@ export type Database = {
       club_battles_for: { Args: { p_club: string; }; Returns: Json[] };
       club_role_of: { Args: { cid: string; uid?: string; }; Returns: Database["public"]["Enums"]["club_role"] };
       club_streak: { Args: { p_club: string; p_user?: string; }; Returns: number };
+      club_unread: { Args: { p_club: string; }; Returns: Json[] };
       counted_steps: { Args: { raw: number; }; Returns: number };
-      create_battle: { Args: { p_opponent: string; p_mode?: Database["public"]["Enums"]["battle_mode"]; p_duration_h?: number; p_distance_m?: number; p_stake_out?: number; p_route_run?: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
+      create_battle: { Args: { p_opponent: string; p_mode?: Database["public"]["Enums"]["battle_mode"]; p_duration_h?: number; p_distance_m?: number; p_stake_out?: number; p_route_run?: string; p_stake_note?: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       create_club: { Args: { p_name: string; p_slug: string; p_city: string; p_borough?: string; p_tagline?: string; p_meeting_place?: string; p_usual_times?: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
+      decide_join_request: { Args: { p_request: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_join_requests"]["Row"] };
       finish_onboarding: { Args: { p_username: string; p_display_name?: string; p_city?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       fixture_side_score: { Args: { p_fixture: string; p_entry: string; }; Returns: number };
       fixture_view: { Args: { p_fixture: string; }; Returns: Json };
@@ -1879,10 +2058,12 @@ export type Database = {
       is_blocked: { Args: { a: string; b: string; }; Returns: boolean };
       is_club_member: { Args: { cid: string; uid?: string; }; Returns: boolean };
       is_club_staff: { Args: { cid: string; uid?: string; }; Returns: boolean };
+      is_reserved_slug: { Args: { p_slug: string; }; Returns: boolean };
       is_staff: { Args: { required?: Database["public"]["Enums"]["staff_role"]; }; Returns: boolean };
+      is_trusted: { Args: { uid: string; }; Returns: boolean };
       join_challenge: { Args: { p_challenge: string; }; Returns: undefined };
-      join_club: { Args: { p_club: string; p_source?: Database["public"]["Enums"]["join_source"]; p_code?: string; }; Returns: undefined };
-      join_club_by_code: { Args: { p_code: string; }; Returns: string };
+      join_club: { Args: { p_club: string; p_source?: Database["public"]["Enums"]["join_source"]; p_code?: string; p_pace_group?: string; p_found_via?: string; }; Returns: string };
+      join_club_by_code: { Args: { p_code: string; p_pace_group?: string; }; Returns: string };
       join_waitlist: { Args: { p_email: string; p_borough: string; p_moves?: string; p_club?: string; p_ref?: string; p_black?: boolean; }; Returns: Json };
       leave_club: { Args: { p_club: string; }; Returns: undefined };
       level_for_xp: { Args: { p_xp: number; }; Returns: number };
@@ -1890,20 +2071,26 @@ export type Database = {
       out_available: { Args: { p_user: string; }; Returns: number };
       outside_now: { Args: { p_city?: string; }; Returns: Json[] };
       period_start: { Args: { p: string; }; Returns: string };
+      read_channel: { Args: { p_channel: string; }; Returns: undefined };
       ready_battle: { Args: { p_battle: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       remove_club_member: { Args: { p_club: string; p_user: string; p_ban?: boolean; }; Returns: undefined };
+      remove_from_squad: { Args: { p_fixture: string; p_user: string; }; Returns: undefined };
+      rename_club: { Args: { p_club: string; p_slug: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       request_black: { Args: { p_name: string; p_email: string; p_borough: string; p_code?: string; p_why?: string; }; Returns: Json };
       reserve_drop: { Args: { p_drop: string; p_size?: string; }; Returns: Database["public"]["Tables"]["drop_orders"]["Row"] };
       respond_battle: { Args: { p_battle: string; p_accept: boolean; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       respond_club_battle: { Args: { p_battle: string; p_accept: boolean; }; Returns: Database["public"]["Tables"]["club_battles"]["Row"] };
       review_club_claim: { Args: { p_claim: number; p_approve: boolean; }; Returns: string };
+      review_steps: { Args: { p_user: string; p_day: string; p_ok: boolean; }; Returns: Database["public"]["Tables"]["daily_steps"]["Row"] };
       rival_deck: { Args: { p_limit?: number; }; Returns: Database["public"]["Tables"]["profiles"]["Row"][] };
       rsvp_event: { Args: { p_event: string; p_going?: boolean; }; Returns: undefined };
       save_run: { Args: { p_started_at: string; p_ended_at: string; p_distance_m: number; p_moving_s: number; p_steps?: number; p_points?: Json; p_kind?: Database["public"]["Enums"]["run_kind"]; p_title?: string; p_visibility?: Database["public"]["Enums"]["visibility"]; p_event?: string; }; Returns: Database["public"]["Tables"]["runs"]["Row"] };
       set_club_role: { Args: { p_club: string; p_user: string; p_role: Database["public"]["Enums"]["club_role"]; }; Returns: undefined };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
+      set_reveal_held: { Args: { p_season: string; p_held: boolean; }; Returns: Database["public"]["Tables"]["seasons"]["Row"] };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };
       trim_route: { Args: { points: Json; p_m?: number; }; Returns: Json };
+      verify_club: { Args: { p_club: string; }; Returns: Database["public"]["Tables"]["clubs"]["Row"] };
       vote_club_battle: { Args: { p_battle: string; p_yes: boolean; }; Returns: undefined };
       website_stats: { Args: {  }; Returns: Json };
     };
