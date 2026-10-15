@@ -14,6 +14,7 @@ import { addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { lowerWins, modeOf, standingTarget } from "@/constants/battleModes";
 import { CLUB_MODE, clubModeOf } from "@/constants/clubModes";
 import { meetsLabel } from "./clubs";
+import { makeRemoteAccount } from "./remoteAccount";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -61,6 +62,12 @@ const MESSAGES = {
   BAD_NAME: "Club names need at least 3 characters.",
   CHECK_IN_CLOSED: "Check-in opens 30 minutes before the start.",
   EVENT_NOT_FOUND: "That club run has gone.",
+  // Account and under 18 mode (20261015101500_account.sql)
+  UNDER_18: "In under 18 mode you play with friends and your club.",
+  TOO_YOUNG: "Outhere is for 13 and over.",
+  BAD_DATE: "That date doesn't look right.",
+  ALREADY_SET: "Your date of birth is set. Support can correct it.",
+  BAD_GUARDIAN: "Add their name and a phone number or email.",
 };
 
 const fail = (error) => {
@@ -438,7 +445,7 @@ export const createProfile = async ({ username, city = "London", crewCode, daily
 
 // Signs out of this phone. The account itself is deleted from Settings > Account.
 export const resetAll = async () => {
-  await AsyncStorage.removeItem(SETTINGS_KEY);
+  await account.clearSettingsCache();
   await signOut();
 };
 
@@ -1605,33 +1612,29 @@ export const clearNotifications = async () => {
   changed();
 };
 
-// ── Settings (on this phone) ──────────────────────────────────────────────────
+// ── Settings, privacy, under 18 mode, your patch and your week (see remoteAccount.js)
 
-const SETTINGS_KEY = "outhere.settings.v1";
-const DEFAULT_SETTINGS = {
-  units: "km",
-  haptics: true,
-  notifications: { battles: true, crews: true, drops: true, events: true, rewards: true },
-  privacy: { showOnLeaderboards: true, showOutsideStatus: true },
-};
-
-export const getSettings = async () => {
-  try {
-    const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-    const saved = raw ? JSON.parse(raw) : {};
-    return { ...DEFAULT_SETTINGS, ...saved, notifications: { ...DEFAULT_SETTINGS.notifications, ...saved.notifications }, privacy: { ...DEFAULT_SETTINGS.privacy, ...saved.privacy } };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-};
-
-export const updateSettings = async (patch) => {
-  const current = await getSettings();
-  const next = { ...current, ...patch, notifications: { ...current.notifications, ...patch.notifications }, privacy: { ...current.privacy, ...patch.privacy } };
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-  changed();
-  return next;
-};
+const account = makeRemoteAccount({ supabase, run, rpc, uid, requireUid, changed, publicUrl, signOut });
+export const {
+  getSettings,
+  updateSettings,
+  getAccount,
+  setBirthDate,
+  linkGuardian,
+  unlinkGuardian,
+  listBlocked,
+  blockPlayer,
+  unblockPlayer,
+  exportMyData,
+  deleteAccount,
+  listPatchPlaces,
+  listPatchAreas,
+  setPatch,
+  getWeekSummary,
+  setAvatar,
+  signInWithProvider,
+  getOutsideCount,
+} = account;
 
 // Keep queries fresh when the session or our rows change elsewhere.
 if (supabase) {
