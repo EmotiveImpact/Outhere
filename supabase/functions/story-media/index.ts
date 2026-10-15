@@ -88,6 +88,9 @@ Deno.serve(async (req) => {
       const size = Number(body.size);
       if (!STORY_TYPES[type]) return json({ error: "Photos only: WebP or JPEG." }, 400);
       if (!Number.isInteger(size) || size <= 0 || size > MAX_STORY_BYTES) return json({ error: "That photo is too big." }, 400);
+      // Posting is for Pro and Black; the insert policy checks the same thing.
+      const { data: canPost } = await db.rpc("can_post_stories", { p_user: me });
+      if (canPost !== true) return json({ error: "TIER_REQUIRED" }, 403);
       const key = storyKey(me, STORY_TYPES[type]);
       return json({ key, url: await files.presignPut(key, type, size), headers: { "Content-Type": type } });
     }

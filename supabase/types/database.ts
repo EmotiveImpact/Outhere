@@ -1855,6 +1855,7 @@ export type Database = {
     Functions: {
       are_friends: { Args: { a: string; b: string; }; Returns: boolean };
       battle_entry_count: { Args: { p_battle: string; }; Returns: number };
+      can_post_stories: { Args: { p_user?: string; }; Returns: boolean };
       can_see_post: { Args: { p: Database["public"]["Tables"]["posts"]["Row"]; }; Returns: boolean };
       cancel_battle: { Args: { p_battle: string; }; Returns: undefined };
       cancel_club_battle: { Args: { p_battle: string; }; Returns: undefined };

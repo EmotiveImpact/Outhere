@@ -260,9 +260,24 @@ begin
 end $$;
 reset role;
 
--- Stories: followers-only by default, and expired ones vanish unless saved.
+-- Stories: only Pro and Black post. Followers-only by default, and expired
+-- ones vanish unless saved.
 select pg_temp.act('00000000-0000-0000-0000-00000000000a');
 set role authenticated;
+do $$ begin
+  assert not public.can_post_stories(), 'free members cannot post stories';
+  begin
+    insert into stories (author_id, media_path) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/free0001.webp');
+    assert false, 'a free member cannot post a story';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+insert into subscriptions (user_id, tier, source, status, provider_ref, current_period_end)
+  values ('00000000-0000-0000-0000-00000000000a', 'pro', 'web', 'active', 'test:story-pro', now() + interval '30 days');
+select pg_temp.act('00000000-0000-0000-0000-00000000000a');
+set role authenticated;
+do $$ begin assert public.can_post_stories(), 'pro members can post stories'; end $$;
 insert into stories (author_id, media_path) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/story0001.webp');
 insert into stories (author_id, media_path, audience) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/story0002.webp', 'public');
 insert into stories (author_id, media_path, audience, expires_at) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/oldstory01.webp', 'public', now() - interval '1 hour');

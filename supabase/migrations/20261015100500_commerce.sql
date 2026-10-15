@@ -1,7 +1,8 @@
 -- Outhere schema, part 6: memberships, the club fund, Outhere Locals and drops.
 --
--- Prices (Edem, 2026-10-15): Pro £5.99, Black £17.99 a month. A club gets a
--- flat £1 a month for each member subscribing through its web link, 50p
+-- Prices (Edem, 2026-10-15): Pro £5.99, Black £12.99 a month (£129.99 a year,
+-- not yet confirmed). A club gets a flat £1 a month for each member
+-- subscribing through its web link, 50p
 -- through the app, three times that for Black (not finally signed off).
 
 create type public.sub_source as enum ('app_store', 'play', 'web');
