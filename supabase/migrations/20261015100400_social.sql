@@ -97,7 +97,7 @@ create table public.stories (
   id            uuid primary key default gen_random_uuid(),
   author_id     uuid not null references public.profiles(id) on delete cascade,
   club_id       uuid references public.clubs(id) on delete cascade,  -- club stories, square ring
-  media_path    text not null,                   -- storage 'stories'
+  media_path    text not null,                   -- object key on R2: '<author id>/<name>.webp'
   caption       text check (char_length(caption) <= 200),
   run_id        uuid references public.runs(id) on delete set null,
   created_at    timestamptz not null default now(),

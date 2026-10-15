@@ -45,7 +45,9 @@ Rules the database enforces, so no client can cheat them:
 - Club chat is for members only; announcements are for captains and admins.
 - Error codes are raised as the exception message (`TIER_REQUIRED`, `NOT_ENOUGH_OUT`, `EVENT_FULL`, `FUTURE_DAY` ...), so clients can switch on them.
 
-Storage buckets (paths start with the owner's id, or the club's id for club media): `avatars`, `club-media`, `drops` are public; `posts` and `stories` are for signed in members.
+Storage buckets (paths start with the owner's id, or the club's id for club media): `avatars`, `club-media`, `drops` are public; `posts` is for signed in members.
+
+Story photos live on Cloudflare R2, not in Supabase Storage. The phone shrinks each photo to about 1080 px WebP, asks the `story-media` Edge Function for a short lived upload link, and puts the file straight to R2 under `<author id>/<random>.webp`. Viewers get signed links from the same function, which only signs stories that RLS lets them see (author, audience, blocks). Stories expire after 24 hours; a nightly pg_cron job calls `story-media` to delete the files and rows.
 
 Schedules (pg_cron): `settle_due_battles()` every 5 minutes and `credit_club_fund()` on the 1st of the month. The Friday league draw (`draw_fixture`) runs from an Edge Function once seasons are set up.
 
@@ -77,3 +79,9 @@ Each app needs only the project URL and the publishable (anon) key:
 - Web and admin (Vite): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
 The service role key is only for webhooks and scheduled functions and never ships in an app.
+
+Story media needs these Edge Function secrets (Supabase dashboard, Edge Functions, Secrets), from an R2 API token scoped to one bucket with Object Read and Write:
+
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
+
+The nightly purge reads two Vault secrets (Supabase dashboard, Project Settings, Vault): `project_url` (the project URL) and `service_role_key`. Deploy the function with `supabase functions deploy story-media`.

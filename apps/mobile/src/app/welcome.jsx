@@ -1,63 +1,66 @@
-// First screen for someone without a profile. One strong image, the brand, a
-// live count from the city and one clear way in.
+// First screen for someone new. One big photo, the mark, a live count of
+// who's out in London right now, one line and one action: slide to start.
 
 import React from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useOutsideNow } from "@/data/hooks";
-import { Button, C, F, FadeIn, LiveDot, R, Row, S } from "@/components/ui";
+import { MotiView } from "moti";
+import { isRemote, useOutsideNow } from "@/data/hooks";
+import { C, F, FadeIn, LiveDot, PressableScale, R, Row, S, SlideToStart, Wordmark } from "@/components/ui";
+import { PHOTOS } from "@/constants/photos";
 import { formatNumber } from "@/utils/format";
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { height } = useWindowDimensions();
   const outside = useOutsideNow("London");
-
   const count = outside.data?.count;
+  const start = () => setTimeout(() => router.push("/onboarding"), 260);
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={styles.screen}>
       <StatusBar style="light" />
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: height * 0.72 }}>
-        <Image source={require("../../assets/images/welcome_fomo_1.png")} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
-      </View>
+      <MotiView from={{ scale: 1.07 }} animate={{ scale: 1 }} transition={{ type: "timing", duration: 2600 }} style={StyleSheet.absoluteFill}>
+        <Image source={PHOTOS.welcome11} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "42%", top: "30%" }} transition={300} accessibilityLabel="A runner on the Southbank at sunrise" />
+      </MotiView>
       <LinearGradient
-        colors={["rgba(10,10,10,0.55)", "rgba(10,10,10,0.05)", "rgba(10,10,10,0.6)", C.bg]}
-        locations={[0, 0.22, 0.5, 0.66]}
+        colors={["rgba(2,5,12,0.6)", "rgba(2,5,12,0)", "rgba(2,5,12,0)", "rgba(2,5,12,0.78)", "#02050c"]}
+        locations={[0, 0.2, 0.42, 0.63, 0.82]}
         style={StyleSheet.absoluteFill}
       />
 
       <Row style={{ paddingTop: insets.top + S.md, paddingHorizontal: S.gutter, justifyContent: "space-between" }}>
-        <Row gap={6}>
-          <View style={styles.mark} />
-          <Text style={styles.wordmark}>OUTHERE</Text>
-        </Row>
-        {count ? (
-          <FadeIn delay={500}>
-            <Row gap={8} style={styles.livePill}>
-              <LiveDot size={7} />
-              <Text style={styles.liveText}>{formatNumber(count)} out in London</Text>
-            </Row>
-          </FadeIn>
-        ) : null}
+        <Wordmark height={20} ink="#fff" sub="LONDON" animate />
       </Row>
 
-      <View style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: S.gutter, paddingBottom: insets.bottom + S.lg }}>
-        <FadeIn>
-          <Text style={styles.headline}>
-            Get out.{"\n"}Get counted.
-          </Text>
-          <Text style={styles.sub}>Every step banks XP. Climb your city's board, battle your mates and spend what you earn.</Text>
+      <View style={[styles.body, { paddingBottom: insets.bottom + S.xl }]}>
+        <FadeIn delay={300}>
+          <Row gap={8} style={styles.live}>
+            <LiveDot size={7} />
+            <Text style={styles.liveText}>
+              <Text style={{ fontFamily: F.bodySemi }}>{count != null ? formatNumber(count) : "London"}</Text>
+              {count != null ? " outside in London right now" : " is out right now"}
+            </Text>
+          </Row>
         </FadeIn>
-
-        <FadeIn index={3}>
-          <Button title="Get started" size="lg" full onPress={() => router.push("/onboarding")} style={{ marginTop: 32 }} />
-          <Text style={styles.note}>Takes a minute. Everything stays on your phone.</Text>
+        <FadeIn delay={420}>
+          <Text style={styles.headline}>Walk. Run.</Text>
+          <Text style={[styles.headline, { color: "#4b93ff" }]}>Earn London.</Text>
+          <Text style={styles.sub}>Every step turns into XP and OUT. Spend them on drops, battles and nights out across the city.</Text>
+        </FadeIn>
+        <FadeIn delay={560}>
+          <SlideToStart label="Get out there" done="You're out" onComplete={start} style={{ marginTop: S.xl }} />
+          {isRemote ? (
+            <PressableScale onPress={() => router.push("/onboarding")} hitSlop={10} style={{ alignSelf: "center", marginTop: S.lg }}>
+              <Text style={styles.signIn}>
+                Already a member? <Text style={{ color: C.text, fontFamily: F.bodySemi }}>Sign in</Text>
+              </Text>
+            </PressableScale>
+          ) : null}
         </FadeIn>
       </View>
     </View>
@@ -65,11 +68,11 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  mark: { width: 10, height: 10, borderRadius: 3, backgroundColor: C.accent, transform: [{ rotate: "45deg" }] },
-  wordmark: { color: C.text, fontFamily: F.display, fontSize: 17, letterSpacing: 5 },
-  livePill: { height: 30, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: "rgba(10,10,10,0.6)" },
-  liveText: { color: C.text, fontSize: 13, fontWeight: "600" },
-  headline: { color: C.text, fontFamily: F.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.5 },
-  sub: { color: C.textDim, fontSize: 16, lineHeight: 23, marginTop: S.lg },
-  note: { color: C.textMute, fontSize: 13, textAlign: "center", marginTop: S.md },
+  screen: { flex: 1, backgroundColor: "#02050c", overflow: "hidden" },
+  body: { flex: 1, justifyContent: "flex-end", paddingHorizontal: S.gutter, gap: 12 },
+  live: { alignSelf: "flex-start", paddingVertical: 7, paddingLeft: 10, paddingRight: 12, borderRadius: R.full, backgroundColor: "rgba(10,16,28,0.55)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)", marginBottom: 4 },
+  liveText: { color: "#fff", fontFamily: F.body, fontSize: 12 },
+  headline: { color: "#fff", fontFamily: F.display, fontSize: 56, lineHeight: 54, textTransform: "uppercase", letterSpacing: 0.3 },
+  sub: { color: "#c3cad6", fontFamily: F.body, fontSize: 14, lineHeight: 21, marginTop: S.md, maxWidth: 300 },
+  signIn: { color: "#a3adbd", fontFamily: F.body, fontSize: 14 },
 });

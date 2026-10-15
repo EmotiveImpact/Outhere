@@ -21,6 +21,7 @@ import {
 } from "./seed";
 import { DAY_MS, HOUR_MS, addDays, dayKey, startOfDay, startOfWeek } from "./time";
 import { noise, randomCode, randomId } from "./random";
+import { PHOTOS } from "@/constants/photos";
 
 const STORAGE_KEY = "outhere.engine.v1";
 const ME = "me";
@@ -101,7 +102,8 @@ const freshState = () => ({
   ledger: [],
   streakAwards: {},
   following: [],
-  storiesSeen: [],
+  myStories: [],
+  storyViews: {},
   crews: Object.fromEntries(
     CREWS.map((c, i) => [
       c.id,
@@ -419,7 +421,7 @@ export const checkUsername = async (raw) =>
     return { available: !problem, reason: problem };
   });
 
-export const createProfile = async ({ username, city = "London", crewCode }) =>
+export const createProfile = async ({ username, city = "London", crewCode, dailyGoal = 10000 }) =>
   write((s) => {
     const problem = usernameProblem(s, username);
     if (problem) throw new EngineError("BAD_USERNAME", problem);
@@ -435,7 +437,7 @@ export const createProfile = async ({ username, city = "London", crewCode }) =>
       color: "#3DA9FC",
       tier: "free",
       blackEligible: false,
-      dailyGoal: 10000,
+      dailyGoal: Math.min(50000, Math.max(1000, Math.round(Number(dailyGoal) || 10000))),
       weeklyGoalKm: 20,
       isOutside: false,
       createdAt: Date.now(),
@@ -708,16 +710,69 @@ const personView = (s, pid) => {
   return { ...p, todaySteps: playerStepsToday(pid), isOutside: playerIsOutside(pid), streak: playerStreak(pid), isFollowing: s.following.includes(pid), story: storyState(s, pid) };
 };
 
-// Demo stories: people who are out, and some others, posted one today.
-const storyState = (s, pid) => {
-  if (!playerIsOutside(pid) && noise(`story:${pid}:${dayKey()}`) < 0.6) return null;
-  return (s.storiesSeen || []).includes(`${pid}:${dayKey()}`) ? "watched" : "unwatched";
+// ── Stories ───────────────────────────────────────────────────────────────────
+// Seeded people post one to three photos a day (always when they're out).
+// Your own stories are kept on this phone for 24 hours.
+
+const STORY_PHOTOS = ["hero", "welcome11", "clubrun", "walk", "marsh", "navCity", "selfie", "event", "friends", "crew", "shoe", "goal11"];
+const STORY_LINES = ["Out before work", "River loop done", "Who's coming tomorrow?", "Legs gone, worth it", "Sunrise club", "New route, 6k", "", ""];
+
+const seededStories = (pid) => {
+  const day = dayKey();
+  if (!playerIsOutside(pid) && noise(`story:${pid}:${day}`) < 0.6) return [];
+  const count = 1 + Math.floor(noise(`stories:${pid}:${day}`) * 3);
+  const now = Date.now();
+  return Array.from({ length: count }, (_, i) => {
+    const n = noise(`story:${pid}:${day}:${i}`);
+    const postedAt = Math.max(startOfDay().getTime(), now - (count - i) * 47 * 60 * 1000 - Math.round(n * 30 * 60 * 1000));
+    return {
+      id: `${pid}:${day}:${i}`,
+      authorId: pid,
+      image: PHOTOS[STORY_PHOTOS[Math.floor(n * STORY_PHOTOS.length)]],
+      caption: STORY_LINES[Math.floor(noise(`line:${pid}:${day}:${i}`) * STORY_LINES.length)],
+      audience: "followers",
+      postedAt,
+      expiresAt: postedAt + DAY_MS,
+    };
+  });
 };
+
+const storiesOf = (s, pid) => {
+  const list = pid === ME ? (s.myStories || []).filter((st) => st.expiresAt > Date.now()) : seededStories(pid);
+  return list.map((st) => ({ ...st, seen: pid === ME || !!s.storyViews?.[st.id], emote: typeof s.storyViews?.[st.id] === "string" ? s.storyViews[st.id] : null }));
+};
+
+const storyState = (s, pid) => {
+  const list = storiesOf(s, pid);
+  if (!list.length) return null;
+  return list.every((st) => st.seen) ? "watched" : "unwatched";
+};
+
+export const listStories = async (authorId) => read((s) => storiesOf(s, authorId));
+
+export const viewStory = async (storyId, emote) =>
+  write((s) => {
+    s.storyViews = { ...(s.storyViews || {}), [storyId]: emote || s.storyViews?.[storyId] || true };
+  });
 
 export const markStoryWatched = async (pid) =>
   write((s) => {
-    const key = `${pid}:${dayKey()}`;
-    s.storiesSeen = [...(s.storiesSeen || []).filter((k) => k.endsWith(dayKey())), key].filter((k, i, a) => a.indexOf(k) === i);
+    const views = { ...(s.storyViews || {}) };
+    for (const st of storiesOf(s, pid)) views[st.id] = views[st.id] || true;
+    s.storyViews = views;
+  });
+
+export const postStory = async ({ uri, caption = "", audience = "followers" }) =>
+  write((s) => {
+    const me = requireMe(s);
+    if (me.tier === "free") throw new EngineError("TIER_REQUIRED", "Posting stories is for Pro and Black members.", { requiredTier: "pro" });
+    const now = Date.now();
+    s.myStories = [...(s.myStories || []).filter((st) => st.expiresAt > now), { id: randomId("st"), authorId: ME, image: { uri }, caption: caption.trim(), audience, postedAt: now, expiresAt: now + DAY_MS }];
+  });
+
+export const deleteStory = async (storyId) =>
+  write((s) => {
+    s.myStories = (s.myStories || []).filter((st) => st.id !== storyId);
   });
 
 export const getFriends = async () =>

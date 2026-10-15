@@ -201,17 +201,66 @@ export const follow = async (pid) => {
   changed();
 };
 
+// ── Stories ───────────────────────────────────────────────────────────────────
+
+// Live stories from one person, oldest first, with viewing URLs from R2.
+export const listStories = async (authorId) => {
+  const me = await uid();
+  if (!me) return [];
+  const rows = await run(
+    supabase.from("stories").select("id, author_id, caption, audience, club_id, created_at, expires_at, saved_at").eq("author_id", authorId).gt("expires_at", new Date().toISOString()).order("created_at"),
+  );
+  if (!rows?.length) return [];
+  const [urls, seen] = await Promise.all([
+    storyFiles.urls(rows.map((r) => r.id)),
+    run(supabase.from("story_views").select("story_id, emote").eq("user_id", me).in("story_id", rows.map((r) => r.id))),
+  ]);
+  const seenBy = Object.fromEntries((seen || []).map((v) => [v.story_id, v]));
+  return rows
+    .filter((r) => urls[r.id])
+    .map((r) => ({
+      id: r.id,
+      authorId: r.author_id,
+      image: urls[r.id],
+      caption: r.caption || "",
+      audience: r.audience,
+      postedAt: new Date(r.created_at).getTime(),
+      expiresAt: new Date(r.expires_at).getTime(),
+      seen: !!seenBy[r.id],
+      emote: seenBy[r.id]?.emote || null,
+    }));
+};
+
 // Posts a photo story. audience: "followers" (default), "public" or "club".
+// Posting is for Pro and Black members; anyone can watch and react.
 export const postStory = async ({ uri, width, height, caption = "", audience = "followers", clubId = null }) => {
   const me = await requireUid();
-  const path = await storyFiles.upload(await prepareStoryPhoto(uri, { width, height }));
+  const p = await run(supabase.from("profiles").select("tier").eq("id", me).single());
+  if (p.tier === "free") {
+    const e = new EngineError("TIER_REQUIRED", "Posting stories is for Pro and Black members.");
+    e.requiredTier = "pro";
+    throw e;
+  }
+  const key = await storyFiles.upload(await prepareStoryPhoto(uri, { width, height }));
   try {
-    await run(supabase.from("stories").insert({ author_id: me, media_path: path, caption: caption || null, audience: clubId ? "club" : audience, club_id: clubId }));
+    await run(supabase.from("stories").insert({ author_id: me, media_path: key, caption: caption.trim() || null, audience: clubId ? "club" : audience, club_id: clubId }));
   } catch (e) {
-    await storyFiles.remove(path).catch(() => {});
+    await storyFiles.discard(key).catch(() => {});
     throw e;
   }
   changed();
+};
+
+export const deleteStory = async (storyId) => {
+  await storyFiles.deleteStory(storyId);
+  changed();
+};
+
+export const viewStory = async (storyId, emote) => {
+  const me = await requireUid();
+  const row = { story_id: storyId, user_id: me };
+  if (emote) row.emote = emote;
+  await run(supabase.from("story_views").upsert(row, { onConflict: "story_id,user_id", ignoreDuplicates: !emote }));
 };
 
 // Marks every live story from this person as seen by me.
@@ -354,12 +403,13 @@ export const updateProfile = async (patch) => {
   return getProfile();
 };
 
-export const createProfile = async ({ username, city = "London", crewCode }) => {
-  await requireUid();
+export const createProfile = async ({ username, city = "London", crewCode, dailyGoal }) => {
+  const me = await requireUid();
   const name = username.trim().toLowerCase();
   const check = await checkUsername(name);
   if (!check.available) throw new EngineError("BAD_USERNAME", check.reason);
   await rpc("finish_onboarding", { p_username: name, p_display_name: username.trim(), p_city: cityId(city) });
+  if (dailyGoal) await run(supabase.from("profiles").update({ daily_goal: Math.min(50000, Math.max(1000, Math.round(dailyGoal))) }).eq("id", me));
   if (crewCode) await joinCrewByCode(crewCode).catch(() => null);
   changed();
   return getProfile();

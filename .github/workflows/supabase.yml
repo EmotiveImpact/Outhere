@@ -33,3 +33,15 @@ jobs:
           for f in supabase/migrations/*.sql; do psql -d oh_types -q -v ON_ERROR_STOP=1 -f "$f" > /dev/null; done
           python3 supabase/scripts/gen_types.py oh_types /tmp/database.ts
           diff -u supabase/types/database.ts /tmp/database.ts
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck Edge Functions
+        run: deno check supabase/functions/story-media/index.ts
+      - name: Test the R2 helper
+        run: deno test --allow-env supabase/functions/_shared/r2_test.ts

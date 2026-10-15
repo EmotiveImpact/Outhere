@@ -16,7 +16,8 @@ end $$;
 -- ── Storage ──────────────────────────────────────────────────────────────────
 
 -- Paths start with the owner's id ('<uid>/...'), or the club's id for club
--- media, so policies can check ownership from the path.
+-- media, so policies can check ownership from the path. Story photos are not
+-- here: they live on Cloudflare R2 (see 20261015100800_stories.sql).
 do $$
 begin
   if to_regclass('storage.buckets') is null then return; end if;
@@ -25,7 +26,6 @@ begin
     ('avatars', 'avatars', true),
     ('club-media', 'club-media', true),
     ('posts', 'posts', false),
-    ('stories', 'stories', false),
     ('drops', 'drops', true)
   on conflict (id) do nothing;
 
@@ -34,21 +34,21 @@ begin
       using (bucket_id in ('avatars', 'club-media', 'drops'))
   $p$;
   execute $p$
-    create policy "members read posts and stories media" on storage.objects for select to authenticated
-      using (bucket_id in ('posts', 'stories'))
+    create policy "members read posts media" on storage.objects for select to authenticated
+      using (bucket_id = 'posts')
   $p$;
   execute $p$
     create policy "upload to my folder" on storage.objects for insert to authenticated
-      with check (bucket_id in ('avatars', 'posts', 'stories')
+      with check (bucket_id in ('avatars', 'posts')
                   and (storage.foldername(name))[1] = auth.uid()::text)
   $p$;
   execute $p$
     create policy "replace my files" on storage.objects for update to authenticated
-      using (bucket_id in ('avatars', 'posts', 'stories') and (storage.foldername(name))[1] = auth.uid()::text)
+      using (bucket_id in ('avatars', 'posts') and (storage.foldername(name))[1] = auth.uid()::text)
   $p$;
   execute $p$
     create policy "delete my files" on storage.objects for delete to authenticated
-      using (bucket_id in ('avatars', 'posts', 'stories') and (storage.foldername(name))[1] = auth.uid()::text)
+      using (bucket_id in ('avatars', 'posts') and (storage.foldername(name))[1] = auth.uid()::text)
   $p$;
   execute $p$
     create policy "club staff upload club media" on storage.objects for insert to authenticated

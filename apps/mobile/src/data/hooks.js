@@ -140,3 +140,5 @@ export const useNotifications = () => useQuery(q(["notifications"], engine.listN
 export const useUnreadCount = () => useQuery(q(["unread"], engine.unreadNotificationCount));
 
 export const useSettings = () => useQuery(q(["settings"], engine.getSettings));
+
+export const useStories = (authorId) => useQuery(q(["stories", authorId], () => engine.listStories(authorId), { enabled: !!authorId, staleTime: 60 * 1000 }));

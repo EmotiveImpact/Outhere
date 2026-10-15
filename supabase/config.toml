@@ -51,3 +51,8 @@ secret = "env(SUPABASE_AUTH_APPLE_SECRET)"
 enabled = false
 client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+
+# story-media checks the caller itself (a member's session, or the service
+# role key for the nightly purge), so the gateway check is off.
+[functions.story-media]
+verify_jwt = false

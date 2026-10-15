@@ -9,13 +9,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { Pedometer } from "expo-sensors";
-import { AtSign, Check, ChevronLeft, Footprints, Mail, Users, X } from "lucide-react-native";
+import { AtSign, Check, ChevronLeft, Footprints, Mail, Minus, Plus, Users, X } from "lucide-react-native";
 import { engine, isRemote, showEngineError, useEngineMutation } from "@/data/hooks";
 import { CITIES } from "@/constants/theme";
-import { hapticError, hapticSuccess } from "@/services/haptics";
+import { hapticError, hapticSelection, hapticSuccess } from "@/services/haptics";
+import { formatNumber } from "@/utils/format";
 import { AnimatedBar, Body, Button, C, F, PressableScale, R, Row, S, toast } from "@/components/ui";
 
-const LOCAL_STEPS = ["username", "city", "crew", "motion"];
+const LOCAL_STEPS = ["username", "goal", "city", "crew", "motion"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const randomUsername = () => `mover${Math.floor(1000 + Math.random() * 9000)}`;
@@ -26,6 +27,7 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [username, setUsername] = useState("");
   const [check, setCheck] = useState({ state: "idle", reason: null }); // idle | checking | ok | bad
+  const [goal, setGoal] = useState(10000);
   const [city, setCity] = useState("London");
   const [crewCode, setCrewCode] = useState("");
   const [motion, setMotion] = useState("unknown"); // unknown | asking | granted | denied | unavailable
@@ -96,7 +98,7 @@ export default function OnboardingScreen() {
     },
   });
 
-  const finish = () => create.mutate({ username: username.trim(), city, crewCode: crewCode.trim() || undefined });
+  const finish = () => create.mutate({ username: username.trim(), city, dailyGoal: goal, crewCode: crewCode.trim() || undefined });
 
   const askMotion = async () => {
     if (Platform.OS === "web") return setMotion("unavailable");
@@ -154,6 +156,7 @@ export default function OnboardingScreen() {
         <MotiView key={key} from={{ opacity: 0, translateX: 28 }} animate={{ opacity: 1, translateX: 0 }} transition={{ type: "spring", damping: 20, stiffness: 220 }}>
           {key === "account" && <AccountStep n={step + 1} email={email} onEmail={setEmail} code={code} onCode={setCode} sent={codeSent} onChangeEmail={() => { setCodeSent(false); setCode(""); }} onSubmit={next} />}
           {key === "username" && <UsernameStep n={step + 1} value={username} onChange={setUsername} check={check} onSubmit={next} />}
+          {key === "goal" && <GoalStep value={goal} onChange={setGoal} />}
           {key === "city" && <CityStep n={step + 1} value={city} onChange={setCity} />}
           {key === "crew" && <CrewStep n={step + 1} value={crewCode} onChange={setCrewCode} />}
           {key === "motion" && <MotionStep n={step + 1} status={motion} onAsk={askMotion} />}
@@ -177,7 +180,7 @@ export default function OnboardingScreen() {
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
-const KICKERS = { account: "Your account", username: "Who are you", city: "Your patch", crew: "Your people", motion: "The engine" };
+const KICKERS = { account: "Your account", goal: "Your goal", username: "Who are you", city: "Your patch", crew: "Your people", motion: "The engine" };
 
 const StepTitle = ({ kicker, title, body }) => (
   <View style={{ marginBottom: S.xxl }}>
@@ -277,6 +280,61 @@ function UsernameStep({ n, value, onChange, check, onSubmit }) {
               ? check.reason
               : "3 to 20 characters: letters, numbers, dots and underscores."}
       </Body>
+    </>
+  );
+}
+
+const GOALS = [
+  { value: 6000, title: "Easy going", sub: "A good walk most days" },
+  { value: 10000, title: "Active", sub: "Walks plus a few runs a week" },
+  { value: 15000, title: "Beast mode", sub: "Out every day, rain or shine" },
+];
+
+function GoalStep({ value, onChange }) {
+  const nudge = (d) => {
+    hapticSelection();
+    onChange(Math.min(30000, Math.max(3000, value + d)));
+  };
+  return (
+    <>
+      <StepTitle kicker="goal" title="Set your daily goal." body="Hit it to earn 40 XP and 4 OUT on top of your steps. You can change it any time." />
+      <Row style={styles.stepper}>
+        <PressableScale onPress={() => nudge(-500)} scaleTo={0.9} accessibilityLabel="500 fewer steps" style={styles.stepBtn}>
+          <Minus size={22} color={C.text} />
+        </PressableScale>
+        <View style={{ alignItems: "center" }}>
+          <Text style={styles.goalNum}>{formatNumber(value)}</Text>
+          <Text style={styles.goalUnit}>steps a day</Text>
+        </View>
+        <PressableScale onPress={() => nudge(500)} scaleTo={0.9} accessibilityLabel="500 more steps" style={styles.stepBtn}>
+          <Plus size={22} color={C.text} />
+        </PressableScale>
+      </Row>
+      <View style={{ gap: 10, marginTop: S.lg }}>
+        {GOALS.map((g) => {
+          const on = g.value === value;
+          return (
+            <PressableScale
+              key={g.value}
+              onPress={() => {
+                hapticSelection();
+                onChange(g.value);
+              }}
+              scaleTo={0.98}
+              style={[styles.opt, on && styles.optOn]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+            >
+              <View style={[styles.radio, on && styles.radioOn]}>{on ? <View style={styles.radioDot} /> : null}</View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optTitle}>{g.title}</Text>
+                <Text style={styles.optSub}>{g.sub}</Text>
+              </View>
+              <Text style={styles.optN}>{`${g.value / 1000}k`}</Text>
+            </PressableScale>
+          );
+        })}
+      </View>
     </>
   );
 }
@@ -417,6 +475,18 @@ function Success({ profile, onDone }) {
 }
 
 const styles = StyleSheet.create({
+  stepper: { justifyContent: "space-between", padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface },
+  stepBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  goalNum: { color: C.text, fontFamily: F.display, fontSize: 54, lineHeight: 54 },
+  goalUnit: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 4 },
+  opt: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: S.lg, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1.5, borderColor: "transparent" },
+  optOn: { borderColor: C.accent },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.8, borderColor: C.textMute, alignItems: "center", justifyContent: "center" },
+  radioOn: { borderColor: C.accent, backgroundColor: C.accent },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" },
+  optTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  optSub: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 2 },
+  optN: { color: C.text, fontFamily: F.display, fontSize: 22 },
   back: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
   counter: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 14, letterSpacing: 1 },
   devSkip: { paddingHorizontal: 12, height: 32, borderRadius: R.full, backgroundColor: C.surface, justifyContent: "center" },

@@ -32,6 +32,8 @@ export { Cover, imageSource, accentFor } from "./Cover";
 export { Sheet } from "./Sheet";
 export { Ring, Dot } from "./Ring";
 export { Hero } from "./Hero";
+export { Logo, Wordmark } from "./Logo";
+export { SlideToStart } from "./SlideToStart";
 export { toast, ToastHost, ModalToastHost } from "./Toast";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────

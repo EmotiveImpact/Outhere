@@ -42,8 +42,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain"
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#07090c"
         }
       ],
       "expo-audio",
@@ -65,7 +66,14 @@
       "expo-font",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Outhere uses your photos for stories and your profile picture.",
+          "cameraPermission": "Outhere uses the camera for stories and your profile picture."
+        }
+      ]
     ],
     "web": {
       "bundler": "metro",

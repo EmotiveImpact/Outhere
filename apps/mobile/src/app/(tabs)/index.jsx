@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { Bell, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { engine, useChallenges, useDrops, useEvents, useFriends, useOutsideNow, useProfile, useUnreadCount } from "@/data/hooks";
+import { useChallenges, useDrops, useEvents, useFriends, useOutsideNow, useProfile, useStories, useUnreadCount } from "@/data/hooks";
 import { useStepStatus } from "@/hooks/useStepSync";
 import { Avatar, C, F, FadeIn, IconButton, Kicker, LIT, PressableScale, R, Row, S, Screen, Skeleton, Title, toast } from "@/components/ui";
 import GoalDial from "@/components/home/GoalDial";
@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const profile = profileQ.data;
   const unreadQ = useUnreadCount();
   const friendsQ = useFriends();
+  const { data: myStories } = useStories(profile?.id);
   const outsideQ = useOutsideNow(profile?.city);
   const eventsQ = useEvents(profile?.city);
   const challengesQ = useChallenges();
@@ -125,26 +126,28 @@ export default function HomeScreen() {
         {/* Stories row: here the ring shows the story (blue until watched,
             then grey), not membership. Dots still show who's out. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: S.lg }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
-          <PressableScale onPress={() => router.push("/(tabs)/profile")} style={styles.friend}>
-            <View>
-              <Avatar uri={profile.avatar} name={name} story="watched" size={56} />
-              <View style={styles.add}>
-                <Plus size={12} color="#fff" strokeWidth={3} />
-              </View>
-            </View>
+          <View style={styles.friend}>
+            <PressableScale onPress={() => router.push(myStories?.length ? `/stories/${profile.id}` : "/stories/new")} accessibilityLabel={myStories?.length ? "Your story" : "Add a story"}>
+              <Avatar uri={profile.avatar} name={name} story={myStories?.length ? "watched" : undefined} size={56} />
+            </PressableScale>
+            <PressableScale onPress={() => router.push("/stories/new")} hitSlop={8} style={styles.add} accessibilityLabel="Add a story">
+              <Plus size={12} color="#fff" strokeWidth={3} />
+            </PressableScale>
             <Text style={styles.friendName}>You</Text>
-          </PressableScale>
-          {friends.map((f) => (
+          </View>
+          {friends.map((f, i) => (
             <PressableScale
               key={f.id}
               onPress={() => {
-                if (f.story === "unwatched") engine.markStoryWatched(f.id).catch(() => {});
-                router.push(`/player/${f.id}`);
+                if (!f.story) return router.push(`/player/${f.id}`);
+                // Play this person, then everyone after them with something new.
+                const queue = friends.slice(i + 1).filter((x) => x.story === "unwatched").map((x) => x.id).join(",");
+                router.push({ pathname: "/stories/[authorId]", params: { authorId: f.id, queue } });
               }}
               style={styles.friend}
             >
               <Avatar uri={f.avatar} name={f.name} dot={f.dot || (f.isOutside ? "out" : null)} story={f.story || "watched"} size={56} />
-              <Text style={[styles.friendName, f.isOutside && { color: C.text }]} numberOfLines={1}>{f.name}</Text>
+              <Text style={[styles.friendName, f.story === "unwatched" && { color: C.text }]} numberOfLines={1}>{f.name}</Text>
             </PressableScale>
           ))}
           {!friends.length ? (
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
   markText: { fontFamily: F.bodySemi, fontSize: 10, letterSpacing: 1.6 },
   friend: { alignItems: "center", width: 60 },
   friendName: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 6 },
-  add: { position: "absolute", right: -1, bottom: -1, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
+  add: { position: "absolute", right: 1, top: 37, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   findFriends: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   quick: { flex: 1, height: 96, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
   quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center", marginBottom: 6 },

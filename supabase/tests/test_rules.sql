@@ -263,9 +263,21 @@ reset role;
 -- Stories: followers-only by default, and expired ones vanish unless saved.
 select pg_temp.act('00000000-0000-0000-0000-00000000000a');
 set role authenticated;
-insert into stories (author_id, media_path) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/s1.webp');
-insert into stories (author_id, media_path, audience) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/s2.webp', 'public');
-insert into stories (author_id, media_path, audience, expires_at) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/old.webp', 'public', now() - interval '1 hour');
+insert into stories (author_id, media_path) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/story0001.webp');
+insert into stories (author_id, media_path, audience) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/story0002.webp', 'public');
+insert into stories (author_id, media_path, audience, expires_at) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/oldstory01.webp', 'public', now() - interval '1 hour');
+do $$ begin
+  begin
+    insert into stories (author_id, media_path) values (auth.uid(), '00000000-0000-0000-0000-00000000000b/story0003.webp');
+    assert false, 'a story cannot point at someone else''s file';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into stories (author_id, media_path) values (auth.uid(), '00000000-0000-0000-0000-00000000000a/../x.webp');
+    assert false, 'odd keys refused';
+  exception when check_violation then null;
+  end;
+end $$;
 reset role;
 select pg_temp.act('00000000-0000-0000-0000-00000000000c');
 set role authenticated;
@@ -280,7 +292,7 @@ do $$ begin
   insert into follows (follower_id, followee_id) values (auth.uid(), '00000000-0000-0000-0000-00000000000a');
   assert (select count(*) from stories) = 2, 'a follower sees followers stories too';
   begin
-    update stories set saved_at = now() where media_path like '%old.webp';
+    update stories set saved_at = now() where media_path like '%oldstory01.webp';
     assert not found, 'cannot save someone else''s story';
   end;
 end $$;
