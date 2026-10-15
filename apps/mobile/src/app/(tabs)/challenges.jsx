@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check } from "lucide-react-native";
 import { engine, useBattles, useChallenges, useEngineMutation, useProfile, useStepHistory } from "@/data/hooks";
 import { PHOTOS } from "@/constants/photos";
-import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Pill, PressableScale, ProgressBar, R, Row, S, SectionHeader, Skeleton, TAB_BAR_SPACE, toast } from "@/components/ui";
+import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Pill, PressableScale, ProgressBar, R, Row, S, SectionHeader, Skeleton, Surface, TAB_BAR_SPACE, toast } from "@/components/ui";
 import { countdown, dateLabel, formatKm, formatNumber } from "@/utils/format";
 import { useNow } from "@/components/arena/shared";
 import { Bar, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
@@ -24,7 +24,8 @@ const SECTIONS = [
 
 // The streak flame on top, every day of the month underneath (blue for a day
 // outside), then the challenges to chase.
-function StreakHero({ streak, days, standalone }) {
+function StreakHero({ streak, days }) {
+  const insets = useSafeAreaInsets();
   const now = new Date();
   const month = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -37,12 +38,16 @@ function StreakHero({ streak, days, standalone }) {
   const cells = [...Array(lead).fill(null), ...Array.from({ length: inMonth }, (_, i) => i + 1)];
   return (
     <View>
-      <GlowHero photo={PHOTOS.flame} photoOpacity={0.3} height={standalone ? 220 : 250} kicker="Your streak" top={`${streak} ${streak === 1 ? "day" : "days"}`} bottom="outside" />
+      {/* .slab with the flame object (chal6): the streak is the hero. */}
+      <GlowHero object={PHOTOS.flame} objectSize={206} objectStyle={{ right: -30, top: insets.top + 22 }} height={222} kicker="Your streak" top={`${streak} ${streak === 1 ? "day" : "days"}`} bottom="outside" />
       <View style={{ paddingHorizontal: S.gutter }}>
-      <Row style={{ justifyContent: "space-between", marginTop: S.xl, marginBottom: S.md }}>
+      <Row style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 14, marginBottom: 10 }}>
         <Text style={styles.month}>{month}</Text>
         <Text style={styles.monthMeta}>
-          {outside} of {today} days outside so far
+          <Text style={{ color: C.accent, fontFamily: F.bodySemi }}>
+            {outside} of {today}
+          </Text>{" "}
+          days outside so far
         </Text>
       </Row>
       <View style={styles.grid}>
@@ -56,8 +61,8 @@ function StreakHero({ streak, days, standalone }) {
           const active = !future && activeByDate.get(key(new Date(now.getFullYear(), now.getMonth(), n)));
           return (
             <View key={n} style={styles.cell}>
-              <View style={[styles.day, active && styles.dayOn, isToday && styles.dayToday, future && { opacity: 0.35 }]}>
-                <Text style={[styles.dayText, (active || isToday) && { color: C.text }]}>{n}</Text>
+              <View style={[styles.day, active && styles.dayOn, isToday && styles.dayToday]}>
+                <Text style={[styles.dayText, !future && { color: C.textSoft }, (active || isToday) && { color: C.text }]}>{n}</Text>
               </View>
             </View>
           );
@@ -85,8 +90,8 @@ function TodayCard({ list, profile, battles, onClaim }) {
   const done = tasks.filter((t) => t.done).length;
   return (
     <View style={{ paddingHorizontal: S.gutter }}>
-      <SectionLabel right={`${done} of ${tasks.length} done`}>Today</SectionLabel>
-      <View style={styles.today}>
+      <SectionLabel right={`${done} of ${tasks.length} done`} style={{ marginTop: S.lg, marginBottom: 10 }}>Today</SectionLabel>
+      <Surface radius={20} padding={null} contentStyle={styles.today}>
         {tasks.map((t, i) => (
           <PressableScale key={t.key} disabled={!t.claim} onPress={t.claim || undefined} scaleTo={0.98} style={[styles.task, i > 0 && styles.taskLine]}>
             <View style={[styles.check, t.done && styles.checkOn]}>{t.done ? <Check size={14} color="#fff" strokeWidth={3} /> : null}</View>
@@ -99,7 +104,7 @@ function TodayCard({ list, profile, battles, onClaim }) {
             <Text style={styles.taskReward}>{t.claim ? "Claim" : t.reward}</Text>
           </PressableScale>
         ))}
-      </View>
+      </Surface>
     </View>
   );
 }
@@ -152,11 +157,11 @@ export default function ChallengesScreen() {
         <EmptyState style={{ paddingTop: insets.top + 90 }} title="No challenges right now" body="New ones land every day and every week." action="Go to the Arena" onAction={() => router.push("/outside/arena")} />
       ) : (
         <>
-          <StreakHero streak={profile?.streak || 0} days={month} standalone={!inOutside} />
+          <StreakHero streak={profile?.streak || 0} days={month} />
           <TodayCard list={list} profile={profile} battles={battles} onClaim={(id) => claim.mutate(id)} />
           <View style={{ paddingHorizontal: S.gutter }}>
           <FadeIn>
-            <View style={[styles.hero, { marginTop: S.xxl }]}>
+            <Surface radius={R.lg} padding={S.xl} style={{ marginTop: S.xxl }}>
               <Row gap={8} style={{ alignItems: "flex-end" }}>
                 <AnimatedNumber value={upForGrabs} style={styles.heroValue} />
                 <Text style={styles.heroUnit}>XP</Text>
@@ -169,7 +174,7 @@ export default function ChallengesScreen() {
                 <HeroStat label="to claim" value={String(ready.length)} />
                 <HeroStat label="live now" value={String(list.filter((c) => c.status !== "upcoming" && c.status !== "claimed").length)} />
               </Row>
-            </View>
+            </Surface>
           </FadeIn>
 
           {SECTIONS.map((section) => {
@@ -222,7 +227,7 @@ function ChallengeCard({ challenge: c, now, primary, joining, claiming, onJoin, 
   const pct = Math.round(c.percent * 100);
 
   return (
-    <View style={[styles.card, claimed && { opacity: 0.7 }]}>
+    <Surface radius={R.lg} padding={S.lg} style={claimed ? { opacity: 0.7 } : null}>
       <Row style={{ justifyContent: "space-between" }}>
         <Pill label={PERIOD_LABEL[c.period] || String(c.period)} />
         <Text style={styles.meta}>{timeText}</Text>
@@ -266,36 +271,35 @@ function ChallengeCard({ challenge: c, now, primary, joining, claiming, onJoin, 
           <Text style={styles.joinedText}>Joined · {amount(c, Math.max(0, c.target - c.progress))} to go</Text>
         </Row>
       )}
-    </View>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { padding: S.xl, borderRadius: R.lg, backgroundColor: C.surface },
-  today: { borderRadius: R.lg, backgroundColor: C.surface, paddingHorizontal: S.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)" },
-  task: { flexDirection: "row", alignItems: "center", gap: S.md, paddingVertical: 14 },
+  today: { paddingHorizontal: 14, paddingVertical: 4 },
+  task: { flexDirection: "row", alignItems: "center", gap: S.md, paddingVertical: 11 },
   taskLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  check: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" },
-  checkOn: { backgroundColor: C.accent, borderColor: C.accent },
-  taskTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
+  check: { width: 24, height: 24, borderRadius: 8, borderWidth: 1.5, borderColor: "#222731", alignItems: "center", justifyContent: "center" },
+  checkOn: { backgroundColor: C.accent, borderColor: C.accent, boxShadow: "0 0 10px rgba(61,139,255,0.45)" },
+  taskTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   taskDone: { color: C.textDim, textDecorationLine: "line-through" },
-  taskReward: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 13 },
-  month: { color: C.text, fontFamily: F.bodySemi, fontSize: 15 },
-  monthMeta: { color: C.accent, fontFamily: F.body, fontSize: 12 },
-  grid: { flexDirection: "row", flexWrap: "wrap" },
-  dow: { width: `${100 / 7}%`, textAlign: "center", color: C.textDim, fontFamily: F.body, fontSize: 11, marginBottom: 6 },
-  cell: { width: `${100 / 7}%`, padding: 3 },
-  day: { height: 30, borderRadius: 7, backgroundColor: C.surface, alignItems: "center", justifyContent: "center" },
-  dayOn: { backgroundColor: "#173563" },
-  dayToday: { backgroundColor: C.accent },
-  dayText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 12 },
+  taskReward: { color: C.accent, fontFamily: F.bodySemi, fontSize: 12.5 },
+  // .calhead and .cal.sm
+  month: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  monthMeta: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  grid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -2 },
+  dow: { width: `${100 / 7}%`, textAlign: "center", color: C.textDim, fontFamily: F.body, fontSize: 10.5, marginBottom: 2 },
+  cell: { width: `${100 / 7}%`, padding: 2 },
+  day: { height: 27, borderRadius: 8, backgroundColor: "#12151a", alignItems: "center", justifyContent: "center" },
+  dayOn: { backgroundColor: "#1e3456" },
+  dayToday: { backgroundColor: C.accent, boxShadow: "0 0 12px rgba(61,139,255,0.38)" },
+  dayText: { color: "#4a5160", fontFamily: F.bodySemi, fontSize: 12 },
   heroValue: { color: C.text, fontFamily: F.display, fontSize: 56, letterSpacing: -1.5, lineHeight: 60 },
   heroUnit: { color: C.textDim, fontFamily: F.display, fontSize: 22, marginBottom: 8 },
   heroMeta: { color: C.textDim, fontSize: 15, marginTop: 2 },
   heroStats: { marginTop: S.xl },
   heroStatValue: { color: C.text, fontFamily: F.display, fontSize: 20 },
   heroStatLabel: { color: C.textDim, fontSize: 13, marginTop: 2 },
-  card: { padding: S.lg, borderRadius: R.lg, backgroundColor: C.surface },
   meta: { color: C.textDim, fontSize: 13 },
   title: { color: C.text, fontFamily: F.display, fontSize: 26, textTransform: "uppercase", marginTop: S.md },
   desc: { color: C.textDim, fontSize: 15, lineHeight: 21, marginTop: 4 },

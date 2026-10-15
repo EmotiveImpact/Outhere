@@ -3,3 +3,5 @@
 body {
   font-family: "Inter", sans-serif !important;
 }
+
+canvas { min-height: 0; min-width: 0; }

@@ -18,8 +18,8 @@ const THUMB = splitShadow("inset 0 1px 0 rgba(255,255,255,0.3), 0 8px 20px -8px 
 const SUB_TABS = [
   { key: "arena", label: "Arena", href: "/outside/arena" },
   { key: "challenges", label: "Challenges", href: "/outside/challenges" },
-  { key: "drops", label: "Drops", href: "/outside/drops" },
   { key: "events", label: "Events", href: "/outside/events" },
+  { key: "drops", label: "Drops", href: "/outside/drops" },
   { key: "news", label: "News", href: "/outside/news" },
 ] as const;
 
