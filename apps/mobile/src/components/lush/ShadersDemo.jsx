@@ -23,7 +23,7 @@ export default function ShadersDemo() {
         {width ? <BlackCard width={width - S.lg * 2} name="Alex Morgan" number={212} style={{ alignSelf: "center", marginVertical: S.sm }} /> : null}
       </Demo>
 
-      <Demo kicker="Aurora" caption="Curtains of blue and violet light with fine rays, drifting on a near black sky that fades into the card." flush>
+      <Demo kicker="Aurora" caption="Three ribbons of blue and violet drifting against each other on a near black sky, with the kit's grain." flush>
         <View style={styles.sky}>
           <Aurora />
           <View style={styles.skyText}>

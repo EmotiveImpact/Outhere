@@ -100,13 +100,9 @@ ${NOISE}
 float ribbon(float2 uv, float tt, float y0, float amp, float k, float s, float w, float ph, float warp) {
   float yc = y0 + amp * sin(uv.x * k + tt * s + ph) + warp;
   float d = (uv.y - yc) / w;
-  // a curtain: a bright lower hem that fades slowly upwards and quickly below
-  float g = d < 0.0 ? exp(d * 0.9) : exp(-d * d * 4.0);
-  // fine vertical rays drifting along the curtain
-  float rays = vnoise(float2(uv.x * 46.0 + ph * 11.0 + tt * s * 3.0, uv.y * 1.2));
-  rays = 0.55 + 0.45 * smoothstep(0.25, 0.85, rays);
-  // and the curtain brightens and dims along its length
-  g *= rays * (0.65 + 0.35 * sin(uv.x * 7.0 - tt * s * 4.0 + ph * 3.0));
+  float g = exp(-d * d);
+  // curtains: the ribbon brightens and dims along its length
+  g *= 0.7 + 0.3 * sin(uv.x * 9.0 - tt * s * 4.0 + ph * 3.0);
   return g;
 }
 half4 main(float2 xy) {
@@ -119,16 +115,11 @@ half4 main(float2 xy) {
              + c3 * ribbon(uv, t, 0.70, 0.06, 2.1, 0.07, 0.11, 4.2, -warp * 0.7) * 0.6
              + c1 * ribbon(uv, t, 0.22, 0.05, 1.7, -0.05, 0.07, 1.3, warp * 0.5) * 0.3;
   col *= intensity;
-  // roll the light off without bleaching it: overlaps get brighter, never white
-  float pk = max(max(col.r, col.g), col.b);
-  col *= (1.0 - exp(-pk * 1.3)) / max(pk, 0.001);
+  col = 1.0 - exp(-col * 1.3);
   float g = (hash(xy) - 0.5) * 0.05;
   if (field > 0.5) {
-    // the sky feathers away at its edges, so it melts into whatever holds it
-    float fe = smoothstep(0.0, 0.34, uv.y) * smoothstep(1.0, 0.82, uv.y) * smoothstep(0.0, 0.08, uv.x) * smoothstep(1.0, 0.92, uv.x);
     float3 fld = float3(0.008, 0.014, 0.03);
-    float3 o = clamp(fld + col + g, 0.0, 1.0);
-    return half4(half3(o * fe), half(fe));
+    return half4(half3(clamp(fld + col + g, 0.0, 1.0)), 1.0);
   }
   float a = clamp(max(max(col.r, col.g), col.b) * 1.15, 0.0, 1.0);
   return half4(half3(clamp(col + g * a, 0.0, 1.0)), half(a));
@@ -169,8 +160,8 @@ export function AuroraCanvas({ width, height, clock, colours, speed = 1, intensi
 // draw by `bleed` on every side so the bloom never meets a hard edge.
 
 // Tones: c0 the deep end of the fill, c1 the lit end, glow the bloom, hi the
-// light that runs through it. No pure white anywhere: the brightest light is
-// tinted with the tone.
+// light that runs through it. The glints are white and sharp; the bloom
+// stays in the tone.
 export const LIQUID_TONES = {
   blue: { c0: [0.09, 0.27, 0.8], c1: [0.36, 0.63, 1.0], glow: [0.2, 0.48, 1.0], hi: [0.74, 0.86, 1.0] },
   red: { c0: [0.6, 0.07, 0.13], c1: [1.0, 0.36, 0.42], glow: [1.0, 0.24, 0.32], hi: [1.0, 0.78, 0.8] },
@@ -199,13 +190,19 @@ half4 main(float2 xy) {
   float3 col = mix(c0, c1, smoothstep(0.0, 1.0, u));
   // lit along the upper middle of the tube, a little shade underneath
   col *= 0.82 + 0.34 * exp(-pow((s + 0.12) / 0.32, 2.0));
-  col = mix(col, hi, 0.22 * exp(-pow((s + 0.3) / 0.12, 2.0)));
-  // a wash of light that rolls towards the head every few seconds
+  // a crisp white specular line along the top of the tube
+  col = mix(col, float3(1.0), 0.5 * exp(-pow((s + 0.27) / 0.08, 2.0)));
+  // a soft wash of light that rolls towards the head
   float ph = fract(t / 3.4);
   float pos = -0.3 + 1.6 * ph * ph * (3.0 - 2.0 * ph);
-  float wash = exp(-pow((u - pos) / 0.12, 2.0)) * 0.26;
-  col = mix(col, hi, wash * (0.6 + 0.4 * u));
-  col += 0.04 * (vnoise(float2(xy.x * 0.05 - t * 0.6, xy.y * 0.25)) - 0.5);
+  col = mix(col, hi, exp(-pow((u - pos) / 0.12, 2.0)) * 0.18);
+  // the shimmer: a sharp slanted white glint that runs the length of the bar
+  float run = len + h * 6.0;
+  float gx = mod(t * 210.0, run + 160.0) - h * 3.0;
+  float sx = (xy.x - x0) + (xy.y - cy) * 0.7 - gx;
+  float glint = smoothstep(h * 0.55, h * 0.15, abs(sx)) * 0.85 + smoothstep(h * 1.6, 0.0, abs(sx)) * 0.2;
+  col = mix(col, float3(1.0), clamp(glint, 0.0, 1.0));
+  col += 0.02 * (vnoise(float2(xy.x * 0.05 - t * 0.6, xy.y * 0.25)) - 0.5);
   return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
 }`);
 
@@ -258,7 +255,7 @@ export function LiquidBarCanvas({ width, height, bleed = 14, clock, progress, to
       </Path>
       <Group opacity={headOn}>
         <Circle c={head} r={height * 0.9}>
-          <RadialGradient c={head} r={height * 0.9} colors={[css(tn.hi, 0.3), css(tn.glow, 0.1), css(tn.glow, 0)]} positions={[0, 0.35, 1]} />
+          <RadialGradient c={head} r={height * 0.9} colors={["rgba(255,255,255,0.4)", css(tn.glow, 0.1), css(tn.glow, 0)]} positions={[0, 0.35, 1]} />
         </Circle>
       </Group>
     </Canvas>
@@ -286,15 +283,20 @@ half4 main(float2 xy) {
   float3 col = mix(red, blue, mine);
   col *= 0.82 + 0.34 * exp(-pow((s + 0.12) / 0.32, 2.0));
   // light streaming towards the meeting point from both ends
-  float sb = 0.5 + 0.5 * sin((x / 80.0 - t * 0.9) * 6.2831853);
-  float sr = 0.5 + 0.5 * sin(((len - x) / 80.0 - t * 0.75) * 6.2831853);
-  float streak = mine * pow(sb, 16.0) * 0.22 + (1.0 - mine) * pow(sr, 16.0) * 0.18;
-  float3 tint = mix(float3(1.0, 0.8, 0.82), float3(0.75, 0.86, 1.0), mine);
-  col = mix(col, tint, streak * exp(-pow(s / 0.4, 2.0)));
+  // sharp white comets: a bright head with a short tail behind it
+  float qb = fract(t * 1.6 - x / 110.0) * 110.0;
+  float qr = fract(t * 1.3 - (len - x) / 110.0) * 110.0;
+  float sb = smoothstep(0.0, 1.5, qb) * exp(-qb / 18.0);
+  float sr = smoothstep(0.0, 1.5, qr) * exp(-qr / 18.0);
+  float streak = mine * sb * 0.8 + (1.0 - mine) * sr * 0.7;
+  col = mix(col, float3(1.0), streak * smoothstep(0.32, 0.06, abs(s + 0.06)));
+  // a crisp white specular line along the top
+  col = mix(col, float3(1.0), 0.45 * exp(-pow((s + 0.27) / 0.08, 2.0)));
   // heat close to the meeting point
   float near = exp(-abs(d) / 26.0);
   col += near * 0.16 * (vnoise(float2(x * 0.18 - t * 2.0, s * 3.0 + t)) - 0.3);
-  col = mix(col, float3(0.8, 0.82, 1.0), exp(-pow(d / 3.5, 2.0)) * 0.45);
+  // a sharp white-hot core where the two meet
+  col = mix(col, float3(1.0), smoothstep(3.2, 1.0, abs(d)));
   return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
 }`);
 
@@ -325,12 +327,10 @@ export function TugCanvas({ width, height, bleed = 16, clock, share }) {
         <Shader source={TUG} uniforms={uniforms} />
       </Path>
       <Group opacity={flicker}>
-        <Circle c={at} r={height * 1.6}>
-          <RadialGradient c={at} r={height * 1.6} colors={["rgba(196,200,255,0.38)", "rgba(150,140,255,0.12)", "rgba(150,140,255,0)"]} positions={[0, 0.32, 1]} />
+        <Circle c={at} r={height * 1.3}>
+          <RadialGradient c={at} r={height * 1.3} colors={["rgba(255,255,255,0.42)", "rgba(190,200,255,0.12)", "rgba(190,200,255,0)"]} positions={[0, 0.35, 1]} />
         </Circle>
-        <Path path={core} color="rgba(214,222,255,0.7)">
-          <BlurMask blur={1.2} style="normal" />
-        </Path>
+        <Path path={core} color="#ffffff" />
       </Group>
     </Canvas>
   );
