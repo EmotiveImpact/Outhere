@@ -203,7 +203,7 @@ half4 main(float2 xy) {
   // a wash of light that rolls towards the head every few seconds
   float ph = fract(t / 3.4);
   float pos = -0.3 + 1.6 * ph * ph * (3.0 - 2.0 * ph);
-  float wash = exp(-pow((u - pos) / 0.16, 2.0)) * 0.34;
+  float wash = exp(-pow((u - pos) / 0.12, 2.0)) * 0.26;
   col = mix(col, hi, wash * (0.6 + 0.4 * u));
   col += 0.04 * (vnoise(float2(xy.x * 0.05 - t * 0.6, xy.y * 0.25)) - 0.5);
   return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
@@ -222,11 +222,11 @@ function pill(x, y, w, h) {
 function Bloom({ path, glow, size, strength = 1, opacity }) {
   return (
     <Group opacity={opacity}>
-      <Path path={path} color={css(glow, 0.32 * strength)}>
-        <BlurMask blur={size * 1.25} style="normal" />
+      <Path path={path} color={css(glow, 0.14 * strength)}>
+        <BlurMask blur={size * 0.6} style="normal" />
       </Path>
-      <Path path={path} color={css(glow, 0.55 * strength)}>
-        <BlurMask blur={size * 0.42} style="normal" />
+      <Path path={path} color={css(glow, 0.28 * strength)}>
+        <BlurMask blur={size * 0.12} style="normal" />
       </Path>
     </Group>
   );
@@ -257,8 +257,8 @@ export function LiquidBarCanvas({ width, height, bleed = 14, clock, progress, to
         <Shader source={BAR} uniforms={uniforms} />
       </Path>
       <Group opacity={headOn}>
-        <Circle c={head} r={height * 1.5}>
-          <RadialGradient c={head} r={height * 1.5} colors={[css(tn.hi, 0.55), css(tn.glow, 0.22), css(tn.glow, 0)]} positions={[0, 0.35, 1]} />
+        <Circle c={head} r={height * 0.9}>
+          <RadialGradient c={head} r={height * 0.9} colors={[css(tn.hi, 0.3), css(tn.glow, 0.1), css(tn.glow, 0)]} positions={[0, 0.35, 1]} />
         </Circle>
       </Group>
     </Canvas>
@@ -288,7 +288,7 @@ half4 main(float2 xy) {
   // light streaming towards the meeting point from both ends
   float sb = 0.5 + 0.5 * sin((x / 80.0 - t * 0.9) * 6.2831853);
   float sr = 0.5 + 0.5 * sin(((len - x) / 80.0 - t * 0.75) * 6.2831853);
-  float streak = mine * pow(sb, 10.0) * 0.3 + (1.0 - mine) * pow(sr, 10.0) * 0.26;
+  float streak = mine * pow(sb, 16.0) * 0.22 + (1.0 - mine) * pow(sr, 16.0) * 0.18;
   float3 tint = mix(float3(1.0, 0.8, 0.82), float3(0.75, 0.86, 1.0), mine);
   col = mix(col, tint, streak * exp(-pow(s / 0.4, 2.0)));
   // heat close to the meeting point
@@ -325,11 +325,11 @@ export function TugCanvas({ width, height, bleed = 16, clock, share }) {
         <Shader source={TUG} uniforms={uniforms} />
       </Path>
       <Group opacity={flicker}>
-        <Circle c={at} r={height * 2.4}>
-          <RadialGradient c={at} r={height * 2.4} colors={["rgba(196,200,255,0.42)", "rgba(150,140,255,0.14)", "rgba(150,140,255,0)"]} positions={[0, 0.32, 1]} />
+        <Circle c={at} r={height * 1.6}>
+          <RadialGradient c={at} r={height * 1.6} colors={["rgba(196,200,255,0.38)", "rgba(150,140,255,0.12)", "rgba(150,140,255,0)"]} positions={[0, 0.32, 1]} />
         </Circle>
         <Path path={core} color="rgba(214,222,255,0.7)">
-          <BlurMask blur={2.2} style="normal" />
+          <BlurMask blur={1.2} style="normal" />
         </Path>
       </Group>
     </Canvas>
@@ -465,7 +465,7 @@ half4 main(float2 xy) {
   m *= c.a;
   if (bloom > 0.5) {
     // the bloom: the object's light, cooled to the brand blue
-    float g = clamp(a * 1.8, 0.0, 1.0);
+    float g = smoothstep(0.2, 0.85, a);
     float3 b = mix(float3(0.16, 0.42, 1.0), float3(0.5, 0.72, 1.0), lum) * g;
     return half4(half3(b * m), half(g * m));
   }
@@ -515,10 +515,10 @@ export function FoilCanvas({ source, width, height, bleed = 18, clock, tilt, str
     <Canvas style={{ width: W, height: H }} pointerEvents="none">
       {lit ? (
         <Group
-          opacity={0.75}
+          opacity={0.42}
           layer={
             <Paint>
-              <Blur blur={Math.max(6, Math.min(width, height) * 0.11)} mode="decal" />
+              <Blur blur={Math.max(4, Math.min(width, height) * 0.07)} mode="decal" />
             </Paint>
           }
         >
