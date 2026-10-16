@@ -15,12 +15,17 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Animated, { FadeInDown, FadeOutUp, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
 import { C, EASE, F } from "./tokens";
 
 // A touch past the mark and back: the digit lands like a real wheel.
 const SPRING = { damping: 15, stiffness: 190, mass: 0.9 };
 const STAGGER = 30;
+// A column arriving (from below) or leaving (up and away). Drawn with shared
+// values rather than layout animations, so a value that changes every frame
+// (CountUp) cannot restart them.
+const ENTER = { damping: 16, stiffness: 220, mass: 0.8 };
+const LEAVE_MS = 200;
 const WHEEL = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 const defaultFormat = (v) => Math.round(v).toLocaleString("en-GB");
@@ -65,14 +70,46 @@ function Wheel({ digit, dir, delay, height, textStyle, reduce }) {
   );
 }
 
+/** One column: a wheel or a still character, sliding in from below and out upwards. */
+function Cell({ cell, leaving, dir, height, textStyle, reduce, enter }) {
+  const move = enter && !reduce;
+  const y = useSharedValue(move ? height * 0.6 : 0);
+  const o = useSharedValue(move ? 0 : 1);
+  useEffect(() => {
+    if (!move) return;
+    y.value = withSpring(0, ENTER);
+    o.value = withTiming(1, { duration: 160 });
+    // runs once, on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!leaving || reduce) return;
+    y.value = withTiming(-height * 0.6, { duration: LEAVE_MS, easing: Easing.out(Easing.quad) });
+    o.value = withTiming(0, { duration: LEAVE_MS - 40 });
+  }, [leaving, reduce, height, y, o]);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }], opacity: o.value }));
+  return (
+    <Animated.View style={[{ height }, style]} pointerEvents="none">
+      {cell.digit ? (
+        <Wheel digit={Number(cell.ch)} dir={dir} delay={cell.fromRight * STAGGER} height={height} textStyle={textStyle} reduce={reduce} />
+      ) : (
+        <Text style={textStyle} accessible={false}>
+          {cell.ch}
+        </Text>
+      )}
+    </Animated.View>
+  );
+}
+
 /**
  * value: the number. format: number to text (default en-GB with commas).
  * prefix and suffix do not roll. size: font size. weight: display (Barlow)
  * | displayMedium | medium (Inter 500) | semi (Inter 600). colour. mono:
  * tabular figures. lineHeight defaults to a tight display line. upper puts
- * the prefix and suffix in capitals, like a Title.
+ * the prefix and suffix in capitals, like a Title. appear: the digits slide
+ * in on first mount too (default); false shows them straight away.
  */
-export function RollingNumber({ value = 0, format = defaultFormat, prefix, suffix, size = 32, weight = "display", colour = C.text, mono = false, lineHeight, letterSpacing, upper = false, style, textStyle: extraText, prefixStyle, suffixStyle, accessibilityLabel }) {
+export function RollingNumber({ value = 0, format = defaultFormat, prefix, suffix, size = 32, weight = "display", colour = C.text, mono = false, lineHeight, letterSpacing, upper = false, appear = true, style, textStyle: extraText, prefixStyle, suffixStyle, accessibilityLabel }) {
   const reduce = useReducedMotion();
   const n = Number(value) || 0;
   const prev = useRef(n);
@@ -95,22 +132,37 @@ export function RollingNumber({ value = 0, format = defaultFormat, prefix, suffi
     return { key: `${last - i}${digit ? "d" : ch}`, ch, digit, fromRight: last - i };
   });
 
-  const entering = reduce ? undefined : FadeInDown.duration(320).springify().damping(16).stiffness(220);
-  const exiting = reduce ? undefined : FadeOutUp.duration(200);
+  // Columns that have just gone stay for LEAVE_MS to slide out. They are
+  // always to the left of what remains (keys count from the right).
+  const now = new Set(cells.map((c) => c.key));
+  const prevCells = useRef(cells);
+  const gone = useRef({});
+  const mounted = useRef(false);
+  const [, purge] = useState(0);
+  const purgeTimer = useRef(null);
+  const at = Date.now();
+  for (const c of prevCells.current) if (!now.has(c.key) && !gone.current[c.key]) gone.current[c.key] = { cell: c, at };
+  for (const k of Object.keys(gone.current)) if (now.has(k) || reduce || at - gone.current[k].at > LEAVE_MS + 40) delete gone.current[k];
+  prevCells.current = cells;
+  const leaving = Object.values(gone.current)
+    .map((g) => g.cell)
+    .sort((a, b) => b.fromRight - a.fromRight);
+  useEffect(() => {
+    mounted.current = true;
+    if (!leaving.length) return undefined;
+    clearTimeout(purgeTimer.current);
+    purgeTimer.current = setTimeout(() => purge((t) => t + 1), LEAVE_MS + 60);
+    return () => clearTimeout(purgeTimer.current);
+  });
 
   return (
     <View style={[styles.row, style]} accessible accessibilityRole="text" accessibilityLabel={accessibilityLabel || `${prefix || ""}${text}${suffix || ""}`}>
       {prefix != null && prefix !== "" ? <Text style={[sideStyle, prefixStyle]}>{prefix}</Text> : null}
+      {leaving.map((c) => (
+        <Cell key={`gone${c.key}`} cell={c} leaving dir={dir} height={h} textStyle={textStyle} reduce={reduce} enter={false} />
+      ))}
       {cells.map((c) => (
-        <Animated.View key={c.key} entering={entering} exiting={exiting} style={{ height: h }}>
-          {c.digit ? (
-            <Wheel digit={Number(c.ch)} dir={dir} delay={c.fromRight * STAGGER} height={h} textStyle={textStyle} reduce={reduce} />
-          ) : (
-            <Text style={textStyle} accessible={false}>
-              {c.ch}
-            </Text>
-          )}
-        </Animated.View>
+        <Cell key={c.key} cell={c} dir={dir} height={h} textStyle={textStyle} reduce={reduce} enter={mounted.current || appear} />
       ))}
       {suffix != null && suffix !== "" ? <Text style={[sideStyle, suffixStyle]}>{suffix}</Text> : null}
     </View>
@@ -215,7 +267,8 @@ export function Lift({ children, onPress, to = 1.02, hold = 520, style }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "flex-end" },
+  // clipped, so a column sliding in from below or out above stays on its line
+  row: { flexDirection: "row", alignItems: "flex-end", overflow: "hidden" },
   wheelDigit: { position: "absolute", left: 0, right: 0, textAlign: "center" },
   mono: { fontVariant: ["tabular-nums"] },
   upper: { textTransform: "uppercase" },
