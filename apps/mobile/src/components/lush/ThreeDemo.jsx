@@ -1,11 +1,101 @@
-import React from "react";
-import { Text } from "react-native";
-import { C, F, Surface, S } from "@/components/ui";
+// The 3D section of the lush layer: the real globe (London to Tokyo, drag
+// to turn) and a plain card that says whether 3D is running and what a
+// frame costs on this device.
 
-export default function ThreeDemo() {
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { C, F, Kicker, R, S, Surface, useLayoutSize } from "@/components/ui";
+import { Globe3D, threeFailed, useFrameCost, useThreeReady, webglAvailable } from "@/components/three";
+
+const LONDON = { lat: 51.5072, lng: -0.1276, name: "London" };
+const TOKYO = { lat: 35.6762, lng: 139.6503, name: "Tokyo" };
+
+// What shows before three.js has loaded: the same lit disc RaceGlobe falls back to.
+function PlainGlobe({ size, box }) {
+  const r = size / 2;
   return (
-    <Surface padding={S.lg}>
-      <Text style={{ color: C.textDim, fontFamily: F.medium }}>Coming in this build.</Text>
-    </Surface>
+    <View style={{ width: box, height: box, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: size, height: size, borderRadius: r, overflow: "hidden", boxShadow: "0 0 60px rgba(61,139,255,0.35)" }}>
+        <LinearGradient colors={["#1d4a92", "#050d1f"]} start={{ x: 0.2, y: 0.1 }} end={{ x: 0.8, y: 1 }} style={StyleSheet.absoluteFill} />
+      </View>
+    </View>
   );
 }
+
+function Head({ kicker, title, body }) {
+  return (
+    <View style={styles.head}>
+      <Kicker>{kicker}</Kicker>
+      <Text style={styles.title}>{title}</Text>
+      {body ? <Text style={styles.body}>{body}</Text> : null}
+    </View>
+  );
+}
+
+const fmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n || 0)));
+
+export default function ThreeDemo() {
+  const three = useThreeReady();
+  const cost = useFrameCost();
+  const [box, onLayout] = useLayoutSize();
+  const width = box?.width || 350;
+  const globe = Math.min(300, width - 40);
+
+  let status;
+  if (three) status = "3D is running";
+  else if (threeFailed() || webglAvailable() === false) status = "3D is off";
+  else status = "3D is loading";
+  const scenes = Object.keys(cost);
+  const first = scenes.length ? cost[scenes[0]] : null;
+  const software = scenes.some((name) => cost[name].software);
+
+  return (
+    <View style={{ gap: S.lg }} onLayout={onLayout}>
+      <Surface padding={null} radius={R.lg} contentStyle={styles.card}>
+        <Head kicker="Real 3D" title="The race globe" body="London to Tokyo. Drag to turn it, it finds its own way back." />
+        <Globe3D size={globe} width={width} height={Math.round(globe * 1.2)} from={LONDON} to={TOKYO} intro={false} fallback={<PlainGlobe size={globe} box={width} />} />
+      </Surface>
+
+      <Surface padding={S.lg} radius={R.lg}>
+        <Kicker>Status</Kicker>
+        <Text style={styles.title}>{status}</Text>
+        <Text style={styles.body}>
+          {three
+            ? `Drawn with three.js through react-three/fiber on ${first && first.backend ? first.backend : "WebGL in the browser or expo-gl on the phone"}${first && first.renderer ? `, ${first.renderer}` : ""}.`
+            : status === "3D is off"
+              ? "This browser has no WebGL, so screens keep their Skia and image versions."
+              : "three.js loads the first time a screen asks for it. Screens that do not use 3D never load it."}
+        </Text>
+        {scenes.length ? <Text style={styles.costKick}>Frame cost on this device</Text> : null}
+        {scenes.map((name) => {
+          const c = cost[name];
+          return (
+            <View key={name} style={styles.costRow}>
+              <Text style={styles.costName}>{name === "globe" ? "Globe" : name}</Text>
+              <Text style={styles.costValue}>
+                {c.ms ? `${c.ms.toFixed(1)} ms a frame · ${Math.round(c.fps)} fps` : "measuring"}
+                {c.triangles != null ? ` · ${fmt(c.triangles)} triangles · ${c.calls} draws` : ""}
+              </Text>
+            </View>
+          );
+        })}
+        {software ? <Text style={styles.warn}>This machine has no GPU: it is drawing in software ({first.renderer}), so these figures are far below what a phone or a laptop with a GPU does.</Text> : null}
+        {three ? <Text style={styles.foot}>Pixel ratio {first && first.dpr ? first.dpr : "capped at 2"} on the web; expo-gl draws at the phone's own ratio. The loop stops when the screen is off, in the background or scrolled away.</Text> : null}
+      </Surface>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: { overflow: "hidden", alignItems: "center", paddingBottom: S.sm },
+  head: { alignSelf: "stretch", paddingHorizontal: S.lg, paddingTop: S.lg },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 18, marginTop: 4 },
+  body: { color: C.textDim, fontFamily: F.body, fontSize: 13.5, lineHeight: 19, marginTop: 4 },
+  costKick: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12, marginTop: S.lg, textTransform: "uppercase", letterSpacing: 1 },
+  costRow: { marginTop: S.sm },
+  costName: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 13 },
+  costValue: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginTop: 2 },
+  warn: { color: C.warn, fontFamily: F.bodyMedium, fontSize: 12.5, lineHeight: 17, marginTop: S.md },
+  foot: { color: C.textMute, fontFamily: F.body, fontSize: 12, lineHeight: 17, marginTop: S.md },
+});
