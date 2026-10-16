@@ -1,1 +1,7 @@
 name: outhere-logo
+main: Logo
+exclude:
+  - build.py
+  - README.md
+  - fonts/OFL.txt
+  - export
