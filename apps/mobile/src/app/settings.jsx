@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import Slider from "@react-native-community/slider";
-import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, Shield, Watch, Zap } from "lucide-react-native";
+import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, Shield, Sparkles, Watch, Zap } from "lucide-react-native";
 import { engine, isRemote, useAccount, useEngineMutation, useProfile, useSettings, useUpdateSettings } from "@/data/hooks";
 import { pingsOn } from "@/data/account";
 import { LinearGradient } from "expo-linear-gradient";
@@ -114,6 +114,7 @@ export default function SettingsScreen() {
           <Row icon={Bell} title="Notifications" onPress={() => router.push("/notifications")} />
           <Row icon={Footprints} title="Step source" value={SOURCE_NAMES[settings.stepSource] || "This phone"} onPress={() => router.push("/settings/health")} />
           <Row icon={Watch} title="Watch, widgets and lock screen" hint="Previews of what's coming to your watch and lock screen." onPress={() => router.push("/previews")} />
+          <Row icon={Sparkles} title="The lush layer" hint="Shaders, haptics, rolling numbers and 3D, on one page." onPress={() => router.push("/lush")} />
         </Group>
       </FadeIn>
 
