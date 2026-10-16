@@ -15,7 +15,12 @@ Everything goes through the `Versus` view model, so one file serves every battle
 | `youResult`, `themResult` | image | The shot each side swaps to when the result lands (see below) |
 | `youHasPack` | boolean | Hides the Add your Fighter Pack pill |
 | `ko` | boolean | Makes the next result a knockout (see below) |
-| `win`, `lose`, `replay` | trigger | Play a result, or slam in again; set the result shots first |
+| `intro` | enum `Intro` | Which intro opens the card: `strike` (the default), `tape`, `cinematic` or `letsRun` (see below) |
+| `youLine`, `themLine` | string | The line under each name in the cinematic, for example `PECKHAM · 11.4K STEPS A DAY` |
+| `tape1Label` … `tape5Label` | string | The tale of the tape's five row labels |
+| `tape1You`, `tape1Them` … `tape5Them` | string | Each row's two numbers as shown, for example `11.4k` and `9.8k` |
+| `tape1YouBar`, `tape1ThemBar` … `tape5ThemBar` | number | Each row's two bars, 0 to 1, as a share of the bigger number; the side at 1 leads |
+| `win`, `lose`, `replay` | trigger | Play a result, or play the intro again; set the result shots first |
 
 The file fires `addPack` when the pill is tapped, so the app can open the Fighter Pack flow.
 
@@ -29,11 +34,26 @@ For each runner, in this order:
 
 The file embeds the male shadow runners (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its box whatever its size. The boxes are big, so each runner fills most of their side: yours fades out towards the bottom and theirs towards the top, melting into the wash colour so ordinary photos have no hard edges. `PHOTO_BOX` and `PHOTO_FADE` in `build.py` set both. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
 
-## The intro
+## The intros
 
-The card opens with the strike (`Strike In`, about 1.7 seconds), and `replay` plays it again. Speed lines race along the seam, blue down your side and red up theirs, while the two halves scissor in along the seam from opposite ends. The seam ignites in a flare that throws sparks, the screen flashes and shakes, and VS slams with its ring. The names, top bar and stake tiles follow, and the Add your Fighter Pack pill waits until the card is up. Each side's wash runs `REACH` points past its outer edge so the scissor never opens a gap at the screen edges.
+The card has four intros, and the app picks one per battle with `intro`, so each tells you what kind of battle it is before the card lands. Set `intro` before the card first plays, or set it and fire `replay`.
 
-`Slam In`, the original slide-in, is still in the file but no state plays it.
+| `intro` | For | What plays |
+| --- | --- | --- |
+| `strike` | every everyday battle; the signature | `Strike In`, about 1.7 s |
+| `tape` | a rematch, a battle with a stake, or a rival | `Tape In`, then the `Tape` layer, about 3.2 s |
+| `cinematic` | the big ones: top of a leaderboard, a club derby, a grudge match | `Cinematic In`, about 3.9 s |
+| `letsRun` | event battles, like launch nights and weekly city events | `Lets Run In`, about 4.1 s |
+
+**Seam Strike.** Speed lines race along the seam, blue down your side and red up theirs, while the two halves scissor in along the seam from opposite ends. The seam ignites in a flare that throws sparks, the screen flashes and shakes, and VS slams with its ring. The names, top bar and stake tiles follow, and the Add your Fighter Pack pill waits until the card is up. Each side's wash runs `REACH` points past its outer edge so the scissor never opens a gap at the screen edges.
+
+**Tale of the Tape.** The card comes up from black and VS slams first. At 1.5 s the names give way to the tape, which rises under VS row by row with its bars growing outwards, and stays on screen with the stake tiles; a shade darkens the lower half so it reads over the photos. Each row shows a label and both numbers, and each bar is the app's share of the bigger number; the side whose bar is full leads, its number bright over a glow, the other at half strength. The tape runs on its own state machine layer, `Tape`, and a result blends it away and brings the names back.
+
+**Cinematic.** Film bars and a slow push in on each runner in turn, full screen on their photo, with their name, a coloured bar and `youLine` or `themLine`. At 2.8 s a white flash cuts to the card as the bars open and VS slams. Pack shots look best here.
+
+**Let's Run.** Giant outlined names and areas stream across the screen behind two letterbox panels of the runners that wipe open, then the battle's `rule` shows and LET'S RUN slams with a shake. At 3 s a flash cuts to the card as VS slams.
+
+The tape, cinematic and Let's Run land the card the same way (`land()` in `build.py`): the sides settle in from 80 points out while their seam edges hold still, so no gap opens along the seam, then the seam lights, VS slams with a shake and the names, top bar and tiles follow. `Slam In`, the original slide-in, is still in the file but no state plays it.
 
 ## The result
 
@@ -55,12 +75,15 @@ Under the flash each side swaps to its result shot. Before firing the trigger, s
 
 ## Cues for sound and haptics
 
-The file sends these events as a result plays. None of them changes the scene, so sounds and haptics can be added in the app later without touching the file.
+The file sends these events as an intro or a result plays. None of them changes the scene, so sounds and haptics can be added in the app later without touching the file.
 
 | Event | When it fires |
 | --- | --- |
-| `strike` | the seam ignites in the intro |
-| `slam` | VS slams in the intro |
+| `strike` | the seam ignites (Seam Strike) |
+| `cutIn` | each runner's cut-in starts (Cinematic, twice) |
+| `letsRun` | LET'S RUN slams (Let's Run) |
+| `slam` | VS slams, in every intro |
+| `tape` | the names hand over to the tape (Tale of the Tape) |
 | `impact` | VS bursts, on every result |
 | `knockout` | K. lands |
 | `shatter` | O. lands and the glass cracks |
@@ -77,13 +100,14 @@ The file sends these events as a result plays. None of them changes the scene, s
 
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
 - The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes.
-- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, YOU WIN!, YOU LOSE, WINNER, LOSER, K.O. and the prize (`VSWINERLOUTKY.!+0-9`). Add any new letter to the `pyftsubset --text` list before using it.
+- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`). The ExtraBold Italic draws names in the cinematic and Let's Run, so it is cut down to Latin rather than a few letters: `pyftsubset BarlowCondensed-ExtraBoldItalic.ttf --unicodes="U+0020-007E,U+00A0-017F,U+2010-2044,U+20AC,U+2122"`.
 
 ```bash
 python3 build.py
 rive . --verify && rive inspect . --summary
 rive . --once && cp build/outhere-versus.riv export/
 rive . --screenshot=frame.png --advance=90
+rive . --screenshot=tape.png --advance=200 --data=intro=tape        # another intro
 rive . --screenshot=win.png --advance=60 --data=win=true            # a result
 rive . --screenshot=ko.png --advance=40 --data=ko=true --data=lose=true  # a knockout
 ```
@@ -92,4 +116,6 @@ rive . --screenshot=ko.png --advance=40 --data=ko=true --data=lose=true  # a kno
 
 - A swapped image draws at its own pixel size unless it sits in a layout box, which is why each photo lives in a root-level `LayoutComponent` with `fit="cover"`. A layout box inside a node does not lay out, so the boxes are at the root and clipped by the same shapes as their sides.
 - The fade inside a photo box does not follow a box that is moved or scaled, so results leave the photos where they are and move the seam instead.
+- An image inside a layout box does scale when its own scale is keyed, which is how the cinematic and Let's Run push in on the photos.
+- Rive has no text case, so names show as the app sends them.
 - The web runtime ignores `fitFontSize`; the name boxes use `fit`.

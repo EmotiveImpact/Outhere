@@ -26,6 +26,16 @@ The app drives it through the `Versus` view model:
                                                       double the loser's steps): K.O.
                                                       lands first and shatters the
                                                       loser's side
+  intro                                               which intro opens the card: strike
+                                                      (the default), tape, cinematic or
+                                                      letsRun; set it before the card
+                                                      plays, or set it and fire replay
+  youLine, themLine                                   the line under each name in the
+                                                      cinematic cut-ins
+  tape1Label..tape5Label, tape1You..tape5Them         the tale of the tape's rows: labels
+                                                      and both numbers as text
+  tape1YouBar..tape5ThemBar                           each row's bars, 0 to 1, as a share
+                                                      of the bigger number (the leader's is 1)
   win, lose, replay                                   triggers; set the result shots first
 and listens for the `addPack` event (the pill was tapped).
 
@@ -34,11 +44,15 @@ loser. YOU WIN! slams in with a sunburst and confetti, or YOU LOSE drops in
 letter by letter. Then it clears, and WINNER, LOSER and the prize land on
 the two sides. A knockout puts K.O. and the broken glass first.
 
-The card opens with the strike: speed lines race along the seam while the two
-halves scissor in, the seam flares and throws sparks, then VS slams.
+The card opens with one of four intros, picked per battle. Seam Strike: speed
+lines race along the seam while the two halves scissor in, the seam flares and
+throws sparks, then VS slams. Tale of the Tape: VS slams, then the tape rises
+under it and stays. Cinematic: a cut-in on each runner under film bars, then a
+flash cuts to the card. Let's Run: names stream behind two runner panels, LET'S
+RUN slams, then a flash cuts to the card.
 
-Cue events for sounds and haptics, in the order they fire: strike and slam
-in the intro; then impact, knockout, shatter, youWin, confetti, youLose, thud
+Cue events for sounds and haptics, in the order they fire: strike, cutIn,
+letsRun, slam and tape in the intros; then impact, knockout, shatter, youWin, confetti, youLose, thud
 (each YOU LOSE letter landing), winner, loser, prize.
 
 Run `python3 build.py`, then `rive . --verify && rive inspect . --summary`.
@@ -157,9 +171,9 @@ props = {}
 instance_values = []
 
 
-def vm_prop(kind, name, value=None):
+def vm_prop(kind, name, value=None, attrs=""):
     pid = nid()
-    props[name] = (kind, pid)
+    props[name] = (kind, pid, attrs)
     if kind == "String":
         instance_values.append(f'<ViewModelInstanceString propertyValue="{value}" viewModelPropertyId="{pid}"/>')
     elif kind == "Boolean":
@@ -168,6 +182,10 @@ def vm_prop(kind, name, value=None):
         instance_values.append(f'<ViewModelInstanceAssetImage propertyValue="{value}" viewModelPropertyId="{pid}"/>')
     elif kind == "Trigger":
         instance_values.append(f'<ViewModelInstanceTrigger viewModelPropertyId="{pid}"/>')
+    elif kind == "Number":
+        instance_values.append(f'<ViewModelInstanceNumber propertyValue="{value}" viewModelPropertyId="{pid}"/>')
+    elif kind == "EnumCustom":
+        instance_values.append(f'<ViewModelInstanceEnum propertyValue="{value}" viewModelPropertyId="{pid}"/>')
     return pid
 
 
@@ -187,6 +205,30 @@ vm_prop("Boolean", "ko", "false")
 for t in ("win", "lose", "replay"):
     vm_prop("Trigger", t)
 
+# Which intro opens the card; the app picks it per battle (see the README).
+INTRO_ENUM = nid()
+INTROS = {key: nid() for key in ("strike", "tape", "cinematic", "letsRun")}
+INTRO_NAMES = {"strike": "Seam Strike", "tape": "Tale of the Tape", "cinematic": "Cinematic", "letsRun": "Let's Run"}
+vm_prop("EnumCustom", "intro", INTROS["strike"], f'enumId="{INTRO_ENUM}" ')
+intro_enum_xml = (f'<DataEnumCustom name="Intro" id="{INTRO_ENUM}">'
+                  + "".join(f'<DataEnumValue key="{k}" value="{INTRO_NAMES[k]}" id="{v}"/>' for k, v in INTROS.items())
+                  + "</DataEnumCustom>")
+
+# The line under each runner's name in the cinematic cut-ins.
+vm_prop("String", "youLine", "PECKHAM · 11.4K STEPS A DAY")
+vm_prop("String", "themLine", "BRIXTON · 9.8K STEPS A DAY")
+
+# The tale of the tape: five rows, each a label, the two numbers as text and
+# each side's bar as a fraction of the larger number (the leader's bar is 1).
+TAPE_ROWS = [("STEPS A DAY", "11.4k", "9.8k", 1, 0.86), ("BEST DAY", "21.2k", "24.6k", 0.862, 1),
+             ("WIN STREAK", "6", "9", 0.667, 1), ("1V1 RECORD", "14-5", "11-7", 1, 0.786), ("K.O.s", "3", "5", 0.6, 1)]
+for n, (label, a, b, bar_a, bar_b) in enumerate(TAPE_ROWS, 1):
+    vm_prop("String", f"tape{n}Label", label)
+    vm_prop("String", f"tape{n}You", a)
+    vm_prop("String", f"tape{n}Them", b)
+    vm_prop("Number", f"tape{n}YouBar", bar_a)
+    vm_prop("Number", f"tape{n}ThemBar", bar_b)
+
 
 def path(name):
     return f"{VM}-{props[name][1]}"
@@ -196,15 +238,30 @@ def bind_text(name):
     return f'<DataBindContext sourcePathIds="{path(name)}" propertyKey="268"/>'
 
 
+def bind_num(name, key, converter=None):
+    """Binds a number property to an object's own property, through a converter if given."""
+    conv = f' converterId="{converter}"' if converter else ""
+    return f'<DataBindContext sourcePathIds="{path(name)}" propertyKey="{key}"{conv}/>'
+
+
+# A side leads a tape row when its bar is full: its number shows at full
+# strength over a glow, the other side's at half.
+LEAD_TEXT, LEAD_GLOW = nid(), nid()
+converters_xml = f'''
+    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0.5" maxOutput="1" clampLower="true" clampUpper="true" name="Lead Text" id="{LEAD_TEXT}"/>
+    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0" maxOutput="1" clampLower="true" clampUpper="true" name="Lead Glow" id="{LEAD_GLOW}"/>'''
+
+
 # ---------------------------------------------------------------- events
 # Cues for the app's sounds and haptics; none of them changes the scene.
 
-EVENTS = {name: nid() for name in ("addPack", "strike", "slam", "impact", "knockout", "shatter", "youWin", "confetti",
-                                   "youLose", "thud", "winner", "loser", "prize")}
+EVENTS = {name: nid() for name in ("addPack", "strike", "cutIn", "letsRun", "slam", "tape", "impact", "knockout", "shatter",
+                                   "youWin", "confetti", "youLose", "thud", "winner", "loser", "prize")}
 
 # ---------------------------------------------------------------- drawing helpers
 
-def text(x, y, size, font, colour, value, bind=None, origin=(0, 0), spacing=0, oid=None, opacity=1, name="Text", fit=None):
+def text(x, y, size, font, colour, value, bind=None, origin=(0, 0), spacing=0, oid=None, opacity=1, name="Text", fit=None,
+         extra=""):
     sid = nid()
     oid = oid or nid()
     b = bind_text(bind) if bind else ""
@@ -221,7 +278,7 @@ def text(x, y, size, font, colour, value, bind=None, origin=(0, 0), spacing=0, o
             f'<TextStylePaint fontSize="{size}" fontAssetId="{font}" familyName="{family}" styleName="{style}" '
             f'letterSpacing="{spacing}" name="Style" id="{sid}">'
             f'<Fill name="Fill"><SolidColor colorValue="{colour}" name="C"/></Fill></TextStylePaint>'
-            f'<TextValueRun styleId="{sid}" text="{value}" name="Run">{b}</TextValueRun></Text>')
+            f'<TextValueRun styleId="{sid}" text="{value}" name="Run">{b}</TextValueRun>{extra}</Text>')
 
 
 def poly(points, oid, ids=None):
@@ -1056,14 +1113,19 @@ def confetti():
 confetti_front_xml, confetti_back_xml = confetti()
 
 YOU_NAME, THEM_NAME = nid(), nid()
+YOU_NAME_HOLD, THEM_NAME_HOLD = nid(), nid()   # the tape hands over from the names through these
 names_xml = f'''
+        <Node name="You Name Holder" id="{YOU_NAME_HOLD}">
         <Node x="18" y="300" name="You Name" id="{YOU_NAME}">
             {text(0, 0, 34, FONT_BOLD, WHITE, "Alex", bind="youName", name="Name", fit=(170, 38))}
             {text(1, 38, 12, FONT_MED, "B3FFFFFF", "Peckham", bind="youCity", spacing=0.3, name="City")}
         </Node>
+        </Node>
+        <Node name="Them Name Holder" id="{THEM_NAME_HOLD}">
         <Node x="{W - 18}" y="556" name="Them Name" id="{THEM_NAME}">
             {text(0, 0, 34, FONT_BOLD, WHITE, "Kemi", bind="themName", origin=(1, 0), name="Name", fit=(170, 38))}
             {text(-1, 38, 12, FONT_MED, "B3FFFFFF", "Brixton", bind="themCity", origin=(1, 0), spacing=0.3, name="City")}
+        </Node>
         </Node>'''
 
 TOPBAR = nid()
@@ -1106,6 +1168,287 @@ pill_xml = f'''
         </Node>
         </Node>'''
 
+# ---------------------------------------------------------------- the tale of the tape
+# For a rematch, a stake or a rival. The card slams in, then the names hand
+# over to the tape, which rises under VS and stays with the stake tiles: each
+# row has the two numbers either side of its label and bars growing outwards.
+# A shade darkens the lower half so the tape reads over the photos.
+
+TAPE = dict(hold=nid(), shade=nid(), head=nid(), rows=[], bars=[])
+TAPE_BAR = 77                                   # a bar's full width
+TAPE_ROW_Y = [58 + 40 * r for r in range(5)]    # row centres, down from the tape's top
+
+
+def tape_bar(oid, n, you):
+    """One side's bar: its width set by the app, its growth animated inside."""
+    rgb = ("82B4FF", "2A6AF0", "4F9BFF") if you else ("FF8A92", "D7263A", "FF5060")
+    end = -TAPE_BAR if you else TAPE_BAR
+    o = 1 if you else 0
+    return f'''
+                <Node x="{131 if you else 223}" name="{"You" if you else "Them"} Bar">
+                    {bind_num(f"tape{n}{'You' if you else 'Them'}Bar", SX)}
+                    <Node scaleX="0" name="Grow" id="{oid}">
+                        <Shape name="Bar">
+                            <Rectangle width="{TAPE_BAR}" height="12" originX="{o}" originY="0.5" cornerRadiusTL="3" name="Path"/>
+                            <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="{end}" endY="0" name="G">
+                                <GradientStop colorValue="FF{rgb[0]}" position="0"/><GradientStop colorValue="FF{rgb[1]}" position="0.45"/>
+                                <GradientStop colorValue="40{rgb[1]}" position="1"/></LinearGradient></Fill>
+                        </Shape>
+                        <Shape name="Halo">
+                            <Rectangle width="{TAPE_BAR}" height="30" originX="{o}" originY="0.5" name="Path"/>
+                            <Fill name="Fill"><LinearGradient startX="0" startY="-15" endX="0" endY="15" name="G">
+                                <GradientStop colorValue="00{rgb[2]}" position="0"/><GradientStop colorValue="3D{rgb[2]}" position="0.5"/>
+                                <GradientStop colorValue="00{rgb[2]}" position="1"/></LinearGradient></Fill>
+                        </Shape>
+                    </Node>
+                </Node>'''
+
+
+def tape_parts():
+    rows = ""
+    for r, y in enumerate(TAPE_ROW_Y):
+        n, row, left, right = r + 1, nid(), nid(), nid()
+        TAPE["rows"].append(row)
+        TAPE["bars"] += [left, right]
+        label, a, b, _, _ = TAPE_ROWS[r]
+        lead = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, LEAD_TEXT)
+        rows += f'''
+            <Node y="{y + 10}" opacity="0" name="Row {n}" id="{row}">
+                {text(0, 0, 20, FONT_BOLD, WHITE, a, bind=f"tape{n}You", origin=(0, 0.5), name="You Value", extra=lead("You"))}
+                {text(354, 0, 20, FONT_BOLD, WHITE, b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Value", extra=lead("Them"))}
+                {text(177, 0.5, 10.5, FONT_MED, "9EFFFFFF", label, bind=f"tape{n}Label", origin=(0.5, 0.5), spacing=1.4, name="Label")}
+                <Node x="20" name="You Lead">{bind_num(f"tape{n}YouBar", OPACITY, LEAD_GLOW)}{glow(nid(), 72, "4F9BFF", a0="73", a1="26", opacity=1, scale_y=0.6)}
+                </Node>
+                <Node x="334" name="Them Lead">{bind_num(f"tape{n}ThemBar", OPACITY, LEAD_GLOW)}{glow(nid(), 72, "FF5060", a0="73", a1="26", opacity=1, scale_y=0.6)}
+                </Node>{tape_bar(left, n, True)}{tape_bar(right, n, False)}
+            </Node>'''
+    head = f'''
+            <Node y="10" opacity="0" name="Header" id="{TAPE["head"]}">
+                {text(0, -12, 20, FONT_BOLD, "FF82B4FF", "Alex", bind="youName", name="You", fit=(104, 24))}
+                {text(177, 0.5, 10.5, FONT_MED, "99FFFFFF", "TALE OF THE TAPE", origin=(0.5, 0.5), spacing=2.6, name="Title")}
+                {text(354, -12, 20, FONT_BOLD, "FFFF8A92", "Kemi", bind="themName", origin=(1, 0), name="Them", fit=(104, 24))}
+            </Node>'''
+    tape = f'''
+        <Node x="18" y="472" opacity="0" name="Tape" id="{TAPE["hold"]}">{head}{rows}
+        </Node>'''
+    shade = f'''
+        <Shape opacity="0" name="Tape Shade" id="{TAPE["shade"]}">
+            <Rectangle x="-30" y="-30" width="{W + 60}" height="{H + 60}" originX="0" originY="0" name="Path"/>
+            <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="{H}" name="G">
+                <GradientStop colorValue="00030409" position="0"/><GradientStop colorValue="00030409" position="{400 / H:.4f}"/>
+                <GradientStop colorValue="E0030409" position="{520 / H:.4f}"/><GradientStop colorValue="F0030409" position="1"/>
+            </LinearGradient></Fill>
+        </Shape>'''
+    return tape, shade
+
+
+tape_xml, shade_xml = tape_parts()
+
+
+# ---------------------------------------------------------------- the cuts
+# Full-screen black (the cinematic and Let's Run open from it) and the white
+# flash that cuts from either to the card. Both sit over everything.
+
+BLACK, CUT_FLASH = nid(), nid()
+
+
+def screen_rect(oid, colour, name):
+    return f'''
+        <Shape opacity="0" name="{name}" id="{oid}">
+            <Rectangle x="-30" y="-30" width="{W + 60}" height="{H + 60}" originX="0" originY="0" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="{colour}" name="C"/></Fill>
+        </Shape>'''
+
+
+cuts_xml = screen_rect(CUT_FLASH, "E6FFFFFF", "Cut Flash") + screen_rect(BLACK, "FF000000", "Black")
+
+
+# ---------------------------------------------------------------- the cinematic
+# For the big battles. Film bars and a slow push in on each runner in turn,
+# full screen, with a name strip under them; then a white flash cuts to the
+# card as the bars open and VS slams. The shots are layout boxes at the root,
+# so any photo covers the screen.
+
+CINE = dict(front=nid(), lb=(nid(), nid()), shots={}, strips={})
+LETTERBOX = 92
+CINE_LINE_Y = 104   # the line under each name, down from the strip
+
+
+def cine_parts():
+    front = ""
+    for who in ("you", "them"):
+        you = who == "you"
+        bar, name, sub = nid(), nid(), nid()
+        CINE["strips"][who] = dict(bar=bar, name=name, sub=sub)
+        x, o = (26, 0) if you else (W - 26, 1)
+        ink, hi, glow_rgb = ("FF1F62FF", "FF82B4FF", "4F9BFF") if you else ("FFD7263A", "FFFF6670", "FF5060")
+        a, b = (ink, hi) if you else (hi, ink)
+        bar_x = 0 if you else -220
+        front += f'''
+            <Node x="{x}" y="610" name="{"You" if you else "Them"} Strip">
+                <Node y="3" scaleX="0" name="Bar" id="{bar}">
+                    <Shape name="Line">
+                        <Rectangle width="220" height="6" originX="{o}" originY="0.5" cornerRadiusTL="3" name="Path"/>
+                        <Fill name="Fill"><LinearGradient startX="{bar_x}" startY="0" endX="{bar_x + 220}" endY="0" name="G">
+                            <GradientStop colorValue="{a}" position="0"/><GradientStop colorValue="{b}" position="1"/></LinearGradient></Fill>
+                    </Shape>
+                    <Shape name="Halo">
+                        <Rectangle width="236" height="30" originX="{o}" originY="0.5" name="Path"/>
+                        <Fill name="Fill"><LinearGradient startX="0" startY="-15" endX="0" endY="15" name="G">
+                            <GradientStop colorValue="00{glow_rgb}" position="0"/><GradientStop colorValue="66{glow_rgb}" position="0.5"/>
+                            <GradientStop colorValue="00{glow_rgb}" position="1"/></LinearGradient></Fill>
+                    </Shape>
+                </Node>
+                <Node opacity="0" name="Name" id="{name}">
+                    {text(0, 6, 84, FONT_VS, WHITE, "Alex" if you else "Kemi", bind=who + "Name", origin=(o, 0), spacing=-1, name="Face", fit=(338, 104))}
+                    {text(0, 12, 84, FONT_VS, ink, "Alex" if you else "Kemi", bind=who + "Name", origin=(o, 0), spacing=-1, name="Shadow", fit=(338, 104))}
+                </Node>
+                <Node y="{CINE_LINE_Y}" opacity="0" name="Line" id="{sub}">
+                    {text(0, 0, 13, FONT_MED, "D1FFFFFF", "PECKHAM · 11.4K STEPS A DAY" if you else "BRIXTON · 9.8K STEPS A DAY",
+                          bind=who + "Line", origin=(o, 0), spacing=1.6, name="Line")}
+                </Node>
+            </Node>'''
+    lb = "".join(f'''
+            <Shape y="{0 if top else H}" scaleY="0" name="Film Bar {"Top" if top else "Bottom"}" id="{oid}">
+                <Rectangle x="-30" width="{W + 60}" height="{LETTERBOX}" originX="0" originY="{0 if top else 1}" name="Path"/>
+                <Fill name="Fill"><SolidColor colorValue="FF000000" name="C"/></Fill>
+            </Shape>''' for oid, top in zip(CINE["lb"], (True, False)))
+    front_xml = f'''
+        <Node opacity="0" name="Cinematic" id="{CINE["front"]}">{lb}{front}
+        </Node>'''
+
+    shots = ""
+    for who in ("you", "them"):
+        you = who == "you"
+        box, sid, img = nid(), nid(), nid()
+        CINE["shots"][who] = dict(box=box, img=img)
+        # the wash runs at 170 degrees for you and 350 for them, as a CSS gradient over the screen
+        (sx, sy), (ex, ey) = ((117, -21), (273, 865)) if you else ((273, 865), (117, -21))
+        c0, c1 = ("FF123C8F", "FF050A16") if you else ("FF7A1822", "FF12060A")
+        shots += f'''
+        <LayoutComponent width="{W}" height="{H}" clip="true" opacity="0" styleId="{sid}" name="{"You" if you else "Them"} Shot" id="{box}">
+            <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" positionTypeValue="absolute"
+                positionLeft="0" positionLeftUnitsValue="points" positionTop="0" positionTopUnitsValue="points" name="Box" id="{sid}"/>
+            <Shape name="Low Shade">
+                <Rectangle width="{W}" height="{H}" originX="0" originY="0" name="Path"/>
+                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="{H}" name="G">
+                    <GradientStop colorValue="00000000" position="0.5"/><GradientStop colorValue="BF000000" position="0.82"/>
+                    <GradientStop colorValue="BF000000" position="1"/></LinearGradient></Fill>
+            </Shape>
+            <Image assetId="{SIL_YOU if you else SIL_THEM}" fit="cover" alignmentX="0" alignmentY="-0.56" blendModeValue="lighten" name="Photo" id="{img}">
+                <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>
+                <DataBindContext sourcePathIds="{path(who + "Photo")}" propertyKey="206"/>
+            </Image>
+            <Shape name="Wash">
+                <Rectangle width="{W}" height="{H}" originX="0" originY="0" name="Path"/>
+                <Fill name="Fill"><LinearGradient startX="{sx}" startY="{sy}" endX="{ex}" endY="{ey}" name="G">
+                    <GradientStop colorValue="{c0}" position="0"/><GradientStop colorValue="{c1}" position="0.75"/></LinearGradient></Fill>
+            </Shape>
+        </LayoutComponent>'''
+    return front_xml, shots
+
+
+cine_front_xml, cine_shots_xml = cine_parts()
+
+
+# ---------------------------------------------------------------- Let's Run
+# For event battles. Giant outlined names and towns stream across the screen
+# behind two letterbox panels of the runners that wipe open, then the battle's
+# rule and LET'S RUN slams. A flash cuts to the card as VS slams.
+
+LR = dict(back=nid(), front=nid(), rows=[], panels={}, tg1=nid(), tg2=nid())
+LR_WORDS = [("youName", "Alex", "you"), ("themName", "Kemi", "them"), ("youCity", "Peckham", "you"), ("themCity", "Brixton", "them")]
+LR_ROW_H = H / 9
+LR_DRIFT = 270          # how far a row streams while the intro plays
+LR_START = {"you": 0, "them": -700}
+LR_NUDGE = {1: 12}      # the second row sits a little lower, wholly behind the first panel
+
+
+def lr_parts():
+    rows = ""
+    for i in range(9):
+        bind, word, who = LR_WORDS[i % 4]
+        outer, inner, sid = nid(), nid(), nid()
+        LR["rows"].append((outer, inner, -1 if i % 2 == 0 else 1, who))
+        rgb = "4F9BFF" if who == "you" else "FF5A68"
+        runs = "".join(f'<TextValueRun styleId="{sid}" text="{word}" name="Word">{bind_text(bind)}</TextValueRun>'
+                       f'<TextValueRun styleId="{sid}" text=" " name="Gap"/>' for _ in range(14))
+        rows += f'''
+            <Node y="{i * LR_ROW_H + 4 + LR_NUDGE.get(i, 0):.1f}" opacity="0" name="Row {i + 1}" id="{outer}">
+                <Text x="{LR_START[who]}" originX="0" originY="0" sizingValue="autoWidth" wrapValue="noWrap" name="Words" id="{inner}">
+                    <TextStylePaint fontSize="78" fontAssetId="{FONT_VS}" familyName="Barlow Condensed" styleName="ExtraBold Italic" letterSpacing="1" name="Style" id="{sid}">
+                        <Stroke thickness="1.5" name="Outline"><SolidColor colorValue="99{rgb}" name="C"/></Stroke>
+                    </TextStylePaint>{runs}
+                </Text>
+            </Node>'''
+
+    def soft(x, y, rx, ry, argb):
+        return f'''
+            <Shape x="{x}" y="{y}" scaleY="{ry / rx:.3f}" name="Glow">
+                <Ellipse width="{2 * rx}" height="{2 * rx}" originX="0.5" originY="0.5" name="Path"/>
+                <Fill name="Fill"><RadialGradient startX="0" startY="0" endX="{rx}" endY="0" name="G">
+                    <GradientStop colorValue="{argb}" position="0"/><GradientStop colorValue="00{argb[2:]}" position="1"/></RadialGradient></Fill>
+            </Shape>'''
+
+    clips, edges, boxes = "", "", ""
+    for key, who, top in (("a", "you", 132), ("b", "them", 460)):
+        clip, edge, box, sid, img = nid(), nid(), nid(), nid(), nid()
+        LR["panels"][key] = dict(clip=clip, edge=edge, box=box, img=img)
+        left = key == "a"           # A wipes open from the left, B from the right
+        x, o = (0, 0) if left else (W, 1)
+        clips += f'''
+            <Shape x="{x}" y="{top}" scaleX="0.001" name="Panel {key.upper()} Wipe" id="{clip}">
+                <Rectangle width="{W}" height="252" originX="{o}" originY="0" name="Path"/>
+            </Shape>'''
+        edges += f'''
+            <Node x="{x}" y="{top}" scaleX="0.001" name="Panel {key.upper()} Edges" id="{edge}">
+                <Shape name="Top"><Rectangle width="{W}" height="2" originX="{o}" originY="0" name="Path"/>
+                    <Fill name="Fill"><SolidColor colorValue="{WHITE}" name="C"/></Fill></Shape>
+                <Shape y="250" name="Bottom"><Rectangle width="{W}" height="2" originX="{o}" originY="0" name="Path"/>
+                    <Fill name="Fill"><SolidColor colorValue="{WHITE}" name="C"/></Fill></Shape>
+            </Node>'''
+        boxes += f'''
+        <LayoutComponent width="{W}" height="554" clip="true" opacity="0" styleId="{sid}" name="Panel {key.upper()}" id="{box}">
+            <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" positionTypeValue="absolute"
+                positionLeft="0" positionLeftUnitsValue="points" positionTop="{top - 151}" positionTopUnitsValue="points" name="Box" id="{sid}"/>
+            <ClippingShape sourceId="{clip}" name="Clip"/>
+            <Image assetId="{SIL_YOU if who == "you" else SIL_THEM}" fit="cover" alignmentX="0" alignmentY="{-0.6 if who == "you" else -0.7}" name="Photo" id="{img}">
+                <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>
+                <DataBindContext sourcePathIds="{path(who + "Photo")}" propertyKey="206"/>
+            </Image>
+            <Shape name="Ground">
+                <Rectangle width="{W}" height="554" originX="0" originY="0" name="Path"/>
+                <Fill name="Fill"><SolidColor colorValue="FF030409" name="C"/></Fill>
+            </Shape>
+        </LayoutComponent>'''
+
+    back = f'''
+        <Node opacity="0" name="Lets Run Back" id="{LR["back"]}">{clips}{rows}
+            {soft(70, 203, 191, 248, "4D1F62FF")}
+            {soft(320, 641, 191, 248, "47D7263A")}
+            <Shape name="Ground">
+                <Rectangle x="-30" y="-30" width="{W + 60}" height="{H + 60}" originX="0" originY="0" name="Path"/>
+                <Fill name="Fill"><SolidColor colorValue="FF030409" name="C"/></Fill>
+            </Shape>
+        </Node>'''
+    front = f'''
+        <Node opacity="0" name="Lets Run Front" id="{LR["front"]}">
+            <Node x="{W / 2}" y="70" opacity="0" name="Rule" id="{LR["tg1"]}">
+                {text(0, 0, 32, FONT_VS, WHITE, "24 hours · most steps", bind="rule", origin=(0.5, 0.5), spacing=0.5, name="Face")}
+                {text(0, 3, 32, FONT_VS, "FF1F62FF", "24 hours · most steps", bind="rule", origin=(0.5, 0.5), spacing=0.5, name="Shadow")}
+            </Node>
+            <Node x="{W / 2}" y="770" opacity="0" name="Lets Run" id="{LR["tg2"]}">
+                {text(0, 0, 68, FONT_VS, WHITE, "LET'S RUN", origin=(0.5, 0.5), name="Face")}
+                {text(0, 5, 68, FONT_VS, "FFD7263A", "LET'S RUN", origin=(0.5, 0.5), name="Shadow")}
+                {glow(nid(), 380, "FF3B4A", a0="80", a1="2E", opacity=1, scale_y=0.32)}
+            </Node>{edges}
+        </Node>'''
+    return front, boxes, back
+
+
+lr_front_xml, lr_panels_xml, lr_back_xml = lr_parts()
+
+
 # ---------------------------------------------------------------- what a result moves, at rest
 
 SHAKE_FRONT, SHAKE_BACK = nid(), nid()
@@ -1134,12 +1477,96 @@ def rests():
     out += [(oid, OPACITY, 0) for oid in (*HW["rings"], *HW["sparks"], *HW["rays"])]
     out += [(tw, k, 0) for tw in HW["twinkles"] for k in (SX, SY)]
     out += [(lid, OPACITY, 0) for lid in HL["letters"]] + [(HL["gloom"], OPACITY, 0)]
+    # the intros' own parts, hidden, so a replay part way through one never leaves them up
+    out += [(s["group"], k, 0) for s in (YOU, THEM) for k in (X, Y)] + [(SEAM_GLOW, SX, 1)]
+    out += [(oid, OPACITY, 0) for oid in (SCREEN_FLASH, STRIKE["flare"], STRIKE["a"], STRIKE["b"])]
+    out += [(line[0], OPACITY, 0) for line in STRIKE["lines"] + STRIKE["sparks"]]
+    out += [(oid, OPACITY, 0) for oid in (BLACK, CUT_FLASH, CINE["front"], CINE["shots"]["you"]["box"], CINE["shots"]["them"]["box"],
+                                         LR["back"], LR["front"], LR["panels"]["a"]["box"], LR["panels"]["b"]["box"])]
     return out
 
 
 RESTS.extend(rests())
 
 # ---------------------------------------------------------------- animations
+
+def ease_y(e, u):
+    """How far a cubic-bezier ease has got at time u, both 0 to 1."""
+    if u <= 0 or u >= 1:
+        return min(1.0, max(0.0, u))
+    x1, y1, x2, y2 = e
+    lo, hi = 0.0, 1.0
+    for _ in range(48):
+        k = (lo + hi) / 2
+        if 3 * (1 - k) ** 2 * k * x1 + 3 * (1 - k) * k ** 2 * x2 + k ** 3 < u:
+            lo = k
+        else:
+            hi = k
+    k = (lo + hi) / 2
+    return 3 * (1 - k) ** 2 * k * y1 + 3 * (1 - k) * k ** 2 * y2 + k ** 3
+
+
+def vs_slam(t, v):
+    """VS slams at frame v under its flash and shock ring, and its glow comes up."""
+    t.fire(EVENTS["slam"], v)
+    t.path(FLASH, OPACITY, [(0, 0, None), (v, 1, OUT_EASE), (v + 42, 0, None)])
+    t.tween(FLASH, SX, 0.2, 1.4, v, v + 42, OUT_EASE)
+    t.tween(FLASH, SY, 0.2, 1.4, v, v + 42, OUT_EASE)
+    t.path(RING, OPACITY, [(0, 0, None), (v, 1, OUT_EASE), (v + 54, 0, None)])
+    t.tween(RING, SX, 0.3, 2.6, v, v + 54, SHOCK)
+    t.tween(RING, SY, 0.3, 2.6, v, v + 54, SHOCK)
+    t.tween(VSTEXT, SX, 2.4, 1, v, v + 48, SLAM)
+    t.tween(VSTEXT, SY, 2.4, 1, v, v + 48, SLAM)
+    t.tween(VSTEXT, OPACITY, 0, 1, v, v + 17, OUT_EASE)
+    t.tween(VSGLOW, OPACITY, 0, 0.8, v + 8, v + 50, OUT_EASE)
+
+
+def card_in(t, f):
+    """From frame f the names slide in, the top bar fades up and the stake tiles rise."""
+    t.tween(YOU_NAME, X, -22, 18, f, f + 36, EASE_SIDE)
+    t.tween(YOU_NAME, OPACITY, 0, 1, f, f + 36, OUT_EASE)
+    t.tween(THEM_NAME, X, W + 22, W - 18, f + 9, f + 45, EASE_SIDE)
+    t.tween(THEM_NAME, OPACITY, 0, 1, f + 9, f + 45, OUT_EASE)
+    t.tween(TOPBAR, OPACITY, 0, 1, f + 2, f + 32, OUT_EASE)
+    for i in range(3):
+        t.tween(TILES[i], Y, TILE_Y + 52, TILE_Y + 32, f + 4 + 4 * i, f + 34 + 4 * i, EASE_SIDE)
+        t.tween(TILES[i], OPACITY, 0, 1, f + 4 + 4 * i, f + 34 + 4 * i, OUT_EASE)
+
+
+def pill_hold(t, f):
+    """The pack pill waits for the card."""
+    t.path(PILL_HOLD, OPACITY, [(0, 0, None), (f, 0, OUT_EASE), (f + 16, 1, None)])
+
+
+def slide_shake(x0, f0, n, hits):
+    """A photo box's x: it slides home from x0 over n frames from f0 and shakes with
+    its side, sampled every 2 frames (a box moves by itself, outside the shake nodes)."""
+    end = max(f0 + n, max(f for f, _, _ in hits) + 3 * (len(SHAKE) - 1))
+    pts = [(f, x0 * (1 - ease_y(EASE_SIDE, (f - f0) / n)) + shake_value(hits, 0, f), "linear")
+           for f in range(f0, end + 1, 2)]
+    return pts + [(pts[-1][0] + 2, 0, None)]
+
+
+def land(t, f0, shake_at):
+    """The card arriving under a cut: the sides settle in from 80 out, the seam lights,
+    VS slams and the screen shakes, then the names, the top bar and the tiles."""
+    hits = [(shake_at, 0.8, 0.8)]
+    for side_, sign in ((YOU, -1), (THEM, 1)):
+        t.tween(side_["group"], X, sign * 80, 0, f0, f0 + 20, EASE_SIDE)
+        # the seam edge holds still while the side slides in, so no gap opens along it
+        t.tween(side_["v"][0], VX, TOP - sign * 80, TOP, f0, f0 + 20, EASE_SIDE)
+        t.tween(side_["v"][1], VX, BOT - sign * 80, BOT, f0, f0 + 20, EASE_SIDE)
+        t.path(side_["photo"], X, slide_shake(sign * 80, f0, 20, hits))
+        t.path(side_["photo"], Y, shake_points(hits, 1))
+    for oid in (SHAKE_FRONT, SHAKE_BACK):
+        t.path(oid, X, shake_points(hits, 0))
+        t.path(oid, Y, shake_points(hits, 1))
+    t.path(SEAM, OPACITY, [(0, 0, None), (f0 + 4, 0, OUT_EASE), (f0 + 14, 0.85, None)])
+    t.path(SEAM, SY, [(0, 0.15, None), (f0 + 4, 0.15, OUT_EASE), (f0 + 14, 1, None)])
+    vs_slam(t, f0 + 10)
+    card_in(t, f0 + 19)
+    pill_hold(t, f0 + 40)
+
 
 def slam_in():
     t = Timeline("Slam In", 84)
@@ -1204,27 +1631,8 @@ def strike_in():
         t.path(oid, OPACITY, [(0, 0, None), (f0, 1, "linear"), (f0 + n, 0, None)])
     t.fire(EVENTS["strike"], 28)
     t.path(PILL_HOLD, OPACITY, [(0, 0, None), (84, 0, OUT_EASE), (100, 1, None)])   # the pack pill waits for the card
-    # VS slams as in the classic intro, a beat after the strike
-    v = 36
-    t.fire(EVENTS["slam"], v)
-    t.path(FLASH, OPACITY, [(0, 0, None), (v, 1, OUT_EASE), (v + 42, 0, None)])
-    t.tween(FLASH, SX, 0.2, 1.4, v, v + 42, OUT_EASE)
-    t.tween(FLASH, SY, 0.2, 1.4, v, v + 42, OUT_EASE)
-    t.path(RING, OPACITY, [(0, 0, None), (v, 1, OUT_EASE), (v + 54, 0, None)])
-    t.tween(RING, SX, 0.3, 2.6, v, v + 54, SHOCK)
-    t.tween(RING, SY, 0.3, 2.6, v, v + 54, SHOCK)
-    t.tween(VSTEXT, SX, 2.4, 1, v, v + 48, SLAM)
-    t.tween(VSTEXT, SY, 2.4, 1, v, v + 48, SLAM)
-    t.tween(VSTEXT, OPACITY, 0, 1, v, v + 17, OUT_EASE)
-    t.tween(VSGLOW, OPACITY, 0, 0.8, v + 8, v + 50, OUT_EASE)
-    t.tween(YOU_NAME, X, -22, 18, 46, 82, EASE_SIDE)
-    t.tween(YOU_NAME, OPACITY, 0, 1, 46, 82, OUT_EASE)
-    t.tween(THEM_NAME, X, W + 22, W - 18, 55, 91, EASE_SIDE)
-    t.tween(THEM_NAME, OPACITY, 0, 1, 55, 91, OUT_EASE)
-    t.tween(TOPBAR, OPACITY, 0, 1, 48, 78, OUT_EASE)
-    for i in range(3):
-        t.tween(TILES[i], Y, TILE_Y + 52, TILE_Y + 32, 50 + 4 * i, 80 + 4 * i, EASE_SIDE)
-        t.tween(TILES[i], OPACITY, 0, 1, 50 + 4 * i, 80 + 4 * i, OUT_EASE)
+    vs_slam(t, 36)   # VS slams as in the classic intro, a beat after the strike
+    card_in(t, 46)
     t.rest()
     return t.xml()
 
@@ -1239,6 +1647,113 @@ def idle():
     return t.xml()
 
 
+def tape_in():
+    """Tale of the Tape on the Main layer: the card slams in from black. The Tape
+    layer then hands the names over to the tape (tape_hand_over)."""
+    t = Timeline("Tape In", 74)
+    t.path(BLACK, OPACITY, [(0, 1, OUT_EASE), (10, 0, None)])
+    land(t, 6, 18)
+    t.rest()
+    return t.xml()
+
+
+def cinematic_in():
+    """The cinematic: a cut-in on each runner under film bars, then a flash cuts to the card."""
+    f0 = 168   # the cut, 2.8 s in
+    t = Timeline("Cinematic In", f0 + 66)
+    t.path(BLACK, OPACITY, [(0, 1, OUT_EASE), (16, 0, None)])
+    t.key(CINE["front"], OPACITY, kf(1, 0))
+    for oid in CINE["lb"]:
+        t.path(oid, SY, [(0, 1, None), (f0, 1, EASE_SIDE), (f0 + 16, 0, None)])
+    you, them = CINE["shots"]["you"], CINE["shots"]["them"]
+    t.path(you["box"], OPACITY, [(0, 1, None), (84, 0, None)])
+    t.path(them["box"], OPACITY, [(0, 0, None), (84, 1, None), (f0, 0, None)])
+    for k in (SX, SY):   # a slow push in on each runner
+        t.path(you["img"], k, [(0, 1.24, OUT_EASE), (84, 1.08, None)])
+        t.path(them["img"], k, [(0, 1.24, None), (84, 1.24, OUT_EASE), (f0, 1.08, None)])
+    for who, a, b, d in (("you", 16, 76, 1), ("them", 100, 160, -1)):
+        st = CINE["strips"][who]
+        t.path(st["bar"], SX, [(0, 0, None), (a, 0, EASE_SIDE), (a + 17, 1, None), (b, 1, IN_EASE), (b + 7, 0, None)])
+        t.path(st["name"], OPACITY, [(0, 0, None), (a + 5, 0, EASE_SIDE), (a + 23, 1, None), (b, 1, IN_EASE), (b + 7, 0, None)])
+        t.path(st["name"], X, [(0, -46 * d, None), (a + 5, -46 * d, EASE_SIDE), (a + 23, 0, None), (b, 0, IN_EASE), (b + 7, 30 * d, None)])
+        t.path(st["sub"], OPACITY, [(0, 0, None), (a + 12, 0, EASE_SIDE), (a + 29, 1, None), (b, 1, IN_EASE), (b + 7, 0, None)])
+        t.path(st["sub"], Y, [(0, CINE_LINE_Y + 8, None), (a + 12, CINE_LINE_Y + 8, EASE_SIDE), (a + 29, CINE_LINE_Y, None)])
+    t.fire(EVENTS["cutIn"], 0)
+    t.fire(EVENTS["cutIn"], 84)
+    t.path(CUT_FLASH, OPACITY, [(0, 0, None), (f0, 0, None), (f0 + 1, 1, OUT_EASE), (f0 + 18, 0, None)])
+    land(t, f0, f0 + 11)
+    t.rest()
+    return t.xml()
+
+
+def lets_run_in():
+    """Let's Run: names stream behind two runner panels, the rule, LET'S RUN, then a flash cuts to the card."""
+    f0 = 180   # the cut, 3 s in
+    t = Timeline("Lets Run In", f0 + 66)
+    t.path(BLACK, OPACITY, [(0, 1, OUT_EASE), (10, 0, None)])
+    p = LR["panels"]
+    layers = (LR["back"], LR["front"], p["a"]["box"], p["b"]["box"])
+    hits = [(143, 0.6, 0.6)]   # LET'S RUN lands
+    for oid in layers:
+        t.path(oid, OPACITY, [(0, 1, None), (f0 + 1, 0, None)])
+        t.path(oid, X, shake_points(hits, 0))
+        t.path(oid, Y, shake_points(hits, 1))
+    for i, (outer, inner, d, who) in enumerate(LR["rows"]):
+        a, b = round(3.6 + 2.4 * i), round(33.6 + 2.4 * i)
+        t.path(outer, X, [(0, d * 220, None), (a, d * 220, EASE_SIDE), (b, 0, None)])
+        t.path(outer, OPACITY, [(0, 0, None), (a, 0, EASE_SIDE), (b, 1, None)])
+        x0 = LR_START[who]
+        t.tween(inner, X, x0, x0 + (-LR_DRIFT if who == "you" else LR_DRIFT), 0, f0, "linear")
+    for key, a in (("a", 25), ("b", 49)):
+        pn = p[key]
+        for oid in (pn["clip"], pn["edge"]):
+            t.path(oid, SX, [(0, 0.001, None), (a, 0.001, EASE_SIDE), (a + 21, 1, None)])
+        for k in (SX, SY):
+            t.path(pn["img"], k, [(0, 1.16, None), (a, 1.16, OUT_EASE), (f0, 1.03, None)])
+    t.path(LR["tg1"], OPACITY, [(0, 0, None), (78, 0, EASE_SIDE), (96, 1, None), (132, 1, IN_EASE), (141, 0, None)])
+    t.path(LR["tg1"], Y, [(0, 58, None), (78, 58, EASE_SIDE), (96, 70, None), (132, 70, IN_EASE), (141, 62, None)])
+    t.path(LR["tg2"], OPACITY, [(0, 0, None), (141, 0, "linear"), (143, 1, None)])
+    for k in (SX, SY):
+        t.path(LR["tg2"], k, [(0, 2.4, None), (141, 2.4, "linear"), (143, 2.1, SLAM), (157, 1, None)])
+    t.fire(EVENTS["letsRun"], 143)
+    t.path(CUT_FLASH, OPACITY, [(0, 0, None), (f0, 0, None), (f0 + 1, 1, OUT_EASE), (f0 + 18, 0, None)])
+    land(t, f0, f0 + 11)
+    t.rest()
+    return t.xml()
+
+
+TAPE_AT = 90   # the names hand over to the tape, 1.5 s in
+
+
+def tape_hand_over():
+    """The Tape layer: the names give way and the tape rises row by row, its bars growing out."""
+    t = Timeline("Tape Hand Over", TAPE_AT + 100)
+    t.key(TAPE["hold"], OPACITY, kf(1, 0))
+    t.path(TAPE["shade"], OPACITY, [(0, 0, None), (TAPE_AT - 3, 0, OUT_EASE), (TAPE_AT + 24, 1, None)])
+    for oid, sign in ((YOU_NAME_HOLD, -1), (THEM_NAME_HOLD, 1)):
+        t.path(oid, OPACITY, [(0, 1, None), (TAPE_AT, 1, IN_EASE), (TAPE_AT + 12, 0, None)])
+        t.path(oid, X, [(0, 0, None), (TAPE_AT, 0, IN_EASE), (TAPE_AT + 12, sign * 30, None)])
+    t.path(TAPE["head"], OPACITY, [(0, 0, None), (TAPE_AT + 7, 0, EASE_SIDE), (TAPE_AT + 25, 1, None)])
+    t.path(TAPE["head"], Y, [(0, 20, None), (TAPE_AT + 7, 20, EASE_SIDE), (TAPE_AT + 25, 10, None)])
+    for r, row in enumerate(TAPE["rows"]):
+        f, y = TAPE_AT + 16 + 9 * r, TAPE_ROW_Y[r]
+        t.path(row, OPACITY, [(0, 0, None), (f, 0, EASE_SIDE), (f + 16, 1, None)])
+        t.path(row, Y, [(0, y + 10, None), (f, y + 10, EASE_SIDE), (f + 16, y, None)])
+        for bar in TAPE["bars"][2 * r:2 * r + 2]:
+            t.path(bar, SX, [(0, 0, None), (f + 9, 0, EASE_SIDE), (f + 45, 1, None)])
+    t.fire(EVENTS["tape"], TAPE_AT)
+    return t.xml()
+
+
+def tape_off():
+    t = Timeline("Tape Off", 1)
+    for oid, v in ((TAPE["hold"], 0), (TAPE["shade"], 0), (YOU_NAME_HOLD, 1), (THEM_NAME_HOLD, 1)):
+        t.key(oid, OPACITY, kf(v, 0))
+    for oid in (YOU_NAME_HOLD, THEM_NAME_HOLD):
+        t.key(oid, X, kf(0, 0))
+    return t.xml()
+
+
 HIT = 10          # the frame the result lands and the VS bursts
 HEAD_GAP = 12     # then the headline, a beat later
 HEAD_KO = 62      # or after the knockout has cleared the middle
@@ -1246,20 +1761,23 @@ HEAD_KO = 62      # or after the knockout has cleared the middle
 SHAKE = [(0, 0), (-11, 6), (10, -7), (-9, 5), (8, -4), (-6, 4), (5, -2), (-3, 2), (2, -1), (0, 0)]   # every 3 frames
 
 
+def shake_value(hits, axis, f):
+    """Decaying shakes added together at frame f; each hit is (frame, x strength, y strength)."""
+    v = 0.0
+    for f0, *strength in hits:
+        u = (f - f0) / 3
+        if 0 <= u <= len(SHAKE) - 1:
+            i = min(int(u), len(SHAKE) - 2)
+            a, b = SHAKE[i][axis], SHAKE[i + 1][axis]
+            v += (a + (b - a) * (u - i)) * strength[axis]
+    return v
+
+
 def shake_points(hits, axis):
-    """Offsets for decaying shakes added together; each hit is (frame, x strength, y strength)."""
+    """Offsets for decaying shakes added together, every 2 frames."""
     start = min(f for f, _, _ in hits)
     end = max(f for f, _, _ in hits) + 3 * (len(SHAKE) - 1)
-    pts = []
-    for f in range(start, end + 1, 2):
-        v = 0.0
-        for f0, *strength in hits:
-            u = (f - f0) / 3
-            if 0 <= u <= len(SHAKE) - 1:
-                i = min(int(u), len(SHAKE) - 2)
-                a, b = SHAKE[i][axis], SHAKE[i + 1][axis]
-                v += (a + (b - a) * (u - i)) * strength[axis]
-        pts.append((f, v, "linear"))
+    pts = [(f, shake_value(hits, axis, f), "linear") for f in range(start, end + 1, 2)]
     pts.append((pts[-1][0] + 2, 0, None))
     return pts
 
@@ -1545,7 +2063,8 @@ def prompt(name, a, b, duration):
 
 
 animations = [
-    slam_in(), strike_in(), idle(),
+    slam_in(), strike_in(), tape_in(), cinematic_in(), lets_run_in(), idle(),
+    tape_hand_over(), tape_off(),
     result("Win", True, False), result("Lose", False, False),
     result("KO Win", True, True), result("KO Lose", False, True),
     glow_loop("Win Glow", YOU_HIT), glow_loop("Lose Glow", THEM_HIT),
@@ -1597,25 +2116,57 @@ def on_bool(name, value, to):
                     </StateTransition>'''
 
 
+def intro_is(key, op="equal"):
+    """A condition on which intro the app picked."""
+    return f'''
+                        <TransitionViewModelCondition opValue="{op}">
+                            <TransitionPropertyViewModelComparator>
+                                <BindablePropertyEnum><DataBindContext sourcePathIds="{path("intro")}" propertyKey="637"/></BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="{INTROS[key]}"/>
+                        </TransitionViewModelCondition>'''
+
+
+def fired(name):
+    return f'''
+                        <TransitionViewModelCondition>
+                            <TransitionPropertyViewModelComparator>
+                                <BindablePropertyTrigger><DataBindContext sourcePathIds="{path(name)}" propertyKey="686"/></BindablePropertyTrigger>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueTriggerComparator/>
+                        </TransitionViewModelCondition>'''
+
+
+def go(to, *conditions, attrs=""):
+    return f'<StateTransition stateToId="{to}"{attrs}>' + "".join(conditions) + "</StateTransition>"
+
+
 def after(to):
     return f'<StateTransition stateToId="{to}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>'
 
 
 (S_STRIKE, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF, S_WIN_GLOW, S_LOSE_GLOW, S_KO_WIN, S_KO_LOSE,
  S_C_OFF, S_C_WAIT, S_C_WAIT_KO, S_C_BURST) = (nid() for _ in range(14))
+S_TAPE, S_CINE, S_RUN, S_T_ON, S_T_OFF = (nid() for _ in range(5))
+S_INTRO = {"strike": S_STRIKE, "tape": S_TAPE, "cinematic": S_CINE, "letsRun": S_RUN}
 machine = f'''
         <StateMachine name="Versus" id="0:7">
             <StateMachineLayer name="Main" id="{nid()}">
                 <AnyState x="0" y="-160">
-                    {on_trigger("replay", S_STRIKE)}
+                    {"".join(go(S_INTRO[k], fired("replay"), intro_is(k)) for k in INTROS)}
                     {on_trigger_if("win", "ko", "true", S_KO_WIN)}
                     {on_trigger_if("lose", "ko", "true", S_KO_LOSE)}
                     {on_trigger_if("win", "ko", "false", S_WIN)}
                     {on_trigger_if("lose", "ko", "false", S_LOSE)}
                 </AnyState>
                 <ExitState x="600" y="-160"/>
-                <EntryState x="0" y="0"><StateTransition stateToId="{S_STRIKE}"/></EntryState>
+                <EntryState x="0" y="0">
+                    {go(S_TAPE, intro_is("tape"))}{go(S_CINE, intro_is("cinematic"))}{go(S_RUN, intro_is("letsRun"))}{go(S_STRIKE)}
+                </EntryState>
                 <AnimationState x="200" y="0" animationId="{ANIMS["Strike In"]}" reset="true" id="{S_STRIKE}">{after(S_IDLE)}</AnimationState>
+                <AnimationState x="200" y="160" animationId="{ANIMS["Tape In"]}" reset="true" id="{S_TAPE}">{after(S_IDLE)}</AnimationState>
+                <AnimationState x="200" y="320" animationId="{ANIMS["Cinematic In"]}" reset="true" id="{S_CINE}">{after(S_IDLE)}</AnimationState>
+                <AnimationState x="200" y="480" animationId="{ANIMS["Lets Run In"]}" reset="true" id="{S_RUN}">{after(S_IDLE)}</AnimationState>
                 <AnimationState x="400" y="0" animationId="{ANIMS["Idle"]}" id="{S_IDLE}"/>
                 <AnimationState x="400" y="160" animationId="{ANIMS["Win"]}" reset="true" id="{S_WIN}">{after(S_WIN_GLOW)}</AnimationState>
                 <AnimationState x="400" y="320" animationId="{ANIMS["Lose"]}" reset="true" id="{S_LOSE}">{after(S_LOSE_GLOW)}</AnimationState>
@@ -1623,6 +2174,21 @@ machine = f'''
                 <AnimationState x="400" y="640" animationId="{ANIMS["KO Lose"]}" reset="true" id="{S_KO_LOSE}">{after(S_LOSE_GLOW)}</AnimationState>
                 <AnimationState x="600" y="160" animationId="{ANIMS["Win Glow"]}" id="{S_WIN_GLOW}"/>
                 <AnimationState x="600" y="320" animationId="{ANIMS["Lose Glow"]}" id="{S_LOSE_GLOW}"/>
+            </StateMachineLayer>
+            <!-- Tale of the Tape: the tape and its shade, and the names it takes over from.
+                 A result blends it away and brings the names back. -->
+            <StateMachineLayer name="Tape" id="{nid()}">
+                <AnyState x="0" y="-160">
+                    {go(S_T_ON, fired("replay"), intro_is("tape"))}
+                    {go(S_T_OFF, fired("replay"), intro_is("tape", "notEqual"))}
+                </AnyState>
+                <ExitState x="600" y="-160"/>
+                <EntryState x="0" y="0">{go(S_T_ON, intro_is("tape"))}{go(S_T_OFF)}</EntryState>
+                <AnimationState x="200" y="0" animationId="{ANIMS["Tape Hand Over"]}" reset="true" id="{S_T_ON}">
+                    {go(S_T_OFF, fired("win"), attrs=' duration="200"')}
+                    {go(S_T_OFF, fired("lose"), attrs=' duration="200"')}
+                </AnimationState>
+                <AnimationState x="200" y="160" animationId="{ANIMS["Tape Off"]}" id="{S_T_OFF}"/>
             </StateMachineLayer>
             <StateMachineLayer name="Confetti" id="{nid()}">
                 <AnyState x="0" y="-160">
@@ -1672,6 +2238,14 @@ rml = f'''<Rive version="1" kind="fragment">
         {"".join(REVEALS)}
 
         <!-- First declared paints on top. -->
+        <!-- The intros' own layers paint over the card: the cuts, the cinematic and
+             Let's Run. Each is hidden unless its intro is playing. -->
+        {cuts_xml}
+        {cine_front_xml}
+        {cine_shots_xml}
+        {lr_front_xml}
+        {lr_panels_xml}
+        {lr_back_xml}
         <!-- Everything but the photo boxes sits in two shake nodes; a shake
              moves them and the photo boxes together. -->
         <Node name="Shake Front" id="{SHAKE_FRONT}">
@@ -1684,6 +2258,7 @@ rml = f'''<Rive version="1" kind="fragment">
         {gloom_xml}
         {pill_xml}
         {top_xml}
+        {tape_xml}
         {tiles_xml}
         {you_hit_xml}
         {them_hit_xml}
@@ -1696,6 +2271,7 @@ rml = f'''<Rive version="1" kind="fragment">
         {ko_impact_xml}
         {impact_xml}
         {crack_xml}
+        {shade_xml}
         {seam_xml}
         </Node>
         <!-- Photos paint over the washes; lighten keeps their black backgrounds out. -->
@@ -1712,11 +2288,14 @@ rml = f'''<Rive version="1" kind="fragment">
     <ImageAsset file="images/silhouette-male-blue.jpg" name="silhouette you" id="{SIL_YOU}"/>
     <ImageAsset file="images/silhouette-male-red.jpg" name="silhouette them" id="{SIL_THEM}"/>
     <FontAsset file="fonts/BarlowCondensed-Bold.ttf" name="Barlow Condensed Bold" id="{FONT_BOLD}"/>
-    <FontAsset file="fonts/BarlowCondensed-ExtraBoldItalic-Display.ttf" name="Barlow Condensed ExtraBold Italic" id="{FONT_VS}"/>
+    <FontAsset file="fonts/BarlowCondensed-ExtraBoldItalic.ttf" name="Barlow Condensed ExtraBold Italic" id="{FONT_VS}"/>
     <FontAsset file="fonts/BarlowCondensed-Medium.ttf" name="Barlow Condensed Medium" id="{FONT_MED}"/>
 
+    {intro_enum_xml}
+    {converters_xml}
+
     <ViewModel defaultInstanceId="{INSTANCE}" name="Versus" id="{VM}">
-        {"".join(f'<ViewModelProperty{k} name="{n}" id="{pid}"/>' for n, (k, pid) in props.items())}
+        {"".join(f'<ViewModelProperty{k} {a}name="{n}" id="{pid}"/>' for n, (k, pid, a) in props.items())}
         <ViewModelInstance exports="true" name="Default" id="{INSTANCE}">
             {"".join(instance_values)}
         </ViewModelInstance>
