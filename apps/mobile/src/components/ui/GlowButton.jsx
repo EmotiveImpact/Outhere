@@ -294,7 +294,7 @@ export function ActFill() {
 }
 
 const styles = StyleSheet.create({
-  body: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  body: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   inEdge: { top: 1, left: 1, right: 1, bottom: 1 },
   glint: { position: "absolute", top: 0, height: 1 },
   fillEdge: { borderRadius: R.full, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.28)" },

@@ -77,8 +77,8 @@ export function Toggle({ value, onChange, disabled = false, label, style }) {
 const styles = StyleSheet.create({
   frame: { width: W, height: H, borderRadius: H / 2, boxShadow: "0 1px 0 rgba(255,255,255,0.05)" },
   glow: { borderRadius: H / 2, boxShadow: "0 0 0 1px rgba(61,139,255,0.35), 0 6px 16px -6px rgba(42,106,240,0.9)" },
-  track: { ...StyleSheet.absoluteFillObject, borderRadius: H / 2, overflow: "hidden" },
+  track: { ...StyleSheet.absoluteFill, borderRadius: H / 2, overflow: "hidden" },
   trackEdge: { borderRadius: H / 2, boxShadow: "inset 0 1px 2px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.07)" },
   knob: { position: "absolute", top: PAD, left: PAD, height: KNOB, borderRadius: KNOB / 2, boxShadow: "0 2px 5px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(0,0,0,0.2)" },
-  knobBody: { ...StyleSheet.absoluteFillObject, borderRadius: KNOB / 2, overflow: "hidden" },
+  knobBody: { ...StyleSheet.absoluteFill, borderRadius: KNOB / 2, overflow: "hidden" },
 });
