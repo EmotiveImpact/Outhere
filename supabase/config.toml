@@ -56,3 +56,9 @@ secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
 # role key for the nightly purge), so the gateway check is off.
 [functions.story-media]
 verify_jwt = false
+
+# avatar-pack takes fal.ai's webhook (signed by fal, no session) and the
+# hourly clean up (service role key); it checks the member's session itself
+# for everything else.
+[functions.avatar-pack]
+verify_jwt = false
