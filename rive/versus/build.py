@@ -47,7 +47,7 @@ the two sides. A knockout puts K.O. and the broken glass first.
 The card opens with one of four intros, picked per battle. Seam Strike: speed
 lines race along the seam while the two halves scissor in, the seam flares and
 throws sparks, then VS slams. Tale of the Tape: VS slams, then the tape rises
-under it and stays. Cinematic: a cut-in on each runner under film bars, then a
+under it and stays. Cinematic: a full-screen cut-in on each runner, then a
 flash cuts to the card. Let's Run: names stream behind two runner panels, LET'S
 RUN slams, then a flash cuts to the card.
 
@@ -244,12 +244,12 @@ def bind_num(name, key, converter=None):
     return f'<DataBindContext sourcePathIds="{path(name)}" propertyKey="{key}"{conv}/>'
 
 
-# A side leads a tape row when its bar is full: its number shows at full
-# strength over a glow, the other side's at half.
-LEAD_TEXT, LEAD_GLOW = nid(), nid()
+# A side leads a tape row when its bar is full: its number shows in its side's
+# colour, the other side's in white at half strength.
+TRAIL_TEXT, LEAD_ON = nid(), nid()
 converters_xml = f'''
-    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0.5" maxOutput="1" clampLower="true" clampUpper="true" name="Lead Text" id="{LEAD_TEXT}"/>
-    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0" maxOutput="1" clampLower="true" clampUpper="true" name="Lead Glow" id="{LEAD_GLOW}"/>'''
+    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0.5" maxOutput="0" clampLower="true" clampUpper="true" name="Trail Text" id="{TRAIL_TEXT}"/>
+    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0" maxOutput="1" clampLower="true" clampUpper="true" name="Lead On" id="{LEAD_ON}"/>'''
 
 
 # ---------------------------------------------------------------- events
@@ -309,6 +309,29 @@ def glow(oid, size, rgb, a0="99", a1="33", opacity=0, scale_y=1, name="Glow", bl
                     <GradientStop colorValue="{a0}{rgb}" position="0"/><GradientStop colorValue="{a1}{rgb}" position="0.45"/><GradientStop colorValue="00{rgb}" position="1"/>
                 </RadialGradient></Fill>
             </Shape>'''
+
+
+def soft_halo(x0, x1, half, rgb, alpha):
+    """A glow along a bar from x0 to x1 that fades to nothing above, below and past both ends.
+
+    The middle fades straight up and down; each end is a half disc fading out
+    from the bar's end at the same rate, so the glow has no edge anywhere."""
+    a, b = sorted((x0, x1))
+    out = f'''
+                        <Shape name="Halo">
+                            <Rectangle x="{a}" width="{b - a}" height="{2 * half}" originX="0" originY="0.5" name="Path"/>
+                            <Fill name="Fill"><LinearGradient startX="0" startY="{-half}" endX="0" endY="{half}" name="G">
+                                <GradientStop colorValue="00{rgb}" position="0"/><GradientStop colorValue="{alpha}{rgb}" position="0.5"/>
+                                <GradientStop colorValue="00{rgb}" position="1"/></LinearGradient></Fill>
+                        </Shape>'''
+    for cx, o in ((a, 1), (b, 0)):
+        out += f'''
+                        <Shape name="Halo End">
+                            <Rectangle x="{cx}" width="{half}" height="{2 * half}" originX="{o}" originY="0.5" name="Path"/>
+                            <Fill name="Fill"><RadialGradient startX="{cx}" startY="0" endX="{cx + half}" endY="0" name="G">
+                                <GradientStop colorValue="{alpha}{rgb}" position="0"/><GradientStop colorValue="00{rgb}" position="1"/></RadialGradient></Fill>
+                        </Shape>'''
+    return out
 
 
 def flash(oid, size, rgb, name="Flash"):
@@ -1194,12 +1217,7 @@ def tape_bar(oid, n, you):
                                 <GradientStop colorValue="FF{rgb[0]}" position="0"/><GradientStop colorValue="FF{rgb[1]}" position="0.45"/>
                                 <GradientStop colorValue="40{rgb[1]}" position="1"/></LinearGradient></Fill>
                         </Shape>
-                        <Shape name="Halo">
-                            <Rectangle width="{TAPE_BAR}" height="30" originX="{o}" originY="0.5" name="Path"/>
-                            <Fill name="Fill"><LinearGradient startX="0" startY="-15" endX="0" endY="15" name="G">
-                                <GradientStop colorValue="00{rgb[2]}" position="0"/><GradientStop colorValue="3D{rgb[2]}" position="0.5"/>
-                                <GradientStop colorValue="00{rgb[2]}" position="1"/></LinearGradient></Fill>
-                        </Shape>
+                        {soft_halo(end, 0, 15, rgb[2], "3D")}
                     </Node>
                 </Node>'''
 
@@ -1211,16 +1229,15 @@ def tape_parts():
         TAPE["rows"].append(row)
         TAPE["bars"] += [left, right]
         label, a, b, _, _ = TAPE_ROWS[r]
-        lead = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, LEAD_TEXT)
+        trail = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, TRAIL_TEXT)
+        on = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, LEAD_ON)
         rows += f'''
             <Node y="{y + 10}" opacity="0" name="Row {n}" id="{row}">
-                {text(0, 0, 20, FONT_BOLD, WHITE, a, bind=f"tape{n}You", origin=(0, 0.5), name="You Value", extra=lead("You"))}
-                {text(354, 0, 20, FONT_BOLD, WHITE, b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Value", extra=lead("Them"))}
-                {text(177, 0.5, 10.5, FONT_MED, "9EFFFFFF", label, bind=f"tape{n}Label", origin=(0.5, 0.5), spacing=1.4, name="Label")}
-                <Node x="20" name="You Lead">{bind_num(f"tape{n}YouBar", OPACITY, LEAD_GLOW)}{glow(nid(), 72, "4F9BFF", a0="73", a1="26", opacity=1, scale_y=0.6)}
-                </Node>
-                <Node x="334" name="Them Lead">{bind_num(f"tape{n}ThemBar", OPACITY, LEAD_GLOW)}{glow(nid(), 72, "FF5060", a0="73", a1="26", opacity=1, scale_y=0.6)}
-                </Node>{tape_bar(left, n, True)}{tape_bar(right, n, False)}
+                {text(0, 0, 20, FONT_BOLD, "FF8CBBFF", a, bind=f"tape{n}You", origin=(0, 0.5), name="You Lead", extra=on("You"))}
+                {text(354, 0, 20, FONT_BOLD, "FFFF9199", b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Lead", extra=on("Them"))}
+                {text(0, 0, 20, FONT_BOLD, WHITE, a, bind=f"tape{n}You", origin=(0, 0.5), name="You Value", extra=trail("You"))}
+                {text(354, 0, 20, FONT_BOLD, WHITE, b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Value", extra=trail("Them"))}
+                {text(177, 0.5, 10.5, FONT_MED, "9EFFFFFF", label, bind=f"tape{n}Label", origin=(0.5, 0.5), spacing=1.4, name="Label")}{tape_bar(left, n, True)}{tape_bar(right, n, False)}
             </Node>'''
     head = f'''
             <Node y="10" opacity="0" name="Header" id="{TAPE["head"]}">
@@ -1264,13 +1281,11 @@ cuts_xml = screen_rect(CUT_FLASH, "E6FFFFFF", "Cut Flash") + screen_rect(BLACK, 
 
 
 # ---------------------------------------------------------------- the cinematic
-# For the big battles. Film bars and a slow push in on each runner in turn,
-# full screen, with a name strip under them; then a white flash cuts to the
-# card as the bars open and VS slams. The shots are layout boxes at the root,
-# so any photo covers the screen.
+# For the big battles. A slow push in on each runner in turn, full screen,
+# with a name strip under them; then a white flash cuts to the card as VS
+# slams. The shots are layout boxes at the root, so any photo covers the screen.
 
-CINE = dict(front=nid(), lb=(nid(), nid()), shots={}, strips={})
-LETTERBOX = 92
+CINE = dict(front=nid(), shots={}, strips={})
 CINE_LINE_Y = 104   # the line under each name, down from the strip
 
 
@@ -1292,12 +1307,7 @@ def cine_parts():
                         <Fill name="Fill"><LinearGradient startX="{bar_x}" startY="0" endX="{bar_x + 220}" endY="0" name="G">
                             <GradientStop colorValue="{a}" position="0"/><GradientStop colorValue="{b}" position="1"/></LinearGradient></Fill>
                     </Shape>
-                    <Shape name="Halo">
-                        <Rectangle width="236" height="30" originX="{o}" originY="0.5" name="Path"/>
-                        <Fill name="Fill"><LinearGradient startX="0" startY="-15" endX="0" endY="15" name="G">
-                            <GradientStop colorValue="00{glow_rgb}" position="0"/><GradientStop colorValue="66{glow_rgb}" position="0.5"/>
-                            <GradientStop colorValue="00{glow_rgb}" position="1"/></LinearGradient></Fill>
-                    </Shape>
+                    {soft_halo(bar_x, bar_x + 220, 15, glow_rgb, "66")}
                 </Node>
                 <Node opacity="0" name="Name" id="{name}">
                     {text(0, 6, 84, FONT_VS, WHITE, "Alex" if you else "Kemi", bind=who + "Name", origin=(o, 0), spacing=-1, name="Face", fit=(338, 104))}
@@ -1308,13 +1318,8 @@ def cine_parts():
                           bind=who + "Line", origin=(o, 0), spacing=1.6, name="Line")}
                 </Node>
             </Node>'''
-    lb = "".join(f'''
-            <Shape y="{0 if top else H}" scaleY="0" name="Film Bar {"Top" if top else "Bottom"}" id="{oid}">
-                <Rectangle x="-30" width="{W + 60}" height="{LETTERBOX}" originX="0" originY="{0 if top else 1}" name="Path"/>
-                <Fill name="Fill"><SolidColor colorValue="FF000000" name="C"/></Fill>
-            </Shape>''' for oid, top in zip(CINE["lb"], (True, False)))
     front_xml = f'''
-        <Node opacity="0" name="Cinematic" id="{CINE["front"]}">{lb}{front}
+        <Node opacity="0" name="Cinematic" id="{CINE["front"]}">{front}
         </Node>'''
 
     shots = ""
@@ -1658,13 +1663,11 @@ def tape_in():
 
 
 def cinematic_in():
-    """The cinematic: a cut-in on each runner under film bars, then a flash cuts to the card."""
+    """The cinematic: a full-screen cut-in on each runner, then a flash cuts to the card."""
     f0 = 168   # the cut, 2.8 s in
     t = Timeline("Cinematic In", f0 + 66)
     t.path(BLACK, OPACITY, [(0, 1, OUT_EASE), (16, 0, None)])
     t.key(CINE["front"], OPACITY, kf(1, 0))
-    for oid in CINE["lb"]:
-        t.path(oid, SY, [(0, 1, None), (f0, 1, EASE_SIDE), (f0 + 16, 0, None)])
     you, them = CINE["shots"]["you"], CINE["shots"]["them"]
     t.path(you["box"], OPACITY, [(0, 1, None), (84, 0, None)])
     t.path(them["box"], OPACITY, [(0, 0, None), (84, 1, None), (f0, 0, None)])
