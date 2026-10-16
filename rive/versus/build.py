@@ -172,12 +172,13 @@ def wash_colour(who, x, y):
 # Each runner's photo box (x, y, width, height), about the shape of a pack shot.
 # Big enough that the runner fills their side: yours runs from the top of the
 # screen, theirs to the bottom, and they overlap behind the seam.
-PHOTO_BOX = {"you": (-36, 0, 372, 664), "them": (54, 180, 372, 664)}
+# Each runner is centred in the open part of their side, away from the seam.
+PHOTO_BOX = {"you": (-78, 0, 372, 664), "them": (100, 180, 372, 664)}
 # Where each photo melts into the wash (position down the box, opacity of the
 # wash on top). Yours fades out a long way at the bottom, theirs at the top.
 PHOTO_FADE = {
-    "you": [(0, 0.55), (0.12, 0), (0.42, 0), (0.78, 0.8), (1, 1)],
-    "them": [(0, 1), (0.22, 0.8), (0.5, 0), (0.86, 0), (1, 0.6)],
+    "you": [(0, 0.55), (0.12, 0), (0.34, 0), (0.68, 0.85), (0.82, 1), (1, 1)],
+    "them": [(0, 1), (0.2, 1), (0.36, 0.8), (0.6, 0), (0.86, 0), (1, 0.6)],
 }
 
 

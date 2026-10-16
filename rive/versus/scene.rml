@@ -132,13 +132,13 @@
         </Node>
         <LayoutComponent width="372" height="664" clip="true" styleId="0:119" name="You Photo" id="0:118">
             <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" positionTypeValue="absolute"
-                positionLeft="-36" positionLeftUnitsValue="points" positionTop="0" positionTopUnitsValue="points" name="Box" id="0:119"/>
+                positionLeft="-78" positionLeftUnitsValue="points" positionTop="0" positionTopUnitsValue="points" name="Box" id="0:119"/>
             <ClippingShape sourceId="0:116" name="Clip"/>
             <!-- Melts the top and bottom of the photo into the wash, so any photo,
                  a pack shot or an ordinary profile photo, has no hard edges. -->
             <Shape name="Edge Fade">
                 <Rectangle width="372" height="664" originX="0" originY="0" name="Path"/>
-                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="664" name="G"><GradientStop colorValue="8C0B2A65" position="0"/><GradientStop colorValue="000A265B" position="0.12"/><GradientStop colorValue="00081B42" position="0.42"/><GradientStop colorValue="CC060F23" position="0.78"/><GradientStop colorValue="FF050A16" position="1"/></LinearGradient></Fill>
+                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="664" name="G"><GradientStop colorValue="8C0B2A66" position="0"/><GradientStop colorValue="000A265C" position="0.12"/><GradientStop colorValue="00091F4A" position="0.34"/><GradientStop colorValue="D907132D" position="0.68"/><GradientStop colorValue="FF060E21" position="0.82"/><GradientStop colorValue="FF050A16" position="1"/></LinearGradient></Fill>
             </Shape>
             <Image assetId="0:60" fit="cover" alignmentX="0" alignmentY="-0.64" blendModeValue="lighten" name="Photo">
                 <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>
@@ -155,13 +155,13 @@
         </Node>
         <LayoutComponent width="372" height="664" clip="true" styleId="0:128" name="Them Photo" id="0:127">
             <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" positionTypeValue="absolute"
-                positionLeft="54" positionLeftUnitsValue="points" positionTop="180" positionTopUnitsValue="points" name="Box" id="0:128"/>
+                positionLeft="100" positionLeftUnitsValue="points" positionTop="180" positionTopUnitsValue="points" name="Box" id="0:128"/>
             <ClippingShape sourceId="0:125" name="Clip"/>
             <!-- Melts the top and bottom of the photo into the wash, so any photo,
                  a pack shot or an ordinary profile photo, has no hard edges. -->
             <Shape name="Edge Fade">
                 <Rectangle width="372" height="664" originX="0" originY="0" name="Path"/>
-                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="664" name="G"><GradientStop colorValue="FF12060A" position="0"/><GradientStop colorValue="CC1E080C" position="0.22"/><GradientStop colorValue="00330C10" position="0.5"/><GradientStop colorValue="004F1016" position="0.86"/><GradientStop colorValue="99591218" position="1"/></LinearGradient></Fill>
+                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="664" name="G"><GradientStop colorValue="FF12060A" position="0"/><GradientStop colorValue="FF1E080C" position="0.2"/><GradientStop colorValue="CC2A0A0F" position="0.36"/><GradientStop colorValue="003C0D12" position="0.6"/><GradientStop colorValue="00501016" position="0.86"/><GradientStop colorValue="995A1218" position="1"/></LinearGradient></Fill>
             </Shape>
             <Image assetId="0:64" fit="cover" alignmentX="0" alignmentY="-0.64" blendModeValue="lighten" name="Photo">
                 <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>
