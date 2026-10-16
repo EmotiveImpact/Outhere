@@ -19,7 +19,7 @@ import { C, EmptyState, F, imageSource, R, Row, S, Segment, Skeleton } from "@/c
 import { GlassButton, GlassChip, GlowHero, TopBar } from "@/components/arena/OutsideKit";
 import { compactNumber, formatNumber } from "@/utils/format";
 import { divisionName } from "@/data/outsideShared";
-import { hapticSelection } from "@/services/haptics";
+import { haptic } from "@/services/haptics";
 
 const RING = { pro: "#3d8bff", black: "#8d97a5", free: "rgba(255,255,255,0.18)" };
 const FLING = 420;
@@ -130,7 +130,7 @@ export default function SwipeScreen() {
   const top = cards[0];
 
   const done = (card, pick) => {
-    hapticSelection();
+    haptic.swipe();
     setGone((g) => [...g, card.id]);
     swipe.mutate([card.id, pick]);
   };

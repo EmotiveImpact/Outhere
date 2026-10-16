@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TrendingUp } from "lucide-react-native";
 import { useBadges, useDrops, useMembershipDetails, useOutHistory, useProfile } from "@/data/hooks";
-import { AnimatedNumber, Avatar, BlendImage, C, F, FadeIn, GlowBackdrop, PressableScale, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE, useScreenTop } from "@/components/ui";
+import { Avatar, BlendImage, C, F, FadeIn, GlowBackdrop, PressableScale, R, RollingNumber, Row, S, Skeleton, Surface, TAB_BAR_SPACE, useScreenTop } from "@/components/ui";
 import { BadgeTile, PillButton } from "@/components/profile/parts";
 import { Coin, SectionLabel } from "@/components/arena/OutsideKit";
 import { StackTabBar } from "@/components/AppTabBar";
@@ -78,7 +78,7 @@ export default function Wallet() {
               <BlendImage source={PHOTOS.coin} size={180} mask="wide" float style={styles.coin} />
               <Text style={styles.label}>Balance</Text>
               <Row gap={6} style={{ alignItems: "flex-end", marginTop: 6 }}>
-                <AnimatedNumber value={h.balance} format={formatNumber} style={styles.balance} />
+                <RollingNumber value={h.balance} format={formatNumber} size={58} lineHeight={60} />
                 <Text style={styles.unit}>OUT</Text>
               </Row>
               <Row gap={6} style={{ marginTop: 4 }}>

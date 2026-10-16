@@ -19,7 +19,7 @@ import { Ghost, Lock, Pause, Play, Square, Unlock, Zap } from "lucide-react-nati
 import { BlendImage, C, F, GlowButton, LIT, Meter, PressableScale, R } from "@/components/ui";
 import { Coin } from "@/components/profile/shared";
 import { formatDuration, formatNumber, formatPace } from "@/utils/format";
-import { hapticImpact, hapticSuccess } from "@/services/haptics";
+import { haptic, hapticImpact, holdTicks } from "@/services/haptics";
 import { Dash, Glass, MapSheet } from "./parts";
 import { MOVE_IMAGES } from "./images";
 import { Image } from "expo-image";
@@ -109,6 +109,7 @@ function HoldRing({ size = 96, onHoldChange, onDone }) {
   const raf = useRef(null);
   const startAt = useRef(0);
   const done = useRef(false);
+  const ticks = useRef(null); // stops the soft haptic ticks while holding
   const press = useSharedValue(0);
   const idle = useSharedValue(0);
 
@@ -120,6 +121,8 @@ function HoldRing({ size = 96, onHoldChange, onDone }) {
   const stop = () => {
     if (raf.current) cancelAnimationFrame(raf.current);
     raf.current = null;
+    ticks.current?.();
+    ticks.current = null;
   };
   useEffect(() => stop, []);
 
@@ -130,7 +133,7 @@ function HoldRing({ size = 96, onHoldChange, onDone }) {
       stop();
       if (!done.current) {
         done.current = true;
-        hapticSuccess();
+        haptic.holdDone();
         onDone();
       }
       return;
@@ -139,12 +142,12 @@ function HoldRing({ size = 96, onHoldChange, onDone }) {
   };
 
   const down = () => {
-    hapticImpact();
     done.current = false;
     startAt.current = Date.now();
     press.value = withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) });
     onHoldChange(true, HOLD_MS);
     stop();
+    ticks.current = holdTicks(250);
     raf.current = requestAnimationFrame(tick);
   };
   const up = () => {
@@ -317,6 +320,9 @@ function Spinner() {
 }
 
 export function OffRoutePanel({ km, seconds, out, paused, onPause, onEndRoute, bottom }) {
+  useEffect(() => {
+    haptic.warn();
+  }, []);
   return (
     <Panel bottom={bottom}>
       <View style={styles.reroute}>
@@ -372,6 +378,9 @@ export function PausedPanel({ km, pace, out, onFinish, onResume, bottom }) {
 
 /** .gpscard: the lost signal pin, blended, with what still counts. */
 export function GpsLostCard({ top }) {
+  useEffect(() => {
+    haptic.warn();
+  }, []);
   return (
     <View style={[styles.gpsCard, { top }]}>
       <Glass radius={26} style={styles.gpsInner}>

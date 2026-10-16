@@ -27,7 +27,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { hapticSelection } from "@/services/haptics";
+import { play as playHaptic } from "@/services/haptics";
 import { useLayoutSize } from "./layout";
 import { C, EASE, F, FINISH, LIT, R, splitShadow } from "./tokens";
 
@@ -45,6 +45,9 @@ export const GLOW_BUTTONS = {
 // Older names: secondary is the quiet lit button, danger the stop.
 GLOW_BUTTONS.secondary = GLOW_BUTTONS.quiet;
 GLOW_BUTTONS.danger = GLOW_BUTTONS.stop;
+
+// The variants that act (or stop) get a light tap; the quiet ones a selection tick.
+const TAPS = new Set(["primary", "stop", "danger", "glass"]);
 
 const SIZES = {
   sm: { height: 36, pad: 16, font: 13, icon: 14, gap: 6 },
@@ -90,7 +93,9 @@ function Sheen({ width, strength, loop, trigger }) {
  * icon / iconRight: lucide icons beside the title. lead: an icon in its own
  * little circle at the start (.oh-btn .lead). shine: the sheen on a loop
  * (on by default for primary). full: stretch to the row. square: an icon
- * only button as wide as it is tall (.oh-btn.icon).
+ * only button as wide as it is tall (.oh-btn.icon). haptic: true (default)
+ * plays the tap moment on primary, stop and glass and a selection tick on
+ * the rest; false for none; or the name of a moment ("commit", "go").
  */
 export function GlowButton({
   title,
@@ -166,7 +171,8 @@ export function GlowButton({
         scale.value = withSpring(1, EASE.thumb);
       }}
       onPress={() => {
-        if (haptic) hapticSelection();
+        // haptic: true plays tap (or select on the quiet variants), or name a moment.
+        if (haptic) playHaptic(typeof haptic === "string" ? haptic : TAPS.has(variant) ? "tap" : "select");
         setPresses((n) => n + 1);
         onPress?.();
       }}

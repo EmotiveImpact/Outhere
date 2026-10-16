@@ -6,7 +6,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useDropShop } from "@/data/hooks";
-import { C, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
+import { C, EmptyState, F, imageSource, Lift, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
 import { Coin, TopBar } from "@/components/arena/OutsideKit";
 import { formatNumber } from "@/utils/format";
 
@@ -29,19 +29,22 @@ export default function DropShopScreen() {
         renderItem={({ item: d }) => {
           const gone = d.status === "soldout" || d.status === "ended";
           return (
-            <PressableScale onPress={() => router.push(`/drops/${d.id}`)} scaleTo={0.97} style={styles.card}>
-              <View style={styles.art}>
-                {d.image ? <Image source={imageSource(d.image)} style={[StyleSheet.absoluteFill, gone && { opacity: 0.4 }]} contentFit="cover" /> : null}
-                {d.tag ? <Text style={styles.tag}>{d.tag}</Text> : null}
-              </View>
-              <Text style={styles.name} numberOfLines={1}>
-                {d.title}
-              </Text>
-              <Row gap={6} style={{ marginTop: 4 }}>
-                <Coin size={15} />
-                <Text style={styles.price}>{formatNumber(d.priceOut)}</Text>
-              </Row>
-            </PressableScale>
+            // Lift: the card springs to 1.02 on press and holds while the drop page slides in.
+            <Lift onPress={() => router.push(`/drops/${d.id}`)} style={{ flex: 1 }}>
+              <PressableScale scaleTo={0.97} style={styles.card}>
+                <View style={styles.art}>
+                  {d.image ? <Image source={imageSource(d.image)} style={[StyleSheet.absoluteFill, gone && { opacity: 0.4 }]} contentFit="cover" /> : null}
+                  {d.tag ? <Text style={styles.tag}>{d.tag}</Text> : null}
+                </View>
+                <Text style={styles.name} numberOfLines={1}>
+                  {d.title}
+                </Text>
+                <Row gap={6} style={{ marginTop: 4 }}>
+                  <Coin size={15} />
+                  <Text style={styles.price}>{formatNumber(d.priceOut)}</Text>
+                </Row>
+              </PressableScale>
+            </Lift>
           );
         }}
       />

@@ -17,7 +17,8 @@ import Animated, { FadeIn, FadeInDown, FadeOut, FlipInEasyY, ZoomIn } from "reac
 import Svg, { Circle as SvgCircle } from "react-native-svg";
 import { Check, Clock3, Eye, Flag, Lock, Play, Share2, Swords, Zap } from "lucide-react-native";
 import { engine, useBattle, useBattleEmotes, useEngineMutation, useHeadToHead } from "@/data/hooks";
-import { C, F, Foil, GlowBackdrop, GlowButton, IconTile, PressableScale, R, Row, S, Surface, useLayoutSize, useScreenTop } from "@/components/ui";
+import { C, CountUp, F, Foil, GlowBackdrop, GlowButton, IconTile, PressableScale, R, Row, S, Surface, useLayoutSize, useScreenTop } from "@/components/ui";
+import { haptic } from "@/services/haptics";
 import { BottomBar, Coin } from "@/components/arena/OutsideKit";
 import { Chip, EmoteTile, EMOTE_FOR_CODE, Facts, Headline, NavRow, PortraitCard, PortraitMini, SlantTag, TurningRays } from "@/components/arena/BattleKit";
 import { RaceGlobe, cityPoint, kmApart } from "@/components/arena/RaceGlobe";
@@ -437,6 +438,11 @@ export function RevealScreen({ battle: b }) {
   const prize = b.prize || {};
   const share = () => Share.share({ message: `${won ? "Beat" : "Raced"} ${name} in a blind ${distanceLabel(b.distanceM)} on Outhere: ${timeLabel(b.me.value)} to ${timeLabel(b.opponent.value)}.` }).catch(() => {});
   const done = () => (router.canGoBack() ? router.back() : router.replace("/outside/arena"));
+  // The reveal lands in the hand once the cards have turned.
+  useEffect(() => {
+    const t = setTimeout(() => (won ? haptic.win() : draw ? null : haptic.lose()), 700);
+    return () => clearTimeout(t);
+  }, [won, draw]);
 
   return (
     <View style={styles.screen}>
@@ -502,7 +508,12 @@ function RevealCard({ person, side, time, km, win, label }) {
   return (
     <PortraitCard source={person?.avatar} name={label} side={side} glow={win} dim={win ? 1 : 0.7} height={262}>
       {win ? <SlantTag label="Winner" colour={blue ? "#2a6af0" : "#e2323c"} style={styles.winTag} /> : null}
-      <Text style={[styles.revealTime, win && { color: blue ? "#b9d6ff" : "#ffc2c5" }, !win && { color: "#c9d0db" }]}>{timeLabel(time)}</Text>
+      {/* the time counts up from nought as the card turns over */}
+      {time ? (
+        <CountUp value={time} duration={1500} delay={blue ? 500 : 800} format={timeLabel} size={44} lineHeight={46} colour={win ? (blue ? "#b9d6ff" : "#ffc2c5") : "#c9d0db"} style={{ justifyContent: "center" }} textStyle={styles.revealShadow} />
+      ) : (
+        <Text style={[styles.revealTime, { color: "#c9d0db" }]}>{timeLabel(time)}</Text>
+      )}
       <Text style={styles.revealSub} numberOfLines={1}>
         {label} · {time ? `${paceLabel(time / km)} /km` : "no time"}
       </Text>
@@ -547,5 +558,6 @@ const styles = StyleSheet.create({
   h2h: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   winTag: { position: "absolute", top: 12, left: 12 },
   revealTime: { fontFamily: F.display, fontSize: 44, lineHeight: 46, textAlign: "center", textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 12 },
+  revealShadow: { textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 12 },
   revealSub: { color: C.textSoft, fontFamily: F.body, fontSize: 12, textAlign: "center", marginTop: 2 },
 });

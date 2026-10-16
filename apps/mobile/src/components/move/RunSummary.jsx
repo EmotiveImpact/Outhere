@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Share2, X } from "lucide-react-native";
-import { C, F, FadeIn, GlowButton, ModalToastHost, Title } from "@/components/ui";
+import { C, CountUp, F, FadeIn, GlowButton, ModalToastHost, Title } from "@/components/ui";
 import { engine, useEngineMutation, useProfile } from "@/data/hooks";
 import { stepsFor } from "@/data/runMath";
 import { formatDuration, formatPace } from "@/utils/format";
@@ -137,12 +137,13 @@ export default function RunSummary({ onDone }) {
                 <LinearGradient colors={["rgba(2,6,14,0)", "rgba(2,6,14,0.9)"]} style={styles.ovShade} pointerEvents="none" />
                 <View style={styles.ov}>
                   {[
-                    [finished.distanceKm.toFixed(2), "km"],
+                    // the distance counts up from nought when the summary opens
+                    [<CountUp value={Math.round(finished.distanceKm * 100)} duration={1400} delay={200} format={(v) => (v / 100).toFixed(2)} size={24} lineHeight={23} mono colour="#fff" style={{ marginBottom: 2 }} />, "km"],
                     [formatDuration(finished.durationSec), "Time"],
                     [formatPace(pace), "Pace"],
                   ].map(([v, l]) => (
                     <View key={l} style={{ flex: 1 }}>
-                      <Text style={styles.ovValue}>{v}</Text>
+                      {typeof v === "string" ? <Text style={styles.ovValue}>{v}</Text> : v}
                       <Text style={styles.ovLabel}>{l}</Text>
                     </View>
                   ))}

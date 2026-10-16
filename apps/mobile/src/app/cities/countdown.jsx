@@ -13,7 +13,7 @@ import { BlendImage, GlowButton, S } from "@/components/ui";
 import { TopBar } from "@/components/arena/OutsideKit";
 import { HypeStage } from "@/components/move/HypeStage";
 import { compactNumber, formatNumber } from "@/utils/format";
-import { hapticSelection, hapticSuccess } from "@/services/haptics";
+import { haptic } from "@/services/haptics";
 
 const AREA_CUP_OUT = 400;
 
@@ -40,15 +40,16 @@ export default function CityCountdown() {
 
   useEffect(() => {
     let i = 0;
+    haptic.beat();
     const t = setInterval(() => {
       i += 1;
       if (i >= 3) {
         clearInterval(t);
-        hapticSuccess();
+        haptic.go();
         setBeat(3);
         return;
       }
-      hapticSelection();
+      haptic.beat();
       setBeat(i);
     }, 1000);
     return () => clearInterval(t);
