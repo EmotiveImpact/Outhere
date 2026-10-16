@@ -2,6 +2,8 @@
 
 The open O draws in, then the blue out now dot arrives from outside and lands in the gap, with a ping and a glow bloom. After the 2.2 s intro the glow breathes on a 2.8 s loop.
 
+The background is transparent. At the moment the dot lands (1.1 s) the file fires a `landed` event, so the app can play a light haptic.
+
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
 - `export/outhere-logo.riv` is the built file the apps load (artboard `Logo`, state machine `Logo`).
 
