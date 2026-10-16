@@ -53,3 +53,9 @@ venv/
 # Misc
 *.swp
 *.swo
+
+# React Router
+.react-router/
+
+# Turborepo
+.turbo/
