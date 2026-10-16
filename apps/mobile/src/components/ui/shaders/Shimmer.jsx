@@ -1,15 +1,14 @@
-// Heat and light for the bars.
+// Light for the bars and the ring, in neon: a steady white-hot core inside
+// the colour and a smooth halo round it (see looks.jsx).
 //
-// Shimmer is the live tug of war: blue from the left, red from the right,
-// light streaming in from both ends and a soft pale spark where they meet.
-// TugBar draws it when `live` is on.
+// Shimmer is the live tug of war: blue from the left, red from the right and
+// a white-hot point where they meet. TugBar draws it when `live` is on.
 //
-// LiquidBar is a Meter's fill: deep to lit along its length, a wash of light
-// rolling to the head and a soft bloom at the head.
+// LiquidBar is a Meter's fill, with a clean bright tip at its head.
 //
 // LiquidRing is the same light as an arc, for the step ring.
 //
-// Shimmer and LiquidBar also take `look`: neon, glass or pulse (see looks.jsx).
+// Shimmer and LiquidBar take `look`: neon (the default), glass or pulse.
 //
 // Every one of them blooms past its own edge: the canvas is bigger than the
 // bar or ring by `bleed` on each side and sits over it at -bleed, so the glow
@@ -24,7 +23,6 @@ import { useSkiaReady } from "../skia";
 import { EASE } from "../tokens";
 import { useLiveCanvas } from "./clock";
 
-const shaderParts = () => require("./parts");
 const shaderLooks = () => require("./looks");
 const EXPO = Easing.bezier(...EASE.expo);
 
@@ -45,19 +43,14 @@ function useAmount(value, duration = 1400) {
  * height: the bar. bleed: room above and below for the glow. Absolute: lay
  * it over the bar's box.
  */
-export function Shimmer({ share = 0.5, height = 8, bleed = Math.max(14, height * 1.6), look, paused = false, style }) {
+export function Shimmer({ share = 0.5, height = 8, bleed = Math.max(14, height * 1.6), look = "neon", paused = false, style }) {
   const ready = useSkiaReady();
   const { ref, onLayout, size, clock } = useLiveCanvas({ paused });
   const p = useAmount(share);
   let bar = null;
   if (ready && size) {
-    if (look) {
-      const { LookTugCanvas } = shaderLooks();
-      bar = <LookTugCanvas look={look} width={size.width} height={height} bleed={bleed} clock={clock} share={p} />;
-    } else {
-      const { TugCanvas } = shaderParts();
-      bar = <TugCanvas width={size.width} height={height} bleed={bleed} clock={clock} share={p} />;
-    }
+    const { LookTugCanvas } = shaderLooks();
+    bar = <LookTugCanvas look={look} width={size.width} height={height} bleed={bleed} clock={clock} share={p} />;
   }
   return (
     <View ref={ref} onLayout={onLayout} pointerEvents="none" style={[{ position: "absolute", left: 0, right: 0, top: 0, height }, style]}>
@@ -67,22 +60,19 @@ export function Shimmer({ share = 0.5, height = 8, bleed = Math.max(14, height *
 }
 
 /** A Meter's lit fill. progress: a shared value 0 to 1. Fills the track it sits in and blooms past it. */
-export function LiquidBar({ progress, tone = "blue", look, paused = false, style }) {
+export function LiquidBar({ progress, tone = "blue", look = "neon", paused = false, style }) {
   const ready = useSkiaReady();
   const { ref, onLayout, size, clock } = useLiveCanvas({ paused });
   const p = useAmount(progress);
   let fill = null;
   if (ready && size) {
     const bleed = Math.max(14, size.height * 1.8);
-    let canvas;
-    if (look) {
-      const { LookBarCanvas } = shaderLooks();
-      canvas = <LookBarCanvas look={look} width={size.width} height={size.height} bleed={bleed} clock={clock} progress={p} tone={tone} />;
-    } else {
-      const { LiquidBarCanvas } = shaderParts();
-      canvas = <LiquidBarCanvas width={size.width} height={size.height} bleed={bleed} clock={clock} progress={p} tone={tone} />;
-    }
-    fill = <View style={{ position: "absolute", left: -bleed, top: -bleed }}>{canvas}</View>;
+    const { LookBarCanvas } = shaderLooks();
+    fill = (
+      <View style={{ position: "absolute", left: -bleed, top: -bleed }}>
+        <LookBarCanvas look={look} width={size.width} height={size.height} bleed={bleed} clock={clock} progress={p} tone={tone} />
+      </View>
+    );
   }
   return (
     <View ref={ref} onLayout={onLayout} pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
@@ -103,11 +93,11 @@ export function LiquidRing({ value = 0, size = 220, stroke = 12, tone = "blue", 
   const p = useAmount(value, duration);
   let ring = fallback;
   if (ready) {
-    const { LiquidRingCanvas } = shaderParts();
+    const { LookRingCanvas } = shaderLooks();
     const bleed = Math.round(stroke * 2.2);
     ring = (
       <View style={{ position: "absolute", left: -bleed, top: -bleed }}>
-        <LiquidRingCanvas size={size} stroke={stroke} bleed={bleed} clock={clock} progress={p} tone={tone} track={track} />
+        <LookRingCanvas size={size} stroke={stroke} bleed={bleed} clock={clock} progress={p} tone={tone} track={track} />
       </View>
     );
   }

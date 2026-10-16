@@ -54,10 +54,10 @@ function Flow({ width }) {
  * tone: blue | red | gold | grey. flow: the moving band of light. cap: the
  * bright dot at the end. glow: the coloured bloom round the fill.
  * duration: how long the fill takes to ease to a new value. liquid: the fill
- * drawn in Skia (lit along its length, a wash of light rolling to the head, a
- * bloom that feathers past the track, which also stands in for `cap`); the
- * plain fill shows until Skia is ready. look: neon | glass | pulse, a
- * different light for the liquid fill (see shaders/looks.jsx).
+ * drawn in Skia as neon (a white-hot core inside the colour, a smooth halo
+ * past the track and a bright tip, which also stands in for `cap`); the plain
+ * fill shows until Skia is ready. look: neon (default) | glass | pulse (see
+ * shaders/looks.jsx).
  */
 export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap = false, glow = true, duration = 1400, track, liquid = false, look, style }) {
   const h = typeof size === "number" ? size : SIZES[size] || SIZES.md;
@@ -93,9 +93,10 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
 /**
  * The tug of war in a 1v1 (.oh-tug): your blue share from the left, their
  * red from the right, both glowing, and a pale spark where they meet.
- * share: your fraction, 0 to 1. live: the battle is on now, so the bar runs
- * hot in Skia (light streaming in from both ends, heat near the middle, a
- * soft pale spark where the two meet); the plain bar shows until Skia is ready.
+ * share: your fraction, 0 to 1. live: the battle is on now, so the bar is
+ * drawn in Skia as neon (white-hot cores, a smooth halo and a white-hot point
+ * where the two meet); the plain bar shows until Skia is ready. look: neon
+ * (default) | glass | pulse.
  */
 export function TugBar({ share = 0.5, height = 8, live = false, look, style }) {
   const p = useSharedValue(0.5);

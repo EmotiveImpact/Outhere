@@ -2,18 +2,19 @@
 // bigger than the bar by `bleed`, so every edge is antialiased and the glow
 // falls off smoothly into the card.
 //
-//   neon   a lightsaber: a white-hot core inside a saturated edge, a steady
-//          halo, a bright tip and a clash flare where two bars meet
+//   neon   a lightsaber: a steady white-hot core inside a saturated edge, a
+//          smooth halo, a clean bright tip and a white point where two bars meet
 //   glass  liquid in a glass tube: a glossy highlight along the top, a wavy
 //          surface at the head, bubbles drifting along and a broad shine
 //   pulse  light travelling down a fibre: packets of white light with soft
 //          tails race to the head (or the meeting point) and flash there
 //
 // The geometry is a capsule distance field, so the fill, its edge and its
-// glow come from one number per pixel and never meet a hard box.
+// glow come from one number per pixel and never meet a hard box. The step
+// ring is drawn the same way in neon: an arc distance field with round ends.
 
-import React from "react";
-import { Canvas, Rect, Shader, Skia } from "@shopify/react-native-skia";
+import React, { useMemo } from "react";
+import { Canvas, Path, Rect, Shader, Skia } from "@shopify/react-native-skia";
 import { useDerivedValue } from "react-native-reanimated";
 import { LIQUID_TONES, NOISE } from "./parts";
 
@@ -32,16 +33,19 @@ float edgeFade(float2 xy, float2 res, float bleed) {
   float e = min(min(xy.x, res.x - xy.x), min(xy.y, res.y - xy.y));
   return smoothstep(0.0, bleed * 0.7, e);
 }
-// neon: white-hot core, saturated edge
+// neon: a steady white-hot core that melts smoothly into the saturated
+// colour at the edge, with a slow hum of light running along it
 float3 neonFill(float s, float u, float x, float t, float3 c0, float3 c1, float3 hi) {
   float v = abs(s);
-  float n = vnoise(float2(x * 0.035 - t * 2.4, t * 0.7));
-  float n2 = vnoise(float2(x * 0.11 - t * 5.0, 3.0));
-  float cw = 0.58 + 0.14 * (n - 0.5) + 0.06 * (n2 - 0.5);
-  float core = smoothstep(cw, cw * 0.2, v);
-  float3 edge = mix(c0, c1, u);
-  float3 col = mix(edge, mix(hi, float3(1.0), 0.65), core);
-  return col * (0.9 + 0.1 * u + 0.06 * (n2 - 0.5));
+  float core = exp(-pow(v / 0.42, 2.0));
+  float3 edge = mix(mix(c0, c1, 0.55), c1, u);
+  float3 col = mix(edge, mix(hi, float3(1.0), 0.75), core);
+  float hum = 1.0 + 0.05 * sin(x * 0.045 - t * 3.0);
+  return col * (0.93 + 0.07 * u) * hum;
+}
+// neon halo: smooth, breathing gently
+float neonHalo(float gd, float h, float t) {
+  return (exp(-gd / (h * 0.7)) * 0.36 + exp(-gd / (h * 0.2)) * 0.46) * (0.96 + 0.04 * sin(t * 2.0));
 }
 // glass: lit liquid, shaded underneath, with bubbles and a broad shine
 float3 glassFill(float2 xy, float s, float u, float along, float h, float cy, float t, float3 c0, float3 c1, float3 hi) {
@@ -113,15 +117,12 @@ half4 main(float2 xy) {
     d = capsule(xy, x0, xe, cy, r);
     col = neonFill(s, u, xy.x, t, c0, c1, hi);
     float gd = max(d, 0.0);
-    float n = vnoise(float2(xy.x * 0.03 - t * 2.0, 1.0));
-    float g = (exp(-gd / (h * 0.85)) * 0.42 + exp(-gd / (h * 0.26)) * 0.5) * (0.9 + 0.2 * n);
-    // the tip: a bright head and a thin flare across it
-    float2 hp = float2(xe - r * 0.8, cy);
-    float hd = length((xy - hp) * float2(0.75, 1.0));
-    float tip = exp(-pow(hd / (h * 0.7), 2.0)) * (0.82 + 0.18 * sin(t * 6.0));
-    float flare = exp(-abs(xy.y - cy) / (h * 0.09)) * exp(-abs(xy.x - hp.x) / (h * 2.0)) * 0.55;
-    col = mix(col, float3(1.0), tip * 0.7);
-    e = glow * g + float3(0.9, 0.95, 1.0) * (tip * 0.8 + flare);
+    float g = neonHalo(gd, h, t);
+    // the tip: a clean round bright end
+    float2 hp = float2(xe - r, cy);
+    float tip = exp(-pow(length(xy - hp) / (h * 0.55), 2.0)) * (0.9 + 0.1 * sin(t * 3.0));
+    col = mix(col, float3(1.0), tip * 0.6);
+    e = glow * g + mix(glow, float3(1.0), 0.6) * tip * 0.55;
   } else if (look < 1.5) {
     float wave = sin(s * 2.6 + t * 4.2) * 0.5 + sin(s * 5.0 - t * 6.3) * 0.25;
     float xe2 = max(x0 + r * 2.0, xe - h * 0.16 + wave * h * 0.16);
@@ -190,9 +191,8 @@ half4 main(float2 xy) {
   if (look < 0.5) {
     mine = smoothstep(0.8, -0.8, ds);
     cb = neonFill(s, ub, xy.x, t, bc0, bc1, bhi);
-    cr = neonFill(s, ur, xy.x + 40.0, t * 1.1, rc0, rc1, rhi);
-    float n = vnoise(float2(xy.x * 0.03 - t * 2.0, 1.0));
-    float g = (exp(-gd / (h * 0.85)) * 0.42 + exp(-gd / (h * 0.26)) * 0.5) * (0.9 + 0.2 * n);
+    cr = neonFill(s, ur, -xy.x, t, rc0, rc1, rhi);
+    float g = neonHalo(gd, h, t);
     float side = smoothstep(6.0, -6.0, ds);
     e = mix(rgl, bgl, side) * g;
   } else if (look < 1.5) {
@@ -224,12 +224,13 @@ half4 main(float2 xy) {
     e = mix(rgl, bgl, side) * exp(-gd / (h * 0.55)) * 0.28 + float3(0.92, 0.95, 1.0) * pg;
   }
   float3 col = mix(cr, cb, mine);
-  // where the two meet: a white-hot point with a thin flare across it
-  float fl = 0.85 + 0.1 * sin(t * 11.0) + 0.05 * sin(t * 17.3);
+  // where the two meet: a white-hot point with a thin flare through it
+  float neon = look < 0.5 ? 1.0 : 0.0;
+  float fl = neon > 0.5 ? 0.92 + 0.08 * sin(t * 4.0) : 0.85 + 0.1 * sin(t * 11.0) + 0.05 * sin(t * 17.3);
   float hd = length((xy - sp) * float2(1.0, 0.85));
   float hot = exp(-pow(hd / (h * (look < 1.5 ? 0.62 : 0.8)), 2.0)) * fl;
-  float vflare = exp(-abs(xy.x - sp.x) / (h * 0.07)) * exp(-abs(xy.y - cy) / (h * 0.9)) * 0.7 * fl;
-  float hflare = exp(-abs(xy.y - cy) / (h * 0.08)) * exp(-abs(xy.x - sp.x) / (h * 2.6)) * 0.45 * fl;
+  float vflare = exp(-abs(xy.x - sp.x) / (h * 0.07)) * exp(-pow((xy.y - cy) / (h * (neon > 0.5 ? 1.1 : 0.9)), 2.0)) * 0.7 * fl;
+  float hflare = exp(-abs(xy.y - cy) / (h * 0.08)) * exp(-abs(xy.x - sp.x) / (h * 2.6)) * 0.45 * fl * (1.0 - neon);
   float strength = look > 0.5 && look < 1.5 ? 0.55 : 1.0;
   col = mix(col, float3(1.0), clamp(hot * strength, 0.0, 1.0));
   e += float3(0.92, 0.94, 1.0) * (hot * 0.7 + vflare + hflare) * strength;
@@ -239,7 +240,60 @@ half4 main(float2 xy) {
   return half4(half3(clamp(rgb, 0.0, 1.0)), half(clamp(a + maxc(e), 0.0, 1.0)));
 }`);
 
-/** A Meter's fill in one of the looks. Same contract as LiquidBarCanvas. */
+const RING_LOOK = Skia.RuntimeEffect.Make(`
+uniform float2 res;
+uniform float bleed;
+uniform float2 c;
+uniform float R;
+uniform float w;
+uniform float p;
+uniform float t;
+uniform float3 c0;
+uniform float3 c1;
+uniform float3 glow;
+uniform float3 hi;
+${COMMON}
+half4 main(float2 xy) {
+  if (p < 0.002) return half4(0.0);
+  float2 q = xy - c;
+  float dist = length(q);
+  // 0 at the top, growing clockwise
+  float turn = fract(atan(q.x, -q.y) / 6.2831853);
+  float hw = w * 0.5;
+  float2 head = c + R * float2(sin(p * 6.2831853), -cos(p * 6.2831853));
+  float d;
+  float u;
+  if (p >= 0.999) {
+    d = abs(dist - R) - hw;
+    u = turn;
+  } else if (turn <= p) {
+    d = abs(dist - R) - hw;
+    u = turn / p;
+  } else {
+    // the round ends
+    float ds = length(xy - (c + float2(0.0, -R)));
+    float dh = length(xy - head);
+    d = min(ds, dh) - hw;
+    u = dh < ds ? 1.0 : 0.0;
+  }
+  float s = (dist - R) / hw;
+  float3 col = neonFill(s, u, turn * 6.2831853 * R, t, c0, c1, hi);
+  float gd = max(d, 0.0);
+  float g = neonHalo(gd, w, t);
+  float tip = p < 0.999 ? exp(-pow(length(xy - head) / (w * 0.55), 2.0)) * (0.9 + 0.1 * sin(t * 3.0)) : 0.0;
+  col = mix(col, float3(1.0), tip * 0.6);
+  float3 e = glow * g + mix(glow, float3(1.0), 0.6) * tip * 0.55;
+  float a = clamp(0.5 - d, 0.0, 1.0);
+  e *= edgeFade(xy, res, bleed) * (1.0 - a);
+  float3 rgb = clamp(col, 0.0, 1.0) * a + e;
+  return half4(half3(clamp(rgb, 0.0, 1.0)), half(clamp(a + maxc(e), 0.0, 1.0)));
+}`);
+
+/**
+ * A Meter's fill in one of the looks. `progress` is a shared value 0 to 1;
+ * width and height are the track's. The canvas is `bleed` bigger on every
+ * side, so lay it at -bleed over the track.
+ */
 export function LookBarCanvas({ look = "neon", width, height, bleed = 14, clock, progress, tone = "blue" }) {
   const tn = LIQUID_TONES[tone] || LIQUID_TONES.blue;
   const W = width + bleed * 2;
@@ -260,7 +314,7 @@ export function LookBarCanvas({ look = "neon", width, height, bleed = 14, clock,
   );
 }
 
-/** The live tug bar in one of the looks. Same contract as TugCanvas. */
+/** The live tug bar in one of the looks: `share` is a shared value, your fraction 0 to 1. The canvas is `bleed` bigger on every side. */
 export function LookTugCanvas({ look = "neon", width, height, bleed = 16, clock, share }) {
   const W = width + bleed * 2;
   const H = height + bleed * 2;
@@ -274,6 +328,33 @@ export function LookTugCanvas({ look = "neon", width, height, bleed = 16, clock,
     <Canvas style={{ width: W, height: H }} pointerEvents="none">
       <Rect x={0} y={0} width={W} height={H}>
         <Shader source={TUG_LOOK} uniforms={uniforms} />
+      </Rect>
+    </Canvas>
+  );
+}
+
+/**
+ * The step ring in neon. `progress` is a shared value 0 to 1; stroke in px;
+ * track the colour of the empty ring (null for none). The canvas is `bleed`
+ * bigger than `size` on every side.
+ */
+export function LookRingCanvas({ size, stroke, bleed = 20, clock, progress, tone = "blue", track = "#1b1f26" }) {
+  const tn = LIQUID_TONES[tone] || LIQUID_TONES.blue;
+  const R = (size - stroke) / 2;
+  const C0 = size / 2 + bleed;
+  const S = size + bleed * 2;
+  const ring = useMemo(() => {
+    const p = Skia.Path.Make();
+    p.addCircle(C0, C0, R);
+    return p;
+  }, [C0, R]);
+  const uniforms = useDerivedValue(() => ({ res: [S, S], bleed, c: [C0, C0], R, w: stroke, p: Math.max(0, Math.min(1, progress.value)), t: clock.value, c0: tn.c0, c1: tn.c1, glow: tn.glow, hi: tn.hi }), [S, bleed, C0, R, stroke, tn]);
+  if (!size || !RING_LOOK) return null;
+  return (
+    <Canvas style={{ width: S, height: S }} pointerEvents="none">
+      {track ? <Path path={ring} style="stroke" strokeWidth={stroke} color={track} /> : null}
+      <Rect x={0} y={0} width={S} height={S}>
+        <Shader source={RING_LOOK} uniforms={uniforms} />
       </Rect>
     </Canvas>
   );

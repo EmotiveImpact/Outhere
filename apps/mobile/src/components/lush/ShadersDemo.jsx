@@ -1,10 +1,10 @@
 // The shader kit, one card per effect: the Black card's sheen, the aurora,
-// three looks for the bars to pick from, foil on badges and the globe's city lights.
+// neon on the bars and the ring, foil on badges and the globe's city lights.
 // Each is the real component, at the size it is used at in the app.
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Aurora, BlackCard, Body, C, F, Foil, Kicker, Meter, Row, S, Surface, TugBar, useLayoutSize } from "@/components/ui";
+import { Aurora, BlackCard, Body, C, F, Foil, Kicker, LiquidRing, Meter, Row, S, Surface, TugBar, useLayoutSize } from "@/components/ui";
 import { RaceGlobe } from "@/components/arena/RaceGlobe";
 import { PHOTOS } from "@/constants/photos";
 
@@ -36,11 +36,15 @@ export default function ShadersDemo() {
         </View>
       </Demo>
 
-      {LOOKS.map((l) => (
-        <Demo key={l.look} kicker={l.kicker} caption={l.caption}>
-          <Bars look={l.look} />
-        </Demo>
-      ))}
+      <Demo kicker="Neon" caption="Every bar and the step ring: a steady white-hot core inside the colour, a smooth halo, a clean bright tip, and a white-hot point where the two sides of a battle meet.">
+        <Bars />
+        <View style={{ alignItems: "center", marginTop: S.xl }}>
+          <LiquidRing value={0.84} size={132} stroke={11}>
+            <Text style={styles.ring}>84%</Text>
+            <Text style={styles.ringSub}>of 10k goal</Text>
+          </LiquidRing>
+        </View>
+      </Demo>
 
       <Demo kicker="Foil" caption="A cool iridescence on each badge's highlights, a glint every few seconds and a blue bloom behind it. It moves with the phone's tilt.">
         <Row gap={S.sm} style={{ alignItems: "stretch" }}>
@@ -63,17 +67,8 @@ export default function ShadersDemo() {
   );
 }
 
-const LOOKS = [
-  { look: "neon", kicker: "Bars A: Neon", caption: "A lightsaber: a white-hot core inside the colour, a steady halo, a bright tip, and a white flare where the two sides clash." },
-  { look: "glass", kicker: "Bars B: Liquid glass", caption: "Liquid in a glass tube: a glossy highlight along the top, a moving surface at the head, bubbles drifting along and a soft shine." },
-  { look: "pulse", kicker: "Bars C: Pulse", caption: "Light down a fibre: packets of white light race to the head, or to the meeting point, and flash when they arrive." },
-];
-
-// A phone browser only keeps so many live canvases, so each look shows a
-// battle bar and one meter.
-
-/** One look on a live battle bar and a meter. */
-function Bars({ look }) {
+/** A live battle bar and a meter. */
+function Bars() {
   return (
     <View>
       <Row style={{ justifyContent: "space-between", marginBottom: 6 }}>
@@ -84,12 +79,12 @@ function Bars({ look }) {
         <Text style={styles.big}>8,412</Text>
         <Text style={[styles.big, { color: "#ff8b92" }]}>6,090</Text>
       </Row>
-      <TugBar share={0.58} height={12} live look={look} style={{ marginTop: S.md, marginBottom: S.xl }} />
+      <TugBar share={0.58} height={12} live style={{ marginTop: S.md, marginBottom: S.xl }} />
       <Row style={{ justifyContent: "space-between", marginBottom: 6 }}>
         <Text style={styles.label}>Level 22</Text>
         <Text style={styles.label}>18,240 / 21,000 XP</Text>
       </Row>
-      <Meter value={0.72} size="lg" liquid look={look} />
+      <Meter value={0.72} size="lg" liquid />
     </View>
   );
 }
@@ -116,6 +111,8 @@ const styles = StyleSheet.create({
   score: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
   big: { color: C.accentHi, fontFamily: F.display, fontSize: 34, lineHeight: 36 },
   label: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12 },
+  ring: { color: C.text, fontFamily: F.display, fontSize: 34, lineHeight: 36 },
+  ringSub: { color: C.textDim, fontFamily: F.body, fontSize: 11 },
   badge: { alignItems: "center", paddingTop: 10, paddingBottom: 12, paddingHorizontal: 6 },
   badgeName: { color: C.text, fontFamily: F.bodySemi, fontSize: 12.5, marginTop: 6 },
   badgeSub: { color: C.accent, fontFamily: F.body, fontSize: 11, marginTop: 2 },
