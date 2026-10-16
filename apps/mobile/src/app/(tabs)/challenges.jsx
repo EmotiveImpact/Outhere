@@ -1,561 +1,315 @@
-import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-} from "react-native";
+import React from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Trophy, ChevronRight, Zap, Swords, Clock, Sunrise, Flame, Activity, ShieldAlert } from "lucide-react-native";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useQuery } from "@tanstack/react-query";
-import { StatusBar } from "expo-status-bar";
-import { hapticSelection } from "@/services/haptics";
-import { useUserStore } from "@/store/userStore";
+import { Check } from "lucide-react-native";
+import { engine, useBattles, useChallenges, useEngineMutation, useProfile, useStepHistory } from "@/data/hooks";
+import { PHOTOS } from "@/constants/photos";
+import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Pill, PressableScale, ProgressBar, R, Row, S, SectionHeader, Skeleton, Surface, TAB_BAR_SPACE, toast } from "@/components/ui";
+import { countdown, dateLabel, formatKm, formatNumber } from "@/utils/format";
+import { useNow } from "@/components/arena/shared";
+import { Bar, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 
-const fetchLeaderboard = async () => {
-  try {
-    const res = await fetch("/api/leaderboard");
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
-};
+const PERIOD_LABEL = { day: "Today", week: "This week", weekend: "Weekend" };
 
-const fallbackFriends = [
-  { id: "1", name: "Sarah", avatar_url: "https://i.pravatar.cc/150?img=1" },
-  { id: "2", name: "Mike", avatar_url: "https://i.pravatar.cc/150?img=2" },
-  { id: "3", name: "Jazz", avatar_url: "https://i.pravatar.cc/150?img=3" },
-  { id: "4", name: "Kobe", avatar_url: "https://i.pravatar.cc/150?img=4" },
-  { id: "5", name: "Lena", avatar_url: "https://i.pravatar.cc/150?img=5" },
+const amount = (c, v) => (c.metric === "distance" ? formatKm(v) : `${formatNumber(v)} steps`);
+
+const SECTIONS = [
+  { key: "complete", title: "Ready to claim" },
+  { key: "joined", title: "In progress" },
+  { key: "open", title: "Open to join" },
+  { key: "upcoming", title: "Coming up" },
+  { key: "claimed", title: "Claimed" },
 ];
 
-const fallbackEvents = [
-  {
-    id: "event-1",
-    title: "10k on Sunday",
-    image_url:
-      "https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=600&h=300&fit=crop",
-    participant_count: 35,
-  },
-  {
-    id: "event-2",
-    title: "Trail Run",
-    image_url:
-      "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=600&h=300&fit=crop",
-    participant_count: 22,
-  },
-];
-
-export default function Challenges() {
+// The streak flame on top, every day of the month underneath (blue for a day
+// outside), then the challenges to chase.
+function StreakHero({ streak, days }) {
   const insets = useSafeAreaInsets();
-  const [showChallenge, setShowChallenge] = useState(false);
-  const [xpStake, setXpStake] = useState("");
-  const [selectedFriend, setSelectedFriend] = useState(null);
-
-  // useUserStore individual selectors for stability
-  const yourXP = useUserStore((s) => s.xp) || 0;
-
-  const { data: friends } = useQuery({
-    queryKey: ["leaderboard"],
-    queryFn: fetchLeaderboard,
-  });
-
-  const friendList = useMemo(() => {
-    return Array.isArray(friends) && friends.length > 0 ? friends : fallbackFriends;
-  }, [friends]);
-
-  const weeklyChallenge = {
-    title: "Run 20km This Week",
-    current: 12.5,
-    target: 20,
-    daysLeft: 3,
-  };
-
-  const events = fallbackEvents;
-
-  const challenges = [
-    { id: 1, title: "Early Bird", desc: "Run before 7am", icon: Sunrise, progress: 3, total: 5, xpReward: 50, color: "#00ff7f" },
-    { id: 2, title: "Speed Demon", desc: "Run 5km under 25min", icon: Zap, progress: 1, total: 1, xpReward: 100, color: "#00ff7f" },
-    { id: 3, title: "Consistent Runner", desc: "Run 5 days in a row", icon: Flame, progress: 2, total: 5, xpReward: 150, color: "#00ff7f" },
-    { id: 4, title: "Long Distance", desc: "Run 10km in one session", icon: Activity, progress: 0, total: 1, xpReward: 200, color: "#00ff7f" },
-  ];
-
-  const activeBattles = [
-    {
-      id: 1, opponent: "Sarah",
-      avatar: "https://images.unsplash.cc/photo-1494790108377-be9c29b29330?w=200",
-      stake: 100, timeLeft: "2h 34m", yourScore: 8420, opponentScore: 7650, winning: true,
-    },
-    {
-      id: 2, opponent: "Mike",
-      avatar: "https://images.unsplash.cc/photo-1507003211169-0a1dd7228f2d?w=200",
-      stake: 75, timeLeft: "5h 12m", yourScore: 4200, opponentScore: 5100, winning: false,
-    },
-  ];
-
+  const now = new Date();
+  const month = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lead = (first.getDay() + 6) % 7; // Monday first
+  const inMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const activeByDate = new Map((days || []).map((d) => [d.date, d.active || d.steps >= 3000]));
+  const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = now.getDate();
+  const outside = Array.from({ length: today }, (_, i) => activeByDate.get(key(new Date(now.getFullYear(), now.getMonth(), i + 1)))).filter(Boolean).length;
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: inMonth }, (_, i) => i + 1)];
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 100,
-          paddingHorizontal: 20,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── HEADER ── */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-          <Text style={{ color: "#fff", fontSize: 32, fontWeight: "800", letterSpacing: -1 }}>
-            Challenges
-          </Text>
-          <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, flexDirection: "row", alignItems: "center" }}>
-            <Zap color="#fff" size={14} fill="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14, marginLeft: 6, letterSpacing: -0.3 }}>
-              {yourXP.toLocaleString()} XP
-            </Text>
-          </View>
-        </View>
-
-        {/* ── WEEKLY CHALLENGE CARD ── */}
-        <View style={{
-          backgroundColor: "#161618",
-          borderRadius: 28,
-          padding: 22,
-          marginBottom: 28,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.3,
-          shadowRadius: 16,
-          elevation: 6,
-        }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
-                WEEKLY CHALLENGE
-              </Text>
-              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>
-                {weeklyChallenge.title}
-              </Text>
-              <Text style={{ color: "#666", fontSize: 13, marginTop: 6, letterSpacing: 0.2 }}>
-                {weeklyChallenge.daysLeft} days left · +200 XP
-              </Text>
-            </View>
-            <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", borderRadius: 16, padding: 12 }}>
-              <Trophy color="#fff" size={28} />
-            </View>
-          </View>
-
-          {/* Progress bar */}
-          <View style={{ marginTop: 8 }}>
-            <View style={{ height: 6, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
-              <View style={{
-                height: "100%",
-                width: `${(weeklyChallenge.current / weeklyChallenge.target) * 100}%`,
-                backgroundColor: "#00ff7f",
-                borderRadius: 3,
-              }} />
-            </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14, letterSpacing: -0.3 }}>
-                {weeklyChallenge.current} km
-              </Text>
-              <Text style={{ color: "#555", fontSize: 13 }}>
-                {weeklyChallenge.target} km
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── ACTIVE BATTLES HEADER ── */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800", letterSpacing: -0.5 }}>
-            Active Battles
-          </Text>
-          <TouchableOpacity
-            onPress={() => { hapticSelection(); setShowChallenge(!showChallenge); }}
-            style={{
-              backgroundColor: "#00ff7f",
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 16,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <Swords color="#000" size={14} strokeWidth={2.5} />
-            <Text style={{ color: "#000", fontWeight: "800", fontSize: 13, marginLeft: 6, letterSpacing: 0.3 }}>
-              New Battle
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── NEW BATTLE FORM ── */}
-        {showChallenge && (
-          <View style={{
-            backgroundColor: "#161618",
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: "rgba(0, 255, 127, 0.15)",
-          }}>
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16, marginBottom: 16, letterSpacing: -0.3 }}>
-              Choose Opponent
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexGrow: 0 }}>
-              {friendList.slice(0, 5).map((friend) => (
-                <TouchableOpacity
-                  key={friend.id}
-                  onPress={() => { hapticSelection(); setSelectedFriend(friend.id); }}
-                  style={{
-                    alignItems: "center",
-                    marginRight: 12,
-                    backgroundColor: selectedFriend === friend.id ? "rgba(0,255,127,0.1)" : "#1e1e20",
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    borderRadius: 18,
-                    borderWidth: selectedFriend === friend.id ? 1 : 0,
-                    borderColor: "rgba(0,255,127,0.3)",
-                  }}
-                >
-                  <Image
-                    source={{ uri: friend.avatar_url }}
-                    style={{ width: 40, height: 40, borderRadius: 20, marginBottom: 8 }}
-                  />
-                  <Text style={{ color: selectedFriend === friend.id ? "#fff" : "#888", fontSize: 12, fontWeight: "600" }}>
-                    {friend.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
-              XP STAKE ({yourXP} available)
-            </Text>
-            <TextInput
-              value={xpStake}
-              onChangeText={setXpStake}
-              placeholder="Enter XP amount..."
-              placeholderTextColor="#333"
-              keyboardType="numeric"
-              style={{
-                backgroundColor: "#1e1e20",
-                color: "#fff",
-                padding: 14,
-                borderRadius: 16,
-                marginBottom: 14,
-                fontSize: 16,
-                fontWeight: "600",
-              }}
-            />
-            <TouchableOpacity style={{
-              backgroundColor: "#00ff7f",
-              padding: 16,
-              borderRadius: 18,
-              alignItems: "center",
-            }}>
-              <Text style={{ color: "#000", fontWeight: "800", fontSize: 15, letterSpacing: 0.3 }}>
-                Send Challenge
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── BATTLE CARDS ── */}
-        {activeBattles.map((battle) => (
-          <TouchableOpacity
-            key={battle.id}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: "#161618",
-              borderRadius: 24,
-              padding: 18,
-              marginBottom: 12,
-              borderWidth: 1.5,
-              borderColor: battle.winning ? "rgba(0, 255, 127, 0.3)" : "rgba(0, 255, 127, 0.3)",
-              shadowColor: battle.winning ? "#00ff7f" : "#00ff7f",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.1,
-              shadowRadius: 12,
-            }}
-          >
-            {/* Battle header */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Image
-                  source={{ uri: battle.avatar }}
-                  style={{ width: 42, height: 42, borderRadius: 21, marginRight: 12, borderWidth: 2, borderColor: battle.winning ? "rgba(0,255,127,0.3)" : "rgba(0,255,127,0.3)" }}
-                />
-                <View>
-                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: -0.3 }}>
-                    vs {battle.opponent}
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 3 }}>
-                    <Clock color="#555" size={11} />
-                    <Text style={{ color: "#555", fontSize: 12, marginLeft: 4, fontWeight: "600" }}>
-                      {battle.timeLeft} left
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 }}>
-                <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12, letterSpacing: 0.3 }}>
-                  {battle.stake} XP
-                </Text>
-              </View>
-            </View>
-
-            {/* Scores */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: "#555", fontSize: 10, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>YOU</Text>
-                <Text style={{ color: "#fff", fontWeight: "800", fontSize: 20, letterSpacing: -0.5 }}>
-                  {battle.yourScore.toLocaleString()}
-                </Text>
-              </View>
-              <View style={{ backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(0,255,127,0.1)", borderRadius: 12, padding: 8 }}>
-                <Swords color="#fff" size={20} />
-              </View>
-              <View style={{ flex: 1, alignItems: "flex-end" }}>
-                <Text style={{ color: "#555", fontSize: 10, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
-                  {battle.opponent.toUpperCase()}
-                </Text>
-                <Text style={{ color: "#888", fontWeight: "800", fontSize: 20, letterSpacing: -0.5 }}>
-                  {battle.opponentScore.toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-            {/* Status pill */}
-            <View style={{ alignItems: "center", marginTop: 14 }}>
-              <View style={{
-                backgroundColor: battle.winning ? "rgba(0,255,127,0.1)" : "rgba(0,255,127,0.1)",
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: 12,
-              }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {battle.winning ? <Flame color="#fff" size={12} style={{ marginRight: 6 }} /> : <ShieldAlert color="#fff" size={12} style={{ marginRight: 6 }} />}
-                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800", letterSpacing: 0.3 }}>
-                      {battle.winning ? "You're Winning" : "Catch Up"}
-                    </Text>
-                  </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-
-        {/* ── EVENTS ── */}
-        <View style={{ marginTop: 12 }}>
-          <Text
-            style={{
-              color: "#fff",
-              fontSize: 20,
-              fontWeight: "700",
-              paddingHorizontal: 0,
-              marginBottom: 18,
-            }}
-          >
-            Upcoming Events
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 0 }}
-            contentContainerStyle={{ gap: 14, paddingRight: 20 }}
-          >
-            {events.map((event, index) => (
-              <View
-                key={event.id || `event-${index}`}
-                style={{
-                  width: 300,
-                  height: 200,
-                  borderRadius: 20,
-                  overflow: "hidden",
-                }}
-              >
-                <Image
-                  source={{ uri: event.image_url || event.image }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                />
-                <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.9)"]}
-                  locations={[0.1, 1]}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    justifyContent: "space-between",
-                    padding: 20,
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800" }}>
-                    {event.title}
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: "#00ff7f",
-                        paddingHorizontal: 24,
-                        paddingVertical: 12,
-                        borderRadius: 25,
-                      }}
-                    >
-                      <Text style={{ color: "#000", fontSize: 15, fontWeight: "800" }}>
-                        Enroll now
-                      </Text>
-                    </TouchableOpacity>
-                    <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 13 }}>
-                      {(event.participant_count ?? event.participants ?? 0)} joined
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* ── DAILY CHALLENGES SECTION ── */}
-        <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800", letterSpacing: -0.5, marginTop: 24, marginBottom: 16 }}>
-          Daily Challenges
+    <View>
+      {/* .slab with the flame object (chal6): the streak is the hero. */}
+      <GlowHero object={PHOTOS.flame} objectSize={206} objectStyle={{ right: -30, top: insets.top + 22 }} height={222} kicker="Your streak" top={`${streak} ${streak === 1 ? "day" : "days"}`} bottom="outside" />
+      <View style={{ paddingHorizontal: S.gutter }}>
+      <Row style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 14, marginBottom: 10 }}>
+        <Text style={styles.month}>{month}</Text>
+        <Text style={styles.monthMeta}>
+          <Text style={{ color: C.accent, fontFamily: F.bodySemi }}>
+            {outside} of {today}
+          </Text>{" "}
+          days outside so far
         </Text>
-
-        {/* Steps challenge */}
-        <View style={{
-          backgroundColor: "#161618",
-          borderRadius: 24,
-          padding: 20,
-          marginBottom: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-        }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15, marginBottom: 4, letterSpacing: -0.3 }}>
-                Complete Daily Steps
-              </Text>
-              <Text style={{ color: "#555", fontSize: 12, fontWeight: "500" }}>
-                Hit 10,000 steps today
-              </Text>
-            </View>
-            <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 }}>
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>+25 XP</Text>
-            </View>
-          </View>
-          <View style={{ marginTop: 14, height: 5, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
-            <View style={{ height: "100%", width: "65%", backgroundColor: "#00ff7f", borderRadius: 3 }} />
-          </View>
-          <Text style={{ color: "#555", fontSize: 11, marginTop: 6, fontWeight: "600" }}>
-            6,500 / 10,000 steps
-          </Text>
-        </View>
-
-        {/* Club challenge */}
-        <View style={{
-          backgroundColor: "#161618",
-          borderRadius: 24,
-          padding: 20,
-          marginBottom: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-        }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15, marginBottom: 4, letterSpacing: -0.3 }}>
-                Win the Day in Your Club
-              </Text>
-              <Text style={{ color: "#555", fontSize: 12, fontWeight: "500" }}>
-                Get most steps in your club
-              </Text>
-            </View>
-            <View style={{ backgroundColor: "rgba(0, 255, 127, 0.1)", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 }}>
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>+50 XP</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── ACHIEVEMENTS SECTION ── */}
-        <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800", letterSpacing: -0.5, marginTop: 24, marginBottom: 16 }}>
-          Achievements
-        </Text>
-
-        {challenges.map((challenge) => (
-          <TouchableOpacity
-            key={challenge.id}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: "#161618",
-              borderRadius: 22,
-              padding: 18,
-              marginBottom: 10,
-              flexDirection: "row",
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 6,
-            }}
-          >
-            {/* Icon */}
-            <View style={{
-              width: 50,
-              height: 50,
-              borderRadius: 18,
-              backgroundColor: "rgba(255, 255, 255, 0.03)",
-              justifyContent: "center",
-              alignItems: "center",
-              marginRight: 14,
-            }}>
-              <challenge.icon color={challenge.color || "#555"} size={24} />
-            </View>
-
-            {/* Content */}
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14, letterSpacing: -0.3 }}>
-                  {challenge.title}
-                </Text>
-                <Text style={{ color: "#00ff7f", fontSize: 11, fontWeight: "800", letterSpacing: 0.3 }}>
-                  +{challenge.xpReward} XP
-                </Text>
-              </View>
-              <Text style={{ color: "#555", fontSize: 12, marginBottom: 8, fontWeight: "500" }}>
-                {challenge.desc}
-              </Text>
-              <View style={{ height: 4, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                <View style={{
-                  height: "100%",
-                  width: `${(challenge.progress / challenge.total) * 100}%`,
-                  backgroundColor: challenge.progress === challenge.total ? "#00ff7f" : "rgba(0, 255, 127, 0.5)",
-                  borderRadius: 2,
-                }} />
-              </View>
-              <Text style={{ color: "#444", fontSize: 10, marginTop: 5, fontWeight: "600", letterSpacing: 0.3 }}>
-                {challenge.progress}/{challenge.total} completed
-              </Text>
-            </View>
-
-            <ChevronRight color="#333" size={18} style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
+      </Row>
+      <View style={styles.grid}>
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+          <Text key={`h${i}`} style={styles.dow}>{d}</Text>
         ))}
-      </ScrollView>
+        {cells.map((n, i) => {
+          if (!n) return <View key={`e${i}`} style={styles.cell} />;
+          const isToday = n === today;
+          const future = n > today;
+          const active = !future && activeByDate.get(key(new Date(now.getFullYear(), now.getMonth(), n)));
+          return (
+            <View key={n} style={styles.cell}>
+              <View style={[styles.day, active && styles.dayOn, isToday && styles.dayToday]}>
+                <Text style={[styles.dayText, !future && { color: C.textSoft }, (active || isToday) && { color: C.text }]}>{n}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+      </View>
     </View>
   );
 }
+
+// Today: the day's challenges, your check-in and your live battle, ticked off
+// as you go. Every reward shown is one you actually get.
+function TodayCard({ list, profile, battles, onClaim }) {
+  const tasks = [];
+  if (profile) tasks.push({ key: "checkin", title: "Check in today", done: !!profile.checkedInToday, reward: "+XP" });
+  for (const c of list.filter((x) => x.period === "day")) {
+    tasks.push({ key: c.id, title: c.metric === "distance" ? formatKm(c.target) : `${formatNumber(c.target)} steps`, done: c.status === "complete" || c.status === "claimed", progress: c.percent, reward: `+${formatNumber(c.rewardXp)} XP`, claim: c.status === "complete" ? () => onClaim(c.id) : null });
+  }
+  const live = (battles || []).find((b) => b.status === "active" && b.phase === "live" && !b.timed);
+  if (live) {
+    const name = live.opponent.player?.name || "your rival";
+    tasks.push({ key: live.id, title: `Lead ${name} at the whistle`, done: live.leader === "me", reward: `+${15 + (live.stakeOut || 0) * 2} OUT` });
+  }
+  if (!tasks.length) return null;
+  const done = tasks.filter((t) => t.done).length;
+  return (
+    <View style={{ paddingHorizontal: S.gutter }}>
+      <SectionLabel right={`${done} of ${tasks.length} done`} style={{ marginTop: S.lg, marginBottom: 10 }}>Today</SectionLabel>
+      <Surface radius={20} padding={null} contentStyle={styles.today}>
+        {tasks.map((t, i) => (
+          <PressableScale key={t.key} disabled={!t.claim} onPress={t.claim || undefined} scaleTo={0.98} style={[styles.task, i > 0 && styles.taskLine]}>
+            <View style={[styles.check, t.done && styles.checkOn]}>{t.done ? <Check size={14} color="#fff" strokeWidth={3} /> : null}</View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
+                {t.title}
+              </Text>
+              {!t.done && t.progress != null ? <Bar value={t.progress} style={{ marginTop: 6, width: "70%" }} /> : null}
+            </View>
+            <Text style={styles.taskReward}>{t.claim ? "Claim" : t.reward}</Text>
+          </PressableScale>
+        ))}
+      </Surface>
+    </View>
+  );
+}
+
+export default function ChallengesScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const inOutside = usePathname()?.startsWith("/outside");
+  const profile = useProfile().data;
+  const battles = useBattles().data;
+  const month = useStepHistory(31).data;
+  const now = useNow(30 * 1000);
+  const { data, isPending, refetch, isRefetching } = useChallenges();
+
+  const list = data || [];
+  const titleFor = (id) => list.find((c) => c.id === id)?.title || "challenge";
+
+  const join = useEngineMutation(engine.joinChallenge, {
+    onSuccess: (_, id) => toast.success("You're in", `${titleFor(id)}. Your steps already count.`),
+  });
+  const claim = useEngineMutation(engine.claimChallenge, {
+    onSuccess: (reward, id) =>
+      toast.success(`+${formatNumber(reward?.xp ?? 0)} XP${reward?.out ? ` · +${reward.out} OUT` : ""}`, `${titleFor(id)} banked. Nice work.`),
+  });
+
+  const ready = list.filter((c) => c.status === "complete");
+  const joined = list.filter((c) => c.status === "joined" || c.status === "complete").length;
+  const live = list.filter((c) => c.status !== "claimed");
+  const upForGrabs = live.reduce((sum, c) => sum + c.rewardXp, 0);
+  const outForGrabs = live.reduce((sum, c) => sum + (c.rewardOut || 0), 0);
+
+  let index = 0;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <ScrollView
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + insets.bottom + 24 }}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
+    >
+      {isPending ? (
+        <View style={{ gap: S.md, paddingHorizontal: S.gutter, paddingTop: insets.top + 70 }}>
+          <Skeleton height={168} radius={20} />
+          <Skeleton width={140} height={20} style={{ marginTop: S.lg }} />
+          <Skeleton height={230} radius={20} />
+          <Skeleton height={230} radius={20} />
+        </View>
+      ) : !list.length ? (
+        <EmptyState style={{ paddingTop: insets.top + 90 }} title="No challenges right now" body="New ones land every day and every week." action="Go to the Arena" onAction={() => router.push("/outside/arena")} />
+      ) : (
+        <>
+          <StreakHero streak={profile?.streak || 0} days={month} />
+          <TodayCard list={list} profile={profile} battles={battles} onClaim={(id) => claim.mutate(id)} />
+          <View style={{ paddingHorizontal: S.gutter }}>
+          <FadeIn>
+            <Surface radius={R.lg} padding={S.xl} style={{ marginTop: S.xxl }}>
+              <Row gap={8} style={{ alignItems: "flex-end" }}>
+                <AnimatedNumber value={upForGrabs} style={styles.heroValue} />
+                <Text style={styles.heroUnit}>XP</Text>
+              </Row>
+              <Text style={styles.heroMeta}>
+                up for grabs{outForGrabs ? `, plus ${formatNumber(outForGrabs)} OUT` : ""}
+              </Text>
+              <Row gap={0} style={styles.heroStats}>
+                <HeroStat label="joined" value={`${joined} of ${list.length}`} />
+                <HeroStat label="to claim" value={String(ready.length)} />
+                <HeroStat label="live now" value={String(list.filter((c) => c.status !== "upcoming" && c.status !== "claimed").length)} />
+              </Row>
+            </Surface>
+          </FadeIn>
+
+          {SECTIONS.map((section) => {
+            const items = list.filter((c) => c.status === section.key);
+            if (!items.length) return null;
+            return (
+              <View key={section.key}>
+                <SectionHeader title={section.title} />
+                <View style={{ gap: S.md }}>
+                  {items.map((c, i) => (
+                    <FadeIn key={c.id} index={index++}>
+                      <ChallengeCard
+                        challenge={c}
+                        now={now}
+                        primary={section.key === "complete" && i === 0}
+                        joining={join.isPending && join.variables === c.id}
+                        claiming={claim.isPending && claim.variables === c.id}
+                        onJoin={() => join.mutate(c.id)}
+                        onClaim={() => claim.mutate(c.id)}
+                      />
+                    </FadeIn>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
+          </View>
+        </>
+      )}
+    </ScrollView>
+    {!inOutside ? <TopBar /> : null}
+    </View>
+  );
+}
+
+function HeroStat({ label, value }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={styles.heroStatValue}>{value}</Text>
+      <Text style={styles.heroStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ChallengeCard({ challenge: c, now, primary, joining, claiming, onJoin, onClaim }) {
+  const done = c.status === "complete";
+  const claimed = c.status === "claimed";
+  const upcoming = c.status === "upcoming";
+  const timeText = upcoming ? `Starts ${dateLabel(c.startsAt)}` : claimed ? "Done" : `${countdown(c.endsAt, now)} left`;
+  const pct = Math.round(c.percent * 100);
+
+  return (
+    <Surface radius={R.lg} padding={S.lg} style={claimed ? { opacity: 0.7 } : null}>
+      <Row style={{ justifyContent: "space-between" }}>
+        <Pill label={PERIOD_LABEL[c.period] || String(c.period)} />
+        <Text style={styles.meta}>{timeText}</Text>
+      </Row>
+
+      <Text style={styles.title}>{c.title}</Text>
+      <Text style={styles.desc}>{c.description}</Text>
+
+      {!upcoming ? (
+        <View style={{ marginTop: S.lg }}>
+          <Row style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: S.sm }}>
+            <Text style={styles.progress} numberOfLines={1}>
+              {amount(c, c.progress)}
+              <Text style={styles.target}> of {amount(c, c.target)}</Text>
+            </Text>
+            <Text style={[styles.percent, (done || claimed) && { color: C.text }]}>{pct}%</Text>
+          </Row>
+          <ProgressBar value={c.percent} height={6} colour={c.joined || claimed ? C.accent : C.borderStrong} />
+          {!c.joined && c.progress > 0 ? <Text style={styles.note}>Your steps already count. Join to lock it in.</Text> : null}
+        </View>
+      ) : null}
+
+      <Row style={{ justifyContent: "space-between", marginTop: S.lg }}>
+        <Text style={styles.rewardText}>
+          +{formatNumber(c.rewardXp)} XP{c.rewardOut ? ` · +${c.rewardOut} OUT` : ""}
+        </Text>
+        <Text style={styles.meta}>{formatNumber(c.participants)} in</Text>
+      </Row>
+
+      {done ? (
+        <Button title="Claim reward" variant={primary ? "primary" : "secondary"} size="lg" onPress={onClaim} loading={claiming} full style={{ marginTop: S.lg }} />
+      ) : c.status === "open" || upcoming ? (
+        <Button title={upcoming ? "Join early" : "Join challenge"} variant="secondary" onPress={onJoin} loading={joining} full style={{ marginTop: S.lg }} />
+      ) : claimed ? (
+        <Row gap={6} style={styles.claimed}>
+          <Check size={15} color={C.textDim} strokeWidth={2.5} />
+          <Text style={styles.claimedText}>Reward banked</Text>
+        </Row>
+      ) : (
+        <Row gap={6} style={styles.joined}>
+          <Text style={styles.joinedText}>Joined · {amount(c, Math.max(0, c.target - c.progress))} to go</Text>
+        </Row>
+      )}
+    </Surface>
+  );
+}
+
+const styles = StyleSheet.create({
+  today: { paddingHorizontal: 14, paddingVertical: 4 },
+  task: { flexDirection: "row", alignItems: "center", gap: S.md, paddingVertical: 11 },
+  taskLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+  check: { width: 24, height: 24, borderRadius: 8, borderWidth: 1.5, borderColor: "#222731", alignItems: "center", justifyContent: "center" },
+  checkOn: { backgroundColor: C.accent, borderColor: C.accent, boxShadow: "0 0 10px rgba(61,139,255,0.45)" },
+  taskTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  taskDone: { color: C.textDim, textDecorationLine: "line-through" },
+  taskReward: { color: C.accent, fontFamily: F.bodySemi, fontSize: 12.5 },
+  // .calhead and .cal.sm
+  month: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  monthMeta: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  grid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -2 },
+  dow: { width: `${100 / 7}%`, textAlign: "center", color: C.textDim, fontFamily: F.body, fontSize: 10.5, marginBottom: 2 },
+  cell: { width: `${100 / 7}%`, padding: 2 },
+  day: { height: 27, borderRadius: 8, backgroundColor: "#12151a", alignItems: "center", justifyContent: "center" },
+  dayOn: { backgroundColor: "#1e3456" },
+  dayToday: { backgroundColor: C.accent, boxShadow: "0 0 12px rgba(61,139,255,0.38)" },
+  dayText: { color: "#4a5160", fontFamily: F.bodySemi, fontSize: 12 },
+  heroValue: { color: C.text, fontFamily: F.display, fontSize: 56, letterSpacing: -1.5, lineHeight: 60 },
+  heroUnit: { color: C.textDim, fontFamily: F.display, fontSize: 22, marginBottom: 8 },
+  heroMeta: { color: C.textDim, fontSize: 15, marginTop: 2 },
+  heroStats: { marginTop: S.xl },
+  heroStatValue: { color: C.text, fontFamily: F.display, fontSize: 20 },
+  heroStatLabel: { color: C.textDim, fontSize: 13, marginTop: 2 },
+  meta: { color: C.textDim, fontSize: 13 },
+  title: { color: C.text, fontFamily: F.display, fontSize: 26, textTransform: "uppercase", marginTop: S.md },
+  desc: { color: C.textDim, fontSize: 15, lineHeight: 21, marginTop: 4 },
+  progress: { color: C.text, fontFamily: F.display, fontSize: 17, flexShrink: 1 },
+  target: { color: C.textMute, fontFamily: F.displayMedium, fontSize: 13 },
+  percent: { color: C.textDim, fontFamily: F.display, fontSize: 15 },
+  note: { color: C.textMute, fontSize: 13, marginTop: S.sm },
+  rewardText: { color: C.text, fontFamily: F.displayMedium, fontSize: 15 },
+  claimed: { marginTop: S.lg },
+  claimedText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 13 },
+  joined: { marginTop: S.lg },
+  joinedText: { color: C.accentHi, fontFamily: F.bodySemi, fontSize: 13 },
+});

@@ -1,358 +1,232 @@
-import { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+// What you missed: battle invites you can answer in place, then everything
+// else grouped by time. Older and read ones fade back.
+
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import {
-  ArrowLeft, SlidersHorizontal, Users, Trophy, Medal,
-  Heart, Zap, ChevronRight,
-} from "lucide-react-native";
-import { hapticSelection } from "@/services/haptics";
+import { Bell, CalendarDays, CheckCheck, Flame, Gift, MoreHorizontal, Settings2, ShoppingBag, Swords, Trash2, Users } from "lucide-react-native";
+import { engine, useBattles, useEngineMutation, useNotifications, useProfile } from "@/data/hooks";
+import { startOfDay } from "@/data/time";
+import { Avatar, Button, C, EmptyState, F, FadeIn, IconTile, PressableScale, R, S, Sheet, Skeleton, Surface } from "@/components/ui";
+import { OUTSIDE_PHOTOS } from "@/constants/outsidePhotos";
+import { imageSource } from "@/components/ui/Cover";
+import { HeroPage, RoundButton, confirmAsk } from "@/components/account/parts";
+import { timeAgo } from "@/utils/format";
 
-// ── NOTIFICATION DATA ──────────────────────────────────────────────────────────
+const TYPES = { battles: Swords, crews: Users, drops: ShoppingBag, events: CalendarDays, rewards: Gift };
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const NOTIFICATIONS = [
-  {
-    id: "n1",
-    category: "Club",
-    icon: Users,
-    title: "Your club hit its weekly goal!",
-    description: "URBAN EXPLORERS reached 500 KM this week. Amazing teamwork — keep pushing together.",
-    time: "2h ago",
-    read: false,
-    action: null,
-  },
-  {
-    id: "n2",
-    category: "Challenge",
-    icon: Trophy,
-    title: "New Challenge Available",
-    description: "\"Weekend Warrior\" just dropped — complete 3 runs this weekend to earn bonus XP.",
-    time: "3h ago",
-    read: false,
-    action: "View Challenge",
-  },
-  {
-    id: "n3",
-    category: "Social",
-    icon: Heart,
-    title: "Nicki Minaj liked your run",
-    description: "Your half marathon post received 42 likes and 12 comments. Nice work!",
-    time: "5h ago",
-    read: false,
-    action: null,
-  },
-  {
-    id: "n4",
-    category: "Achievement",
-    icon: Medal,
-    title: "Badge Unlocked: 100K Club",
-    description: "You've run a total of 100 km. Welcome to the 100K Club — only 8% of runners reach this milestone.",
-    time: "Yesterday",
-    read: true,
-    action: "View Badge",
-  },
-  {
-    id: "n5",
-    category: "Move",
-    icon: Zap,
-    title: "Weekly Recap: 12.4 KM",
-    description: "You ran 12.4 KM across 4 sessions last week. That's 30% more than the previous week.",
-    time: "Yesterday",
-    read: true,
-    action: null,
-  },
-  {
-    id: "n6",
-    category: "Club",
-    icon: Users,
-    title: "Patrick Klüvert joined the club",
-    description: "Your club now has 125 members. Share the invite code to grow your crew.",
-    time: "2 days ago",
-    read: true,
-    action: null,
-  },
-  {
-    id: "n7",
-    category: "Challenge",
-    icon: Trophy,
-    title: "Battle Update: You're Winning!",
-    description: "You're 2.3 KM ahead of Michel Jordan in your active battle. Keep it up to claim the win.",
-    time: "2 days ago",
-    read: true,
-    action: "View Battle",
-  },
-  {
-    id: "n8",
-    category: "Achievement",
-    icon: Medal,
-    title: "7-Day Streak Unlocked",
-    description: "Consistency is everything. You've been active for 7 days straight — streak master!",
-    time: "3 days ago",
-    read: true,
-    action: null,
-  },
-  {
-    id: "n9",
-    category: "Move",
-    icon: Zap,
-    title: "New Personal Best!",
-    description: "You just set a new 5K record at 24:38. That's 12 seconds faster than your previous best.",
-    time: "4 days ago",
-    read: true,
-    action: "View Run",
-  },
-  {
-    id: "n10",
-    category: "Social",
-    icon: Heart,
-    title: "3 new comments on your post",
-    description: "Michel Jordan, Patrick and Riyan left comments on your morning grind post.",
-    time: "5 days ago",
-    read: true,
-    action: null,
-  },
-];
+// Titles from the engine sometimes end in an emoji; the icon already says it.
+const cleanTitle = (t = "") => t.replace(/\s*[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?$/u, "");
 
-const CATEGORIES = ["All", "Club", "Challenge", "Achievement", "Social", "Move"];
-
-const CATEGORY_COLORS = {
-  Club: "#00ff7f",
-  Challenge: "#00ff7f",
-  Achievement: "#00ff7f",
-  Social: "#00ff7f",
-  Move: "#00ff7f",
+// 14m, 2h, 9am, Mon, 12 Oct.
+const when = (at) => {
+  const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  if (mins < 180) return `${Math.round(mins / 60)}h`;
+  const d = new Date(at);
+  if (at >= startOfDay().getTime()) {
+    const h = d.getHours();
+    const m = d.getMinutes();
+    return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "am" : "pm"}`;
+  }
+  if (Date.now() - at < 6 * 86_400_000) return DAYS[d.getDay()];
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 };
 
-// ── COMPONENT ──────────────────────────────────────────────────────────────────
-
 export default function NotificationsScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState("All");
+  const { data, isPending } = useNotifications();
+  const { data: battles } = useBattles("pending");
+  const [menu, setMenu] = useState(false);
+  const markRead = useEngineMutation(engine.markNotificationRead);
+  const markAll = useEngineMutation(engine.markAllNotificationsRead, { success: "All caught up" });
+  const clear = useEngineMutation(engine.clearNotifications, { success: "Notifications cleared" });
 
-  const filtered = activeFilter === "All"
-    ? NOTIFICATIONS
-    : NOTIFICATIONS.filter((n) => n.category === activeFilter);
+  const list = data || [];
+  const invites = (battles || []).filter((b) => b.incoming);
+  const unread = list.filter((n) => !n.read).length + invites.length;
+  const midnight = startOfDay().getTime();
+  const weekAgo = midnight - 6 * 86_400_000;
+  const groups = [
+    { title: "Today", items: list.filter((n) => n.at >= midnight) },
+    { title: "This week", items: list.filter((n) => n.at < midnight && n.at >= weekAgo) },
+    { title: "Earlier", items: list.filter((n) => n.at < weekAgo) },
+  ].filter((g) => g.items.length);
+
+  const open = (n) => {
+    if (!n.read) markRead.mutate(n.id);
+    if (n.link) router.push(n.link);
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
-      <View style={{ flex: 1, paddingTop: insets.top }}>
+    <HeroPage
+      kicker={`Notifications${unread ? ` · ${unread} new` : ""}`}
+      top="What you"
+      bottom="missed"
+      height={192}
+      size={42}
+      object={OUTSIDE_PHOTOS.bell}
+      objectSize={190}
+      objectTop={20}
+      objectStyle={{ right: -22 }}
+      tab="index"
+      right={<RoundButton icon={MoreHorizontal} label="More" onPress={() => setMenu(true)} />}
+      bodyStyle={{ gap: 10 }}
+    >
+      {invites.map((b, i) => (
+        <FadeIn key={b.id} index={i}>
+          <Invite battle={b} />
+        </FadeIn>
+      ))}
 
-        {/* ── HEADER ── */}
-        <View style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 20,
-          paddingVertical: 16,
-        }}>
-          <TouchableOpacity
-            onPress={() => { router.back(); hapticSelection(); }}
-            style={{
-              width: 44, height: 44, borderRadius: 22,
-              backgroundColor: "#161618",
-              alignItems: "center", justifyContent: "center",
-              borderWidth: 1, borderColor: "#222",
+      {isPending ? (
+        <Skeleton height={280} radius={R.lg} />
+      ) : !list.length && !invites.length ? (
+        <EmptyState icon={Bell} title="All caught up" body="Battle invites, club news, drops and rewards land here." action="Find a battle" onAction={() => router.push("/(tabs)/outside/arena")} style={{ marginTop: 20 }} />
+      ) : (
+        groups.map((g, gi) => (
+          <FadeIn key={g.title} index={invites.length + gi}>
+            {gi > 0 || invites.length ? <Text style={styles.groupTitle}>{g.title}</Text> : null}
+            <Surface radius={20} padding={null}>
+              {g.items.map((n, i) => (
+                <React.Fragment key={n.id}>
+                  {i > 0 ? <View style={styles.sep} /> : null}
+                  <Item n={n} faded={n.read || n.at < weekAgo} onPress={() => open(n)} />
+                </React.Fragment>
+              ))}
+            </Surface>
+          </FadeIn>
+        ))
+      )}
+
+      <Sheet visible={menu} onClose={() => setMenu(false)}>
+        <View style={{ gap: 4, paddingTop: S.sm }}>
+          <MenuRow
+            icon={CheckCheck}
+            title="Mark all read"
+            disabled={!list.some((n) => !n.read)}
+            onPress={() => {
+              setMenu(false);
+              markAll.mutate();
             }}
-          >
-            <ArrowLeft color="#fff" size={22} />
-          </TouchableOpacity>
-
-          <Text style={{
-            color: "#fff", fontSize: 20, fontWeight: "800",
-            letterSpacing: -0.3,
-          }}>
-            Notifications
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => hapticSelection()}
-            style={{
-              width: 44, height: 44, borderRadius: 22,
-              backgroundColor: "#161618",
-              alignItems: "center", justifyContent: "center",
-              borderWidth: 1, borderColor: "#222",
+          />
+          <MenuRow
+            icon={Settings2}
+            title="What pings you"
+            onPress={() => {
+              setMenu(false);
+              router.push("/settings/pings");
             }}
-          >
-            <SlidersHorizontal color="#00ff7f" size={20} />
-          </TouchableOpacity>
+          />
+          <MenuRow
+            icon={Trash2}
+            title="Clear all"
+            danger
+            disabled={!list.length}
+            onPress={async () => {
+              setMenu(false);
+              if (await confirmAsk({ title: "Clear notifications?", body: "This removes them all.", ok: "Clear", danger: true })) clear.mutate();
+            }}
+          />
         </View>
+      </Sheet>
+    </HeroPage>
+  );
+}
 
-        {/* ── FILTER PILLS ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, marginBottom: 8 }}
-          contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
-        >
-          {CATEGORIES.map((cat) => {
-            const isActive = activeFilter === cat;
-            return (
-              <TouchableOpacity
-                key={cat}
-                onPress={() => { setActiveFilter(cat); hapticSelection(); }}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? "rgba(0,255,127,0.15)" : "#161618",
-                  borderWidth: 1,
-                  borderColor: isActive ? "#00ff7f" : "#222",
-                }}
-              >
-                <Text style={{
-                  color: isActive ? "#fff" : "#888",
-                  fontSize: 13,
-                  fontWeight: "700",
-                }}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* ── NOTIFICATION LIST ── */}
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 12,
-            paddingBottom: insets.bottom + 30,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          {filtered.map((item, idx) => {
-            const IconComponent = item.icon;
-            return (
-              <View
-                key={item.id}
-                style={{
-                  backgroundColor: "#161618",
-                  borderRadius: 24,
-                  padding: 20,
-                  marginBottom: 12,
-                  borderWidth: 1,
-                  borderColor: !item.read ? "rgba(0,255,127,0.15)" : "#1e1e1e",
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                  {/* Icon Circle */}
-                  <View style={{
-                    width: 48, height: 48, borderRadius: 24,
-                    backgroundColor: "rgba(0,255,127,0.1)",
-                    alignItems: "center", justifyContent: "center",
-                    marginRight: 16,
-                    borderWidth: 1,
-                    borderColor: "rgba(0,255,127,0.2)",
-                  }}>
-                    <IconComponent color="#fff" size={22} />
-                    {!item.read && (
-                      <View style={{
-                        position: "absolute", top: 0, right: 0,
-                        width: 10, height: 10, borderRadius: 5,
-                        backgroundColor: "#00ff7f",
-                        borderWidth: 2, borderColor: "#161618",
-                      }} />
-                    )}
-                  </View>
-
-                  {/* Content */}
-                  <View style={{ flex: 1 }}>
-                    {/* Category + Time */}
-                    <View style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 6,
-                    }}>
-                      <Text style={{
-                        color: "#fff",
-                        fontSize: 12,
-                        fontWeight: "800",
-                        letterSpacing: 0.5,
-                        textTransform: "uppercase",
-                      }}>
-                        {item.category}
-                      </Text>
-                      <Text style={{
-                        color: "#555",
-                        fontSize: 11,
-                        fontWeight: "600",
-                      }}>
-                        {item.time}
-                      </Text>
-                    </View>
-
-                    {/* Title */}
-                    <Text style={{
-                      color: "#fff",
-                      fontSize: 18,
-                      fontWeight: "800",
-                      letterSpacing: -0.3,
-                      lineHeight: 24,
-                      marginBottom: 8,
-                    }}>
-                      {item.title}
-                    </Text>
-
-                    {/* Description */}
-                    <Text style={{
-                      color: "#888",
-                      fontSize: 14,
-                      lineHeight: 20,
-                      fontWeight: "400",
-                    }}>
-                      {item.description}
-                    </Text>
-
-                    {/* Action Button */}
-                    {item.action && (
-                      <TouchableOpacity
-                        onPress={() => hapticSelection()}
-                        style={{
-                          alignSelf: "flex-start",
-                          marginTop: 14,
-                          backgroundColor: "rgba(0,255,127,0.1)",
-                          borderWidth: 1,
-                          borderColor: "#00ff7f",
-                          borderRadius: 20,
-                          paddingHorizontal: 18,
-                          paddingVertical: 10,
-                        }}
-                      >
-                        <Text style={{
-                          color: "#fff",
-                          fontSize: 13,
-                          fontWeight: "700",
-                        }}>
-                          {item.action}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-
-          {filtered.length === 0 && (
-            <View style={{ alignItems: "center", marginTop: 60 }}>
-              <Text style={{ color: "#333", fontSize: 40, marginBottom: 12 }}>
-                ✔
-              </Text>
-              <Text style={{ color: "#555", fontSize: 16, fontWeight: "600" }}>
-                You're all caught up
-              </Text>
-              <Text style={{ color: "#333", fontSize: 13, marginTop: 6 }}>
-                No {activeFilter.toLowerCase()} notifications right now.
-              </Text>
-            </View>
-          )}
-        </ScrollView>
+function Invite({ battle }) {
+  const router = useRouter();
+  const { data: me } = useProfile();
+  const opp = battle.opponent?.player || {};
+  const respond = useEngineMutation(engine.respondToBattle, {
+    onSuccess: (_r, [id, yes]) => {
+      if (yes) router.push(`/battles/${id}`);
+    },
+  });
+  const busy = respond.isPending;
+  const bits = [battle.stakeOut ? `${battle.stakeOut} OUT` : null, battle.durationHours ? `${battle.durationHours} hours` : battle.modeName, battle.createdAt ? `${timeAgo(battle.createdAt)}` : null].filter(Boolean);
+  return (
+    <View style={{ gap: 10 }}>
+      <Surface onPress={() => router.push(`/battles/${battle.id}`)} radius={20} padding={null} contentStyle={styles.invite}>
+        <View style={styles.vs}>
+          <Avatar uri={opp.avatar} name={opp.name} tier={opp.tier} size={40} />
+          <View style={styles.vsBadge}>
+            <Text style={styles.vsText}>VS</Text>
+          </View>
+          <Avatar uri={me?.avatar} name={me?.name || me?.username} tier={me?.tier} size={40} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.inviteTitle} numberOfLines={1}>
+            {opp.name || "Someone"} wants a battle
+          </Text>
+          <Text style={styles.inviteSub} numberOfLines={1}>
+            {bits.join(" · ")}
+          </Text>
+        </View>
+      </Surface>
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <Button title="Accept" size="md" loading={busy && respond.variables?.[1]} disabled={busy} onPress={() => respond.mutate([battle.id, true])} style={{ flex: 1, height: 42 }} />
+        <Button title="Not now" variant="secondary" disabled={busy} onPress={() => respond.mutate([battle.id, false])} style={{ flex: 1, height: 42 }} />
       </View>
     </View>
   );
 }
+
+function Item({ n, faded, onPress }) {
+  const Icon = n.type === "rewards" && /streak/i.test(n.title) ? Flame : TYPES[n.type] || Bell;
+  const unread = !n.read;
+  return (
+    <PressableScale onPress={onPress} scaleTo={0.985} style={[styles.row, faded && { opacity: 0.55 }]}>
+      {n.image ? (
+        <Avatar source={imageSource(n.image)} name={n.title} size={40} />
+      ) : (
+        <IconTile icon={Icon} size={38} radius={19} iconSize={17} tone="blue" />
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.title} numberOfLines={2}>
+          {cleanTitle(n.title)}
+        </Text>
+        {n.body ? (
+          <Text style={styles.body} numberOfLines={2}>
+            {n.body}
+          </Text>
+        ) : null}
+      </View>
+      <Text style={styles.time}>{when(n.at)}</Text>
+      {unread ? <View style={styles.dot} /> : null}
+    </PressableScale>
+  );
+}
+
+function MenuRow({ icon: Icon, title, onPress, danger, disabled }) {
+  return (
+    <PressableScale onPress={onPress} disabled={disabled} scaleTo={0.98} style={[styles.menuRow, disabled && { opacity: 0.4 }]}>
+      <Icon size={19} color={danger ? C.danger : C.text} />
+      <Text style={[styles.menuText, danger && { color: C.danger }]}>{title}</Text>
+    </PressableScale>
+  );
+}
+
+const styles = StyleSheet.create({
+  groupTitle: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 8, marginTop: 4, marginLeft: 4 },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginLeft: 14, marginRight: 14 },
+  // .ilist rows: 12 down, 14 in, 13.5px titles
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14, minHeight: 58 },
+  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceHigh, alignItems: "center", justifyContent: "center" },
+  iconBlue: { backgroundColor: "rgba(61,139,255,0.16)" },
+  title: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5, lineHeight: 18 },
+  body: { color: C.textDim, fontFamily: F.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  time: { color: C.textDim, fontFamily: F.body, fontSize: 11, alignSelf: "flex-start", marginTop: 2 },
+  dot: { position: "absolute", left: 5, top: 27, width: 5, height: 5, borderRadius: 3, backgroundColor: C.accent, boxShadow: "0 0 6px rgba(61,139,255,0.9)" },
+  invite: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12, paddingLeft: 14, paddingRight: 14 },
+  vs: { flexDirection: "row", alignItems: "center" },
+  vsBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", marginHorizontal: -6, zIndex: 2, borderWidth: 2, borderColor: C.surface },
+  vsText: { color: "#fff", fontFamily: F.display, fontSize: 11 },
+  inviteTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14.5 },
+  inviteSub: { color: C.textSoft, fontFamily: F.body, fontSize: 12, marginTop: 3 },
+  menuRow: { flexDirection: "row", alignItems: "center", gap: 14, height: 54, paddingHorizontal: 4 },
+  menuText: { color: C.text, fontFamily: F.bodyMedium, fontSize: 16 },
+});

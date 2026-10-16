@@ -1,0 +1,64 @@
+# Supabase CLI config for local development (`supabase start`).
+# The hosted project is linked with `supabase link --project-ref <ref>`.
+project_id = "outhere"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "20MiB"
+
+[auth]
+enabled = true
+site_url = "https://weouthere.app"
+additional_redirect_urls = ["outhere://auth-callback", "http://localhost:8081", "http://localhost:5173"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+otp_length = 6
+otp_expiry = 600
+
+[auth.external.apple]
+enabled = false
+client_id = "env(SUPABASE_AUTH_APPLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_APPLE_SECRET)"
+
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+
+# story-media checks the caller itself (a member's session, or the service
+# role key for the nightly purge), so the gateway check is off.
+[functions.story-media]
+verify_jwt = false
+
+# avatar-pack takes fal.ai's webhook (signed by fal, no session) and the
+# hourly clean up (service role key); it checks the member's session itself
+# for everything else.
+[functions.avatar-pack]
+verify_jwt = false

@@ -1,281 +1,206 @@
+// One event. The route, start time and reward sit on one map card, with your
+// crew going underneath. Going gets you a ticket; at the start line you check
+// in (with the organiser's code where there is one) and the server pays out.
+
 import React, { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  CalendarDays,
-  MapPin,
-  Ticket,
-  Trophy,
-} from "lucide-react-native";
-import { eventsAPI } from "@/services/api";
-import { useUserStore } from "@/store/userStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Check, ChevronRight, Lock, MapPin, QrCode, UserRound } from "lucide-react-native";
+import { engine, useEngineMutation, useEvent, useEventGoing } from "@/data/hooks";
+import { Avatar, Body, Button, C, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton, toast } from "@/components/ui";
+import { BottomBar, ButtonPair, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
+import { splitTitle, whenWord } from "@/components/happenings/EventsScreen";
+import { openDirections } from "@/components/happenings/shared";
+import Celebration from "@/components/happenings/Celebration";
+import RouteArt from "@/components/crew/RouteArt";
+import { loopAround } from "@/data/runMath";
+import { centreFor } from "@/data/seedRuns";
+import { formatNumber, tierLabel, timeLabel } from "@/utils/format";
 
-const NEON = "#00ff7f";
+const HOSTS = { outhere: "Official Outhere event", crew: "Run by a club", partner: "Partner event" };
 
-const formatDateTime = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Time TBA";
-  return date.toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+const hours = (e) => {
+  const h = Math.round(((e.endAt - e.startAt) / 3_600_000) * 2) / 2;
+  return h >= 1 ? `${h} ${h === 1 ? "hr" : "hrs"}` : `${Math.round(h * 60)} min`;
 };
 
-export default function EventDetailScreen() {
-  const insets = useSafeAreaInsets();
+function CodeCheckIn({ event, checkIn }) {
+  const [code, setCode] = useState("");
+  return (
+    <Row gap={S.sm}>
+      <TextInput
+        value={code}
+        onChangeText={setCode}
+        placeholder="Code from the organiser"
+        placeholderTextColor={C.textMute}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={styles.code}
+        accessibilityLabel="Check-in code"
+      />
+      <Button size="lg" icon={MapPin} title="Check in" disabled={code.trim().length < 4} loading={checkIn.isPending} onPress={() => checkIn.mutate([event.id, code])} />
+    </Row>
+  );
+}
+
+function Action({ event, rsvp, checkIn }) {
   const router = useRouter();
+  const ticket = () => router.push(`/events/ticket/${event.id}`);
+  if (!event.canAttend) {
+    return <Button full size="lg" icon={Lock} title={`For ${tierLabel(event.tierRequired)} members`} onPress={() => router.push("/membership")} />;
+  }
+  if (event.checkedIn) {
+    return <Button full size="lg" variant="secondary" icon={Check} title={`Checked in · +${formatNumber(event.rewardXp)} XP`} disabled />;
+  }
+  if (event.checkInOpen && event.needsCode) return <CodeCheckIn event={event} checkIn={checkIn} />;
+  if (event.checkInOpen && event.isGoing) {
+    return <ButtonPair secondary={{ title: "Ticket", icon: QrCode, onPress: ticket }} primary={{ title: "I'm here", icon: MapPin, loading: checkIn.isPending, onPress: () => checkIn.mutate(event.id) }} />;
+  }
+  if (event.isGoing) {
+    return <ButtonPair secondary={{ title: "Can't go", loading: rsvp.isPending, onPress: () => rsvp.mutate([event.id, false]) }} primary={{ title: "Your ticket", icon: QrCode, onPress: ticket }} />;
+  }
+  if (event.isFull) return <Button full size="lg" variant="secondary" title="Event full" disabled />;
+  return <Button full size="lg" icon={Check} title="I'm going" loading={rsvp.isPending} onPress={() => rsvp.mutate([event.id, true])} />;
+}
+
+export default function EventScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { eventId } = useLocalSearchParams();
-  const deviceId = useUserStore((state) => state.deviceId);
-  const setUser = useUserStore((state) => state.setUser);
+  const id = Array.isArray(eventId) ? eventId[0] : eventId;
+  const { data: event, isPending, error, refetch, isRefetching } = useEvent(id);
+  const going = useEventGoing(id).data;
+  const [party, setParty] = useState(0);
+  // The route as a line on the map card, seeded per event so it stays put.
+  const line = useMemo(
+    () => (event ? loopAround(centreFor(event.city), event.distanceKm || 3, event.id).map((p) => [p.latitude, p.longitude]) : null),
+    [event?.id, event?.city, event?.distanceKm],
+  );
 
-  const [actionMessage, setActionMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const {
-    data: event,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["event", eventId],
-    queryFn: () => eventsAPI.get(eventId),
-    enabled: !!eventId,
-    refetchInterval: 30000,
+  const rsvp = useEngineMutation(engine.rsvpEvent, { success: (v) => (v?.isGoing ? "You're going. Your ticket is ready" : "RSVP cancelled") });
+  const checkIn = useEngineMutation(engine.checkInEvent, {
+    onSuccess: (v) => {
+      toast.success("Checked in", `+${formatNumber(v?.rewardXp)} XP and +${formatNumber(v?.rewardOut)} OUT`);
+      setParty(Date.now());
+    },
   });
 
-  const rsvpCount = Array.isArray(event?.rsvps) ? event.rsvps.length : 0;
-  const checkinCount = Array.isArray(event?.checkins) ? event.checkins.length : 0;
-
-  const isRsvped = useMemo(() => {
-    if (!deviceId || !Array.isArray(event?.rsvps)) return false;
-    return event.rsvps.includes(deviceId);
-  }, [event?.rsvps, deviceId]);
-
-  const isCheckedIn = useMemo(() => {
-    if (!deviceId || !Array.isArray(event?.checkins)) return false;
-    return event.checkins.includes(deviceId);
-  }, [event?.checkins, deviceId]);
-
-  const handleRSVP = async () => {
-    if (!deviceId || !eventId) return;
-    setIsSubmitting(true);
-    setActionMessage("");
-    try {
-      const response = await eventsAPI.rsvp(eventId, deviceId);
-      await refetch();
-      setActionMessage(
-        response?.already_rsvped ? "You already RSVPed." : "RSVP confirmed."
-      );
-    } catch (error) {
-      setActionMessage(error?.data?.detail || "Could not RSVP right now.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCheckIn = async () => {
-    if (!deviceId || !eventId) return;
-    setIsSubmitting(true);
-    setActionMessage("");
-    try {
-      const response = await eventsAPI.checkIn(eventId, deviceId);
-      if (response?.user) {
-        setUser(response.user);
-      }
-      await refetch();
-      if (response?.already_checked_in) {
-        setActionMessage("Already checked in.");
-      } else {
-        setActionMessage(
-          `Checked in. +${response?.xp_awarded || 0} XP · +${response?.out_awarded || 0} OUT`
-        );
-      }
-    } catch (error) {
-      setActionMessage(error?.data?.detail || "Check-in not available yet.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoading || !event) {
+  if (isPending) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#0a0a0a",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator color={NEON} />
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Skeleton height={316 + insets.top} radius={30} />
+        <View style={{ padding: S.gutter, gap: S.md }}>
+          <Skeleton height={150} radius={R.lg} />
+          <Skeleton width={220} height={28} />
+        </View>
+        <TopBar />
+      </View>
+    );
+  }
+  if (error || !event) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top + 80 }}>
+        <EmptyState title="Event not found" body="It may have been moved or cancelled." action="See all events" onAction={() => router.replace("/outside/events")} />
+        <TopBar />
       </View>
     );
   }
 
+  const [top, bottom] = splitTitle(event.title);
+  const live = event.status === "live";
+  const who = event.tierRequired === "free" ? "Free for everyone" : event.tierRequired === "black" ? "Black members" : "Pro and Black";
+  const kicker = `${live ? "On now" : whenWord(event.startAt)} · ${who}`;
+  const crew = going?.clubCount ? `, ${formatNumber(going.clubCount)} from ${going.clubName || "your club"}` : going?.friends ? `, ${going.friends} you follow` : "";
+  const share = () => Share.share({ message: `${event.title}, ${whenWord(event.startAt).toLowerCase()} at ${timeLabel(event.startAt)}, ${event.location}. Come out with me on Outhere.` }).catch(() => {});
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 32,
-          paddingHorizontal: 20,
-        }}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.accent} progressViewOffset={insets.top + 60} />}
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            alignSelf: "flex-start",
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <ArrowLeft color="#aaa" size={16} />
-          <Text style={{ color: "#aaa", marginLeft: 6, fontWeight: "700" }}>
-            Back
-          </Text>
-        </TouchableOpacity>
+        {/* .slab.photo 330: the event photo at full strength */}
+        <GlowHero photo={imageSource(event.image)} photoFocus={{ x: 0.5, y: 0.3 }} height={316} headlineSize={44} kicker={kicker} top={top} bottom={bottom} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: 16 }}>
+          <PressableScale onPress={() => openDirections(event.location, event.city)} scaleTo={0.98} style={styles.mapCard} accessibilityLabel="Directions">
+            <RouteArt points={line} seed={event.id} radius={0} style={StyleSheet.absoluteFill} />
+            <View style={styles.mapShade} />
+            <Row style={styles.mapStats}>
+              {[
+                [event.distanceKm ? `${event.distanceKm} km` : hours(event), event.paceLabel || (event.distanceKm ? "Easy pace" : "Together")],
+                [timeLabel(event.startAt), "Start"],
+                [`+${formatNumber(event.rewardXp)}`, "XP"],
+              ].map(([v, l], i) => (
+                <View key={l + i} style={{ flex: 1 }}>
+                  <Text style={[styles.mapValue, i === 2 && { color: C.accentHi }]}>{v}</Text>
+                  <Text style={styles.mapLabel}>{l}</Text>
+                </View>
+              ))}
+            </Row>
+          </PressableScale>
 
-        <View
-          style={{
-            backgroundColor: "#161618",
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-            <CalendarDays color={NEON} size={18} />
-            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800", marginLeft: 8 }}>
-              Event Detail
+          <PressableScale onPress={() => router.push(`/events/going/${event.id}`)} scaleTo={0.98} style={styles.goingRow}>
+            <Row gap={0}>
+              {(going?.people || []).slice(0, 4).map((p, i) => (
+                <Avatar key={p.id} uri={p.avatar} name={p.name} size={32} style={[styles.face, i > 0 && { marginLeft: -10 }]} />
+              ))}
+            </Row>
+            <Text style={styles.goingText} numberOfLines={1}>
+              {formatNumber(going?.count ?? event.rsvpCount)} going{crew}
             </Text>
-          </View>
-          <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>
-            {event.title}
-          </Text>
-          <Text style={{ color: "#888", fontSize: 13, marginTop: 10, lineHeight: 20 }}>
+            <ChevronRight size={16} color={C.textMute} />
+          </PressableScale>
+
+          <SectionLabel>The plan</SectionLabel>
+          <Body dim size={15} style={{ lineHeight: 23 }}>
             {event.description}
-          </Text>
-          <View style={{ marginTop: 14 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
-              <MapPin color="#9efac8" size={14} />
-              <Text style={{ color: "#9efac8", marginLeft: 6, fontWeight: "700" }}>
-                {event.city} • {event.location}
+          </Body>
+
+          <View style={{ marginTop: S.xl, gap: S.md }}>
+            <PressableScale onPress={() => openDirections(event.location, event.city)} scaleTo={0.98}>
+              <Row gap={S.md}>
+                <MapPin size={18} color={C.accent} />
+                <Text style={styles.info} numberOfLines={1}>
+                  {event.location}, {event.city}
+                </Text>
+                <Text style={styles.link}>Directions</Text>
+              </Row>
+            </PressableScale>
+            <Row gap={S.md}>
+              <UserRound size={18} color={C.textDim} />
+              <Text style={styles.info}>
+                {event.organiser} · {HOSTS[event.organiserType] || "Community event"}
               </Text>
-            </View>
-            <Text style={{ color: "#aaa", fontSize: 12 }}>
-              Starts: {formatDateTime(event.start_at)}
-            </Text>
-            <Text style={{ color: "#aaa", fontSize: 12, marginTop: 2 }}>
-              Ends: {formatDateTime(event.end_at)}
-            </Text>
-            <Text style={{ color: "#666", fontSize: 11, marginTop: 6 }}>
-              Check-in window: 1 hour before start until 1 hour after end
+            </Row>
+            <Text style={styles.small}>
+              {event.isFull ? "Full." : `${formatNumber(event.spotsLeft)} of ${formatNumber(event.capacity)} places left.`} Show up and check in for +{formatNumber(event.rewardXp)} XP and +{formatNumber(event.rewardOut)} OUT.
             </Text>
           </View>
-        </View>
-
-        <View
-          style={{
-            backgroundColor: "#161618",
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-            <Ticket color={NEON} size={16} />
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", marginLeft: 8 }}>
-              Attendance
-            </Text>
-          </View>
-          <Text style={{ color: "#fff", fontWeight: "700" }}>
-            {rsvpCount} RSVPs
-            {event.capacity > 0 ? ` / ${event.capacity}` : ""}
-          </Text>
-          <Text style={{ color: "#aaa", marginTop: 4 }}>{checkinCount} checked in</Text>
-
-          <View style={{ flexDirection: "row", marginTop: 14 }}>
-            <TouchableOpacity
-              disabled={isSubmitting || !deviceId}
-              onPress={handleRSVP}
-              style={{
-                flex: 1,
-                backgroundColor: isRsvped ? "#1f1f21" : NEON,
-                borderRadius: 12,
-                paddingVertical: 11,
-                alignItems: "center",
-                marginRight: 8,
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
-              <Text style={{ color: isRsvped ? "#bbb" : "#000", fontWeight: "800" }}>
-                {isRsvped ? "RSVPed" : "RSVP"}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              disabled={isSubmitting || !deviceId}
-              onPress={handleCheckIn}
-              style={{
-                flex: 1,
-                backgroundColor: isCheckedIn ? "#1f1f21" : "rgba(0,255,127,0.12)",
-                borderRadius: 12,
-                paddingVertical: 11,
-                alignItems: "center",
-                borderWidth: 1,
-                borderColor: isCheckedIn ? "#2a2a2d" : "rgba(0,255,127,0.35)",
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
-              <Text style={{ color: isCheckedIn ? "#bbb" : "#9efac8", fontWeight: "800" }}>
-                {isCheckedIn ? "Checked In" : "Check In"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {!!actionMessage && (
-            <Text style={{ color: "#9efac8", fontSize: 12, marginTop: 10 }}>
-              {actionMessage}
-            </Text>
-          )}
-        </View>
-
-        <View
-          style={{
-            backgroundColor: "rgba(0,255,127,0.08)",
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: "rgba(0,255,127,0.25)",
-            padding: 16,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-            <Trophy color={NEON} size={16} />
-            <Text style={{ color: "#fff", fontWeight: "800", marginLeft: 8 }}>
-              Check-In Rewards
-            </Text>
-          </View>
-          <Text style={{ color: "#9efac8", fontWeight: "700" }}>
-            Event check-in awards XP + OUT and unlocks an event badge.
-          </Text>
         </View>
       </ScrollView>
+      <BottomBar>
+        <Action event={event} rsvp={rsvp} checkIn={checkIn} />
+      </BottomBar>
+      <TopBar onShare={share} />
+      <Celebration trigger={party} title={`+${formatNumber(event.rewardXp)} XP`} subtitle={`and +${formatNumber(event.rewardOut)} OUT`} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // .mapcard: the route on the dark map, lit along its edge
+  mapCard: { height: 150, borderRadius: 20, overflow: "hidden", backgroundColor: C.surface, justifyContent: "flex-end", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.9)" },
+  mapShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(7,9,12,0.25)" },
+  mapStats: { padding: S.lg, alignItems: "flex-end" },
+  mapValue: { color: "#fff", fontFamily: F.display, fontSize: 24, lineHeight: 26 },
+  mapLabel: { color: "rgba(255,255,255,0.75)", fontFamily: F.body, fontSize: 12 },
+  goingRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 },
+  face: { borderWidth: 2, borderColor: C.bg },
+  goingText: { flex: 1, color: C.textDim, fontFamily: F.body, fontSize: 12 },
+  info: { flex: 1, color: C.text, fontFamily: F.bodyMedium, fontSize: 14 },
+  link: { color: C.accent, fontFamily: F.bodySemi, fontSize: 13 },
+  small: { color: C.textDim, fontFamily: F.body, fontSize: 13, lineHeight: 19 },
+  code: { flex: 1, height: 56, borderRadius: 16, paddingHorizontal: S.lg, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, color: C.text, fontFamily: F.bodySemi, fontSize: 16, letterSpacing: 1 },
+});

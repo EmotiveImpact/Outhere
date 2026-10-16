@@ -607,6 +607,10 @@ export class MockData implements OuthereData {
     };
   }
 
+  async recordInviteScan() {
+    // Example data shows fixed scan counts.
+  }
+
   async joinClub(slug: string, input: JoinInput) {
     const club = this.s.clubs.find((x) => x.slug === slug.toLowerCase());
     if (!club) throw new Error(`NO_SUCH_CLUB: ${slug}`);
@@ -615,6 +619,7 @@ export class MockData implements OuthereData {
     if (existing) Object.assign(existing, input);
     else this.s.joins.push({ clubId: club.id, personId, ...input });
     if (input.runId) await this.setRsvp(input.runId, true);
+    return "joined" as const;
   }
 
   /* ---------- club HQ ---------- */

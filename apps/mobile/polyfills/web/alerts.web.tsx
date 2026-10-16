@@ -438,7 +438,8 @@ const styling = (userInterfaceStyle: string) =>
 			backgroundColor: 'rgba(0,0,0,0.2)',
 		},
 		content: {
-			backdropFilter: 'blur(20px)',
+			// Web-only style, not in React Native's types
+			...({ backdropFilter: 'blur(20px)' } as object),
 			borderRadius: 12,
 			width: 244,
 		},
