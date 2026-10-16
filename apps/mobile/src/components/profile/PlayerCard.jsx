@@ -31,7 +31,7 @@ export function ProfileHero({ profile: p, clubName, right, onTryPro, onAvatar, m
       <View style={[styles.slabWrap, { boxShadow: EDGE.outer }]}>
         <View style={[styles.slab, { height: SLAB + insets.top }]}>
           {/* With a Fighter Pack, the slab is your pack background and the ring your pack portrait. */}
-          <PhotoBackground source={bg ? imageSource(bg) : PROFILE_PHOTO} focus={{ x: 0.5, y: bg ? 0.3 : 0.22 }} fade="slab" to="2,5,12" kenBurns grain={0.06} />
+          <PhotoBackground source={bg ? imageSource(bg) : PROFILE_PHOTO} focus={{ x: 0.5, y: bg ? 0.75 : 0.22 }} fade="slab" to="2,5,12" kenBurns grain={0.06} />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.round, { boxShadow: EDGE.inset }]} />
           {mine && !hasPack(p) ? <MakePackPill style={{ position: "absolute", top: insets.top + TOP_GAP + 4, left: GUTTER }} /> : null}
           <Row style={{ position: "absolute", top: insets.top + TOP_GAP, right: GUTTER }}>{right}</Row>

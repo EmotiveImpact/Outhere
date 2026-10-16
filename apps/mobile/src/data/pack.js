@@ -39,10 +39,10 @@ export const REROLL_MS = 1800;
 
 // Which bundled sample stands in for each picture. Some are shared.
 const SAMPLE_FOR = {
-  profile: "rooftop",
+  profile: "selfie",
   vs: "stride",
   vsMirror: "stride",
-  swipe: "rooftop",
+  swipe: "selfie",
   sprint: "stride",
   win: "win",
   respect: "respect",

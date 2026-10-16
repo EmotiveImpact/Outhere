@@ -10,7 +10,7 @@ import { Linking, StyleSheet, Text, View, useWindowDimensions } from "react-nati
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Ellipse, Path } from "react-native-svg";
-import Animated, { Easing, cancelAnimation, runOnJS, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { Easing, cancelAnimation, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { ChevronLeft, ChevronRight, ScanFace } from "lucide-react-native";
 import { engine } from "@/data/hooks";
 import { F, toast } from "@/components/ui";
@@ -99,12 +99,16 @@ function Scanner() {
   // Hold each angle while the ring fills its third, then take it.
   useEffect(() => {
     if (!ready || index >= SCAN_ANGLES.length) return;
-    const t = setTimeout(() => {
-      progress.value = withTiming((index + 1) / SCAN_ANGLES.length, { duration: HOLD_MS, easing: Easing.inOut(Easing.quad) }, (done) => {
-        if (done) runOnJS(capture)(index);
-      });
+    // The capture runs on a timer, not the ring's animation, so reduced
+    // motion (which finishes animations at once) still holds each angle.
+    const fill = setTimeout(() => {
+      progress.value = withTiming((index + 1) / SCAN_ANGLES.length, { duration: HOLD_MS, easing: Easing.inOut(Easing.quad) });
     }, 500);
-    return () => clearTimeout(t);
+    const take = setTimeout(() => capture(index), 500 + HOLD_MS);
+    return () => {
+      clearTimeout(fill);
+      clearTimeout(take);
+    };
   }, [ready, index, attempt, capture, progress]);
 
   // All three in: check them, then on to Verified.

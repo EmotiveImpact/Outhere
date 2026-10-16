@@ -6,17 +6,27 @@
 import React from "react";
 import { Redirect, useRouter } from "expo-router";
 import { usePackCredits, usePackState } from "@/data/hooks";
-import { Skeleton } from "@/components/ui";
+import { ErrorState, Skeleton } from "@/components/ui";
 import { SLOTS } from "@/constants/pack";
 import { PACK_SAMPLES } from "@/constants/photos";
 import { LockLine, PackButton, PackScreen, PackTitle, Points, Spacer, Sub } from "@/components/pack/PackKit";
 
 export default function PackHome() {
   const router = useRouter();
-  const { data: state, isPending } = usePackState();
-  const { data: credits } = usePackCredits();
+  const stateQ = usePackState();
+  const creditsQ = usePackCredits();
+  const state = stateQ.data;
+  const credits = creditsQ.data;
 
-  if (isPending || !state || !credits) {
+  if (stateQ.error || creditsQ.error) {
+    return (
+      <PackScreen>
+        <ErrorState what="your Fighter Pack" body={(stateQ.error || creditsQ.error)?.message} bleed={false} onRetry={() => (stateQ.refetch(), creditsQ.refetch())} retrying={stateQ.isFetching || creditsQ.isFetching} />
+      </PackScreen>
+    );
+  }
+
+  if (!state || !credits) {
     return (
       <PackScreen>
         <Spacer />

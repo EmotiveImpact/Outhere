@@ -16,11 +16,11 @@ import { INK, MUTE, OUT, PackButton, PackScreen, PackTitle, Spacer, Sub } from "
 const PREVIEW = {
   "race-sprint": { source: PACK_SAMPLES.stride },
   "race-nightRun": { source: PACK_SAMPLES.stride, focus: 0.1 },
-  "race-hoodUp": { source: PACK_SAMPLES.rooftop },
+  "race-hoodUp": { source: PACK_SAMPLES.rooftop, focus: 0.75 },
   "race-finishLean": { source: PACK_SAMPLES.stride, flip: true },
   "win-fistUp": { source: PACK_SAMPLES.win },
   "win-roar": { source: PACK_SAMPLES.win, flip: true },
-  "win-crown": { source: PACK_SAMPLES.rooftop, flip: true },
+  "win-crown": { source: PACK_SAMPLES.rooftop, flip: true, focus: 0.75 },
   "win-pointUp": { source: PACK_SAMPLES.win, focus: 0.04 },
   "respect-nod": { source: PACK_SAMPLES.respect },
   "respect-fistBump": { source: PACK_SAMPLES.respectFist },

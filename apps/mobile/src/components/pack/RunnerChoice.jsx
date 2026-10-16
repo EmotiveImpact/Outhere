@@ -11,6 +11,9 @@ import { PHOTOS } from "@/constants/photos";
 import { RUNNERS } from "@/constants/pack";
 import { hapticSelection } from "@/services/haptics";
 
+// "Rather not say" doesn't fit a third of the track; the hint says it in full.
+const SHORT = { either: "Not saying" };
+
 const FIGURES = [
   { key: "man", label: "Figure one", source: PHOTOS.silhouetteMale },
   { key: "woman", label: "Figure two", source: PHOTOS.silhouetteFemale },
@@ -23,7 +26,7 @@ export function RunnerChoice({ value = {}, onChange, style }) {
   const shown = runner === "either" ? figure : runner;
   return (
     <View style={[{ gap: S.md }, style]}>
-      <Segment options={RUNNERS.map((r) => ({ value: r.key, label: r.label }))} value={runner} onChange={(r) => onChange({ runner: r, runnerFigure: r === "either" ? figure : null })} />
+      <Segment options={RUNNERS.map((r) => ({ value: r.key, label: SHORT[r.key] || r.label }))} value={runner} onChange={(r) => onChange({ runner: r, runnerFigure: r === "either" ? figure : null })} />
       <View style={styles.row}>
         {runner === "either" ? (
           FIGURES.map((f) => {
@@ -51,7 +54,7 @@ export function RunnerChoice({ value = {}, onChange, style }) {
             <Image source={shown === "woman" ? PHOTOS.silhouetteFemale : PHOTOS.silhouetteMale} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ top: "20%", left: "50%" }} transition={200} />
           </View>
         )}
-        <Text style={styles.hint}>{runner === "either" ? "Pick the figure that stands in for you." : "Stands in for you until you add a photo or make your Fighter Pack."}</Text>
+        <Text style={styles.hint}>{runner === "either" ? "Rather not say. Pick the figure that stands in for you." : "Stands in for you until you add a photo or make your Fighter Pack."}</Text>
       </View>
     </View>
   );

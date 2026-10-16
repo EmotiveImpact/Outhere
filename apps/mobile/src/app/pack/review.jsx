@@ -20,7 +20,7 @@ const TILES = [
   { key: "sprint", label: "Race", focus: 0.3 },
   { key: "win", label: "Win", focus: 0.25 },
   { key: "respect", label: "Respect", focus: 0.2 },
-  { key: "swipe", label: "Swipe card", focus: 0.25 },
+  { key: "swipe", label: "Swipe card", focus: 0.2 },
   { key: "background", label: "Profile background", focus: 0.7, wide: true },
   { key: "blackEdition", label: "Black edition", focus: 0.2 },
   { key: "clubKit", label: "Club kit", focus: 0.2 },
