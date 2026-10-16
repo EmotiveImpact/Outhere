@@ -56,13 +56,14 @@ export function BlendImage({ source, size, width, height, mask = "soft", mode = 
       <Image
         source={source}
         contentFit={fit}
-        style={{ width: box.width, height: box.height, opacity: dim < 1 ? dim : 1, mixBlendMode: mode }}
+        style={{ width: box.width, height: box.height, opacity: dim < 1 ? dim : 1, mixBlendMode: mode, filter: grey ? `grayscale(${grey})` : undefined }}
       />
     );
   }
 
-  // The orb is centred on the picture and may spill past it.
-  const orb = glow && box ? (typeof glow === "number" ? glow : Math.round(box.width * 1.1)) : 0;
+  // The orb is centred on the picture and may spill past it. A greyed object
+  // (a streak at risk) has no blue light behind it.
+  const orb = glow && box && grey < 1 ? (typeof glow === "number" ? glow : Math.round(box.width * 1.1)) : 0;
   const dx = box ? (orb - box.width) / 2 : 0;
   const dy = box ? (orb - box.height) / 2 : 0;
   return (
