@@ -244,11 +244,11 @@ def bind_num(name, key, converter=None):
     return f'<DataBindContext sourcePathIds="{path(name)}" propertyKey="{key}"{conv}/>'
 
 
-# A side leads a tape row when its bar is full: its number shows in its side's
-# colour, the other side's in white at half strength.
-TRAIL_TEXT, LEAD_ON = nid(), nid()
+# A side leads a tape row when its bar is full: its number shows at full
+# strength in a glow that follows its digits, the other side's at half.
+LEAD_TEXT, LEAD_ON = nid(), nid()
 converters_xml = f'''
-    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0.5" maxOutput="0" clampLower="true" clampUpper="true" name="Trail Text" id="{TRAIL_TEXT}"/>
+    <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0.5" maxOutput="1" clampLower="true" clampUpper="true" name="Lead Text" id="{LEAD_TEXT}"/>
     <DataConverterRangeMapper minInput="0.98" maxInput="1" minOutput="0" maxOutput="1" clampLower="true" clampUpper="true" name="Lead On" id="{LEAD_ON}"/>'''
 
 
@@ -332,6 +332,17 @@ def soft_halo(x0, x1, half, rgb, alpha):
                                 <GradientStop colorValue="{alpha}{rgb}" position="0"/><GradientStop colorValue="00{rgb}" position="1"/></RadialGradient></Fill>
                         </Shape>'''
     return out
+
+
+def digit_glow(x, o, value, bind, rgb, extra=""):
+    """A number drawn again behind itself as soft stacked strokes, so its glow
+    follows its own digits however short or long it is."""
+    sid = nid()
+    strokes = "".join(f'<Stroke thickness="{24 - 2 * i}" join="round" cap="round" name="Glow">'
+                      f'<SolidColor colorValue="0B{rgb}" name="C"/></Stroke>' for i in range(11))
+    return (f'<Text x="{x}" y="0" originX="{o}" originY="0.5" sizingValue="autoWidth" wrapValue="noWrap" name="Glow">'
+            f'<TextStylePaint fontSize="20" fontAssetId="{FONT_BOLD}" familyName="Barlow Condensed" styleName="Bold" name="Style" id="{sid}">'
+            f'{strokes}</TextStylePaint><TextValueRun styleId="{sid}" text="{value}" name="Run">{bind_text(bind)}</TextValueRun>{extra}</Text>')
 
 
 def flash(oid, size, rgb, name="Flash"):
@@ -1229,14 +1240,14 @@ def tape_parts():
         TAPE["rows"].append(row)
         TAPE["bars"] += [left, right]
         label, a, b, _, _ = TAPE_ROWS[r]
-        trail = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, TRAIL_TEXT)
+        lead = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, LEAD_TEXT)
         on = lambda side_: bind_num(f"tape{n}{side_}Bar", OPACITY, LEAD_ON)
         rows += f'''
             <Node y="{y + 10}" opacity="0" name="Row {n}" id="{row}">
-                {text(0, 0, 20, FONT_BOLD, "FF8CBBFF", a, bind=f"tape{n}You", origin=(0, 0.5), name="You Lead", extra=on("You"))}
-                {text(354, 0, 20, FONT_BOLD, "FFFF9199", b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Lead", extra=on("Them"))}
-                {text(0, 0, 20, FONT_BOLD, WHITE, a, bind=f"tape{n}You", origin=(0, 0.5), name="You Value", extra=trail("You"))}
-                {text(354, 0, 20, FONT_BOLD, WHITE, b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Value", extra=trail("Them"))}
+                {text(0, 0, 20, FONT_BOLD, WHITE, a, bind=f"tape{n}You", origin=(0, 0.5), name="You Value", extra=lead("You"))}
+                {text(354, 0, 20, FONT_BOLD, WHITE, b, bind=f"tape{n}Them", origin=(1, 0.5), name="Them Value", extra=lead("Them"))}
+                {digit_glow(0, 0, a, f"tape{n}You", "4F9BFF", on("You"))}
+                {digit_glow(354, 1, b, f"tape{n}Them", "FF5060", on("Them"))}
                 {text(177, 0.5, 10.5, FONT_MED, "9EFFFFFF", label, bind=f"tape{n}Label", origin=(0.5, 0.5), spacing=1.4, name="Label")}{tape_bar(left, n, True)}{tape_bar(right, n, False)}
             </Node>'''
     head = f'''
