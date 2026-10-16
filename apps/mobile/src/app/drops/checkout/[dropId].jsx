@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { engine, useDeliveryAddress, useDropItem, useEngineMutation, useProfile } from "@/data/hooks";
 import { Button, C, EmptyState, F, imageSource, R, Row, S, Skeleton, SlideToStart, Surface } from "@/components/ui";
+import { haptic } from "@/services/haptics";
 import { BottomBar, Coin, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 import { AddressCard, AddressSheet, SizeRow } from "@/components/happenings/ShopParts";
 import { addressProblem } from "@/data/outsideShared";
@@ -31,7 +32,10 @@ export default function CheckoutScreen() {
 
   const claim = useEngineMutation(engine.claimDrop, {
     success: (o) => `${o.title} is yours`,
-    onSuccess: (o) => router.replace(`/orders/${o.id}`),
+    onSuccess: (o) => {
+      haptic.commit();
+      router.replace(`/orders/${o.id}`);
+    },
     onError: () => setAttempt((n) => n + 1),
   });
 

@@ -3,7 +3,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { formatNumber, timeAgo } from "@/utils/format";
-import { AnimatedNumber, Body, Button, C, Card, Divider, F, R, Row, S, Skeleton } from "@/components/ui";
+import { AnimatedNumber, Body, Button, C, Card, Divider, F, R, RollingNumber, Row, S, Skeleton } from "@/components/ui";
 import { Coin } from "./shared";
 
 export default function WalletCard({ wallet, loading, onRewards }) {
@@ -15,7 +15,7 @@ export default function WalletCard({ wallet, loading, onRewards }) {
         <View>
           <Row gap={S.sm}>
             <Coin size={22} />
-            <AnimatedNumber value={wallet.out} style={{ color: C.text, fontFamily: F.display, fontSize: 36, lineHeight: 42, letterSpacing: -0.8 }} />
+            <RollingNumber value={wallet.out} size={36} lineHeight={42} letterSpacing={-0.8} />
           </Row>
           <Body dim size={13}>
             OUT balance

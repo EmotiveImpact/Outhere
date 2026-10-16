@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ChevronRight, Flame, MapPin, Share2, Swords, Trophy } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlendImage, C, F, FINISH, LIT, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, PressableScale, R, Row, S, Surface, TugBar, splitShadow, useScreenTop } from "@/components/ui";
+import { BlendImage, C, F, FINISH, LIT, GlowBackdrop, GlowButton, Grain, IconTile, Lift, LiveDot, PressableScale, R, Row, S, Surface, TugBar, splitShadow, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";
 import { useClubBattles, useMyFixture } from "@/data/hooks";
@@ -143,26 +143,29 @@ export const PillButton = ({ title, onPress, ghost = false, disabled, loading, a
 export function ClubCard({ club, onPress, onJoin, joining, ghost = false }) {
   const facts = [club.awayKm != null ? kmLabel(club.awayKm) : null, club.distances, club.paces].filter(Boolean);
   return (
-    <Surface onPress={onPress} radius={20} padding={null} style={{ marginBottom: 10 }} contentStyle={styles.club}>
-      <ClubCrest club={club} size={48} radius={14} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Row gap={6}>
-          <Text style={styles.clubName} numberOfLines={1}>
-            {club.name}
+    // Lift: the card springs to 1.02 on press and holds while the club page slides in.
+    <Lift onPress={onPress}>
+      <Surface radius={20} padding={null} style={{ marginBottom: 10 }} contentStyle={styles.club}>
+        <ClubCrest club={club} size={48} radius={14} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Row gap={6}>
+            <Text style={styles.clubName} numberOfLines={1}>
+              {club.name}
+            </Text>
+            {club.verified ? <VerifiedTick size={15} /> : null}
+          </Row>
+          <Text style={styles.small} numberOfLines={1}>
+            {club.verified ? club.meets || club.meetPlace : "Founding club · not official yet"}
           </Text>
-          {club.verified ? <VerifiedTick size={15} /> : null}
-        </Row>
-        <Text style={styles.small} numberOfLines={1}>
-          {club.verified ? club.meets || club.meetPlace : "Founding club · not official yet"}
-        </Text>
-        {facts.length ? <Tags items={facts} /> : null}
-      </View>
-      {club.isMember ? (
-        <Chip label="In" tone="blue" />
-      ) : onJoin ? (
-        <PillButton title={joining ? "..." : "Join"} ghost={ghost} onPress={onJoin} disabled={joining} accessibilityLabel={`Join ${club.name}`} />
-      ) : null}
-    </Surface>
+          {facts.length ? <Tags items={facts} /> : null}
+        </View>
+        {club.isMember ? (
+          <Chip label="In" tone="blue" />
+        ) : onJoin ? (
+          <PillButton title={joining ? "..." : "Join"} ghost={ghost} onPress={onJoin} disabled={joining} accessibilityLabel={`Join ${club.name}`} />
+        ) : null}
+      </Surface>
+    </Lift>
   );
 }
 

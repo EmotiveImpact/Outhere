@@ -9,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Check, Coins, MapPin, Search, Swords, X } from "lucide-react-native";
 import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useRuns, useSearchPlayers, useWallet } from "@/data/hooks";
 import { Avatar, Body, C, Divider, F, FadeIn, GlowBackdrop, GlowButton, PressableScale, R, Row, S, Skeleton, Surface, TierBadge, useScreenTop } from "@/components/ui";
+import { haptic } from "@/services/haptics";
 import { Chip, Headline, NavRow, PortraitMini } from "@/components/arena/BattleKit";
 import { CharacterSelect } from "@/components/arena/CharacterSelect";
 import { ModePicker } from "@/components/arena/ModePicker";
@@ -92,6 +93,7 @@ export default function NewBattleScreen() {
   const next = () => {
     if (step === "select") return setStep("mode");
     if (step === "mode") return setStep("setup");
+    haptic.commit(); // the stake is placed and the challenge sent
     create.mutate({ opponentId, mode, durationHours: hours, distanceM: metres, stakeOut: stake, routeRunId: mode === "hold_the_route" ? routeRunId : null });
   };
 

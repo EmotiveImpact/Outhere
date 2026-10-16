@@ -27,7 +27,7 @@ import {
 } from "@/data/hooks";
 import { useStepStatus } from "@/hooks/useStepSync";
 import { OPENED_WITH_STATE, STATE_PREVIEW, useOnline } from "@/hooks/useOnline";
-import { Avatar, C, ErrorState, F, FadeIn, IconButton, Kicker, LIT, OfflineBanner, PressableScale, R, Row, S, Screen, Skeleton, SyncList, Title, toast } from "@/components/ui";
+import { Avatar, C, ErrorState, F, FadeIn, IconButton, Kicker, LIT, OfflineBanner, PressableScale, R, RollingNumber, Row, S, Screen, Skeleton, SyncList, Title, toast } from "@/components/ui";
 import GoalDial, { Dial } from "@/components/home/GoalDial";
 import OutsideCarousel from "@/components/home/OutsideCarousel";
 import { PHOTOS } from "@/constants/photos";
@@ -242,8 +242,9 @@ function OnlineHome({ profile, liveSteps }) {
         <FadeIn index={0} style={{ marginTop: compact ? S.md : S.lg }}>
           <Row style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
             <View style={{ flex: 1 }}>
-              <Title size={36}>{done ? "Goal smashed" : `${formatNumber(steps)} steps`}</Title>
-              <Title size={36} blue>{done ? `${formatNumber(steps)} and counting` : "and counting"}</Title>
+              {/* the step count rolls as new steps land; set like a Title (36 display, capitals) */}
+              {done ? <Title size={36}>Goal smashed</Title> : <RollingNumber value={steps} suffix=" steps" upper size={36 * 1.12} lineHeight={36 * 1.08} letterSpacing={0.2} />}
+              {done ? <RollingNumber value={steps} suffix=" and counting" upper size={36 * 1.12} lineHeight={36 * 1.08} letterSpacing={0.2} colour={C.accent} /> : <Title size={36} blue>and counting</Title>}
             </View>
           </Row>
         </FadeIn>

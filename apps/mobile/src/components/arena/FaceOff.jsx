@@ -3,7 +3,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Coins, Zap } from "lucide-react-native";
-import { AnimatedNumber, C, F, FadeIn, PressableScale, R, Row, S } from "@/components/ui";
+import { C, F, FadeIn, PressableScale, R, RollingNumber, Row, S } from "@/components/ui";
 import { formatScore, ME, metricUnit, metricValue, playerName } from "./shared";
 import { TugBar, VsBadge } from "./BattleCard";
 import { PortraitMini } from "./BattleKit";
@@ -48,13 +48,7 @@ export function Fighter({ player, value, metric, lead, colour, onPress, sealed =
           {formatScore(metric, value)}
         </Text>
       ) : (
-        <AnimatedNumber
-          value={value || 0}
-          duration={900}
-          format={(v) => formatScore(metric, v)}
-          adjustsFontSizeToFit
-          style={[styles.score, lead && { color: C.text }]}
-        />
+        <RollingNumber value={value || 0} format={(v) => formatScore(metric, v)} size={36} lineHeight={40} letterSpacing={-1} colour={lead ? C.text : C.textDim} style={{ marginTop: 2, justifyContent: "center" }} />
       )}
       <Text style={styles.unit}>{sealed ? "until you've both run" : metricUnit(metric)}</Text>
     </View>

@@ -56,6 +56,7 @@ export { TabBar } from "./TabBar";
 export { GLOWS, MASKS } from "./glows";
 export { TOP_GAP, SCREEN_TOP, TAB_BAR, useScreenTop, useTabBarBottom, ScreenTop, useLayoutSize } from "./layout";
 export { useSkiaReady } from "./skia";
+export { RollingNumber, CountUp, Lift } from "./Rolling";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 

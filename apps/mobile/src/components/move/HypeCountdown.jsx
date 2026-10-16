@@ -11,7 +11,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import { MotiView } from "moti";
 import { ChevronLeft } from "lucide-react-native";
-import { hapticHeavy, hapticSuccess } from "@/services/haptics";
+import { haptic } from "@/services/haptics";
 import { HypeLinks, HypeStage } from "./HypeStage";
 import { RoundGlass, TopBar } from "./parts";
 
@@ -28,12 +28,12 @@ export default function HypeCountdown({ routeLabel, kickers = [], stakes = [], o
   const go = () => {
     if (done.current) return;
     done.current = true;
-    hapticSuccess();
+    haptic.go();
     onGo?.();
   };
 
   useEffect(() => {
-    if (i < 3) hapticHeavy();
+    if (i < 3) haptic.beat();
     const t = setTimeout(() => (i < 3 ? setI(i + 1) : go()), i < 3 ? 1000 : 650);
     return () => clearTimeout(t);
   }, [i]);

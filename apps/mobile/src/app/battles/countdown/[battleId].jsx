@@ -18,7 +18,7 @@ import { TopBar } from "@/components/arena/OutsideKit";
 import { durationLabel } from "@/components/arena/shared";
 import { distanceLabel } from "@/constants/battleModes";
 import { formatNumber } from "@/utils/format";
-import { hapticHeavy, hapticSelection, hapticSuccess } from "@/services/haptics";
+import { haptic } from "@/services/haptics";
 
 const BLUE = "#3d8bff";
 const RED = "#ff5a5f";
@@ -74,8 +74,8 @@ export default function BattleCountdown() {
             router.replace(`/battles/${id}`);
             return;
           }
-          if (BEATS[i] === "GO") hapticSuccess();
-          else hapticHeavy();
+          if (BEATS[i] === "GO") haptic.go();
+          else haptic.beat();
           setBeat(i);
           step();
         },

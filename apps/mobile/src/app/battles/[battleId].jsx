@@ -12,7 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Clock3, Share2, Swords, TrendingUp, Trophy, Zap } from "lucide-react-native";
 import { engine, useBattle, useBattleEmotes, useBattles, useEngineMutation, useHeadToHead, useProfile } from "@/data/hooks";
-import { BlendImage, C, F, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, Meter, PhotoBackground, PressableScale, R, Row, S, Skeleton, Surface, TugBar, VersusSplit, imageSource } from "@/components/ui";
+import { BlendImage, C, CountUp, F, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, Meter, PhotoBackground, PressableScale, R, Row, S, Skeleton, Surface, TugBar, VersusSplit, imageSource } from "@/components/ui";
+import { haptic } from "@/services/haptics";
 import { BottomBar, Coin, GlassChip, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
 import { Bubble, Chip, EmoteTile, EMOTE_FOR_CODE, Headline, PortraitMini } from "@/components/arena/BattleKit";
 import { EmoteBurst } from "@/components/arena/RaceScreens";
@@ -322,6 +323,11 @@ function Result({ battle }) {
   const share = () =>
     Share.share({ message: `${won ? "Beat" : "Battled"} ${oppName} on Outhere: ${formatScore(metric, mine)} to ${formatScore(metric, theirs)}${metric === "steps" ? " steps" : ""}.` }).catch(() => {});
   const objectSize = Math.min(width * 0.7, 280);
+  // The result lands in the hand once: rising taps for a win, a soft drop for a loss.
+  useEffect(() => {
+    if (won) haptic.win();
+    else if (!draw) haptic.lose();
+  }, [won, draw]);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -345,7 +351,7 @@ function Result({ battle }) {
           <Surface padding={S.md} contentStyle={styles.strip}>
             <PortraitMini source={battle.me.player?.avatar || PHOTOS.fighterA} name="You" side="left" width={42} height={42} radius={13} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.stripScore, won && { color: "#cfe2ff" }]}>{formatScore(metric, mine)}</Text>
+              <CountUp value={mine || 0} duration={1300} delay={250} format={(v) => formatScore(metric, v)} size={24} lineHeight={26} colour={won ? "#cfe2ff" : C.text} />
               <Text style={styles.small}>You</Text>
             </View>
             <View style={{ alignItems: "center", width: 58 }}>
@@ -353,7 +359,7 @@ function Result({ battle }) {
               <Meter value={ratio} size={6} tone={won ? "blue" : "grey"} flow={false} style={{ width: 40, marginTop: 5 }} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text style={styles.stripScore}>{formatScore(metric, theirs)}</Text>
+              <CountUp value={theirs || 0} duration={1300} delay={250} format={(v) => formatScore(metric, v)} size={24} lineHeight={26} />
               <Text style={styles.small}>{oppName}</Text>
             </View>
             <PortraitMini source={opp?.avatar} name={oppName} side="right" width={42} height={42} radius={13} />

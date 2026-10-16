@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Minus, Plus, Search, Swords } from "lucide-react-native";
 import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useWallet } from "@/data/hooks";
 import { Avatar, Button, C, F, PressableScale, R, Row, S, Segment, Skeleton, Surface } from "@/components/ui";
+import { haptic } from "@/services/haptics";
 import { OUTSIDE_PHOTOS } from "@/constants/outsidePhotos";
 import { BottomBar, Coin, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";
 import { limitsText } from "@/components/arena/ArenaHero";
@@ -56,7 +57,10 @@ export default function CreateBattle() {
     onSuccess: (b) => router.replace(`/battles/countdown/${b.id}`),
   });
 
-  const send = () => create.mutate({ opponentId: picked, mode: "most_steps", durationHours: hours, stakeOut: stake });
+  const send = () => {
+    haptic.commit(); // the stake is placed and the challenge sent
+    create.mutate({ opponentId: picked, mode: "most_steps", durationHours: hours, stakeOut: stake });
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>

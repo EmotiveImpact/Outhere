@@ -5,7 +5,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { C, F, GlowButton, LiveDot, Pill, R, Row, S, Surface, TugBar as KitTugBar } from "@/components/ui";
+import { C, F, GlowButton, LiveDot, Pill, R, RollingNumber, Row, S, Surface, TugBar as KitTugBar } from "@/components/ui";
 import { countdown, timeAgo } from "@/utils/format";
 import { battleFormat, formatScore, ME, playerName, rivalColour, standingLine } from "./shared";
 import { PortraitMini } from "./BattleKit";
@@ -140,9 +140,8 @@ function Side({ player, value, metric, lead, colour, right = false }) {
         <Text style={styles.name} numberOfLines={1}>
           {playerName(player)}
         </Text>
-        <Text style={[styles.value, lead && { color: C.text }]} numberOfLines={1} adjustsFontSizeToFit>
-          {formatScore(metric, value)}
-        </Text>
+        {/* the live score rolls digit by digit */}
+        <RollingNumber value={value} format={(v) => formatScore(metric, value == null ? null : v)} size={24} lineHeight={27} letterSpacing={-0.5} colour={lead ? C.text : C.textDim} style={{ marginTop: 1 }} />
       </View>
     </Row>
   );

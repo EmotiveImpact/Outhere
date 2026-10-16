@@ -7,7 +7,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ArrowRight, ChevronRight } from "lucide-react-native";
 import { C, F } from "./tokens";
-import { hapticSuccess } from "@/services/haptics";
+import { haptic } from "@/services/haptics";
 
 const H = 62;
 const KNOB = 50;
@@ -26,7 +26,7 @@ export function SlideToStart({ label = "Get out there", done = "You're out", onC
 
   const complete = () => {
     setFinished(true);
-    hapticSuccess();
+    haptic.slideEnd();
     onComplete?.();
   };
 
