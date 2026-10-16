@@ -156,7 +156,7 @@ function Invite({ battle }) {
           <View style={styles.vsBadge}>
             <Text style={styles.vsText}>VS</Text>
           </View>
-          <Avatar uri={me?.avatar} name={me?.name || me?.username} tier={me?.tier} size={40} />
+          <Avatar uri={me?.avatar} runner={me?.runner} runnerFigure={me?.runnerFigure} name={me?.name || me?.username} tier={me?.tier} size={40} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.inviteTitle} numberOfLines={1}>

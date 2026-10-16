@@ -15,6 +15,7 @@ import { Avatar, C, F, FadeIn, FINISH, R, S, Screen, Skeleton, Surface } from "@
 import { StackTabBar } from "@/components/AppTabBar";
 import { Group, MiniSegment, Row, Toggle, TopBar, confirmAsk } from "@/components/account/parts";
 import { formatNumber, tierLabel } from "@/utils/format";
+import { PREVIEW } from "@/constants/preview";
 
 const SOURCE_NAMES = { phone: "This phone", apple_health: "Apple Health", health_connect: "Health Connect", garmin: "Garmin", strava: "Strava" };
 
@@ -68,7 +69,7 @@ export default function SettingsScreen() {
     <Screen tab header={<TopBar title="Settings" />} contentStyle={{ gap: 12, paddingTop: 6, paddingHorizontal: 18 }} padded={false}>
       <FadeIn index={0}>
         <Surface onPress={() => router.push("/settings/profile")} radius={20} padding={null} contentStyle={styles.profile} accessibilityLabel="Edit your profile">
-          <Avatar uri={profile.avatar} name={profile.name || profile.username} tier={profile.tier} size={46} />
+          <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={profile.name || profile.username} tier={profile.tier} size={46} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>
               {profile.name || profile.username}
@@ -127,7 +128,7 @@ export default function SettingsScreen() {
         </Group>
       </FadeIn>
 
-      {__DEV__ ? <DevTools /> : null}
+      {PREVIEW ? <DevTools /> : null}
 
       <Text style={styles.version}>Outhere build 0.1</Text>
     </Screen>
@@ -187,6 +188,7 @@ function DevTools() {
   const router = useRouter();
   const addSteps = useEngineMutation(engine.devAddSteps, { success: (r) => `${formatNumber(r?.steps || 0)} steps today` });
   const fill = useEngineMutation(engine.devFillHistory, { success: "Two weeks of history added" });
+  const livedIn = useEngineMutation(engine.devLivedIn, { success: "Alex's lived-in day is set" });
   const reset = async () => {
     if (!(await confirmAsk({ title: "Reset everything?", body: "This wipes this phone's Outhere data.", ok: "Reset", danger: true }))) return;
     await engine.resetAll();
@@ -198,6 +200,7 @@ function DevTools() {
       <Group>
         <Row title="Add 1,500 steps" onPress={() => addSteps.mutate(1500)} chevron={false} value="+1.5k" />
         <Row title="Fill 2 weeks of history" onPress={() => fill.mutate(13)} chevron={false} />
+        {!isRemote ? <Row title="Lived-in day, as in the prototype" onPress={() => livedIn.mutate()} chevron={false} /> : null}
         <Row title="Reset everything" danger onPress={reset} chevron={false} />
       </Group>
       <Text style={styles.devNote}>Days that already had steps are left alone.</Text>

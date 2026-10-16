@@ -14,10 +14,11 @@ import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { Easing, useReducedMotion } from "react-native-reanimated";
 import { MoreHorizontal } from "lucide-react-native";
-import { isRemote, useOutsideCount } from "@/data/hooks";
+import { engine, isRemote, useOutsideCount } from "@/data/hooks";
 import { Aurora, C, F, FadeIn, LiveDot, PressableScale, R, Row, S, SlideToStart, Wordmark, useScreenTop } from "@/components/ui";
 import { LAUNCH, LaunchStage } from "@/components/ui/LaunchScreen";
 import { PHOTOS } from "@/constants/photos";
+import { PREVIEW } from "@/constants/preview";
 import { formatNumber } from "@/utils/format";
 
 // The launch plays once per app session; coming back to this page skips it.
@@ -34,6 +35,22 @@ export default function WelcomeScreen() {
   const outside = useOutsideCount(null);
   const count = outside.data?.count;
   const start = () => setTimeout(() => router.push("/onboarding"), 260);
+  // Preview only: skip getting started and land on Alex's lived-in day.
+  const [looking, setLooking] = useState(false);
+  const lookAround = async () => {
+    if (looking) return;
+    setLooking(true);
+    try {
+      await engine.createProfile({ username: "alex.morgan", city: "London" });
+      await engine.updateProfile({ name: "Alex Morgan" });
+      await engine.setBirthDate("1996-03-14");
+      await engine.devLivedIn();
+      router.replace("/(tabs)");
+    } catch (e) {
+      console.warn("[preview]", e?.message);
+      setLooking(false);
+    }
+  };
 
   const [intro] = useState(() => !launched && !reduce);
   const [phase, setPhase] = useState(intro ? "on" : "gone");
@@ -108,6 +125,13 @@ export default function WelcomeScreen() {
                 <PressableScale onPress={() => router.push("/onboarding")} hitSlop={10} style={{ alignSelf: "center", marginTop: S.lg }}>
                   <Text style={styles.signIn}>
                     Already a member? <Text style={{ color: C.text, fontFamily: F.bodySemi }}>Sign in</Text>
+                  </Text>
+                </PressableScale>
+              ) : null}
+              {PREVIEW && !isRemote ? (
+                <PressableScale onPress={lookAround} hitSlop={10} style={{ alignSelf: "center", marginTop: S.lg }} accessibilityLabel="Look around as Alex">
+                  <Text style={styles.signIn}>
+                    Preview: <Text style={{ color: C.text, fontFamily: F.bodySemi }}>{looking ? "Opening…" : "Look around as Alex"}</Text>
                   </Text>
                 </PressableScale>
               ) : null}

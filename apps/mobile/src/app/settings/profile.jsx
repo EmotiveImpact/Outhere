@@ -73,7 +73,7 @@ function Photo({ profile }) {
   return (
     <PressableScale onPress={pick} scaleTo={0.96} style={{ alignSelf: "center", alignItems: "center" }} accessibilityLabel="Change photo">
       <View>
-        <Avatar uri={profile.avatar} name={profile.name || profile.username} tier={profile.tier} size={96} />
+        <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={profile.name || profile.username} tier={profile.tier} size={96} />
         <View style={styles.cam}>{save.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={15} color="#fff" />}</View>
       </View>
       <Text style={styles.change}>Change photo</Text>

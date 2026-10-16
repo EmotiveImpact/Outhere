@@ -349,8 +349,11 @@ export const TierBadge = ({ tier, style }) =>
  * stopped (`dot="stopped"`, red). In the stories row only, pass
  * `story="unwatched"` or `"watched"`: the ring then shows the story, not
  * membership. Clubs pass `square`. Old callers may still pass `outside`.
+ *
+ * Pass `runner` and `runnerFigure` (from a player or profile) and a member with
+ * no photo shows their runner silhouette instead of initials.
  */
-export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story, square = false, ring, style }) {
+export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story, square = false, ring, runner, runnerFigure, style }) {
   return (
     <Ring
       size={size}
@@ -360,6 +363,7 @@ export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside =
       square={square}
       ringColour={ring}
       source={source ?? imageSource(uri)}
+      runner={runner === "either" ? runnerFigure || "man" : runner}
       name={name}
       style={style}
     />

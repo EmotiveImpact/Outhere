@@ -112,7 +112,28 @@ function OnlineHome({ profile, liveSteps }) {
     const drop = (dropsQ.data || []).find((d) => d.status !== "soldout");
     const friendsOut = (friendsQ.data || []).filter((f) => f.isOutside);
     const place = profile.city || "your city";
+    // Today's challenge leads, so Home opens on it as in the signed-off prototype.
+    const target = today?.target || goal;
+    const left = Math.max(0, target - steps);
+    const first = {
+      key: "today",
+      icon: Flame,
+      kicker: "Today's challenge",
+      title: `${formatNumber(target)} steps`,
+      art: PHOTOS.flame,
+      body: left > 0 ? `${formatNumber(left)} to go${profile.streak ? ` · keeps your ${profile.streak} day streak` : ""}` : "Done. Your streak is safe for today.",
+      onPress: () => router.push("/outside/challenges"),
+      action: {
+        label: left > 0 ? "Go" : "See all",
+        primary: true,
+        onPress: () => {
+          if (today && !today.joined && today.status === "open") join.mutate(today.id);
+          router.push(left > 0 ? "/(tabs)/move" : "/outside/challenges");
+        },
+      },
+    };
     const list = [
+      first,
       {
         key: "live",
         live: true,
@@ -150,25 +171,6 @@ function OnlineHome({ profile, liveSteps }) {
             : { label: "Shop", primary: true, onPress: () => router.push(`/drops/${drop.id}`) },
       });
     }
-    // Today's challenge goes last, as in the demo.
-    const target = today?.target || goal;
-    const left = Math.max(0, target - steps);
-    list.push({
-      key: "today",
-      icon: Flame,
-      kicker: "Today's challenge",
-      title: `${formatNumber(target)} steps`,
-      body: left > 0 ? `${formatNumber(left)} to go${profile.streak ? ` · keeps your ${profile.streak} day streak` : ""}` : "Done. Your streak is safe for today.",
-      onPress: () => router.push("/outside/challenges"),
-      action: {
-        label: left > 0 ? "Go" : "See all",
-        primary: true,
-        onPress: () => {
-          if (today && !today.joined && today.status === "open") join.mutate(today.id);
-          router.push(left > 0 ? "/(tabs)/move" : "/outside/challenges");
-        },
-      },
-    });
     return list;
   }, [profile, outsideQ.data, eventsQ.data, challengesQ.data, dropsQ.data, friendsQ.data, router, steps, goal, remind, join]);
 
@@ -207,7 +209,7 @@ function OnlineHome({ profile, liveSteps }) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: compact ? S.md : S.lg, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
           <View style={styles.friend}>
             <PressableScale onPress={() => router.push(myStories?.length ? `/stories/${profile.id}` : "/stories/new")} accessibilityLabel={myStories?.length ? "Your story" : "Add a story"}>
-              <Avatar uri={profile.avatar} name={name} story={myStories?.length ? "watched" : undefined} size={56} />
+              <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={name} story={myStories?.length ? "watched" : undefined} size={56} />
             </PressableScale>
             <PressableScale onPress={() => router.push("/stories/new")} hitSlop={8} style={styles.add} accessibilityLabel="Add a story">
               <Plus size={12} color="#fff" strokeWidth={3} />
@@ -322,7 +324,7 @@ function OfflineHome({ profile, liveSteps }) {
     <Screen tab padded={false} contentStyle={{ paddingHorizontal: 18, paddingTop: 8, gap: 14 }}>
       <OfflineBanner />
       <Row gap={12}>
-        <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={44} />
+        <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={name} tier={profile.tier} size={44} />
         <View style={{ flex: 1 }}>
           <Text style={offStyles.hello}>{`${greet}, ${name}`}</Text>
           <Text style={offStyles.helloSmall} numberOfLines={1}>

@@ -1,5 +1,5 @@
 // Home's carousel, just above the tab bar. It slides on its own: who's out,
-// today's challenge (with Go), the next event, a challenge to chase and the
+// today's challenge (with Go and the flame), the next event, a challenge to chase and the
 // next drop (with a countdown and Remind me).
 
 import React, { useEffect, useRef, useState } from "react";
@@ -39,6 +39,12 @@ function Slide({ slide, width, height }) {
         locations={slide.image ? [0, 0.45, 1] : [0, 1]}
         style={StyleSheet.absoluteFill}
       />
+      {slide.art ? (
+        <View pointerEvents="none" style={[styles.art, { width: height * 1.15 }]}>
+          <Image source={slide.art} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <LinearGradient colors={["#111620", "rgba(17,22,32,0)"]} start={{ x: 0, y: 0.5 }} end={{ x: 0.6, y: 0.5 }} style={StyleSheet.absoluteFill} />
+        </View>
+      ) : null}
       {!slide.image ? <View style={styles.edge} /> : null}
       <View style={styles.content}>
         <View>
@@ -125,7 +131,9 @@ export default function OutsideCarousel({ slides, height = 150, interval = 4500,
 
 const styles = StyleSheet.create({
   slide: { borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
-  edge: { ...StyleSheet.absoluteFillObject, borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.10)", borderRightWidth: 2, borderRightColor: "rgba(255,255,255,0.35)" },
+  edge: { ...StyleSheet.absoluteFill, borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.10)", borderRightWidth: 2, borderRightColor: "rgba(255,255,255,0.35)" },
+  // A rendered object on the right of a plain card, like the flame on Today's challenge.
+  art: { position: "absolute", right: 0, top: 0, bottom: 0 },
   content: { flex: 1, padding: S.lg, justifyContent: "space-between" },
   title: { color: C.text, fontFamily: F.display, fontSize: 28, lineHeight: 30, textTransform: "uppercase", marginTop: 8 },
   body: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 18 },

@@ -750,6 +750,57 @@ export const devFillHistory = async (days = 13) =>
     applyStreakEffects(s);
   });
 
+// A loop of about `km` round a park, for the preview's past runs. Gently
+// uneven so it reads as a run someone did, not a drawn circle.
+const demoLoop = (centre, km, seed) => {
+  const r = km / (2 * Math.PI) / 111;
+  return Array.from({ length: 49 }, (_, i) => {
+    const a = (i / 48) * 2 * Math.PI;
+    const wobble = 1 + 0.12 * Math.sin(a * 3 + seed) + 0.06 * Math.sin(a * 7 + seed * 2);
+    return { latitude: centre.latitude + r * wobble * Math.sin(a), longitude: centre.longitude + (r * wobble * Math.cos(a)) / 0.62 };
+  });
+};
+
+const DEMO_RUNS = [
+  { daysAgo: 1, km: 5.2, pace: 318, title: "Southwark Park loop", centre: { latitude: 51.4946, longitude: -0.0555 } },
+  { daysAgo: 3, km: 3.1, pace: 334, title: "Burgess Park easy", centre: { latitude: 51.4835, longitude: -0.0815 } },
+  { daysAgo: 5, km: 8.4, pace: 326, title: "Thames Path long one", centre: { latitude: 51.5045, longitude: -0.0865 } },
+  { daysAgo: 8, km: 5.0, pace: 309, title: "Peckham Rye tempo", centre: { latitude: 51.4628, longitude: -0.0689 } },
+];
+
+// The preview's lived-in day, as in the signed-off prototype: you have a
+// photo and Pro, two weeks of steps behind you, 8,412 today, a few runs and
+// more people to follow. Only the web preview and debug builds offer it.
+export const devLivedIn = async () => {
+  await devFillHistory(13);
+  return write((s) => {
+    requireMe(s);
+    s.me.avatar = s.me.avatar || PHOTOS.alex;
+    s.me.tier = s.me.tier === "free" ? "pro" : s.me.tier;
+    const key = dayKey();
+    const now = Date.now();
+    const steps = 8412;
+    const start = new Date();
+    start.setHours(7, 0, 0, 0);
+    const hours = Math.max(1, Math.floor((now - start.getTime()) / HOUR_MS));
+    const samples = Array.from({ length: hours }, (_, i) => [start.getTime() + (i + 1) * HOUR_MS, Math.round((steps * (i + 1)) / hours)]);
+    s.days[key] = { ...(s.days[key] || {}), steps, distance: steps * STEP_KM, activeMinutes: Math.floor(steps / 100), samples, checkedIn: true, awards: { thousands: 8, active: true } };
+    award(s, { xp: 8 * 5 + 50, out: 5, label: "Steps today", reason: "steps" });
+    for (const r of DEMO_RUNS) {
+      if (s.runs.some((x) => x.title === r.title)) continue;
+      const durationSec = Math.round(r.km * r.pace);
+      const endedAt = addDays(new Date(), -r.daysAgo).setHours(19, 10, 0, 0);
+      const run = { id: randomId("run"), title: r.title, type: "run", startedAt: endedAt - durationSec * 1000, endedAt, distanceKm: r.km, durationSec, paceSecPerKm: r.pace, calories: Math.round(r.km * 62), route: demoLoop(r.centre, r.km, r.daysAgo), routeId: null, steps: Math.round(r.km * 1310), climbM: Math.round(r.km * 4), feel: null };
+      s.runs = [...s.runs, run].sort((a, b) => b.endedAt - a.endedAt);
+      award(s, { xp: Math.round(r.km * 10), out: Math.floor(r.km), label: `${r.km} km run`, reason: "run", refId: run.id });
+    }
+    const london = PLAYERS.filter((p) => p.city === "London").map((p) => p.id);
+    s.following = [...new Set([...s.following, ...london.slice(0, 10)])];
+    applyStreakEffects(s);
+    return profileView(s);
+  });
+};
+
 // ── Wallet ────────────────────────────────────────────────────────────────────
 
 export const getWallet = async () =>

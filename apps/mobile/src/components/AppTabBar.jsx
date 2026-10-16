@@ -26,7 +26,7 @@ function useItems() {
     icon: ICONS[key],
     render:
       key === "profile"
-        ? () => <Avatar uri={profile?.avatar} name={profile?.name || profile?.username || ""} tier={profile?.tier || "free"} size={23} />
+        ? () => <Avatar uri={profile?.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={profile?.name || profile?.username || ""} tier={profile?.tier || "free"} size={23} />
         : undefined,
   }));
 }

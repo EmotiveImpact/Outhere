@@ -60,7 +60,7 @@ export default function ComparePlans() {
                   <Text style={styles.popText}>Most picked</Text>
                 </View>
               ) : null}
-              <Avatar uri={p?.avatar} name={p?.name || "You"} tier={t} size={40} />
+              <Avatar uri={p?.avatar} runner={p?.runner} runnerFigure={p?.runnerFigure} name={p?.name || "You"} tier={t} size={40} />
               <Text style={styles.headName}>{PLANS[t].name}</Text>
               <Text style={[styles.headPrice, t === "black" && { color: "#cfd8e6" }]}>{priceLabel(t, String(billing))}</Text>
             </View>
