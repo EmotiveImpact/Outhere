@@ -175,10 +175,10 @@ def wash_colour(who, x, y):
 # Each runner is centred in the open part of their side, away from the seam.
 PHOTO_BOX = {"you": (-78, 0, 372, 664), "them": (100, 180, 372, 664)}
 # Where each photo melts into the wash (position down the box, opacity of the
-# wash on top). Yours fades out a long way at the bottom; theirs fades in quickly at the top so their head shows.
+# wash on top). Yours fades out a long way at the bottom; theirs only softens its top edge, so their head shows.
 PHOTO_FADE = {
     "you": [(0, 0.55), (0.12, 0), (0.34, 0), (0.68, 0.85), (0.82, 1), (1, 1)],
-    "them": [(0, 1), (0.04, 0.85), (0.12, 0.35), (0.22, 0), (0.86, 0), (1, 0.6)],
+    "them": [(0, 1), (0.03, 0.55), (0.1, 0), (0.86, 0), (1, 0.6)],
 }
 
 

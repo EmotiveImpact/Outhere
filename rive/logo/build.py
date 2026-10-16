@@ -3,7 +3,8 @@
   Logo     the full intro: the O draws in, the dot lands with a ping and a glow,
            then the glow breathes. For larger uses.
   Small    the same intro without ping or glow, for sizes under about 48 px.
-  Splash   the opening screen: the O lands, then UTHERE slides out of it.
+  Splash   the opening screen: the O lands, then UTHERE slides out of it, with
+           OUT set larger than HERE.
   Loader   the O draws and undraws itself on a loop while the dot pulses.
 
 The geometry is Outhere.logo() from the design system, weight A: on a 100 grid
@@ -210,17 +211,20 @@ def small():
 
 
 # ---------------------------------------------------------------- Splash: the O lands, then UTHERE
-F = 180                              # wordmark font size
+F = 205                              # font size of OUT
+SMALL = 0.78                        # HERE is set smaller, so OUT leads
 MARK = 0.74 * F                      # the inline wordmark: the mark stands in for the O
-GAP, TRACK = 0.06 * F, 0.06 * F      # .oh-word.inline
-WORD_W = 2.774 * F + 6 * TRACK       # measured from the font
+GAP, TRACK = 0.06 * F, 0.06          # .oh-word.inline; tracking is a share of each size
+UT_W = (0.479 + 0.468 + 2 * TRACK) * F                    # advance widths from the font
+HERE_W = (0.48 + 0.438 + 0.471 + 0.438 + 4 * TRACK) * SMALL * F
+WORD_W = UT_W + HERE_W
 SPLASH_W, SPLASH_H = 800, 260
 LEFT = (SPLASH_W - (MARK + GAP + WORD_W)) / 2
 
 
 def splash():
     m = Mark(MARK, LEFT + MARK / 2, SPLASH_H / 2)
-    ev, word, style, clip = nid(), nid(), nid(), nid()
+    ev, word, style, small, clip = nid(), nid(), nid(), nid(), nid()
     tx = LEFT + MARK + GAP
     baseline = SPLASH_H / 2 + 0.35 * F       # cap height is 0.7 em, centred on the mark
     word_xml = f'''
@@ -228,10 +232,15 @@ def splash():
             <ClippingShape sourceId="{clip}" name="Reveal"/>
             <Text originValue="baseline" sizingValue="autoWidth" wrapValue="noWrap" name="UTHERE">
                 <TextStylePaint fontSize="{F}" fontAssetId="0:3" familyName="Barlow Condensed" styleName="Bold"
-                                letterSpacing="{TRACK:.2f}" name="Style" id="{style}">
+                                letterSpacing="{TRACK * F:.2f}" name="Out Style" id="{style}">
                     <Fill name="Fill"><SolidColor colorValue="{INK}" name="Color"/></Fill>
                 </TextStylePaint>
-                <TextValueRun styleId="{style}" text="UTHERE" name="Run"/>
+                <TextStylePaint fontSize="{SMALL * F:.2f}" fontAssetId="0:3" familyName="Barlow Condensed" styleName="Bold"
+                                letterSpacing="{TRACK * SMALL * F:.2f}" name="Here Style" id="{small}">
+                    <Fill name="Fill"><SolidColor colorValue="{INK}" name="Color"/></Fill>
+                </TextStylePaint>
+                <TextValueRun styleId="{style}" text="UT" name="Out"/>
+                <TextValueRun styleId="{small}" text="HERE" name="Here"/>
             </Text>
         </Node>
         <!-- The word only shows to the right of the O, so it appears to slide out of it. -->
@@ -243,7 +252,9 @@ def splash():
             prop(X, kf(tx - 0.9 * WORD_W, 0), kf(tx - 0.9 * WORD_W, 70, EXPO), kf(tx, 130)),
             prop(OPACITY, kf(0, 0), kf(0, 70, OUT), kf(1, 84))),
         obj(style, "tracking settles as it arrives",
-            prop(LETTER_SPACING, kf(0.3 * F, 0), kf(0.3 * F, 70, EXPO), kf(TRACK, 140)))]
+            prop(LETTER_SPACING, kf(0.3 * F, 0), kf(0.3 * F, 70, EXPO), kf(TRACK * F, 140))),
+        obj(small, "HERE settles with it",
+            prop(LETTER_SPACING, kf(0.3 * SMALL * F, 0), kf(0.3 * SMALL * F, 70, EXPO), kf(TRACK * SMALL * F, 140)))]
     intro_id, intro = animation("Intro", 150, "oneShot", keys)
     idle_id, idle = animation("Idle", 168, "loop", m.breathe())
     sm, sm_xml = machine("Splash", intro_id, idle_id)
