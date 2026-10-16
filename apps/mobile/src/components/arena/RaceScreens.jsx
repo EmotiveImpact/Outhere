@@ -26,8 +26,8 @@ import Confetti from "@/components/arena/Confetti";
 import { BATTLE_PRIZES, playerName, useNow } from "@/components/arena/shared";
 import { BATTLE_EMOTES, emoteLabel } from "@/data/seedOutside";
 import { BLIND_START_HOURS, distanceLabel, timeLabel } from "@/constants/battleModes";
-import { PHOTOS } from "@/constants/photos";
 import { formatNumber, timeLabel as clockLabel } from "@/utils/format";
+import { fighterPhoto } from "@/utils/fighter";
 
 const BLUE = "#4f9bff";
 const RED = "#ff5a62";
@@ -37,8 +37,8 @@ const paceLabel = (sec) => (sec ? `${Math.floor(sec / 60)}'${String(Math.round(s
 
 const firstName = (p) => (p?.name || "Rival").split(" ")[0];
 
-/** You, with a stand-in photo until you add your own. */
-const meOf = (b) => ({ ...(b.me.player || {}), name: "You", avatar: b.me.player?.avatar || PHOTOS.fighterA });
+/** You, with your pack picture, your photo or your silhouette. */
+const meOf = (b) => ({ ...(b.me.player || {}), name: "You", avatar: fighterPhoto(b.me.player, "profile").source });
 
 function useRaceActions(battle) {
   const router = useRouter();

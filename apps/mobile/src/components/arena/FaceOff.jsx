@@ -7,7 +7,7 @@ import { C, F, FadeIn, PressableScale, R, RollingNumber, Row, S } from "@/compon
 import { formatScore, ME, metricUnit, metricValue, playerName } from "./shared";
 import { TugBar, VsBadge } from "./BattleCard";
 import { PortraitMini } from "./BattleKit";
-import { PHOTOS } from "@/constants/photos";
+import { fighterPhoto } from "@/utils/fighter";
 
 const pad = (n) => String(n).padStart(2, "0");
 
@@ -37,7 +37,7 @@ export function Countdown({ ms }) {
 export function Fighter({ player, value, metric, lead, colour, onPress, sealed = false }) {
   const body = (
     <View style={{ alignItems: "center" }}>
-      <PortraitMini source={player?.avatar || (player?.isMe ? PHOTOS.fighterA : null)} name={player?.isMe ? "You" : player?.name} side={colour === ME ? "left" : "right"} width={84} height={96} radius={22} style={!lead && { opacity: 0.85 }} />
+      <PortraitMini source={fighterPhoto(player, "profile").source} name={player?.isMe ? "You" : player?.name} side={colour === ME ? "left" : "right"} width={84} height={96} radius={22} style={!lead && { opacity: 0.85 }} />
       <Text style={styles.name} numberOfLines={1}>
         {playerName(player)}
       </Text>

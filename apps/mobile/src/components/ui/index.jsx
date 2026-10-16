@@ -50,7 +50,7 @@ export { BlendImage } from "./BlendImage";
 export { GlowBackdrop } from "./GlowBackdrop";
 export { Grain } from "./Grain";
 export { PhotoBackground } from "./PhotoBackground";
-export { VersusSplit } from "./VersusSplit";
+export { VersusName, VersusSplit } from "./VersusSplit";
 export { Spotlight, SpotlightNumber, hypeColour, HYPE_COLOURS } from "./Spotlight";
 export { TabBar } from "./TabBar";
 export { GLOWS, MASKS } from "./glows";

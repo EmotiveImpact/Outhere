@@ -7,11 +7,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInLeft, FadeInRight } from "react-native-reanimated";
 import { useBattle, useMysteryOffer, useProfile } from "@/data/hooks";
-import { C, EmptyState, F, GlowButton, R, Row, S, Skeleton, VersusSplit, imageSource } from "@/components/ui";
+import { C, EmptyState, F, GlowButton, R, Row, S, Skeleton, VersusSplit } from "@/components/ui";
 import { Chip, Facts, GlassCard } from "@/components/arena/BattleKit";
-import { PHOTOS } from "@/constants/photos";
 import { lengthWord, metricWord } from "@/data/outsideShared";
 import { tierLabel, formatNumber } from "@/utils/format";
+import { fighterPhoto } from "@/utils/fighter";
 
 export default function Reveal() {
   const router = useRouter();
@@ -48,8 +48,8 @@ export default function Reveal() {
         height={height * 0.78}
         slant={0.16}
         vsSize={64}
-        left={{ source: imageSource(me?.avatar) || PHOTOS.fighterA, tint: "rgba(42,106,240,0.4)", focus: { x: 0.5, y: 0.22 } }}
-        right={{ source: imageSource(offer.rival.avatar) || PHOTOS.fighterB, tint: "rgba(255,77,85,0.34)", focus: { x: 0.5, y: 0.22 } }}
+        left={{ source: fighterPhoto(me, "vs").source, focus: { x: 0.5, y: 0.22 } }}
+        right={{ source: fighterPhoto(offer.rival, "vsMirror").source, focus: { x: 0.5, y: 0.22 } }}
         fade="rgba(7,9,12,1)"
         fadeFrom={0.5}
       >

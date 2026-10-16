@@ -74,7 +74,7 @@ function PlayerProfile({ id }) {
     <Screen tab padded={false} style={{ paddingTop: 0 }} onRefresh={refetch} refreshing={isRefetching}>
       {/* .slab.photo 300: the whole runner in frame (focus high), first name only. */}
       <Slab
-        photo={imageSource(p.avatar) || PHOTOS.walk}
+        photo={imageSource(p.fighter?.background || p.fighter?.profile || p.avatar) || PHOTOS.walk}
         focus={{ x: 0.5, y: 0.18 }}
         kicker={kicker}
         top={first}
@@ -111,7 +111,7 @@ function PlayerProfile({ id }) {
                 <AnimatedBar value={total ? w.mine / total : 0.5} height={6} colour={C.accent} track="rgba(255,255,255,0.08)" />
               </View>
               <Text style={styles.num}>{compactNumber(w.theirs)}</Text>
-              <Avatar uri={p.avatar} name={p.name} size={26} />
+              <Avatar uri={p.fighter?.profile || p.avatar} name={p.name} size={26} />
             </Row>
           </Surface>
         </FadeIn>

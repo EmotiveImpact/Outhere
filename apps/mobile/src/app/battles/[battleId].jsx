@@ -12,7 +12,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Clock3, Share2, Swords, TrendingUp, Trophy, Zap } from "lucide-react-native";
 import { engine, useBattle, useBattleEmotes, useBattles, useEngineMutation, useHeadToHead, useProfile } from "@/data/hooks";
-import { BlendImage, C, CountUp, F, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, Meter, PhotoBackground, PressableScale, R, Row, S, Skeleton, Surface, TugBar, VersusSplit, imageSource } from "@/components/ui";
+import { BlendImage, C, CountUp, F, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, Meter, PhotoBackground, PressableScale, R, Row, S, Skeleton, Surface, TugBar, VersusName, VersusSplit, imageSource } from "@/components/ui";
+import { MakePackPill } from "@/components/pack/MakePackPill";
+import { fighterPhoto, hasPack, playerSub } from "@/utils/fighter";
 import { haptic } from "@/services/haptics";
 import { BottomBar, Coin, GlassChip, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
 import { Bubble, Chip, EmoteTile, EMOTE_FOR_CODE, Headline, PortraitMini } from "@/components/arena/BattleKit";
@@ -110,9 +112,9 @@ function Invite({ battle }) {
         <Animated.View entering={FadeInDown.duration(500)} style={{ alignItems: "center", alignSelf: "stretch" }}>
           <Text style={styles.kick}>{kick}</Text>
           <Row gap={S.md} style={{ alignItems: "center", marginTop: S.md }}>
-            <PortraitMini source={opp?.avatar} name={first} side="right" width={74} height={84} radius={20} />
+            <PortraitMini source={fighterPhoto(opp, "profile").source} name={first} side="right" width={74} height={84} radius={20} />
             <Text style={styles.vsSmall}>vs</Text>
-            <PortraitMini source={me?.avatar || PHOTOS.fighterA} name="You" side="left" width={74} height={84} radius={20} />
+            <PortraitMini source={fighterPhoto(me, "profile").source} name="You" side="left" width={74} height={84} radius={20} />
           </Row>
           <Headline center top={battle.rematchOf ? `${first} wants` : `${first} calls`} bottom={battle.rematchOf ? "a rematch" : "you out"} size={50} style={{ marginTop: S.lg, alignSelf: "stretch" }} />
           <StatBoxes
@@ -180,27 +182,29 @@ function LiveBattle({ battle }) {
   const lead = b.leader === "me" ? `You lead by ${formatScore(b.metric, gap)}` : b.leader ? `${oppName} leads by ${formatScore(b.metric, gap)}` : "Dead level";
   const areas = [b.me.player?.area, opp?.area].every(Boolean) ? `${b.me.player.area} vs ${opp.area}` : null;
   const pot = (b.stakeOut || 0) * 2;
+  // .r10vsh is 300 high including the prototype's 14px status bar.
+  const headH = 286 + insets.top;
+  const myPic = fighterPhoto(b.me.player, "vs");
+  const oppPic = fighterPhoto(opp, "vsMirror");
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 190 + insets.bottom }}>
-        {/* Versus header (.r10vsh): you lit blue on the left, them red on the right, split by a glowing seam. */}
+        {/* Versus header (.r10vsh): you on the left with a blue bar, them on the right lit red, split by a glowing seam that fades with the photos. Each side is their Fighter Pack picture, else their photo, else a silhouette. */}
         <VersusSplit
-          height={250 + insets.top}
-          slant={0.13}
-          vsSize={52}
-          left={{ source: imageSource(b.me.player?.avatar) || PHOTOS.fighterA, tint: "rgba(42,106,240,0.35)", focus: { x: 0.5, y: 0.2 } }}
-          right={{ source: imageSource(opp?.avatar) || PHOTOS.fighterB, tint: "rgba(255,77,85,0.32)", focus: { x: 0.5, y: 0.2 } }}
+          height={headH}
+          slant={0.2}
+          vsSize={64}
+          left={{ source: myPic.source, focus: { x: 0.5, y: 0.14 } }}
+          right={{ source: oppPic.source, focus: { x: 0.5, y: 0.14 } }}
           fade="rgba(7,9,12,1)"
-          fadeFrom={0.55}
         >
-          <Text style={[styles.sideName, { left: S.gutter }]}>You</Text>
-          <Text style={[styles.sideName, { right: S.gutter, textAlign: "right" }]} numberOfLines={1}>
-            {oppName}
-          </Text>
+          {!hasPack(b.me.player) ? <MakePackPill style={{ position: "absolute", left: 18, top: insets.top + 146 }} /> : null}
+          <VersusName side="left" name="You" sub={playerSub(b.me.player)} />
+          <VersusName side="right" name={oppName} sub={playerSub(opp)} />
         </VersusSplit>
 
-        <View style={{ paddingHorizontal: S.gutter, marginTop: -30 }}>
+        <View style={{ paddingHorizontal: S.gutter, marginTop: 14 }}>
           <Surface padding={S.lg} style={{ boxShadow: "0 30px 60px -24px #000, 0 0 40px -18px rgba(61,139,255,0.5)" }}>
             <Row style={{ justifyContent: "space-between" }}>
               <Text style={styles.scoreLabel}>You</Text>
@@ -323,6 +327,7 @@ function Result({ battle }) {
   const share = () =>
     Share.share({ message: `${won ? "Beat" : "Battled"} ${oppName} on Outhere: ${formatScore(metric, mine)} to ${formatScore(metric, theirs)}${metric === "steps" ? " steps" : ""}.` }).catch(() => {});
   const objectSize = Math.min(width * 0.7, 280);
+  const packPic = won ? battle.me.player?.fighter?.win : draw ? null : battle.me.player?.fighter?.respect;
   // The result lands in the hand once: rising taps for a win, a soft drop for a loss.
   useEffect(() => {
     if (won) haptic.win();
@@ -335,9 +340,14 @@ function Result({ battle }) {
         {/* .r10res: the crown for a win, the trophy greyed out for a loss, over the lit slab */}
         <View style={[styles.slab, { height: insets.top + 360 }]}>
           <GlowBackdrop preset="slab" style={StyleSheet.absoluteFill} layers={[{ x: 0.5, y: 0.34, rx: 0.8, ry: 0.6, stops: [[0, won ? "#123a80" : "#141c2c"], [0.55, "#060b16"], [1, "#030407"]] }]} base="#030407" />
-          <View style={{ position: "absolute", top: insets.top + 6, left: (width - objectSize) / 2 }}>
-            <BlendImage source={won || draw ? PHOTOS.crown : PHOTOS.trophy} size={objectSize} float glow={won ? objectSize : false} grey={won || draw ? 0 : 0.85} dim={won || draw ? 1 : 0.8} />
-          </View>
+          {packPic ? (
+            // With a Fighter Pack, your win pose for a win and your respect pose for a loss.
+            <PhotoBackground source={imageSource(packPic)} fade="hero" focus={{ x: 0.5, y: 0.2 }} kenBurns glow={won} />
+          ) : (
+            <View style={{ position: "absolute", top: insets.top + 6, left: (width - objectSize) / 2 }}>
+              <BlendImage source={won || draw ? PHOTOS.crown : PHOTOS.trophy} size={objectSize} float glow={won ? objectSize : false} grey={won || draw ? 0 : 0.85} dim={won || draw ? 1 : 0.8} />
+            </View>
+          )}
           <Grain amount={0.06} />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabEdge]} />
           <View style={styles.slabText}>
@@ -349,7 +359,7 @@ function Result({ battle }) {
         </View>
         <View style={{ paddingHorizontal: S.gutter, marginTop: S.lg, gap: S.md }}>
           <Surface padding={S.md} contentStyle={styles.strip}>
-            <PortraitMini source={battle.me.player?.avatar || PHOTOS.fighterA} name="You" side="left" width={42} height={42} radius={13} />
+            <PortraitMini source={fighterPhoto(battle.me.player, "profile").source} name="You" side="left" width={42} height={42} radius={13} />
             <View style={{ flex: 1 }}>
               <CountUp value={mine || 0} duration={1300} delay={250} format={(v) => formatScore(metric, v)} size={24} lineHeight={26} colour={won ? "#cfe2ff" : C.text} />
               <Text style={styles.small}>You</Text>
@@ -362,7 +372,7 @@ function Result({ battle }) {
               <CountUp value={theirs || 0} duration={1300} delay={250} format={(v) => formatScore(metric, v)} size={24} lineHeight={26} />
               <Text style={styles.small}>{oppName}</Text>
             </View>
-            <PortraitMini source={opp?.avatar} name={oppName} side="right" width={42} height={42} radius={13} />
+            <PortraitMini source={fighterPhoto(opp, "profile").source} name={oppName} side="right" width={42} height={42} radius={13} />
           </Surface>
 
           {won || draw ? (
@@ -411,7 +421,6 @@ const styles = StyleSheet.create({
   inviteTitle: { color: C.text, fontFamily: F.display, fontSize: 48, lineHeight: 50, textTransform: "uppercase", textAlign: "center", marginTop: S.lg },
   blueGlow: { color: C.accent, textShadowColor: "rgba(61,139,255,0.5)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 }, marginTop: 0 },
   warn: { color: C.warn, fontFamily: F.body, fontSize: 13, marginTop: S.md, textAlign: "center" },
-  sideName: { position: "absolute", bottom: 44, color: "#fff", fontFamily: F.display, fontSize: 22, textTransform: "uppercase", maxWidth: "45%" },
   scoreLabel: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase" },
   score: { flex: 1, fontFamily: F.display, fontSize: 44, lineHeight: 48 },
   // .oh-score .head b: blue-hi and #ff8b92, each glowing in its colour

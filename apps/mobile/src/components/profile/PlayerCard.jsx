@@ -8,8 +8,10 @@ import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatNumber } from "@/utils/format";
-import { AnimatedNumber, Avatar, C, F, FadeIn, FINISH, PhotoBackground, PressableScale, ProgressBar, Row, Surface, TOP_GAP, splitShadow } from "@/components/ui";
+import { AnimatedNumber, Avatar, C, F, FadeIn, FINISH, PhotoBackground, PressableScale, ProgressBar, Row, Surface, TOP_GAP, imageSource, splitShadow } from "@/components/ui";
 import { MemberLine } from "./parts";
+import { MakePackPill } from "@/components/pack/MakePackPill";
+import { hasPack } from "@/utils/fighter";
 
 // The prototype's own photo for the profile slab (.slab.photo, teal.jpg).
 export const PROFILE_PHOTO = require("../../../assets/images/oh/teal.jpg");
@@ -20,22 +22,25 @@ const SLAB = 196;
 const EDGE = splitShadow(FINISH.slabEdge);
 export const GUTTER = 18;
 
-export function ProfileHero({ profile: p, clubName, right, onTryPro, onAvatar }) {
+export function ProfileHero({ profile: p, clubName, right, onTryPro, onAvatar, mine = true }) {
   const insets = useSafeAreaInsets();
+  const bg = p.fighter?.background;
   const place = clubName || p.area || p.city;
   return (
     <View>
       <View style={[styles.slabWrap, { boxShadow: EDGE.outer }]}>
         <View style={[styles.slab, { height: SLAB + insets.top }]}>
-          <PhotoBackground source={PROFILE_PHOTO} focus={{ x: 0.5, y: 0.22 }} fade="slab" to="2,5,12" kenBurns grain={0.06} />
+          {/* With a Fighter Pack, the slab is your pack background and the ring your pack portrait. */}
+          <PhotoBackground source={bg ? imageSource(bg) : PROFILE_PHOTO} focus={{ x: 0.5, y: bg ? 0.3 : 0.22 }} fade="slab" to="2,5,12" kenBurns grain={0.06} />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.round, { boxShadow: EDGE.inset }]} />
+          {mine && !hasPack(p) ? <MakePackPill style={{ position: "absolute", top: insets.top + TOP_GAP + 4, left: GUTTER }} /> : null}
           <Row style={{ position: "absolute", top: insets.top + TOP_GAP, right: GUTTER }}>{right}</Row>
         </View>
       </View>
       <Row gap={14} style={styles.identity}>
         <PressableScale onPress={onAvatar} scaleTo={0.96} accessibilityLabel="Edit your photo">
           <View style={styles.avatarWell}>
-            <Avatar uri={p.avatar} name={p.name || p.username} tier={p.tier} dot={p.isOutside ? "out" : null} size={86} />
+            <Avatar uri={p.fighter?.profile || p.avatar} name={p.name || p.username} tier={p.tier} dot={p.isOutside ? "out" : null} size={86} />
           </View>
         </PressableScale>
         <View style={{ flex: 1, minWidth: 0, paddingBottom: 6 }}>

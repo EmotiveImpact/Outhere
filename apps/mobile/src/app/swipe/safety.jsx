@@ -6,10 +6,10 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Crosshair, Lock } from "lucide-react-native";
 import { engine, useEngineMutation, useMysterySettings, useProfile } from "@/data/hooks";
-import { C, F, GlowBackdrop, IconTile, PhotoBackground, R, Row, S, Surface, imageSource } from "@/components/ui";
-import { PHOTOS } from "@/constants/photos";
+import { C, F, GlowBackdrop, IconTile, PhotoBackground, R, Row, S, Surface } from "@/components/ui";
 import { GlowHero, Toggle, TopBar } from "@/components/arena/OutsideKit";
 import { tierLabel } from "@/utils/format";
+import { fighterPhoto } from "@/utils/fighter";
 
 const POINTS = [
   ["Your area, never your spot", "Strangers see your area name. Never where you are, never your routes."],
@@ -31,7 +31,7 @@ export default function SwipeSafety() {
         <View style={{ paddingHorizontal: S.gutter, gap: S.md, marginTop: S.md }}>
           {/* .r11safe: you, as a stranger sees you, on a lit photo card */}
           <Surface padding={null} radius={26} style={styles.preview} contentStyle={{ flex: 1, justifyContent: "flex-end" }}>
-            <PhotoBackground source={imageSource(me?.avatar) || PHOTOS.fighterA} fade="card" focus={{ x: 0.5, y: 0.2 }} glow />
+            <PhotoBackground source={fighterPhoto(me, "swipe").source} fade="card" focus={{ x: 0.5, y: 0.2 }} glow />
             <View style={styles.about}>
               <GlowBackdrop preset="orb" style={[StyleSheet.absoluteFill, { borderRadius: 44 }]} />
               <Text style={styles.aboutText}>About here</Text>
