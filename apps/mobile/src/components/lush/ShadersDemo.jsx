@@ -23,7 +23,7 @@ export default function ShadersDemo() {
         {width ? <BlackCard width={width - S.lg * 2} name="Alex Morgan" number={212} style={{ alignSelf: "center", marginVertical: S.sm }} /> : null}
       </Demo>
 
-      <Demo kicker="Aurora" caption="Three ribbons of blue and violet drifting against each other on a near black sky, with the kit's grain." flush>
+      <Demo kicker="Aurora" caption="Curtains of blue and violet light with fine rays, drifting on a near black sky that fades into the card." flush>
         <View style={styles.sky}>
           <Aurora />
           <View style={styles.skyText}>
@@ -36,7 +36,7 @@ export default function ShadersDemo() {
         </View>
       </Demo>
 
-      <Demo kicker="Shimmer and liquid" caption="A live battle runs hot: heat through the fill, light flowing to the middle, a white core where the two meet. Meters fill like a liquid.">
+      <Demo kicker="Shimmer and glow" caption="A live battle: light streams in from both ends to a soft spark where the two meet. Bars and rings glow out past their own edges.">
         <Row style={{ justifyContent: "space-between", marginBottom: 6 }}>
           <Text style={styles.score}>You</Text>
           <Text style={[styles.score, { color: "#ff8b92" }]}>Kemi</Text>
@@ -70,7 +70,7 @@ export default function ShadersDemo() {
         </Row>
       </Demo>
 
-      <Demo kicker="Foil" caption="Holographic foil on the badges, inside the object's own shape. It moves with the phone's tilt, or on a slow loop.">
+      <Demo kicker="Foil" caption="A cool iridescence on each badge's highlights, a glint every few seconds and a blue bloom behind it. It moves with the phone's tilt.">
         <Row gap={S.sm} style={{ alignItems: "stretch" }}>
           {BADGES.map((b) => (
             <Surface key={b.label} tone="sunk" radius={18} padding={null} style={{ flex: 1 }} contentStyle={styles.badge}>

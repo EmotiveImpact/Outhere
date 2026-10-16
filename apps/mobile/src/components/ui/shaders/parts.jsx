@@ -8,7 +8,7 @@
 // runs and keeps its last frame when it stops.
 
 import React, { useMemo } from "react";
-import { Canvas, Circle, Fill, Group, ImageShader, Path, RadialGradient, RoundedRect, Shader, Skia, useImage, vec } from "@shopify/react-native-skia";
+import { Blur, BlurMask, Canvas, Circle, Fill, Group, ImageShader, Paint, Path, RadialGradient, Rect, RoundedRect, Shader, Skia, useImage, vec } from "@shopify/react-native-skia";
 import { useDerivedValue } from "react-native-reanimated";
 import { skiaSource } from "../skia";
 import { placeImage } from "../skia/parts";
@@ -58,14 +58,14 @@ half4 main(float2 xy) {
   float3 col = base * light * (1.0 + b * 0.55);
   col = mix(col, cool, 0.1 * clamp(1.0 - light, 0.0, 1.0));
   col += hi * 0.05 * intensity * aniso;
-  col += hi * sheen * 0.9;
+  col += hi * sheen * 0.62;
   col += (hash(xy) - 0.5) * 0.028;
   return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
 }`);
 
 export const SHEEN_TONES = {
   silver: { base: [0.56, 0.6, 0.66], hi: [1, 1, 1], cool: [0.34, 0.4, 0.52], fallback: ["#9aa3ae", "#5e6670"] },
-  black: { base: [0.105, 0.12, 0.145], hi: [0.68, 0.74, 0.82], cool: [0.06, 0.08, 0.12], fallback: ["#232830", "#0f1217"] },
+  black: { base: [0.105, 0.12, 0.145], hi: [0.56, 0.66, 0.82], cool: [0.06, 0.08, 0.12], fallback: ["#232830", "#0f1217"] },
   blue: { base: [0.11, 0.25, 0.58], hi: [0.74, 0.85, 1], cool: [0.05, 0.1, 0.3], fallback: ["#2a6af0", "#12306e"] },
 };
 
@@ -100,9 +100,13 @@ ${NOISE}
 float ribbon(float2 uv, float tt, float y0, float amp, float k, float s, float w, float ph, float warp) {
   float yc = y0 + amp * sin(uv.x * k + tt * s + ph) + warp;
   float d = (uv.y - yc) / w;
-  float g = exp(-d * d);
-  // curtains: the ribbon brightens and dims along its length
-  g *= 0.7 + 0.3 * sin(uv.x * 9.0 - tt * s * 4.0 + ph * 3.0);
+  // a curtain: a bright lower hem that fades slowly upwards and quickly below
+  float g = d < 0.0 ? exp(d * 0.9) : exp(-d * d * 4.0);
+  // fine vertical rays drifting along the curtain
+  float rays = vnoise(float2(uv.x * 46.0 + ph * 11.0 + tt * s * 3.0, uv.y * 1.2));
+  rays = 0.55 + 0.45 * smoothstep(0.25, 0.85, rays);
+  // and the curtain brightens and dims along its length
+  g *= rays * (0.65 + 0.35 * sin(uv.x * 7.0 - tt * s * 4.0 + ph * 3.0));
   return g;
 }
 half4 main(float2 xy) {
@@ -115,11 +119,16 @@ half4 main(float2 xy) {
              + c3 * ribbon(uv, t, 0.70, 0.06, 2.1, 0.07, 0.11, 4.2, -warp * 0.7) * 0.6
              + c1 * ribbon(uv, t, 0.22, 0.05, 1.7, -0.05, 0.07, 1.3, warp * 0.5) * 0.3;
   col *= intensity;
-  col = 1.0 - exp(-col * 1.3);
+  // roll the light off without bleaching it: overlaps get brighter, never white
+  float pk = max(max(col.r, col.g), col.b);
+  col *= (1.0 - exp(-pk * 1.3)) / max(pk, 0.001);
   float g = (hash(xy) - 0.5) * 0.05;
   if (field > 0.5) {
+    // the sky feathers away at its edges, so it melts into whatever holds it
+    float fe = smoothstep(0.0, 0.34, uv.y) * smoothstep(1.0, 0.82, uv.y) * smoothstep(0.0, 0.08, uv.x) * smoothstep(1.0, 0.92, uv.x);
     float3 fld = float3(0.008, 0.014, 0.03);
-    return half4(half3(clamp(fld + col + g, 0.0, 1.0)), 1.0);
+    float3 o = clamp(fld + col + g, 0.0, 1.0);
+    return half4(half3(o * fe), half(fe));
   }
   float a = clamp(max(max(col.r, col.g), col.b) * 1.15, 0.0, 1.0);
   return half4(half3(clamp(col + g * a, 0.0, 1.0)), half(a));
@@ -150,196 +159,275 @@ export function AuroraCanvas({ width, height, clock, colours, speed = 1, intensi
   );
 }
 
-// ── Shimmer: the live tug of war ──────────────────────────────────────────────
+// ── Glowing bars and rings ────────────────────────────────────────────────────
+//
+// The shape of every bar and ring is a Skia path, so its edge is drawn by the
+// rasteriser with proper antialiasing, and its light comes from a shader
+// painted into that path. Each one is drawn three times: two blurred copies
+// underneath (a tight bloom and a wide one) that feather out past the shape,
+// and the crisp body on top. The canvases are bigger than the shape they
+// draw by `bleed` on every side so the bloom never meets a hard edge.
 
-const TUG = Skia.RuntimeEffect.Make(`
-uniform float2 res;
+// Tones: c0 the deep end of the fill, c1 the lit end, glow the bloom, hi the
+// light that runs through it. No pure white anywhere: the brightest light is
+// tinted with the tone.
+export const LIQUID_TONES = {
+  blue: { c0: [0.09, 0.27, 0.8], c1: [0.36, 0.63, 1.0], glow: [0.2, 0.48, 1.0], hi: [0.74, 0.86, 1.0] },
+  red: { c0: [0.6, 0.07, 0.13], c1: [1.0, 0.36, 0.42], glow: [1.0, 0.24, 0.32], hi: [1.0, 0.78, 0.8] },
+  gold: { c0: [0.66, 0.46, 0.1], c1: [1.0, 0.82, 0.42], glow: [1.0, 0.72, 0.28], hi: [1.0, 0.94, 0.78] },
+  grey: { c0: [0.22, 0.24, 0.29], c1: [0.48, 0.52, 0.59], glow: [0.4, 0.44, 0.52], hi: [0.8, 0.83, 0.88] },
+};
+
+const css = (c, a = 1) => `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${a})`;
+
+// The light inside a bar: deep to lit along its length, a soft lit core
+// through the middle of its thickness, a slow wash of light travelling
+// towards the head and a faint drift of caustics.
+const BAR = Skia.RuntimeEffect.Make(`
+uniform float x0;
+uniform float len;
+uniform float cy;
+uniform float h;
 uniform float t;
-uniform float split;
-uniform float bleed;
-half4 main(float2 xy) {
-  float h = res.y - 2.0 * bleed;
-  float r = h * 0.5;
-  float2 p = float2(xy.x, xy.y - bleed);
-  float dy = p.y - r;
-  // the pill
-  float ex = max(0.0, max(r - p.x, p.x - (res.x - r)));
-  float m = 1.0 - smoothstep(r - 0.7, r + 0.5, length(float2(ex, dy)));
-  // heat: the fill is sampled through a travelling ripple
-  float v = clamp(abs(dy) / r, 0.0, 1.0);
-  float wave = sin(p.x * 0.16 - t * 5.5) * 0.6 + sin(p.x * 0.06 + t * 2.7 + dy * 0.3) * 0.4;
-  float xs = p.x + wave * 2.4 * (1.0 - v * v);
-  float mine = smoothstep(split + 1.2, split - 1.2, xs);
-  float3 blue = mix(float3(0.12, 0.33, 0.82), float3(0.24, 0.55, 1.0), clamp(xs / max(split, 1.0), 0.0, 1.0));
-  float3 red = mix(float3(1.0, 0.30, 0.33), float3(0.66, 0.11, 0.15), clamp((xs - split) / max(res.x - split, 1.0), 0.0, 1.0));
-  float3 col = mix(red, blue, mine);
-  // a tube: lit along the top, shaded at the bottom
-  col *= 0.78 + 0.5 * exp(-pow((dy + r * 0.45) / (r * 0.5), 2.0)) - 0.18 * smoothstep(0.0, r, dy);
-  // light flowing along each side towards the meeting point
-  float f1 = exp(-pow((p.x - mod(t * 90.0, split + 80.0) + 40.0) / 18.0, 2.0)) * step(p.x, split);
-  float f2 = exp(-pow(((res.x - p.x) - mod(t * 70.0 + 30.0, res.x - split + 80.0) + 40.0) / 18.0, 2.0)) * step(split, p.x);
-  col += f1 * 0.4 + f2 * 0.3;
-  // the hot white core where they meet, flickering
-  float dc = abs(p.x - split);
-  float core = exp(-pow(dc / 2.4, 2.0));
-  float halo = exp(-(dc * dc / 160.0 + dy * dy / 90.0)) * (0.5 + 0.12 * sin(t * 11.0) + 0.08 * sin(t * 17.3));
-  float heat = 0.06 * sin(dy * 1.4 + t * 15.0) * exp(-dc / 28.0);
-  float3 inside = col + core * 1.1 + heat;
-  float3 glow = float3(0.8, 0.88, 1.0) * halo * 0.75 + exp(-(dc * dc / 12.0 + dy * dy / 40.0)) * 0.5;
-  float3 o = inside * m + glow;
-  float a = clamp(m + max(max(glow.r, glow.g), glow.b), 0.0, 1.0);
-  return half4(half3(min(o, float3(a))), half(a));
-}`);
-
-/** The live tug bar: `share` is a shared value, your fraction 0 to 1. bleed: room above and below for the glow. */
-export function TugCanvas({ width, height, bleed = 12, clock, share }) {
-  const uniforms = useDerivedValue(() => ({ res: [width, height + bleed * 2], t: clock.value, split: share.value * width, bleed }), [width, height, bleed]);
-  if (!width || !height || !TUG) return null;
-  return (
-    <Canvas style={{ width, height: height + bleed * 2 }} pointerEvents="none">
-      <Fill>
-        <Shader source={TUG} uniforms={uniforms} />
-      </Fill>
-    </Canvas>
-  );
-}
-
-// ── Liquid: a bar and a ring filled with something that moves ────────────────
-
-const LIQUID_BAR = Skia.RuntimeEffect.Make(`
-uniform float2 res;
-uniform float t;
-uniform float fill;
 uniform float3 c0;
 uniform float3 c1;
 uniform float3 hi;
 ${NOISE}
 half4 main(float2 xy) {
-  float r = res.y * 0.5;
-  float dy = xy.y - r;
-  // the leading edge trembles a touch, like a meniscus
-  float edge = fill + 0.9 * sin(xy.y * 0.8 + t * 3.0) + 0.5 * sin(t * 1.3);
-  float lx = max(0.0, r - xy.x);
-  float pillL = 1.0 - smoothstep(r - 0.7, r + 0.5, length(float2(lx, dy)));
-  float cx = edge - r;
-  float roundR = 1.0 - smoothstep(r - 0.7, r + 0.5, length(float2(max(0.0, xy.x - cx), dy)));
-  float m = pillL * roundR * step(0.5, fill);
-  float u = clamp(xy.x / max(edge, 1.0), 0.0, 1.0);
-  float3 col = mix(c0, c1, u);
-  // a liquid: a bright line near the top, shade towards the bottom
-  float spec = exp(-pow((dy + r * 0.42) / (r * 0.26), 2.0));
-  col *= 0.72 + 0.26 * (1.0 - smoothstep(-r, r, dy));
-  col += hi * spec * 0.5;
-  // a slow surface wave, and caustics drifting through
-  col += 0.07 * sin(xy.x * 0.045 - t * 1.6) + 0.06 * (vnoise(float2(xy.x * 0.06 + t * 0.4, xy.y * 0.2)) - 0.5);
-  // the bright rim of the meniscus, and its glow into the empty track
-  float de = edge - xy.x;
-  float rim = exp(-pow((de - 1.2) / 2.2, 2.0)) * (1.0 - 0.6 * smoothstep(0.0, r, abs(dy)));
-  col += hi * rim * 0.9;
-  float ahead = exp(-pow(max(0.0, -de) / 9.0, 2.0)) * (1.0 - m) * 0.35 * (1.0 - smoothstep(r * 0.4, r, abs(dy))) * step(0.5, fill);
-  float3 o = col * m + hi * ahead;
-  float a = clamp(m + ahead, 0.0, 1.0);
-  return half4(half3(min(o, float3(a))), half(a));
+  float u = clamp((xy.x - x0) / max(len, 1.0), 0.0, 1.0);
+  float s = (xy.y - cy) / h;
+  float3 col = mix(c0, c1, smoothstep(0.0, 1.0, u));
+  // lit along the upper middle of the tube, a little shade underneath
+  col *= 0.82 + 0.34 * exp(-pow((s + 0.12) / 0.32, 2.0));
+  col = mix(col, hi, 0.22 * exp(-pow((s + 0.3) / 0.12, 2.0)));
+  // a wash of light that rolls towards the head every few seconds
+  float ph = fract(t / 3.4);
+  float pos = -0.3 + 1.6 * ph * ph * (3.0 - 2.0 * ph);
+  float wash = exp(-pow((u - pos) / 0.16, 2.0)) * 0.34;
+  col = mix(col, hi, wash * (0.6 + 0.4 * u));
+  col += 0.04 * (vnoise(float2(xy.x * 0.05 - t * 0.6, xy.y * 0.25)) - 0.5);
+  return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
 }`);
 
-export const LIQUID_TONES = {
-  blue: { c0: [0.12, 0.33, 0.82], c1: [0.51, 0.71, 1.0], hi: [0.9, 0.95, 1.0] },
-  red: { c0: [0.66, 0.11, 0.15], c1: [1.0, 0.55, 0.57], hi: [1.0, 0.9, 0.9] },
-  gold: { c0: [0.73, 0.53, 0.12], c1: [1.0, 0.89, 0.6], hi: [1.0, 0.97, 0.85] },
-  grey: { c0: [0.23, 0.25, 0.3], c1: [0.54, 0.58, 0.64], hi: [0.85, 0.87, 0.9] },
-};
+function pill(x, y, w, h) {
+  "worklet";
+  const p = Skia.Path.Make();
+  if (w <= 0.5) return p;
+  const r = Math.min(h / 2, w / 2);
+  p.addRRect(Skia.RRectXY(Skia.XYWHRect(x, y, w, h), r, r));
+  return p;
+}
 
-/** The liquid fill of a Meter. `progress` is a shared value 0 to 1; the canvas is the whole track. */
-export function LiquidBarCanvas({ width, height, clock, progress, tone = "blue" }) {
-  const tn = LIQUID_TONES[tone] || LIQUID_TONES.blue;
-  const uniforms = useDerivedValue(() => {
-    const p = progress.value;
-    const fill = p > 0.004 ? Math.max(height * 0.6, p * width) : 0;
-    return { res: [width, height], t: clock.value, fill, c0: tn.c0, c1: tn.c1, hi: tn.hi };
-  }, [width, height, tn]);
-  if (!width || !height || !LIQUID_BAR) return null;
+/** The glow layers of a shape: a wide soft bloom and a tight one, in its tone. */
+function Bloom({ path, glow, size, strength = 1, opacity }) {
   return (
-    <Canvas style={{ width, height }} pointerEvents="none">
-      <Fill>
-        <Shader source={LIQUID_BAR} uniforms={uniforms} />
-      </Fill>
+    <Group opacity={opacity}>
+      <Path path={path} color={css(glow, 0.32 * strength)}>
+        <BlurMask blur={size * 1.25} style="normal" />
+      </Path>
+      <Path path={path} color={css(glow, 0.55 * strength)}>
+        <BlurMask blur={size * 0.42} style="normal" />
+      </Path>
+    </Group>
+  );
+}
+
+/**
+ * The fill of a Meter. `progress` is a shared value 0 to 1. width and height
+ * are the track's; the canvas is `bleed` bigger on every side, so lay it at
+ * -bleed over the track.
+ */
+export function LiquidBarCanvas({ width, height, bleed = 14, clock, progress, tone = "blue" }) {
+  const tn = LIQUID_TONES[tone] || LIQUID_TONES.blue;
+  const len = useDerivedValue(() => {
+    const p = progress.value;
+    return p > 0.004 ? Math.max(height, p * width) : 0;
+  }, [width, height]);
+  const path = useDerivedValue(() => pill(bleed, bleed, len.value, height), [bleed, height]);
+  const uniforms = useDerivedValue(() => ({ x0: bleed, len: len.value, cy: bleed + height / 2, h: height, t: clock.value, c0: tn.c0, c1: tn.c1, hi: tn.hi }), [bleed, height, tn]);
+  const head = useDerivedValue(() => vec(bleed + Math.max(height / 2, len.value - height / 2), bleed + height / 2), [bleed, height]);
+  const headOn = useDerivedValue(() => (len.value > 0 ? 0.75 + 0.25 * Math.sin(clock.value * 2.2) : 0));
+  if (!width || !height || !BAR) return null;
+  const W = width + bleed * 2;
+  const H = height + bleed * 2;
+  return (
+    <Canvas style={{ width: W, height: H }} pointerEvents="none">
+      <Bloom path={path} glow={tn.glow} size={height} />
+      <Path path={path}>
+        <Shader source={BAR} uniforms={uniforms} />
+      </Path>
+      <Group opacity={headOn}>
+        <Circle c={head} r={height * 1.5}>
+          <RadialGradient c={head} r={height * 1.5} colors={[css(tn.hi, 0.55), css(tn.glow, 0.22), css(tn.glow, 0)]} positions={[0, 0.35, 1]} />
+        </Circle>
+      </Group>
     </Canvas>
   );
 }
 
-const LIQUID_RING = Skia.RuntimeEffect.Make(`
+// The live tug of war: one pill, blue from the left and red from the right,
+// light streaming in from both ends towards the point where they meet, and a
+// soft pale spark there.
+const TUG = Skia.RuntimeEffect.Make(`
+uniform float x0;
+uniform float len;
+uniform float split;
+uniform float cy;
+uniform float h;
+uniform float t;
+${NOISE}
+half4 main(float2 xy) {
+  float x = xy.x - x0;
+  float s = (xy.y - cy) / h;
+  float d = x - split;
+  float3 blue = mix(float3(0.08, 0.25, 0.78), float3(0.34, 0.62, 1.0), clamp(x / max(split, 1.0), 0.0, 1.0));
+  float3 red = mix(float3(1.0, 0.34, 0.4), float3(0.58, 0.07, 0.13), clamp(d / max(len - split, 1.0), 0.0, 1.0));
+  float mine = smoothstep(3.0, -3.0, d);
+  float3 col = mix(red, blue, mine);
+  col *= 0.82 + 0.34 * exp(-pow((s + 0.12) / 0.32, 2.0));
+  // light streaming towards the meeting point from both ends
+  float sb = 0.5 + 0.5 * sin((x / 80.0 - t * 0.9) * 6.2831853);
+  float sr = 0.5 + 0.5 * sin(((len - x) / 80.0 - t * 0.75) * 6.2831853);
+  float streak = mine * pow(sb, 10.0) * 0.3 + (1.0 - mine) * pow(sr, 10.0) * 0.26;
+  float3 tint = mix(float3(1.0, 0.8, 0.82), float3(0.75, 0.86, 1.0), mine);
+  col = mix(col, tint, streak * exp(-pow(s / 0.4, 2.0)));
+  // heat close to the meeting point
+  float near = exp(-abs(d) / 26.0);
+  col += near * 0.16 * (vnoise(float2(x * 0.18 - t * 2.0, s * 3.0 + t)) - 0.3);
+  col = mix(col, float3(0.8, 0.82, 1.0), exp(-pow(d / 3.5, 2.0)) * 0.45);
+  return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
+}`);
+
+/** The live tug bar: `share` is a shared value, your fraction 0 to 1. The canvas is `bleed` bigger on every side. */
+export function TugCanvas({ width, height, bleed = 16, clock, share }) {
+  const split = useDerivedValue(() => Math.max(height * 0.6, Math.min(width - height * 0.6, share.value * width)), [width, height]);
+  const whole = useMemo(() => pill(bleed, bleed, width, height), [bleed, width, height]);
+  const left = useDerivedValue(() => pill(bleed, bleed, split.value, height), [bleed, height]);
+  const right = useDerivedValue(() => pill(bleed + split.value, bleed, width - split.value, height), [bleed, width, height]);
+  const uniforms = useDerivedValue(() => ({ x0: bleed, len: width, split: split.value, cy: bleed + height / 2, h: height, t: clock.value }), [bleed, width, height]);
+  const at = useDerivedValue(() => vec(bleed + split.value, bleed + height / 2), [bleed, height]);
+  const flicker = useDerivedValue(() => 0.82 + 0.1 * Math.sin(clock.value * 9.0) + 0.08 * Math.sin(clock.value * 15.7));
+  const core = useDerivedValue(() => {
+    const p = Skia.Path.Make();
+    const w = Math.max(2, height * 0.22);
+    const hh = height * 1.7;
+    p.addRRect(Skia.RRectXY(Skia.XYWHRect(bleed + split.value - w / 2, bleed + height / 2 - hh / 2, w, hh), w / 2, w / 2));
+    return p;
+  }, [bleed, height]);
+  if (!width || !height || !TUG) return null;
+  const blue = LIQUID_TONES.blue.glow;
+  const red = LIQUID_TONES.red.glow;
+  return (
+    <Canvas style={{ width: width + bleed * 2, height: height + bleed * 2 }} pointerEvents="none">
+      <Bloom path={left} glow={blue} size={height} />
+      <Bloom path={right} glow={red} size={height} strength={0.85} />
+      <Path path={whole}>
+        <Shader source={TUG} uniforms={uniforms} />
+      </Path>
+      <Group opacity={flicker}>
+        <Circle c={at} r={height * 2.4}>
+          <RadialGradient c={at} r={height * 2.4} colors={["rgba(196,200,255,0.42)", "rgba(150,140,255,0.14)", "rgba(150,140,255,0)"]} positions={[0, 0.32, 1]} />
+        </Circle>
+        <Path path={core} color="rgba(214,222,255,0.7)">
+          <BlurMask blur={2.2} style="normal" />
+        </Path>
+      </Group>
+    </Canvas>
+  );
+}
+
+// The light inside a ring: deep to lit round the arc, a soft lit core in the
+// middle of the stroke and a wash of light that runs round to the head.
+const RING = Skia.RuntimeEffect.Make(`
 uniform float2 c;
 uniform float R;
 uniform float w;
 uniform float t;
 uniform float p;
+uniform float cap;
 uniform float3 c0;
 uniform float3 c1;
 uniform float3 hi;
-uniform float4 track;
 half4 main(float2 xy) {
   float2 d = xy - c;
-  float r = length(d);
-  float a = atan(d.x, -d.y);
-  float turn = fract(a / 6.2831853);
-  float s = (r - R) / w;
-  float ring = 1.0 - smoothstep(w * 0.5 - 0.7, w * 0.5 + 0.5, abs(r - R));
-  float full = step(0.999, p);
-  float some = step(0.002, p);
-  // the leading edge, with a wave running across the band
-  float edge = p + (0.35 * sin(s * 7.0 + t * 2.6) + 0.25 * sin(t * 1.1 - s * 3.0)) * 0.012;
-  float px = 6.2831853 * R;
-  float behind = smoothstep(edge + 0.6 / px, edge - 0.6 / px, turn);
-  float2 e = c + R * float2(sin(edge * 6.2831853), -cos(edge * 6.2831853));
-  float capE = 1.0 - smoothstep(w * 0.5 - 0.7, w * 0.5 + 0.5, length(xy - e));
-  float cap0 = 1.0 - smoothstep(w * 0.5 - 0.7, w * 0.5 + 0.5, length(xy - (c + float2(0.0, -R))));
-  float fillm = max(behind * ring, max(capE, cap0)) * some;
-  fillm = mix(fillm, ring, full);
-  float3 col = mix(c0, c1, clamp(turn / max(p, 0.05), 0.0, 1.0));
-  // a liquid band: lit along the outer side, a bright line, shade inside
-  float spec = exp(-pow((s - 0.18) / 0.17, 2.0));
-  col *= 0.74 + 0.28 * (s + 0.5);
-  col += hi * spec * 0.42;
-  col += 0.07 * sin(turn * 38.0 - t * 2.2) + 0.05 * sin(turn * 11.0 + t * 0.9);
-  // the meniscus: a bright rim just behind the edge, a glow just ahead of it
-  float da = (edge - turn) * px;
-  float rim = exp(-pow((da - 1.5) / 2.6, 2.0)) * (1.0 - 0.5 * smoothstep(0.0, 0.5, abs(s)));
-  col += hi * rim * 0.9 * some * (1.0 - full);
-  float ahead = exp(-pow(max(0.0, -da) / 12.0, 2.0)) * ring * (1.0 - fillm) * 0.4 * some * (1.0 - full);
-  float tr = track.a * ring * (1.0 - fillm);
-  float3 o = col * fillm + hi * ahead + track.rgb * tr;
-  float al = clamp(fillm + ahead + tr, 0.0, 1.0);
-  return half4(half3(min(o, float3(al))), half(al));
+  float turn = fract(atan(d.x, -d.y) / 6.2831853);
+  // the round cap at the start sits just before the top: count it as the start
+  float u = (p < 0.999 && turn > 1.0 - cap) ? 0.0 : clamp(turn / max(p, 0.001), 0.0, 1.0);
+  float s = (length(d) - R) / w;
+  float3 col = mix(c0, c1, smoothstep(0.0, 1.0, u));
+  col *= 0.84 + 0.3 * exp(-pow((s + 0.08) / 0.3, 2.0));
+  col = mix(col, hi, 0.18 * exp(-pow((s + 0.28) / 0.12, 2.0)));
+  float ph = fract(t / 4.0);
+  float pos = -0.25 + 1.5 * ph * ph * (3.0 - 2.0 * ph);
+  col = mix(col, hi, exp(-pow((u - pos) / 0.12, 2.0)) * 0.3 * (0.5 + 0.5 * u));
+  return half4(half3(clamp(col, 0.0, 1.0)), 1.0);
 }`);
 
-/** A ring filled like a liquid arc. `progress` is a shared value 0 to 1; stroke in px. */
-export function LiquidRingCanvas({ size, stroke, clock, progress, tone = "blue", track = "#1b1f26" }) {
+/**
+ * A ring that fills like a lit arc. `progress` is a shared value 0 to 1;
+ * stroke in px. The canvas is `bleed` bigger than `size` on every side.
+ */
+export function LiquidRingCanvas({ size, stroke, bleed = 20, clock, progress, tone = "blue", track = "#1b1f26" }) {
   const tn = LIQUID_TONES[tone] || LIQUID_TONES.blue;
-  const trk = useMemo(() => {
-    if (!track) return [0, 0, 0, 0];
-    const col = Skia.Color(track);
-    return [col[0], col[1], col[2], col[3]];
-  }, [track]);
   const R = (size - stroke) / 2;
-  const uniforms = useDerivedValue(
-    () => ({ c: [size / 2, size / 2], R, w: stroke, t: clock.value, p: Math.max(0, Math.min(1, progress.value)), c0: tn.c0, c1: tn.c1, hi: tn.hi, track: trk }),
-    [size, R, stroke, tn, trk]
-  );
-  if (!size || !LIQUID_RING) return null;
+  const C0 = size / 2 + bleed;
+  const ring = useMemo(() => {
+    const p = Skia.Path.Make();
+    p.addCircle(C0, C0, R);
+    return p;
+  }, [C0, R]);
+  const arc = useDerivedValue(() => {
+    const v = Math.max(0, Math.min(1, progress.value));
+    const p = Skia.Path.Make();
+    if (v <= 0.002) return p;
+    if (v >= 0.999) {
+      p.addCircle(C0, C0, R);
+      return p;
+    }
+    p.addArc(Skia.XYWHRect(C0 - R, C0 - R, R * 2, R * 2), -90, v * 360);
+    return p;
+  }, [C0, R]);
+  const cap = stroke / 2 / (2 * Math.PI * R);
+  const uniforms = useDerivedValue(() => ({ c: [C0, C0], R, w: stroke, t: clock.value, p: Math.max(0, Math.min(1, progress.value)), cap, c0: tn.c0, c1: tn.c1, hi: tn.hi }), [C0, R, stroke, cap, tn]);
+  const head = useDerivedValue(() => {
+    const a = Math.max(0, Math.min(1, progress.value)) * Math.PI * 2;
+    return vec(C0 + R * Math.sin(a), C0 - R * Math.cos(a));
+  }, [C0, R]);
+  const headOn = useDerivedValue(() => {
+    const v = progress.value;
+    return v > 0.01 && v < 0.999 ? 0.7 + 0.3 * Math.sin(clock.value * 2.0) : 0;
+  });
+  if (!size || !RING) return null;
+  const S = size + bleed * 2;
   return (
-    <Canvas style={{ width: size, height: size }} pointerEvents="none">
-      <Fill>
-        <Shader source={LIQUID_RING} uniforms={uniforms} />
-      </Fill>
+    <Canvas style={{ width: S, height: S }} pointerEvents="none">
+      {track ? <Path path={ring} style="stroke" strokeWidth={stroke} color={track} /> : null}
+      <Group>
+        <Path path={arc} style="stroke" strokeWidth={stroke} strokeCap="round" color={css(tn.glow, 0.3)}>
+          <BlurMask blur={stroke * 1.4} style="normal" />
+        </Path>
+        <Path path={arc} style="stroke" strokeWidth={stroke} strokeCap="round" color={css(tn.glow, 0.5)}>
+          <BlurMask blur={stroke * 0.45} style="normal" />
+        </Path>
+      </Group>
+      <Path path={arc} style="stroke" strokeWidth={stroke} strokeCap="round">
+        <Shader source={RING} uniforms={uniforms} />
+      </Path>
+      <Group opacity={headOn}>
+        <Circle c={head} r={stroke * 1.3}>
+          <RadialGradient c={head} r={stroke * 1.3} colors={[css(tn.hi, 0.5), css(tn.glow, 0.18), css(tn.glow, 0)]} positions={[0, 0.4, 1]} />
+        </Circle>
+      </Group>
     </Canvas>
   );
 }
 
-// ── Foil: holographic bands over an image, inside its own shape ──────────────
+// ── Foil: a cool iridescence over an object's highlights, and its bloom ──────
 
 const FOIL = Skia.RuntimeEffect.Make(`
 uniform shader image;
 uniform float2 res;
+uniform float2 off;
 uniform float t;
 uniform float2 tilt;
 uniform float strength;
@@ -348,7 +436,20 @@ uniform float inner;
 uniform float outer;
 uniform float grey;
 uniform float dim;
+uniform float bloom;
 ${NOISE}
+// a thin film seen at an angle: cyan, blue and violet, with a breath of rose at the peaks
+float3 film(float x) {
+  float3 a = float3(0.42, 0.86, 1.0);
+  float3 b = float3(0.36, 0.5, 1.0);
+  float3 v = float3(0.66, 0.48, 1.0);
+  float3 r = float3(1.0, 0.62, 0.86);
+  float f = fract(x) * 4.0;
+  if (f < 1.0) return mix(a, b, f);
+  if (f < 2.0) return mix(b, v, f - 1.0);
+  if (f < 3.0) return mix(v, r, (f - 2.0) * 0.5);
+  return mix(mix(v, r, 0.5), a, f - 3.0);
+}
 half4 main(float2 xy) {
   float4 c = float4(image.eval(xy));
   float3 rgb = c.rgb;
@@ -357,49 +458,78 @@ half4 main(float2 xy) {
   // the black falls away, as in BlendImage
   float a = max(max(rgb.r, rgb.g), rgb.b);
   float m = 1.0;
+  float2 q = xy - off;
   if (outer > inner) {
-    m = clamp((outer - distance(xy, center)) / (outer - inner), 0.0, 1.0);
+    m = clamp((outer - distance(q, center)) / (outer - inner), 0.0, 1.0);
   }
-  m = m * c.a;
-  // interference bands: diagonal, slid by the tilt and a slow loop, a little warped
-  float2 uv = xy / res;
-  float ph = dot(uv, float2(0.78, 0.62)) * 2.4 + tilt.x * 1.8 + tilt.y * 1.3 + t * 0.09;
-  ph += (vnoise(uv * 3.0 + tilt * 0.6 + float2(t * 0.02, 0.0)) - 0.5) * 0.5;
-  float3 rainbow = 0.5 + 0.5 * cos(6.2831853 * (ph + float3(0.0, 0.33, 0.67)));
-  float band = 0.55 + 0.45 * sin(ph * 6.2831853 * 1.6 + 1.0);
-  band = pow(band, 2.2);
-  float3 foil = rainbow * band;
-  // only on the object, strongest where it is already lit
-  float k = 0.72 * strength * (0.3 + 0.7 * smoothstep(0.05, 0.6, lum)) * smoothstep(0.03, 0.25, a) * (1.0 - grey);
-  float3 o = 1.0 - (1.0 - rgb) * (1.0 - foil * k);
-  o += foil * k * 0.25 * smoothstep(0.75, 1.0, band);
+  m *= c.a;
+  if (bloom > 0.5) {
+    // the bloom: the object's light, cooled to the brand blue
+    float g = clamp(a * 1.8, 0.0, 1.0);
+    float3 b = mix(float3(0.16, 0.42, 1.0), float3(0.5, 0.72, 1.0), lum) * g;
+    return half4(half3(b * m), half(g * m));
+  }
+  float2 uv = q / res;
+  float k = strength * (1.0 - grey);
+  // iridescence rides the highlights only, sliding with the tilt
+  float ph = dot(uv, float2(0.7, 0.55)) * 1.4 + tilt.x * 0.9 + tilt.y * 0.7 + t * 0.05;
+  ph += (vnoise(uv * 2.4 + tilt * 0.5) - 0.5) * 0.35;
+  float hl = smoothstep(0.32, 0.95, lum);
+  float3 foil = film(ph);
+  float3 o = mix(rgb, rgb * foil * 1.45, 0.7 * k * hl);
+  // a glint: a soft diagonal sweep that crosses the object every five seconds
+  float gp = fract(t / 5.0);
+  float g = dot(uv, float2(0.6, 0.8)) - (-0.4 + 1.9 * gp) - tilt.x * 0.25;
+  float glint = exp(-pow(g / 0.07, 2.0)) * smoothstep(0.18, 0.7, lum) * k;
+  o += float3(0.66, 0.8, 1.0) * glint * 0.55;
   o = clamp(o, 0.0, 1.0);
-  float a2 = max(a, max(max(o.r, o.g), o.b)) * m;
-  return half4(half3(o * m), half(a2));
+  float a2 = max(a, max(max(o.r, o.g), o.b));
+  return half4(half3(o * m), half(a2 * m));
 }`);
 
 /**
- * An image with its black dropped out (like KeyedImage) and holographic foil
- * laid over its lit parts. `tilt` is a shared value [x, y] in g.
+ * An image with its black dropped out (like KeyedImage), a cool iridescence
+ * over its lit parts and a soft blue bloom behind it that spills past its
+ * edges. `tilt` is a shared value [x, y] in g. The canvas is `bleed` bigger
+ * than width by height on every side.
  */
-export function FoilCanvas({ source, width, height, clock, tilt, strength = 1, mask, fit = "cover", zoom = 1, rotate = 0, focus, grey = 0, dim = 1 }) {
+export function FoilCanvas({ source, width, height, bleed = 18, clock, tilt, strength = 1, mask, fit = "cover", zoom = 1, rotate = 0, focus, grey = 0, dim = 1 }) {
   const image = useImage(skiaSource(source));
-  const rect = useMemo(() => (image ? placeImage(image.width(), image.height(), width, height, { fit, zoom, focus }) : null), [image, width, height, fit, zoom, focus]);
+  const rect = useMemo(() => {
+    if (!image) return null;
+    const r = placeImage(image.width(), image.height(), width, height, { fit, zoom, focus });
+    return { x: r.x + bleed, y: r.y + bleed, width: r.width, height: r.height };
+  }, [image, width, height, fit, zoom, focus, bleed]);
   const corner = Math.hypot(width, height) / 2;
   const inner = mask ? mask[0] * corner : 0;
   const outer = mask ? mask[1] * corner : 0;
-  const uniforms = useDerivedValue(
-    () => ({ res: [width, height], t: clock.value, tilt: [tilt.value[0], tilt.value[1]], strength, center: [width / 2, height / 2], inner, outer, grey, dim }),
-    [width, height, strength, inner, outer, grey, dim]
-  );
+  const base = { res: [width, height], off: [bleed, bleed], strength, center: [width / 2, height / 2], inner, outer, grey, dim };
+  const uniforms = useDerivedValue(() => ({ ...base, t: clock.value, tilt: [tilt.value[0], tilt.value[1]], bloom: 0 }), [width, height, strength, inner, outer, grey, dim, bleed]);
+  const glowUniforms = useMemo(() => ({ ...base, t: 0, tilt: [0, 0], bloom: 1 }), [width, height, strength, inner, outer, grey, dim, bleed]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!width || !height || !image || !rect || !FOIL) return null;
+  const W = width + bleed * 2;
+  const H = height + bleed * 2;
+  const pic = <ImageShader image={image} fit="fill" rect={rect} tx="decal" ty="decal" origin={vec(W / 2, H / 2)} transform={rotate ? [{ rotate: (rotate * Math.PI) / 180 }] : []} />;
+  const lit = grey < 1 && strength > 0;
   return (
-    <Canvas style={{ width, height }} pointerEvents="none">
-      <Fill>
-        <Shader source={FOIL} uniforms={uniforms}>
-          <ImageShader image={image} fit="fill" rect={rect} tx="decal" ty="decal" origin={vec(width / 2, height / 2)} transform={rotate ? [{ rotate: (rotate * Math.PI) / 180 }] : []} />
-        </Shader>
-      </Fill>
+    <Canvas style={{ width: W, height: H }} pointerEvents="none">
+      {lit ? (
+        <Group
+          opacity={0.75}
+          layer={
+            <Paint>
+              <Blur blur={Math.max(6, Math.min(width, height) * 0.11)} mode="decal" />
+            </Paint>
+          }
+        >
+          <Rect x={0} y={0} width={W} height={H}>
+            <Shader source={FOIL} uniforms={glowUniforms}>{pic}</Shader>
+          </Rect>
+        </Group>
+      ) : null}
+      <Rect x={0} y={0} width={W} height={H}>
+        <Shader source={FOIL} uniforms={uniforms}>{pic}</Shader>
+      </Rect>
     </Canvas>
   );
 }

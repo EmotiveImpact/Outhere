@@ -8,7 +8,7 @@
 //   <Meter value={0.4} tone="red" />           the opponent, in a 1v1
 //   <Meter value={0.3} tone="grey" flow={false} />   locked or past
 //   <Meter value={0.62} liquid />                   the fill as a liquid (Skia)
-//   <TugBar share={0.58} live />                     a live battle: heat and a hot core (Skia)
+//   <TugBar share={0.58} live />                     a live battle: light streaming to a spark (Skia)
 
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
@@ -44,7 +44,7 @@ function Flow({ width }) {
   if (!width) return null;
   return (
     <Animated.View pointerEvents="none" style={[styles.flow, { width: band }, move]}>
-      <LinearGradient colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["rgba(190,215,255,0)", "rgba(190,215,255,0.32)", "rgba(190,215,255,0)"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
     </Animated.View>
   );
 }
@@ -54,8 +54,9 @@ function Flow({ width }) {
  * tone: blue | red | gold | grey. flow: the moving band of light. cap: the
  * bright dot at the end. glow: the coloured bloom round the fill.
  * duration: how long the fill takes to ease to a new value. liquid: the fill
- * drawn as a liquid in Skia (a bright meniscus, a slow surface wave, a rim of
- * light at the leading edge); the plain fill shows until Skia is ready.
+ * drawn in Skia (lit along its length, a wash of light rolling to the head, a
+ * bloom that feathers past the track, which also stands in for `cap`); the
+ * plain fill shows until Skia is ready.
  */
 export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap = false, glow = true, duration = 1400, track, liquid = false, style }) {
   const h = typeof size === "number" ? size : SIZES[size] || SIZES.md;
@@ -74,7 +75,7 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
   const dot = h >= 10 ? 9 : 6;
   return (
     <View onLayout={onLayout} style={[styles.track, { height: h, borderRadius: h }, track ? { backgroundColor: track } : null, style]}>
-      <Animated.View style={[{ height: h, borderRadius: h }, glow && t.glow ? { boxShadow: `0 0 14px ${t.glow}` } : null, fill]}>
+      <Animated.View style={[{ height: h, borderRadius: h }, glow && t.glow && !wet ? { boxShadow: `0 0 14px ${t.glow}` } : null, fill]}>
         {wet ? null : (
           <View style={[StyleSheet.absoluteFill, { borderRadius: h, overflow: "hidden" }]}>
             <LinearGradient colors={t.fill} locations={t.stops} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
@@ -83,17 +84,17 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
         )}
       </Animated.View>
       {wet ? <LiquidBar progress={p} tone={tone} /> : null}
-      {cap ? <Animated.View pointerEvents="none" style={[styles.cap, { width: dot, height: dot, borderRadius: dot, marginLeft: -dot / 2, marginTop: -dot / 2, boxShadow: `0 0 10px 2px ${t.cap}` }, end]} /> : null}
+      {cap && !wet ? <Animated.View pointerEvents="none" style={[styles.cap, { width: dot, height: dot, borderRadius: dot, marginLeft: -dot / 2, marginTop: -dot / 2, boxShadow: `0 0 10px 2px ${t.cap}` }, end]} /> : null}
     </View>
   );
 }
 
 /**
  * The tug of war in a 1v1 (.oh-tug): your blue share from the left, their
- * red from the right, both glowing, and a white spark where they meet.
+ * red from the right, both glowing, and a pale spark where they meet.
  * share: your fraction, 0 to 1. live: the battle is on now, so the bar runs
- * hot in Skia (a heat ripple through the fill, light flowing to the middle,
- * a white core where the two meet); the plain bar shows until Skia is ready.
+ * hot in Skia (light streaming in from both ends, heat near the middle, a
+ * soft pale spark where the two meet); the plain bar shows until Skia is ready.
  */
 export function TugBar({ share = 0.5, height = 8, live = false, style }) {
   const p = useSharedValue(0.5);
@@ -119,16 +120,16 @@ export function TugBar({ share = 0.5, height = 8, live = false, style }) {
       <View style={{ flex: 1, height, borderTopRightRadius: height, borderBottomRightRadius: height, boxShadow: "0 0 14px rgba(255,77,85,0.4)" }}>
         <LinearGradient colors={["#ff4d55", "#a91c25"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[StyleSheet.absoluteFill, { borderTopRightRadius: height, borderBottomRightRadius: height }]} />
       </View>
-      {/* .spark: 4 by 20, white, glowing white then blue */}
+      {/* .spark: 4 by 20, a pale blue light with a soft bloom */}
       <Animated.View pointerEvents="none" style={[styles.spark, { top: height / 2 - 10 }, spark]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  spark: { position: "absolute", width: 4, height: 20, marginLeft: -2, borderRadius: 3, backgroundColor: "#ffffff", boxShadow: "0 0 10px 3px rgba(255,255,255,0.7), 0 0 26px 8px rgba(130,180,255,0.4)" },
+  spark: { position: "absolute", width: 4, height: 20, marginLeft: -2, borderRadius: 3, backgroundColor: "#e2eaff", boxShadow: "0 0 8px 2px rgba(170,195,255,0.55), 0 0 24px 8px rgba(80,130,255,0.32)" },
   // background rgba(255,255,255,.06), box-shadow inset 0 1px 2px rgba(0,0,0,.6)
   track: { backgroundColor: "rgba(255,255,255,0.06)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)" },
   flow: { position: "absolute", top: 0, bottom: 0, left: 0 },
-  cap: { position: "absolute", top: "50%", backgroundColor: "#ffffff" },
+  cap: { position: "absolute", top: "50%", backgroundColor: "#e2eaff" },
 });

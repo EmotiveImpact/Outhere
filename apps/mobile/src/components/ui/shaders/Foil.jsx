@@ -1,7 +1,8 @@
-// Holographic foil for badges and emotes: a rainbow interference band that
-// slides with a slow tilt (the phone's own tilt when the accelerometer is
-// there, a loop otherwise), laid over the lit parts of an object shot on
-// black and nowhere else. Takes BlendImage's props, so it drops in for one.
+// Foil for badges and emotes: a cool iridescence (cyan, blue, violet) that
+// rides only the highlights of an object shot on black and slides with the
+// phone's tilt (a slow loop where there is no accelerometer), a soft glint
+// that crosses it every few seconds, and a blue bloom behind the object that
+// spills past its edges. Takes BlendImage's props, so it drops in for one.
 //
 //   <Foil source={badgeArt(id)} size={72} mask="tight" />
 //   <Foil source={emote.art} size={200} mask="burst" strength={0.8} />
@@ -91,7 +92,12 @@ export function Foil({ source, size, width, height, strength = 1, mask = "soft",
   let picture = null;
   if (box) {
     const { FoilCanvas } = shaderParts();
-    picture = <FoilCanvas source={source} width={box.width} height={box.height} clock={clock} tilt={tilt} strength={strength} mask={stops} fit={fit} zoom={zoom} rotate={rotate} focus={focus} grey={grey} dim={dim} />;
+    const bleed = Math.round(Math.max(12, Math.min(box.width, box.height) * 0.22));
+    picture = (
+      <View style={{ position: "absolute", left: -bleed, top: -bleed }}>
+        <FoilCanvas source={source} width={box.width} height={box.height} bleed={bleed} clock={clock} tilt={tilt} strength={strength} mask={stops} fit={fit} zoom={zoom} rotate={rotate} focus={focus} grey={grey} dim={dim} />
+      </View>
+    );
   }
   return (
     <View
