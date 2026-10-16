@@ -15,7 +15,7 @@ import { placeImage } from "../skia/parts";
 import { LIT_CITIES } from "./cities";
 
 // Shared helpers, pasted into each effect (SkSL has no includes).
-const NOISE = `
+export const NOISE = `
 float hash(float2 p) { return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
 float vnoise(float2 p) {
   float2 i = floor(p);

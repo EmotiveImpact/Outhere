@@ -56,9 +56,10 @@ function Flow({ width }) {
  * duration: how long the fill takes to ease to a new value. liquid: the fill
  * drawn in Skia (lit along its length, a wash of light rolling to the head, a
  * bloom that feathers past the track, which also stands in for `cap`); the
- * plain fill shows until Skia is ready.
+ * plain fill shows until Skia is ready. look: neon | glass | pulse, a
+ * different light for the liquid fill (see shaders/looks.jsx).
  */
-export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap = false, glow = true, duration = 1400, track, liquid = false, style }) {
+export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap = false, glow = true, duration = 1400, track, liquid = false, look, style }) {
   const h = typeof size === "number" ? size : SIZES[size] || SIZES.md;
   const t = METER_TONES[tone] || METER_TONES.blue;
   const [box, onLayout] = useLayoutSize();
@@ -83,7 +84,7 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
           </View>
         )}
       </Animated.View>
-      {wet ? <LiquidBar progress={p} tone={tone} /> : null}
+      {wet ? <LiquidBar progress={p} tone={tone} look={look} /> : null}
       {cap && !wet ? <Animated.View pointerEvents="none" style={[styles.cap, { width: dot, height: dot, borderRadius: dot, marginLeft: -dot / 2, marginTop: -dot / 2, boxShadow: `0 0 10px 2px ${t.cap}` }, end]} /> : null}
     </View>
   );
@@ -96,7 +97,7 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
  * hot in Skia (light streaming in from both ends, heat near the middle, a
  * soft pale spark where the two meet); the plain bar shows until Skia is ready.
  */
-export function TugBar({ share = 0.5, height = 8, live = false, style }) {
+export function TugBar({ share = 0.5, height = 8, live = false, look, style }) {
   const p = useSharedValue(0.5);
   const v = Math.max(0.02, Math.min(0.98, Number(share) || 0.5));
   useEffect(() => {
@@ -108,7 +109,7 @@ export function TugBar({ share = 0.5, height = 8, live = false, style }) {
   if (live && ready) {
     return (
       <View style={[{ height, borderRadius: height }, style]}>
-        <Shimmer share={p} height={height} />
+        <Shimmer share={p} height={height} look={look} />
       </View>
     );
   }
