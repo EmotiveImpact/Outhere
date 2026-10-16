@@ -13,6 +13,7 @@ import { useBadges, useDrops, useMembershipDetails, useOutHistory, useProfile } 
 import { AnimatedNumber, Avatar, BlendImage, C, F, FadeIn, GlowBackdrop, PressableScale, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE, useScreenTop } from "@/components/ui";
 import { BadgeTile, PillButton } from "@/components/profile/parts";
 import { Coin, SectionLabel } from "@/components/arena/OutsideKit";
+import { Coin3D, useThreeReady } from "@/components/three";
 import { StackTabBar } from "@/components/AppTabBar";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS } from "@/constants/plans";
@@ -33,6 +34,7 @@ export default function Wallet() {
   const { data: m } = useMembershipDetails();
   const { data: badges } = useBadges();
   const { data: drops } = useDrops();
+  const three = useThreeReady(); // the real coin (components/three) once it has loaded
   const h = history.data;
   const tier = m?.tier || p?.tier || "free";
   const card = CARD_COPY[tier] || CARD_COPY.free;
@@ -75,7 +77,7 @@ export default function Wallet() {
             {/* .card.bal: the coin floats inside the card, on the right */}
             <Surface radius={20} padding={null} contentStyle={styles.bal}>
               <GlowBackdrop preset="wallet" />
-              <BlendImage source={PHOTOS.coin} size={180} mask="wide" float style={styles.coin} />
+              {three ? <Coin3D size={84} style={styles.coin3d} /> : <BlendImage source={PHOTOS.coin} size={180} mask="wide" float style={styles.coin} />}
               <Text style={styles.label}>Balance</Text>
               <Row gap={6} style={{ alignItems: "flex-end", marginTop: 6 }}>
                 <AnimatedNumber value={h.balance} format={formatNumber} style={styles.balance} />
@@ -151,6 +153,7 @@ const styles = StyleSheet.create({
   // .bal
   bal: { paddingVertical: 16, paddingHorizontal: 18, overflow: "hidden" },
   coin: { position: "absolute", right: -26, top: -8 },
+  coin3d: { position: "absolute", right: 10, top: 14 },
   label: { color: "#9fb0c9", fontFamily: F.body, fontSize: 12.5 },
   balance: { color: C.text, fontFamily: F.display, fontSize: 58, lineHeight: 60 },
   unit: { color: C.accentHi, fontFamily: F.display, fontSize: 22, marginBottom: 8, letterSpacing: 0.6 },

@@ -213,6 +213,9 @@ importers:
       '@react-navigation/native':
         specifier: 7.1.18
         version: 7.1.18(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0)
+      '@react-three/fiber':
+        specifier: 9.8.1
+        version: 9.8.1(6e3500e6439568de5742e4848d2569a2)
       '@shopify/react-native-skia':
         specifier: 2.2.12
         version: 2.2.12(react-native-reanimated@4.1.1(@babel/core@7.29.7)(react-native-worklets@0.5.1(@babel/core@7.29.7)(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0)
@@ -429,6 +432,9 @@ importers:
       sonner-native:
         specifier: 0.21.0
         version: 0.21.0(patch_hash=57155276fbf6d4a586322d22d23185d363a11f9ba884adee8f35515bd23312cb)(14d86f2a02973547e16b1fde4816c4e8)
+      three:
+        specifier: 0.185.1
+        version: 0.185.1
       yup:
         specifier: 1.6.1
         version: 1.6.1
@@ -1940,6 +1946,31 @@ packages:
     peerDependencies:
       react-router: 8.4.0
 
+  '@react-three/fiber@9.8.1':
+    resolution: {integrity: sha512-GbNP4r6F/gpclFKkLGHzXcuwFWAzLyKsmrQGcDuwK3wQnwLH6F1TfGtEYjHy8OQoGsajwT19B9jtVLLjjfH09w==}
+    peerDependencies:
+      expo: '>=43.0'
+      expo-asset: '>=8.4'
+      expo-file-system: '>=11.0'
+      expo-gl: '>=11.0'
+      react: '>=19 <19.4'
+      react-dom: '>=19 <19.4'
+      react-native: '>=0.78'
+      three: '>=0.156'
+    peerDependenciesMeta:
+      expo:
+        optional: true
+      expo-asset:
+        optional: true
+      expo-file-system:
+        optional: true
+      expo-gl:
+        optional: true
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+
   '@remix-run/node-fetch-server@0.14.2':
     resolution: {integrity: sha512-1cpM/f5i1ka/9CUMBwZXZp7Bn92x8VQjzg+F4eEe88DlVdNHkAKrf/vvbZoYgdkfy2bWHtGC6LQGLmojEqOF4Q==}
 
@@ -2235,6 +2266,11 @@ packages:
     resolution: {integrity: sha512-6ZRPQrYM72qYKGWidEttRe6M5DZBEV5F+MHMHqd4TTYx0tfkcdrUFGdef6CCxY0jXU7wldvd/zA/b0A/kTeJmA==}
     deprecated: This is a stub types definition. react-native provides its own type definitions, so you do not need this installed.
 
+  '@types/react-reconciler@0.28.9':
+    resolution: {integrity: sha512-HHM3nxyUZ3zAylX8ZEyrDNd2XZOnQ0D5XfunJF5FLQnZbHHYq4UWvW1QfelQNXv1ICNkwYhfxjwfnqivYB6bFg==}
+    peerDependencies:
+      '@types/react': '*'
+
   '@types/react@19.1.10':
     resolution: {integrity: sha512-EhBeSYX0Y6ye8pNebpKrwFJq7BoQ8J5SO6NlvNwwHjSj6adXJViPQrKlsyPw7hLBLvckEMO1yxeGdR82YBBlDg==}
 
@@ -2249,6 +2285,9 @@ packages:
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
+
+  '@types/webxr@0.5.24':
+    resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -2662,6 +2701,9 @@ packages:
 
   buffer@5.7.1:
     resolution: {integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==}
+
+  buffer@6.0.3:
+    resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
 
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
@@ -4077,6 +4119,11 @@ packages:
     resolution: {integrity: sha512-HGYWWS/ehqTV3xN10i23tkPkpH46MLCIMFNCaaKNavAXTF1RkqxawEPtnjnGZ6XKSInBKkiOA5BKS+aZiY3AvA==}
     engines: {node: '>=8'}
 
+  its-fine@2.1.1:
+    resolution: {integrity: sha512-C5ZoVkeqSt0Aje0tzESO+iT/EQpNFNL39GkP7mCACtoZUFD6GcyerFCr6kp0ZtiII4W9HoYkY48Soy5xE/uHKw==}
+    peerDependencies:
+      react: ^19.0.0
+
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
@@ -5382,6 +5429,15 @@ packages:
     peerDependencies:
       react: ^19.1.0
 
+  react-use-measure@2.1.7:
+    resolution: {integrity: sha512-KrvcAo13I/60HpwGO5jpW7E9DfusKyLPLvuHlUyP5zqnmAPhNc6qTRjUQrdTADl0lpPpDVU2/Gg51UlOGHXbdg==}
+    peerDependencies:
+      react: '>=16.13'
+      react-dom: '>=16.13'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+
   react@19.1.0:
     resolution: {integrity: sha512-FS+XFBNvn3GTAWq26joslQgWNoFu08F4kl0J4CgdNKADkdSGXQyTCnKteIAJy96Br6YbpEU1LSzV5dYtjMkMDg==}
     engines: {node: '>=0.10.0'}
@@ -5811,6 +5867,11 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  suspend-react@0.1.3:
+    resolution: {integrity: sha512-aqldKgX9aZqpoDp3e8/BZ8Dm7x1pJl+qI3ZKxDN0i/IQTWUwBx/ManmlVJ3wowqbno6c2bmiIfs+Um6LbsjJyQ==}
+    peerDependencies:
+      react: '>=17.0'
+
   symbol-tree@3.2.4:
     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
 
@@ -5841,6 +5902,9 @@ packages:
 
   thenify@3.3.1:
     resolution: {integrity: sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw==}
+
+  three@0.185.1:
+    resolution: {integrity: sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==}
 
   throat@5.0.0:
     resolution: {integrity: sha512-fcwX4mndzpLQKBS1DVYhGAcYaYt7vsHNIvQV+WXMvnow5cgjPphq5CaayLaGsjRdSCKZFNGt7/GYAuXaNOiYCA==}
@@ -8376,6 +8440,31 @@ snapshots:
       - supports-color
       - typescript
 
+  '@react-three/fiber@9.8.1(6e3500e6439568de5742e4848d2569a2)':
+    dependencies:
+      '@babel/runtime': 7.29.10
+      '@types/webxr': 0.5.24
+      base64-js: 1.5.1
+      buffer: 6.0.3
+      its-fine: 2.1.1(@types/react@19.1.10)(react@19.1.0)
+      react: 19.1.0
+      react-use-measure: 2.1.7(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      scheduler: 0.28.0
+      suspend-react: 0.1.3(react@19.1.0)
+      three: 0.185.1
+      use-sync-external-store: 1.7.0(react@19.1.0)
+      zustand: 5.0.3(@types/react@19.1.10)(react@19.1.0)(use-sync-external-store@1.7.0(react@19.1.0))
+    optionalDependencies:
+      expo: 54.0.37(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(expo-router@6.0.11)(react-native-webview@13.15.0(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      expo-asset: 12.0.13(expo@54.0.37)(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      expo-file-system: 19.0.24(expo@54.0.37)(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))
+      expo-gl: 16.0.10(expo@54.0.37)(react-dom@19.1.0(react@19.1.0))(react-native-reanimated@4.1.1(@babel/core@7.29.7)(react-native-worklets@0.5.1(@babel/core@7.29.7)(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0))(react-native-web@0.21.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0))(react@19.1.0)
+      react-dom: 19.1.0(react@19.1.0)
+      react-native: 0.81.4(patch_hash=53de7c3f2871a68d9e6e538bdea8b59e6c71d5cbc94e0b24f229ae20216d1fb3)(@babel/core@7.29.7)(@types/react@19.1.10)(react@19.1.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+
   '@remix-run/node-fetch-server@0.14.2': {}
 
   '@remix-run/route-pattern@0.22.1': {}
@@ -8631,6 +8720,10 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  '@types/react-reconciler@0.28.9(@types/react@19.1.10)':
+    dependencies:
+      '@types/react': 19.1.10
+
   '@types/react@19.1.10':
     dependencies:
       csstype: 3.2.3
@@ -8646,6 +8739,8 @@ snapshots:
   '@types/stack-utils@2.0.3': {}
 
   '@types/tough-cookie@4.0.5': {}
+
+  '@types/webxr@0.5.24': {}
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -9158,6 +9253,11 @@ snapshots:
   buffer-from@1.1.2: {}
 
   buffer@5.7.1:
+    dependencies:
+      base64-js: 1.5.1
+      ieee754: 1.2.1
+
+  buffer@6.0.3:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
@@ -10647,6 +10747,13 @@ snapshots:
     dependencies:
       html-escaper: 2.0.2
       istanbul-lib-report: 3.0.1
+
+  its-fine@2.1.1(@types/react@19.1.10)(react@19.1.0):
+    dependencies:
+      '@types/react-reconciler': 0.28.9(@types/react@19.1.10)
+      react: 19.1.0
+    transitivePeerDependencies:
+      - '@types/react'
 
   jackspeak@3.4.3:
     dependencies:
@@ -12499,6 +12606,12 @@ snapshots:
       react-is: 19.3.1
       scheduler: 0.26.0
 
+  react-use-measure@2.1.7(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+    optionalDependencies:
+      react-dom: 19.1.0(react@19.1.0)
+
   react@19.1.0: {}
 
   react@19.3.1: {}
@@ -12947,6 +13060,10 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
+  suspend-react@0.1.3(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+
   symbol-tree@3.2.4: {}
 
   tar@7.5.22:
@@ -12984,6 +13101,8 @@ snapshots:
   thenify@3.3.1:
     dependencies:
       any-promise: 1.3.0
+
+  three@0.185.1: {}
 
   throat@5.0.0: {}
 

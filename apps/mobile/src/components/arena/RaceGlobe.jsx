@@ -8,6 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useReducedMotion } from "react-native-reanimated";
 import { C, F, useLayoutSize, useSkiaReady } from "@/components/ui";
+import { Globe3D, useThreeReady } from "@/components/three";
 import { UK_CITIES } from "@/data/places";
 import { WORLD_CITIES, toVec } from "./globeLand";
 import { PortraitMini } from "./BattleKit";
@@ -75,8 +76,11 @@ function useGlobeClock(run) {
  */
 export function RaceGlobe({ me, them, height = 380, style }) {
   const ready = useSkiaReady();
+  // Real 3D (components/three) when it has loaded; the Skia globe until then.
+  const three = useThreeReady();
+  const [pins3d, setPins3d] = useState(null);
   const [size, onLayout] = useLayoutSize();
-  const t = useGlobeClock(ready && !!size);
+  const t = useGlobeClock(ready && !!size && !three);
   const pm = cityPoint(me?.city);
   const pt = cityPoint(them?.city);
   const same = kmApart(pm, pt) < 60;
@@ -91,16 +95,22 @@ export function RaceGlobe({ me, them, height = 380, style }) {
 
   // Where the pins settle, for the cards.
   let pins = null;
-  if (ready && width) {
+  if (three && width) {
+    pins = pins3d;
+  } else if (ready && width) {
     const { project, globeCamera } = battleSkia();
     const cam = globeCamera(a, b);
     pins = [project(a, cam.lon, cam.lat, cx, cy, r), project(b, cam.lon, cam.lat, cx, cy, r)];
   }
-  const show = t > 3.2;
+  const show = three ? !!pins3d : t > 3.2;
   const cards = pins ? placeCards(pins, width, height) : null;
 
   let globe = null;
-  if (ready && width) {
+  if (three && width) {
+    const from = { lat: pm[0], lng: pm[1] - (same ? 2.2 : 0), name: me?.city };
+    const to = { lat: pt[0], lng: pt[1] + (same ? 2.2 : 0), name: them?.city };
+    globe = <Globe3D width={width} height={height} size={r * 2} from={from} to={to} onPins={setPins3d} style={StyleSheet.absoluteFill} />;
+  } else if (ready && width) {
     const { GlobeCanvas } = battleSkia();
     globe = <GlobeCanvas width={width} height={height} a={a} b={b} t={t} cx={cx} cy={cy} r={r} />;
   } else if (width) {
