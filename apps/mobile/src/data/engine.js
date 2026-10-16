@@ -769,13 +769,15 @@ const DEMO_RUNS = [
 ];
 
 // The preview's lived-in day, as in the signed-off prototype: you have a
-// photo and Pro, two weeks of steps behind you, 8,412 today, a few runs and
-// more people to follow. Only the web preview and debug builds offer it.
+// photo and Pro, two weeks of steps behind you, 8,412 today, a few runs,
+// Southbank Runners as your club and more people to follow. Only the web
+// preview and debug builds offer it.
 export const devLivedIn = async () => {
   await devFillHistory(13);
   return write((s) => {
     requireMe(s);
     s.me.avatar = s.me.avatar || PHOTOS.alex;
+    s.me.area = s.me.area || "Southwark";
     s.me.tier = s.me.tier === "free" ? "pro" : s.me.tier;
     const key = dayKey();
     const now = Date.now();
@@ -794,6 +796,9 @@ export const devLivedIn = async () => {
       s.runs = [...s.runs, run].sort((a, b) => b.endedAt - a.endedAt);
       award(s, { xp: Math.round(r.km * 10), out: Math.floor(r.km), label: `${r.km} km run`, reason: "run", refId: run.id });
     }
+    // Your club, so the people out near you on the map include faces you know.
+    const club = s.crews.c_southbank;
+    if (club) joinCrewInState(s, club, true);
     const london = PLAYERS.filter((p) => p.city === "London").map((p) => p.id);
     s.following = [...new Set([...s.following, ...london.slice(0, 10)])];
     applyStreakEffects(s);

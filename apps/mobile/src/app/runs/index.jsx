@@ -22,7 +22,7 @@ const PERIODS = [
   { value: "year", label: "Year" },
 ];
 
-const kmText = (km) => (km >= 100 ? Math.round(km) : km >= 10 ? km.toFixed(1) : km.toFixed(km % 1 ? 2 : 1).replace(/0$/, ""));
+const kmText = (km) => (km >= 100 ? Math.round(km) : km >= 10 ? km.toFixed(1) : km % 1 ? km.toFixed(2).replace(/0$/, "") : km.toFixed(1));
 
 function RunRow({ run, first, onPress }) {
   const sub = [whenLabel(run.startedAt, { time: first })];
