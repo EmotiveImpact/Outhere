@@ -13,7 +13,7 @@ import sys
 from PIL import Image, ImageEnhance, ImageOps
 
 # grey settings from the mock: male grayscale brightness .75; female brightness 1.1 contrast 1.4
-LOOK = {"male": (0.75, 1.0), "female": (1.1, 1.4)}
+LOOK = {"male": (0.75, 1.0), "female": (0.75, 1.0)}   # the sources share one look, so one setting
 TINT = {"blue": (79, 155, 255), "red": (255, 77, 85)}
 STRENGTH = 0.18   # how much of the side's colour the grey takes on; Edem wants tints light
 

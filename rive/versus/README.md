@@ -41,7 +41,7 @@ Under the flash each side swaps to its result shot. Before firing the trigger, s
 ## Building
 
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
-- The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes (the female runner is due to be remade).
+- The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes.
 - Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, WINNER, LOSER and the prize (`VSWINERLOUT+0-9`).
 
 ```bash
