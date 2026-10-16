@@ -4,6 +4,9 @@ const path = require('node:path');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
+// Rive files (assets/rive) are bundled like images.
+config.resolver.assetExts.push('riv');
+
 const WEB_ALIASES = {
   'expo-secure-store': path.resolve(__dirname, './polyfills/web/secureStore.web.ts'),
   'react-native-webview': path.resolve(__dirname, './polyfills/web/webview.web.tsx'),
