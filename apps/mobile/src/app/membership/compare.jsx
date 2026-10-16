@@ -3,15 +3,14 @@
 // over its column, then the table with the Black column lit in a silver
 // sheen, and the promise that paying never changes a score.
 
-import React, { useEffect } from "react";
+import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { Calendar, Check, ChevronLeft, Flame, Ghost, Layers, ShoppingBag, Swords, Zap } from "lucide-react-native";
 import { useMembershipDetails, useProfile } from "@/data/hooks";
-import { Avatar, BlendImage, Button, C, F, FadeIn, GlowBackdrop, IconButton, Row, S, Surface, useLayoutSize, useScreenTop } from "@/components/ui";
+import { Avatar, BlackCard, BlendImage, Button, C, F, FadeIn, GlowBackdrop, IconButton, Row, S, Sheen, Surface, useScreenTop } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { COMPARE, PLAN_ORDER, PLANS, TRIAL_DAYS, priceLabel } from "@/constants/plans";
 
@@ -38,7 +37,7 @@ export default function ComparePlans() {
       <GlowBackdrop preset="slab" style={styles.light} />
       {/* .r11fan: the Pro and Black cards fanned out top right */}
       <BlendImage source={PHOTOS.procard} width={140} height={110} mask="wide" rotate={14} dim={0.6} style={[styles.fan, { right: -30, top: top + 42 }]} />
-      <BlendImage source={PHOTOS.blackcard} width={140} height={110} mask="wide" rotate={-6} dim={0.9} float style={[styles.fan, { right: 0, top: top + 64 }]} />
+      <BlackCard width={118} tilt={-6} style={[styles.fan, { right: 14, top: top + 72 }]} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: top, paddingHorizontal: S.gutter, paddingBottom: insets.bottom + 32 }}>
         <IconButton icon={ChevronLeft} onPress={goBack} label="Back" />
         <View style={{ marginTop: 12 }}>
@@ -106,23 +105,11 @@ export default function ComparePlans() {
   );
 }
 
-/** .r11cmp .band: the Black column in brushed silver, a sheen sweeping down it. */
+/** .r11cmp .band: the Black column in brushed silver, a sheen sweeping down it (the shader kit's Sheen, quiet). */
 function SilverBand() {
-  const reduce = useReducedMotion();
-  const sweep = useSharedValue(0);
-  useEffect(() => {
-    if (reduce) return;
-    sweep.value = withRepeat(withTiming(1, { duration: 5000, easing: Easing.bezier(0.45, 0, 0.2, 1) }), -1, false);
-  }, [reduce, sweep]);
-  const [size, onLayout] = useLayoutSize();
-  const h = size?.height || 0;
-  const moving = useAnimatedStyle(() => ({ transform: [{ translateY: h * (-2 + sweep.value * 3) }] }));
   return (
-    <View pointerEvents="none" onLayout={onLayout} style={[styles.band, { width: BAND }]}>
-      <LinearGradient colors={["rgba(255,255,255,0.075)", "rgba(255,255,255,0.015)"]} style={StyleSheet.absoluteFill} />
-      <Animated.View style={[styles.sheen, { height: h * 3 || "300%" }, moving]}>
-        <LinearGradient colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.09)", "rgba(255,255,255,0)"]} locations={[0.35, 0.5, 0.65]} start={{ x: 0, y: 0.1 }} end={{ x: 1, y: 0.9 }} style={StyleSheet.absoluteFill} />
-      </Animated.View>
+    <View pointerEvents="none" style={[styles.band, { width: BAND }]}>
+      <Sheen tone="black" angle={70} intensity={0.7} radius={0} style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} />
       <View style={styles.bandEdge} />
     </View>
   );

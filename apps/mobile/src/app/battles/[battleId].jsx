@@ -216,7 +216,7 @@ function LiveBattle({ battle }) {
                 {formatScore(b.metric, theirs)}
               </Text>
             </Row>
-            <TugBar share={share} height={12} style={{ marginTop: S.lg, marginBottom: 4 }} />
+            <TugBar share={share} height={12} live style={{ marginTop: S.lg, marginBottom: 4 }} />
             <Row style={{ justifyContent: "space-between", marginTop: S.sm }}>
               <Text style={styles.small}>
                 <Text style={{ color: C.text }}>{lead}</Text>

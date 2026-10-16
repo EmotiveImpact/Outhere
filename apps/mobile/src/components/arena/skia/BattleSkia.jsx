@@ -6,6 +6,7 @@
 import React, { useMemo } from "react";
 import { BlurMask, Canvas, Circle, Fill, Group, LinearGradient, Path, RadialGradient, Shader, Skia, vec } from "@shopify/react-native-skia";
 import { STILL } from "@/components/ui/skia";
+import { NightSide, cityLights } from "@/components/ui/shaders/parts";
 import { landDots } from "../globeLand";
 
 // ── Globe ─────────────────────────────────────────────────────────────────────
@@ -138,6 +139,8 @@ export function GlobeCanvas({ width, height, a, b, t, cx, cy, r }) {
 
   const pa = project(a, lon0, lat0, cx, cy, r);
   const pb = project(b, lon0, lat0, cx, cy, r);
+  // The cities facing us, for the night side (the shader kit's NightSide).
+  const lights = useMemo(() => cityLights((v) => project(v, lon0, lat0, cx, cy, r)), [lon0, lat0, cx, cy, r]);
   const runners = flow == null ? [] : [0, 1 / 3, 2 / 3].map((k) => project(arcPoint(a, b, omega, (flow + k) % 1, lift), lon0, lat0, cx, cy, r));
   const pulse = (t * 0.6) % 1;
   const light = vec(cx - r * 0.45, cy - r * 0.55);
@@ -156,10 +159,8 @@ export function GlobeCanvas({ width, height, a, b, t, cx, cy, r }) {
       <Path path={paths.back} color="rgba(110,160,255,0.28)" />
       <Path path={paths.mid} color="rgba(120,172,255,0.55)" />
       <Path path={paths.front} color="rgba(150,195,255,0.85)" />
-      {/* night side and rim */}
-      <Circle c={vec(cx, cy)} r={r}>
-        <RadialGradient c={vec(cx - r * 0.3, cy - r * 0.35)} r={r * 1.45} colors={["rgba(2,4,10,0)", "rgba(2,4,10,0)", "rgba(2,4,10,0.62)"]} positions={[0, 0.55, 1]} />
-      </Circle>
+      {/* night side: a soft terminator, the cities twinkling where it is dark, a thin atmosphere at the rim */}
+      <NightSide cx={cx} cy={cy} r={r} t={t} lights={lights} />
       <Circle c={vec(cx, cy)} r={r - 0.5} style="stroke" strokeWidth={1.4}>
         <LinearGradient start={vec(cx - r, cy - r)} end={vec(cx + r, cy + r)} colors={["rgba(160,205,255,0.75)", "rgba(79,155,255,0.2)", "rgba(79,155,255,0.05)"]} />
       </Circle>

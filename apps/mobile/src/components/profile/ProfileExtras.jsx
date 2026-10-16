@@ -5,7 +5,7 @@ import { Text, View } from "react-native";
 import { ChevronRight, Play } from "lucide-react-native";
 import { formatDuration, formatKm, formatPace, tierLabel, timeAgo } from "@/utils/format";
 import { priceLabel } from "@/constants/plans";
-import { BlendImage, Body, C, Card, Divider, F, FadeIn, ListRow, PressableScale, R, Row, S, Skeleton, Surface, Title, tierColour } from "@/components/ui";
+import { BlendImage, Body, C, Card, Divider, F, FadeIn, ListRow, PressableScale, R, Row, S, Sheen, Skeleton, Surface, Title, tierColour } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 
 export function RecentRuns({ runs, loading, units, onStart, onOpen }) {
@@ -58,19 +58,33 @@ export function MembershipCard({ tier, onPress }) {
         : "2x OUT, first pick of every drop and private events.";
   // The tier's own card object, blended onto the lit surface (.card.tier .card3d).
   const art = tier === "black" ? PHOTOS.blackcard : tier === "pro" ? PHOTOS.procard : PHOTOS.card;
+  const black = tier === "black";
+  const row = (
+    <Row gap={10}>
+      <BlendImage source={art} size={64} mask="tight" />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18, textTransform: "uppercase" }}>Outhere {tierLabel(tier)}</Text>
+        <Body dim size={12} style={{ marginTop: 2, lineHeight: 17, color: black ? "#c9d0da" : undefined }}>
+          {line}
+        </Body>
+      </View>
+      <ChevronRight size={18} color={black ? "#c9d0da" : C.textMute} />
+    </Row>
+  );
   return (
-    <Surface radius={20} padding={null} onPress={onPress} accessibilityLabel="Membership" contentStyle={{ paddingTop: 14, paddingBottom: 14, paddingLeft: 10, paddingRight: 14 }}>
-      {edge ? <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: edge }} /> : null}
-      <Row gap={10}>
-        <BlendImage source={art} size={64} mask="tight" />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18, textTransform: "uppercase" }}>Outhere {tierLabel(tier)}</Text>
-          <Body dim size={12} style={{ marginTop: 2, lineHeight: 17 }}>
-            {line}
-          </Body>
-        </View>
-        <ChevronRight size={18} color={C.textMute} />
-      </Row>
+    <Surface radius={20} padding={null} onPress={onPress} accessibilityLabel="Membership" contentStyle={black ? null : { paddingTop: 14, paddingBottom: 14, paddingLeft: 10, paddingRight: 14 }}>
+      {black ? (
+        // The Black card itself: brushed gunmetal with the sheen crossing it (Sheen), the same content on top.
+        <Sheen tone="black" radius={20} contentStyle={{ paddingTop: 14, paddingBottom: 14, paddingLeft: 10, paddingRight: 14 }}>
+          <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, borderRadius: 20, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.08)" }} />
+          {row}
+        </Sheen>
+      ) : (
+        <>
+          {edge ? <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: edge }} /> : null}
+          {row}
+        </>
+      )}
     </Surface>
   );
 }

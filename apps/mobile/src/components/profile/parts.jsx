@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft, Lock } from "lucide-react-native";
-import { AnimatedBar, BlendImage, C, F, FINISH, GlowButton, Hero, IconTile, PressableScale, Row, S, Surface, TOP_GAP, splitShadow } from "@/components/ui";
+import { AnimatedBar, C, F, FINISH, Foil, GlowButton, Hero, IconTile, PressableScale, Row, S, Surface, TOP_GAP, splitShadow } from "@/components/ui";
 import { compactNumber } from "@/utils/format";
 import { badgeArt } from "@/constants/badges";
 import { EMOTE_BY_ID } from "@/constants/emotes";
@@ -76,7 +76,7 @@ export function BadgeTile({ badge, onPress, bar = false }) {
   return (
     <Surface onPress={onPress} radius={18} padding={null} style={{ flex: 1 }} contentStyle={styles.badge}>
       <View accessible accessibilityLabel={`${b.label}. ${b.earned ? "Earned" : b.toGo}`} style={{ alignItems: "center", alignSelf: "stretch" }}>
-        <BlendImage source={badgeArt(b.id)} size={72} mask="tight" grey={b.earned ? 0 : 1} dim={b.earned ? 1 : 0.6} />
+        <Foil source={badgeArt(b.id)} size={72} mask="tight" grey={b.earned ? 0 : 1} dim={b.earned ? 1 : 0.6} />
         <Text style={[styles.badgeName, !b.earned && { color: C.textSoft }]} numberOfLines={1}>
           {b.label}
         </Text>

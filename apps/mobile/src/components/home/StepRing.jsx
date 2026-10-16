@@ -1,11 +1,13 @@
-// Today's steps against the daily goal: a quiet track with one green arc that
-// sweeps round as the day fills up. The number does the talking.
+// Today's steps against the daily goal: a quiet track with one blue arc that
+// sweeps round as the day fills up. The number does the talking. With Skia
+// the arc is a liquid (LiquidRing): a wave at its leading edge, a bright
+// meniscus, a slow surface light; the SVG arc shows until Skia is ready.
 
 import React, { useEffect } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
-import { AnimatedNumber, C, F } from "@/components/ui";
+import { AnimatedNumber, C, F, LiquidRing, useSkiaReady } from "@/components/ui";
 import { formatNumber } from "@/utils/format";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -24,9 +26,12 @@ export default function StepRing({ steps = 0, goal = 10000, size = 220, stroke =
 
   const arcProps = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - progress.value) }));
   const big = steps >= 10000;
+  const ready = useSkiaReady();
 
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      {ready ? <LiquidRing value={progress} size={size} stroke={stroke} track={C.surfaceHigh} style={StyleSheet.absoluteFill} /> : null}
+      {ready ? null : (
       <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
         <Circle cx={c} cy={c} r={r} stroke={C.surfaceHigh} strokeWidth={stroke} fill="none" />
         <AnimatedCircle
@@ -41,6 +46,7 @@ export default function StepRing({ steps = 0, goal = 10000, size = 220, stroke =
           animatedProps={arcProps}
         />
       </Svg>
+      )}
 
       <AnimatedNumber
         value={steps}

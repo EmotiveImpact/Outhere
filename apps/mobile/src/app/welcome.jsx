@@ -15,7 +15,7 @@ import { MotiView } from "moti";
 import { Easing, useReducedMotion } from "react-native-reanimated";
 import { MoreHorizontal } from "lucide-react-native";
 import { isRemote, useOutsideCount } from "@/data/hooks";
-import { C, F, FadeIn, LiveDot, PressableScale, R, Row, S, SlideToStart, Wordmark, useScreenTop } from "@/components/ui";
+import { Aurora, C, F, FadeIn, LiveDot, PressableScale, R, Row, S, SlideToStart, Wordmark, useScreenTop } from "@/components/ui";
 import { LAUNCH, LaunchStage } from "@/components/ui/LaunchScreen";
 import { PHOTOS } from "@/constants/photos";
 import { formatNumber } from "@/utils/format";
@@ -54,13 +54,16 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
+      {/* the sky behind the photo: slow ribbons of light, seen through it where it is dark */}
+      <Aurora intensity={0.9} />
       <MotiView
         from={{ scale: 1.07, opacity: intro ? 0 : 1 }}
         animate={shown ? { scale: 1, opacity: 1 } : { scale: 1.07, opacity: 0 }}
         transition={{ type: "timing", duration: 2600, easing: Easing.bezier(0.2, 0.6, 0.2, 1), opacity: { type: "timing", duration: 700 } }}
         style={StyleSheet.absoluteFill}
       >
-        <Image source={PHOTOS.welcome11} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "42%", top: "30%" }} transition={300} accessibilityLabel="A runner on the Southbank at sunrise" />
+        <Image source={PHOTOS.welcome11} style={[StyleSheet.absoluteFill, { opacity: 0.94 }]} contentFit="cover" contentPosition={{ left: "42%", top: "30%" }} transition={300} accessibilityLabel="A runner on the Southbank at sunrise" />
+        <Aurora field={false} opacity={0.42} intensity={0.8} speed={0.8} style={{ bottom: "28%" }} />
       </MotiView>
       {/* .hero::after */}
       <LinearGradient

@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CircleDot, Table } from "lucide-react-native";
 import { useMembershipDetails } from "@/data/hooks";
-import { BlendImage, Body, Button, C, F, FadeIn, R, Row, S, Screen, Segment, Skeleton, Surface } from "@/components/ui";
+import { BlackCard, BlendImage, Body, Button, C, F, FadeIn, R, Row, S, Screen, Segment, Skeleton, Surface } from "@/components/ui";
 import { Slab } from "@/components/profile/parts";
 import { PHOTOS } from "@/constants/photos";
 import { PLAN_ORDER, PLANS, TRIAL_DAYS, UNLOCKS, money, priceLabel, yearlySaving } from "@/constants/plans";
@@ -100,7 +100,10 @@ function PlanCard({ tier, billing, selected, current, onPress }) {
     <View style={{ flex: 1 }}>
     <Surface tone={selected ? "blue" : "lit"} onPress={onPress} pressScale={0.96} radius={18} padding={null} style={{ flex: 1 }} contentStyle={styles.plan} accessibilityLabel={`${p.name}, ${money(price)}`}>
       <View style={styles.cardArt}>
-        {CARD_ART[tier] ? (
+        {tier === "black" ? (
+          // The Black card as drawn: brushed metal with the sheen crossing it.
+          <BlackCard width={78} tilt={-4} intensity={selected ? 1.1 : 0.8} />
+        ) : CARD_ART[tier] ? (
           <BlendImage source={CARD_ART[tier]} width={92} height={60} mask="wide" zoom={1.25} />
         ) : (
           <View style={styles.freeCard}>

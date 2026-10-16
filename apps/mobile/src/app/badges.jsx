@@ -2,24 +2,22 @@
 // Tap one for what it's for and how far you've got.
 
 import React, { useState } from "react";
-import { Platform, Share, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
+import { Share, StyleSheet, Text, View } from "react-native";
 import { Upload } from "lucide-react-native";
 import { useBadges, useProfile } from "@/data/hooks";
-import { Body, C, F, FadeIn, Meter, Row, S, Segment, Sheet, Skeleton, Surface } from "@/components/ui";
+import { Body, C, F, FadeIn, Foil, Meter, Row, S, Segment, Sheet, Skeleton, Surface } from "@/components/ui";
 import { HeroPage, RoundButton } from "@/components/account/parts";
 import { badgeArt } from "@/constants/badges";
 import { PHOTOS } from "@/constants/photos";
 
-// .bg.off img: grey and dimmed until it's earned
-const LOCKED = Platform.OS === "web" ? { filter: "grayscale(1) brightness(0.55)" } : { opacity: 0.45 };
 
 /** .bg: the art on near black, its name, and Earned in blue or a thin bar. */
 function BadgeCell({ badge: b, onPress }) {
   return (
     <Surface onPress={onPress} radius={18} padding={null} style={{ flex: 1 }} contentStyle={styles.cell} accessibilityLabel={`${b.label}. ${b.earned ? "Earned" : b.toGo}`}>
       <View style={styles.cellArt}>
-        <Image source={badgeArt(b.id)} style={[{ width: "100%", height: "100%" }, !b.earned && LOCKED]} contentFit="contain" />
+        {/* the medal with its black dropped out and foil on it once earned; grey and dim until then */}
+        <Foil source={badgeArt(b.id)} mask="tight" fit="contain" grey={b.earned ? 0 : 1} dim={b.earned ? 1 : 0.55} style={{ width: "100%", height: "100%" }} />
       </View>
       <Text style={[styles.cellName, !b.earned && { color: C.textDim }]} numberOfLines={1}>
         {b.label}
@@ -105,7 +103,7 @@ export default function Badges() {
         {open ? (
           <View style={{ alignItems: "center" }}>
             <View style={styles.art}>
-              <Image source={badgeArt(open.id)} style={[{ width: "100%", height: "100%" }, !open.earned && LOCKED]} contentFit="contain" />
+              <Foil source={badgeArt(open.id)} mask="tight" fit="contain" grey={open.earned ? 0 : 1} dim={open.earned ? 1 : 0.55} style={{ width: "100%", height: "100%" }} />
             </View>
             <Text style={styles.name}>{open.label}</Text>
             <Body dim size={14} style={{ textAlign: "center", marginTop: 4 }}>

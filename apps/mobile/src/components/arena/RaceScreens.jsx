@@ -17,7 +17,7 @@ import Animated, { FadeIn, FadeInDown, FadeOut, FlipInEasyY, ZoomIn } from "reac
 import Svg, { Circle as SvgCircle } from "react-native-svg";
 import { Check, Clock3, Eye, Flag, Lock, Play, Share2, Swords, Zap } from "lucide-react-native";
 import { engine, useBattle, useBattleEmotes, useEngineMutation, useHeadToHead } from "@/data/hooks";
-import { BlendImage, C, F, GlowBackdrop, GlowButton, IconTile, PressableScale, R, Row, S, Surface, useLayoutSize, useScreenTop } from "@/components/ui";
+import { C, F, Foil, GlowBackdrop, GlowButton, IconTile, PressableScale, R, Row, S, Surface, useLayoutSize, useScreenTop } from "@/components/ui";
 import { BottomBar, Coin } from "@/components/arena/OutsideKit";
 import { Chip, EmoteTile, EMOTE_FOR_CODE, Facts, Headline, NavRow, PortraitCard, PortraitMini, SlantTag, TurningRays } from "@/components/arena/BattleKit";
 import { RaceGlobe, cityPoint, kmApart } from "@/components/arena/RaceGlobe";
@@ -81,7 +81,12 @@ export function EmoteBurst({ code, onDone }) {
   return (
     <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]} pointerEvents="none">
       <Animated.View entering={ZoomIn.springify().damping(9)} exiting={FadeOut.duration(250)} style={{ alignItems: "center" }}>
-        {emote ? <BlendImage source={emote.image} size={200} mask="burst" glow={240} /> : null}
+        {emote ? (
+          <View style={{ width: 200, height: 200, alignItems: "center", justifyContent: "center" }}>
+            <GlowBackdrop preset="orb" breathe style={{ top: -20, bottom: -20, left: -20, right: -20 }} />
+            <Foil source={emote.image} size={200} mask="burst" />
+          </View>
+        ) : null}
         <Text style={styles.burstText}>{emoteLabel(code)}</Text>
       </Animated.View>
     </View>

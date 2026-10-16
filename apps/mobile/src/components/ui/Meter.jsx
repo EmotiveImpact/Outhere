@@ -7,12 +7,16 @@
 //   <Meter value={0.62} size="lg" cap />       a goal or fair score bar
 //   <Meter value={0.4} tone="red" />           the opponent, in a 1v1
 //   <Meter value={0.3} tone="grey" flow={false} />   locked or past
+//   <Meter value={0.62} liquid />                   the fill as a liquid (Skia)
+//   <TugBar share={0.58} live />                     a live battle: heat and a hot core (Skia)
 
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { useLayoutSize } from "./layout";
+import { useSkiaReady } from "./skia";
+import { LiquidBar, Shimmer } from "./shaders/Shimmer";
 import { EASE, FINISH } from "./tokens";
 
 export const METER_TONES = {
@@ -49,12 +53,16 @@ function Flow({ width }) {
  * value: 0 to 1. size: sm (6) | md (10) | lg (14), or a number of px.
  * tone: blue | red | gold | grey. flow: the moving band of light. cap: the
  * bright dot at the end. glow: the coloured bloom round the fill.
- * duration: how long the fill takes to ease to a new value.
+ * duration: how long the fill takes to ease to a new value. liquid: the fill
+ * drawn as a liquid in Skia (a bright meniscus, a slow surface wave, a rim of
+ * light at the leading edge); the plain fill shows until Skia is ready.
  */
-export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap = false, glow = true, duration = 1400, track, style }) {
+export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap = false, glow = true, duration = 1400, track, liquid = false, style }) {
   const h = typeof size === "number" ? size : SIZES[size] || SIZES.md;
   const t = METER_TONES[tone] || METER_TONES.blue;
   const [box, onLayout] = useLayoutSize();
+  const ready = useSkiaReady();
+  const wet = liquid && ready;
   const p = useSharedValue(0);
   const v = Math.max(0, Math.min(1, Number(value) || 0));
   useEffect(() => {
@@ -67,11 +75,14 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
   return (
     <View onLayout={onLayout} style={[styles.track, { height: h, borderRadius: h }, track ? { backgroundColor: track } : null, style]}>
       <Animated.View style={[{ height: h, borderRadius: h }, glow && t.glow ? { boxShadow: `0 0 14px ${t.glow}` } : null, fill]}>
-        <View style={[StyleSheet.absoluteFill, { borderRadius: h, overflow: "hidden" }]}>
-          <LinearGradient colors={t.fill} locations={t.stops} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
-          {flow && fillWidth > h ? <Flow width={fillWidth} /> : null}
-        </View>
+        {wet ? null : (
+          <View style={[StyleSheet.absoluteFill, { borderRadius: h, overflow: "hidden" }]}>
+            <LinearGradient colors={t.fill} locations={t.stops} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+            {flow && fillWidth > h ? <Flow width={fillWidth} /> : null}
+          </View>
+        )}
       </Animated.View>
+      {wet ? <LiquidBar progress={p} tone={tone} /> : null}
       {cap ? <Animated.View pointerEvents="none" style={[styles.cap, { width: dot, height: dot, borderRadius: dot, marginLeft: -dot / 2, marginTop: -dot / 2, boxShadow: `0 0 10px 2px ${t.cap}` }, end]} /> : null}
     </View>
   );
@@ -80,9 +91,11 @@ export function Meter({ value = 0, size = "md", tone = "blue", flow = true, cap 
 /**
  * The tug of war in a 1v1 (.oh-tug): your blue share from the left, their
  * red from the right, both glowing, and a white spark where they meet.
- * share: your fraction, 0 to 1.
+ * share: your fraction, 0 to 1. live: the battle is on now, so the bar runs
+ * hot in Skia (a heat ripple through the fill, light flowing to the middle,
+ * a white core where the two meet); the plain bar shows until Skia is ready.
  */
-export function TugBar({ share = 0.5, height = 8, style }) {
+export function TugBar({ share = 0.5, height = 8, live = false, style }) {
   const p = useSharedValue(0.5);
   const v = Math.max(0.02, Math.min(0.98, Number(share) || 0.5));
   useEffect(() => {
@@ -90,6 +103,14 @@ export function TugBar({ share = 0.5, height = 8, style }) {
   }, [v, p]);
   const mine = useAnimatedStyle(() => ({ width: `${p.value * 100}%` }));
   const spark = useAnimatedStyle(() => ({ left: `${p.value * 100}%` }));
+  const ready = useSkiaReady();
+  if (live && ready) {
+    return (
+      <View style={[{ height, borderRadius: height }, style]}>
+        <Shimmer share={p} height={height} />
+      </View>
+    );
+  }
   return (
     <View style={[{ height, borderRadius: height, flexDirection: "row", backgroundColor: "rgba(255,255,255,0.05)" }, style]}>
       <Animated.View style={[{ height, borderTopLeftRadius: height, borderBottomLeftRadius: height, boxShadow: "0 0 14px rgba(61,139,255,0.5)" }, mine]}>

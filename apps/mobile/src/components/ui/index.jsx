@@ -57,6 +57,9 @@ export { GLOWS, MASKS } from "./glows";
 export { TOP_GAP, SCREEN_TOP, TAB_BAR, useScreenTop, useTabBarBottom, ScreenTop, useLayoutSize } from "./layout";
 export { useSkiaReady } from "./skia";
 
+// The shader kit (shaders/): brushed metal, aurora, heat and liquid, foil, city lights.
+export { Sheen, Aurora, Shimmer, LiquidBar, LiquidRing, Foil, CityLights, BlackCard, useLiveCanvas } from "./shaders";
+
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
 export { C, F, S, R, LIT, FINISH, EASE, splitShadow } from "./tokens";
