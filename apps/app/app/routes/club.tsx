@@ -1,5 +1,5 @@
 import { Link, redirect } from "react-router";
-import { canSeeClubHq, formatNumber, isValidClubSlug, ordinal, type FormLetter } from "@outhere/core";
+import { canSeeClubHq, formatNumber, isValidClubSlug, ordinal, type FormLetter, type Person } from "@outhere/core";
 import { Countdown, CountUp, Faces, Form, QR, Tick, usePerson } from "@outhere/ui";
 import { config, getData } from "~/data.server";
 import { ClubCard } from "~/components/club-card";
@@ -36,7 +36,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   const c = page.club;
   return shareMeta({
     title: `${c.name} · Outhere`,
-    description: `${c.tagline} ${c.borough} · ${c.nextRun}. Free to join.`,
+    description: `${c.tagline} ${[c.borough, c.city].filter(Boolean).join(", ")} · ${c.nextRun}. Free to join.`,
     url: `${publicUrl}/${c.slug}`,
     image: absolute(c.cover, origin),
     imageAlt: `${c.name} out on a run`,
@@ -45,13 +45,14 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 
 const RESULT: Record<FormLetter, [string, string]> = { w: ["Won", "pill blue"], d: ["Drew", "pill"], l: ["Lost", "pill"] };
 
-function Leader({ personId, role, group }: { personId: string; role: string; group: string }) {
-  const p = usePerson(personId);
+function Leader({ personId, role, group, person }: { personId: string; role: string; group: string; person?: Person }) {
+  const known = usePerson(personId);
+  const p = known.id === personId || !person ? known : person;
   return (
     <div className="leader">
       <img src={p.photo} alt={p.name} />
       <b>{p.name.split(" ")[0]}</b>
-      <span>{role} · {group}</span>
+      <span>{[role, group].filter(Boolean).join(" · ")}</span>
     </div>
   );
 }
@@ -70,7 +71,7 @@ function ClubPage({ page, captain, publicUrl }: Extract<Route.ComponentProps["lo
     // Keyed by club so the hero and counters start fresh when you open another club.
     <div className="pub" key={c.slug}>
       <PublicNav
-        links={[["/clubs", "Clubs"], ["/league", "League"], ["/clubs", "Boroughs"]]}
+        links={[["/clubs", "Clubs"], ["/league", "League"], [c.cityId ? `/clubs?c=${c.cityId}` : "/clubs", c.city || "Cities"]]}
         action={captain ? { to: "/hq", label: "Club HQ" } : { to: "/", label: "Dashboard" }}
       />
       <header className="chero">
@@ -86,7 +87,7 @@ function ClubPage({ page, captain, publicUrl }: Extract<Route.ComponentProps["lo
             <h1 className="disp">{c.nameTop}<br /><span className="b">{c.nameBottom}</span></h1>
             <p className="tl">{c.tagline}</p>
             <div className="facts">
-              {[c.borough, c.nextRun, ...c.tags].map((t) => <span key={t} className="pill glass">{t}</span>)}
+              {[[c.borough, c.city].filter(Boolean).join(", "), c.nextRun, ...c.tags].filter(Boolean).map((t) => <span key={t} className="pill glass">{t}</span>)}
             </div>
             <div className="cta">
               <Link className="btn btn-p btn-l" to={join}>Join {c.name}</Link>
@@ -106,7 +107,7 @@ function ClubPage({ page, captain, publicUrl }: Extract<Route.ComponentProps["lo
           <div><b className="tab"><CountUp value={c.members} /></b><span>members</span></div>
           <div>
             <b>{c.position ? ordinal(c.position) : founding ? `${founding.meetups} of ${founding.needed}` : "Founding"}</b>
-            <span>{c.position ? `${c.division}, London` : "meetups to go official"}</span>
+            <span>{c.position ? [c.division, c.city].filter(Boolean).join(", ") : "meetups to go official"}</span>
           </div>
           <div><b>{stats.turnout}</b><span>came to a club run this week</span></div>
           <div><b>{stats.raised}</b><span>raised for the club this season</span></div>
@@ -209,8 +210,8 @@ function ClubPage({ page, captain, publicUrl }: Extract<Route.ComponentProps["lo
 
         <section className="psec">
           <div className="sech" style={{ marginTop: 0 }}>
-            <h2>More clubs in <span className="b">south London</span></h2>
-            <Link className="btn btn-q btn-s" to="/clubs">All clubs</Link>
+            <h2>More clubs in <span className="b">{c.city || "your city"}</span></h2>
+            <Link className="btn btn-q btn-s" to={c.cityId ? `/clubs?c=${c.cityId}` : "/clubs"}>All clubs</Link>
           </div>
           <div className="ccards">{nearby.map((n) => <ClubCard key={n.id} club={n} />)}</div>
         </section>

@@ -22,7 +22,7 @@ export const usingExampleData = (): boolean => !supabaseConfigured();
 
 /** Stands in for the home club of a member who hasn't joined one yet. */
 export const NO_CLUB: Club = {
-  id: "", slug: "", name: "", nameTop: "", nameBottom: "", borough: "", cover: "", crest: "", verified: false, founding: false,
+  id: "", slug: "", name: "", nameTop: "", nameBottom: "", cityId: "", city: "", borough: "", cover: "", crest: "", verified: false, founding: false,
   members: 0, nextRun: "", tags: [], filters: [], division: "", position: 0, since: 0, tagline: "",
 };
 

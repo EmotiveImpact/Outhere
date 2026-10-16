@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Club } from "@outhere/core";
-import { Icon, useToast } from "@outhere/ui";
+import { CityPicker, Icon, useToast } from "@outhere/ui";
 import { APP_URL } from "../data";
 import { useAct, useLoad } from "../load";
 import { signature } from "../util";
@@ -9,13 +9,17 @@ export function Verify() {
   const toast = useToast();
   const act = useAct();
   const [selId, setSelId] = useState<string | null>(null);
+  const [city, setCity] = useState("uk");
   const { data } = useLoad(async (db) => {
-    const [requests, clubs, viewer] = await Promise.all([db.verifications(), db.clubs(), db.viewer()]);
-    return { requests, clubs: new Map<string, Club>(clubs.map((c) => [c.id, c])), me: signature(viewer) };
+    const [requests, clubs, viewer, cities] = await Promise.all([db.verifications(), db.clubs(), db.viewer(), db.cities()]);
+    return { requests, clubs: new Map<string, Club>(clubs.map((c) => [c.id, c])), me: signature(viewer), cities };
   });
   if (!data) return null;
 
-  const { requests, clubs, me } = data;
+  const { clubs, me } = data;
+  // Requests come from anywhere in the UK; staff can narrow to one city.
+  const requests = data.requests.filter((r) => city === "uk" || clubs.get(r.clubId)?.cityId === city);
+  const cities = data.cities.filter((x) => data.requests.some((r) => clubs.get(r.clubId)?.cityId === x.id));
   const q = requests.find((r) => r.id === selId) ?? requests[0];
   const c = q && clubs.get(q.clubId);
   const allTicked = !!q && q.checks.every((k) => k.done);
@@ -33,6 +37,7 @@ export function Verify() {
             verified people in all.
           </p>
         </div>
+        {cities.length > 1 && <CityPicker id="vcity" cities={cities} value={city} onChange={setCity} allUk="All cities" />}
       </div>
       {!q || !c ? (
         <div className="card">
@@ -49,7 +54,7 @@ export function Verify() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <b>{rc?.name ?? r.clubId}</b>
                     <span>
-                      {r.claim ? "Claim of an existing club" : "Founding club"} · {r.age}
+                      {rc?.city ? `${rc.city} · ` : ""}{r.claim ? "Claim of an existing club" : "Founding club"} · {r.age}
                     </span>
                   </div>
                   {r.verified && (
@@ -67,7 +72,7 @@ export function Verify() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h3 style={{ font: "600 32px/1 var(--display)", textTransform: "uppercase" }}>{c.name}</h3>
                 <div className="muted" style={{ fontSize: 13 }}>
-                  {c.borough} · organiser {q.organiser} · {c.members} people so far
+                  {[c.borough, c.city].filter(Boolean).join(", ")} · organiser {q.organiser} · {c.members} people so far
                 </div>
               </div>
               <a className="btn btn-q btn-s" href={`${APP_URL}/${c.slug}`} target="_blank" rel="noreferrer">

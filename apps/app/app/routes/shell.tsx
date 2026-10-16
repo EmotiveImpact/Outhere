@@ -31,6 +31,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     club: chat?.club ?? NO_CLUB,
     derby: home.derby,
     reveal: home.reveal,
+    match: home.callup.match,
     counts: {
       chat: chat?.channels.reduce((n, c) => n + c.unread, 0) ?? 0,
       requests: hq?.requests.length ?? 0,
@@ -50,7 +51,7 @@ export const TITLES: Record<string, [string] | [string, string]> = {
 const CLUB_TITLES: Record<string, string> = { "/chat": "Club chat", "/hq": "Overview", "/hq/members": "Members", "/hq/runs": "Runs and check-in", "/hq/kit": "Page and QR kit", "/hq/fund": "Club fund" };
 
 export default function Shell({ loaderData }: Route.ComponentProps) {
-  const { viewer, notifications, search, club, derby, reveal, counts, config: cfg } = loaderData;
+  const { viewer, notifications, search, club, derby, reveal, match, counts, config: cfg } = loaderData;
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { act } = useAct();
@@ -214,13 +215,13 @@ export default function Shell({ loaderData }: Route.ComponentProps) {
           </div>
           <button className="find" id="find" type="button" aria-label="Search" onClick={() => setSearching(true)}>
             <Icon name="search" />
-            <span>Search clubs, people and boroughs</span>
+            <span>Search clubs, people and cities</span>
             <kbd>⌘K</kbd>
           </button>
           <div className="sp" />
           <Link className="chip-live" to="/league">
             <i className="dot pulse" />
-            London v Manchester · reveal <Countdown to={reveal.at} short />
+            {match ? `${match} · reveal` : "Sunday reveal"} <Countdown to={reveal.at} short />
           </Link>
           {pathname.startsWith("/hq") && (
             <Link className="btn btn-q btn-s hidem" to={`/${club.slug}`}>

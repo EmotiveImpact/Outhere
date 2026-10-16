@@ -57,13 +57,15 @@ export default function Membership({ loaderData }: Route.ComponentProps) {
       </div>
       <div className="g g3 plans" id="proplans">
         {plans.map((p) => {
-          const price = yearly ? p.yearly : p.monthly;
+          // A plan with no yearly price stays monthly when the yearly switch is on.
+          const byYear = yearly && p.yearly !== null;
+          const price = byYear ? (p.yearly ?? 0) : p.monthly;
           const mine = p.tier === tier;
           return (
             <div key={p.tier} className={`card plan${p.popular ? " hot" : ""}`}>
               {p.popular && <span className="pill blue plan-tag">Most picked</span>}
               <div className="mono dim">{p.name}</div>
-              <div className="plan-p"><b className="tab">{p.monthly ? formatPounds(price) : "£0"}</b><span>{p.monthly ? (yearly ? "a year" : "a month") : "forever"}</span></div>
+              <div className="plan-p"><b className="tab">{p.monthly ? formatPounds(price) : "£0"}</b><span>{p.monthly ? (byYear ? "a year" : yearly ? "a month, monthly only for now" : "a month") : "forever"}</span></div>
               <p className="muted">{p.line}</p>
               <ul>{p.features.map((f) => <li key={f}><Icon name="check" />{f}</li>)}</ul>
               <button
@@ -76,7 +78,7 @@ export default function Membership({ loaderData }: Route.ComponentProps) {
                     return;
                   }
                   setAsked(`${p.name} at ${formatPounds(price)}`);
-                  act({ intent: "checkout", tier: p.tier, yearly, clubId: club.id });
+                  act({ intent: "checkout", tier: p.tier, yearly: byYear, clubId: club.id });
                 }}
               >
                 {mine ? "Your plan" : p.tier === "free" ? "Drop to Free" : `Choose ${p.name}`}

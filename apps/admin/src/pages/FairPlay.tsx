@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FairPlayFlag } from "@outhere/core";
-import { ChipPick, Kpi, Spark, useToast } from "@outhere/ui";
+import { ChipPick, CityPicker, Kpi, Spark, useToast } from "@outhere/ui";
 import { useAct, useLoad } from "../load";
 
 const FILTERS = ["All", "High", "In a live squad"] as const;
@@ -19,11 +19,19 @@ export function FairPlay() {
   const act = useAct();
   const toast = useToast();
   const [filter, setFilter] = useState<Filter>("All");
+  const [city, setCity] = useState("uk");
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
-  const { data } = useLoad((db) => db.fairPlay());
+  const { data } = useLoad(async (db) => {
+    const [fair, cities] = await Promise.all([db.fairPlay(), db.cities()]);
+    return { ...fair, cities };
+  });
   if (!data) return null;
 
-  const rows = data.flags.filter((f) => (filter === "High" ? f.severity === "High" : filter === "In a live squad" ? inLiveSquad(f) : true));
+  const cityName = data.cities.find((c) => c.id === city)?.name;
+  const cities = data.cities.filter((c) => data.flags.some((f) => f.city === c.name));
+  const rows = data.flags
+    .filter((f) => !cityName || f.city === cityName)
+    .filter((f) => (filter === "High" ? f.severity === "High" : filter === "In a live squad" ? inLiveSquad(f) : true));
 
   /** Fades the row out like the mockup, then writes and reloads. */
   const decide = (id: string, write: "clear" | "remove", message: string) => {
@@ -62,13 +70,17 @@ export function FairPlay() {
       <div className="card mt">
         <div className="hd">
           <h3>Open flags</h3>
-          <ChipPick options={[...FILTERS]} value={filter} onChange={(v) => setFilter(v as Filter)} />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {cities.length > 1 && <CityPicker id="fcity" cities={cities} value={city} onChange={setCity} allUk="All cities" />}
+            <ChipPick options={[...FILTERS]} value={filter} onChange={(v) => setFilter(v as Filter)} />
+          </div>
         </div>
         <div className="tw">
           <table className="flag">
             <thead>
               <tr>
                 <th>Walker</th>
+                <th>City</th>
                 <th>Why</th>
                 <th>Steps, last 14 days</th>
                 <th>Trust</th>
@@ -83,6 +95,7 @@ export function FairPlay() {
                     <td>
                       <code style={{ font: "500 12px var(--mono)" }}>user {f.user}</code>
                     </td>
+                    <td className="muted">{f.city}</td>
                     <td>
                       <span className={`pill ${f.severity === "High" ? "red" : "warn"}`}>{f.severity}</span> <span style={{ marginLeft: 6 }}>{f.reason}</span>
                     </td>

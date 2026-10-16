@@ -15,9 +15,9 @@ type View = "week" | "month";
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-/** "Mine" is what you're in; "My clubs" adds your clubs; "All of London" adds the rest. Big moments always show. */
+/** "Mine" is what you're in; "My clubs" adds your clubs; "All of <city>" adds the rest of your city. Big UK-wide moments always show. */
 const shows = (scope: CalendarScope) => (e: CalendarEvent) =>
-  scope === "london" || e.scope === "mine" || !!e.global || (scope === "club" && e.scope === "club");
+  scope === "city" || e.scope === "mine" || !!e.global || (scope === "club" && e.scope === "club");
 
 function read(key: string) {
   try { return localStorage.getItem(`oh_${key}`); } catch { return null; }
@@ -26,21 +26,21 @@ function save(key: string, v: string) {
   try { localStorage.setItem(`oh_${key}`, v); } catch { /* private mode */ }
 }
 
-function Tag({ e, club }: { e: CalendarEvent; club: string }) {
-  if (e.global) return <span className="tag"><Icon name="spark" />All of London</span>;
+function Tag({ e, club, city }: { e: CalendarEvent; club: string; city: string }) {
+  if (e.global) return <span className="tag"><Icon name="spark" />Across the UK</span>;
   if (e.kind === "going") return <span className="tag"><Icon name="check" />Going</span>;
   if (e.kind === "done") return <span className="tag"><Icon name="check" />You ran it</span>;
   if (e.kind === "battle") return <span className="tag"><Icon name="trophy" />Battle</span>;
   if (e.scope === "club") return <span className="tag">{club}</span>;
-  if (e.scope === "london") return <span className="tag">Across London</span>;
+  if (e.scope === "city") return <span className="tag">{city ? `Across ${city}` : "Near you"}</span>;
   return null;
 }
 
-function EventButton({ e, club }: { e: CalendarEvent; club: string }) {
+function EventButton({ e, club, city }: { e: CalendarEvent; club: string; city: string }) {
   const toast = useToast();
   return (
     <button type="button" className={`cev s-${e.scope}${e.global ? " glob" : ""}`} onClick={() => toast(`${e.title} · ${e.time} · ${e.where}`)}>
-      <span className="tm tab">{e.time}</span><b>{e.title}</b><span className="wh">{e.where}</span><Tag e={e} club={club} />
+      <span className="tm tab">{e.time}</span><b>{e.title}</b><span className="wh">{e.where}</span><Tag e={e} club={club} city={city} />
     </button>
   );
 }
@@ -55,7 +55,7 @@ export default function Calendar({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     const s = read("calscope");
     const v = read("calview");
-    if (s === "mine" || s === "club" || s === "london") setScope(s);
+    if (s === "mine" || s === "club" || s === "city") setScope(s);
     if (v === "week" || v === "month") setView(v);
   }, []);
 
@@ -75,7 +75,7 @@ export default function Calendar({ loaderData }: Route.ComponentProps) {
         <div>
           <div className="kick">Calendar</div>
           <h1 className="disp" id="caltitle">Your <span className="b">{month ? "month" : "week"}</span></h1>
-          <p>Runs you're going to, your battles and challenges, and the big London moments, all in one place.</p>
+          <p>Runs you're going to, your battles and challenges, and the big moments in {cal.city || "your city"} and across the UK, all in one place.</p>
         </div>
         <div className="acts">
           <a className="btn btn-q" id="calsub" href={subscribe} onClick={() => toast("Subscribed. Your Outhere plans now show in your phone calendar.")}>
@@ -84,7 +84,7 @@ export default function Calendar({ loaderData }: Route.ComponentProps) {
         </div>
       </div>
       <div className="calbar">
-        <Seg id="calseg" options={[["mine", "Mine"], ["club", "My clubs"], ["london", "All of London"]] as const} value={scope} onChange={(s) => { setScope(s); save("calscope", s); }} />
+        <Seg id="calseg" options={[["mine", "Mine"], ["club", "My clubs"], ["city", cal.city ? `All of ${cal.city}` : "Near me"]] as const} value={scope} onChange={(s) => { setScope(s); save("calscope", s); }} />
         <Seg id="calview" options={[["week", "Week"], ["month", "Month"]] as const} value={view} onChange={(v) => { setView(v); save("calview", v); }} />
         <span className="muted tab" id="calc">{month ? `${events.length} things in ${cal.monthName}` : `${weekEvents.length} things this week`}</span>
         <span className="sp" />
@@ -102,7 +102,7 @@ export default function Calendar({ loaderData }: Route.ComponentProps) {
           return (
             <div key={date} className={`cday2${next ? " today" : ""}`}>
               <div className="cdh"><span>{DAYS[i]}</span><b className="tab">{date}</b>{next && <i>Next</i>}</div>
-              <div className="cdl">{ev.length ? ev.map((e) => <EventButton key={e.id} e={e} club={cal.clubName} />) : <span className="cfree">Free</span>}</div>
+              <div className="cdl">{ev.length ? ev.map((e) => <EventButton key={e.id} e={e} club={cal.clubName} city={cal.city} />) : <span className="cfree">Free</span>}</div>
             </div>
           );
         })}
@@ -147,7 +147,7 @@ export default function Calendar({ loaderData }: Route.ComponentProps) {
           <div className="mono dim">{sel === cal.today ? "Today" : sel === cal.today + 1 ? "Tomorrow" : wd}</div>
           <h3 className="mdh">{wd} {sel} {cal.monthName}</h3>
           <div className="cdl">
-            {selEvents.length ? selEvents.map((e) => <EventButton key={e.id} e={e} club={cal.clubName} />) : <p className="muted" style={{ fontSize: 13 }}>Nothing on. A good day for a walk.</p>}
+            {selEvents.length ? selEvents.map((e) => <EventButton key={e.id} e={e} club={cal.clubName} city={cal.city} />) : <p className="muted" style={{ fontSize: 13 }}>Nothing on. A good day for a walk.</p>}
           </div>
         </aside>
       </div>

@@ -17,8 +17,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const viewer = usingExampleData() ? null : await db.viewer().catch(() => null);
   const signIn: "example" | "in" | "out" = usingExampleData() ? "example" : viewer ? "in" : "out";
   // Back from the email link: carry on to picking a pace.
-  const resume = signIn === "in" && new URL(request.url).searchParams.get("signed") === "1";
-  return { club: page.club, run: page.runs[0] ?? null, signIn, resume, publicUrl: config().publicUrl, origin: new URL(request.url).origin };
+  const url = new URL(request.url);
+  const resume = signIn === "in" && url.searchParams.get("signed") === "1";
+  // ?c= is the poster or sticker code. Count the scan once, not again on the way back from signing in.
+  const code = /^[a-z0-9-]{2,24}$/i.test(url.searchParams.get("c") ?? "") ? url.searchParams.get("c")!.toLowerCase() : null;
+  if (code && !resume) await db.recordInviteScan(code).catch(() => undefined);
+  return { club: page.club, run: page.runs[0] ?? null, signIn, resume, code, publicUrl: config().publicUrl, origin: url.origin };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
@@ -26,7 +30,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   const { club: c, publicUrl, origin } = loaderData;
   return shareMeta({
     title: `Join ${c.name}`,
-    description: `${c.tagline} ${c.borough} · ${c.nextRun}. Free to join.`,
+    description: `${c.tagline} ${[c.borough, c.city].filter(Boolean).join(", ")} · ${c.nextRun}. Free to join.`,
     url: `${publicUrl}/join/${c.slug}`,
     image: absolute(c.cover, origin),
     imageAlt: `${c.name} out on a run`,
@@ -37,9 +41,11 @@ const PACES: [PaceGroup, string][] = [["Walk", "Walking group"], ["Easy", "7 min
 const DAYS: Record<string, string> = { MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday", FRI: "Friday", SAT: "Saturday", SUN: "Sunday" };
 
 export default function Join({ loaderData }: Route.ComponentProps) {
-  const { club: c, run, signIn, resume } = loaderData;
+  const { club: c, run, signIn, resume, code } = loaderData;
   const toast = useToast();
-  const { act, result } = useAct();
+  const { act, result } = useAct<{ joined: "joined" | "requested" }>();
+  // Clubs that say yes first answer with "requested"; until the answer comes back, show you're in.
+  const requested = result?.joined === "requested";
   const [step, setStep] = useState(resume ? 1 : 0);
   const [pace, setPace] = useState<PaceGroup>("Steady");
   const [come, setCome] = useState(true);
@@ -102,7 +108,7 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                     ) : signIn === "in" ? (
                       <button type="button" className="btn btn-w" onClick={() => setStep(1)}>Continue</button>
                     ) : (
-                      <Link className="btn btn-w" to={`/signin?next=${encodeURIComponent(`/join/${c.slug}?signed=1`)}`}>Continue with email</Link>
+                      <Link className="btn btn-w" to={`/signin?next=${encodeURIComponent(`/join/${c.slug}?signed=1${code ? `&c=${code}` : ""}`)}`}>Continue with email</Link>
                     )}
                   </div>
                 </div>
@@ -131,7 +137,7 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                     className="btn btn-p btn-l"
                     style={{ marginTop: "auto" }}
                     onClick={() => {
-                      act({ intent: "club-join", slug: c.slug, pace, runId: come && run ? run.id : null });
+                      act({ intent: "club-join", slug: c.slug, pace, runId: come && run ? run.id : null, ...(code ? { code } : {}) });
                       setStep(2);
                     }}
                   >
@@ -145,14 +151,16 @@ export default function Join({ loaderData }: Route.ComponentProps) {
                 {steps}
                 <div className="jbody" style={{ marginTop: 20, textAlign: "center", alignItems: "center" }}>
                   <img className="obj" src="/_app/img/verified.jpg" alt="" style={{ width: 190, marginTop: 6 }} />
-                  <h2 className="disp" style={{ fontSize: 64, marginTop: 4 }}>You're <span className="b">in</span></h2>
+                  <h2 className="disp" style={{ fontSize: 64, marginTop: 4 }}>{requested ? <>Request <span className="b">sent</span></> : <>You're <span className="b">in</span></>}</h2>
                   <p style={{ fontSize: 15, color: "var(--ink-soft)", marginTop: 10 }}>
-                    {run && come
+                    {requested
+                      ? `${c.name} says yes to each new member first. We'll tell you as soon as the captain does. You asked for the ${pace.toLowerCase()} group.`
+                      : run && come
                       ? `See you ${day} at ${run.time} ${run.place}. Look for the blue flag. You're in the ${pace.toLowerCase()} group.`
                       : `You're in the ${pace.toLowerCase()} group. Pick a run on the club page whenever you're ready.`}
                   </p>
                   <div style={{ display: "grid", gap: 8, width: "100%", marginTop: "auto" }}>
-                    {run && come && <button type="button" className="btn btn-q" onClick={() => toast("Added to your calendar")}><Icon name="cal" />Add to calendar</button>}
+                    {run && come && !requested && <button type="button" className="btn btn-q" onClick={() => toast("Added to your calendar")}><Icon name="cal" />Add to calendar</button>}
                     <button type="button" className="btn btn-p btn-l" onClick={() => toast("Opens the App Store or Google Play")}>Get the app to count your steps</button>
                     <button type="button" className="btn btn-s" style={{ color: "var(--ink-muted)" }} onClick={() => setStep(0)}>Start again</button>
                   </div>

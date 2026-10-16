@@ -1,12 +1,12 @@
 import { Link, useNavigation, useSearchParams } from "react-router";
-import { formatNumber, type Club, type ClubFilter, type ClubSort } from "@outhere/core";
-import { BoroughMap, Icon, Seg, Tick, useToast } from "@outhere/ui";
+import { formatNumber, type BoroughStat, type City, type Club, type ClubFilter, type ClubSort } from "@outhere/core";
+import { BoroughMap, CityPicker, Icon, Seg, Tick, useToast } from "@outhere/ui";
 import { getData } from "~/data.server";
 import type { Route } from "./+types/clubs";
 
 export const meta: Route.MetaFunction = () => [
   { title: "Find clubs · Outhere" },
-  { name: "description", content: "Every verified run and walk club in London, by borough. Turn up as a guest and join when it feels right." },
+  { name: "description", content: "Every verified run and walk club in the UK, by city. Turn up as a guest and join when it feels right." },
 ];
 
 const FILTERS: ClubFilter[] = ["morn", "eve", "night", "wkd", "beg", "walk", "women"];
@@ -20,8 +20,39 @@ export async function loader({ request }: Route.LoaderArgs) {
   const sortParam = url.searchParams.get("s");
   const sort: ClubSort = (SORTS as string[]).includes(sortParam ?? "") ? (sortParam as ClubSort) : "closest";
   const db = await getData(request);
-  const [list, all, map, viewer] = await Promise.all([db.clubs({ q, borough, filters, sort }), db.clubs(), db.boroughs("clubs"), db.viewer()]);
-  return { list, total: all.length, inLondon: map.reduce((n, b) => n + b.value, 0), map, home: viewer.borough, q, borough, filters, sort };
+  const [viewer, cities] = await Promise.all([db.viewer(), db.cities()]);
+  // ?c=uk shows clubs anywhere; no c means the viewer's own city.
+  const c = url.searchParams.get("c");
+  const city = c === "uk" ? null : (cities.find((x) => x.id === (c ?? viewer.cityId)) ?? null);
+  const cityId = city?.id ?? null;
+  const [list, all, map] = await Promise.all([
+    db.clubs({ city: cityId, q, borough, filters, sort }),
+    db.clubs({ city: cityId }),
+    city ? db.boroughs("clubs", city.id) : Promise.resolve([] as BoroughStat[]),
+  ]);
+  return {
+    list, total: all.length, map, cities, city, q, borough, filters, sort,
+    home: { cityId: viewer.cityId, borough: viewer.borough },
+    ukClubs: cities.reduce((n, x) => n + x.clubs, 0),
+  };
+}
+
+/** Areas of a city without a tile map, or cities when looking at the whole UK. */
+function PlaceList({ items, picked, onPick }: { items: { key: string; name: string; n: number }[]; picked: string | null; onPick: (key: string | null) => void }) {
+  return (
+    <div className="arealist">
+      {items.map((x) => (
+        <button key={x.key} type="button" aria-pressed={x.key === picked} onClick={() => onPick(x.key === picked ? null : x.key)}>
+          <b>{x.name}</b><span>{x.n}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function placesCard(city: City | null) {
+  if (!city) return { title: "Clubs by city", hint: "Pick a city" };
+  return { title: `Clubs by ${city.areaWord}`, hint: city.hasMap ? `Tap a ${city.areaWord}` : `Pick an ${city.areaWord}` };
 }
 
 function ClubCard({ c }: { c: Club }) {
@@ -34,7 +65,7 @@ function ClubCard({ c }: { c: Club }) {
       <div className="bd">
         <img className="cr" src={c.crest} alt="" />
         <h3>{c.name}{c.verified && <Tick />}</h3>
-        <div className="meta">{c.borough} · {formatNumber(c.members)} members</div>
+        <div className="meta">{[c.borough, c.city].filter(Boolean).join(", ")} · {formatNumber(c.members)} members</div>
         <div className="nx"><Icon name="clock" />{c.nextRun}</div>
         <div className="tg">{c.tags.map((t) => <span key={t}>{t}</span>)}</div>
       </div>
@@ -47,7 +78,7 @@ function FilterChip({ k, on, toggle, children }: { k: ClubFilter; on: boolean; t
 }
 
 export default function Clubs({ loaderData }: Route.ComponentProps) {
-  const { list, total, inLondon, map, home, q, borough, filters, sort } = loaderData;
+  const { list, total, map, cities, city, q, borough, filters, sort, home, ukClubs } = loaderData;
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const busy = useNavigation().state === "loading";
@@ -58,6 +89,14 @@ export default function Clubs({ loaderData }: Route.ComponentProps) {
     setParams(next, { replace: true, preventScrollReset: true });
   }
   const setBorough = (b: string | null) => update((p) => (b ? p.set("b", b) : p.delete("b")));
+  const setCity = (id: string) =>
+    update((p) => {
+      p.delete("b");
+      if (id === home.cityId) p.delete("c");
+      else p.set("c", id);
+    });
+  const card = placesCard(city);
+  const homeCity = cities.find((x) => x.id === home.cityId);
   const toggle = (k: ClubFilter) =>
     update((p) => {
       const cur = p.getAll("f");
@@ -69,7 +108,7 @@ export default function Clubs({ loaderData }: Route.ComponentProps) {
   const heading = borough ? (
     <>{borough} <span className="b">· {list.length}</span></>
   ) : list.length === total ? (
-    <>All <span className="b">clubs</span></>
+    <>{city ? <>{city.name} </> : <>All </>}<span className="b">clubs</span></>
   ) : (
     <>{list.length} <span className="b">clubs</span></>
   );
@@ -78,19 +117,26 @@ export default function Clubs({ loaderData }: Route.ComponentProps) {
     <>
       <section className="slab" style={{ minHeight: 360 }}>
         <img className="bg" src="/_app/img/clubfind.jpg" alt="A run club heading into the mist at dawn" />
-        <span className="kick">{inLondon} clubs across 32 boroughs</span>
+        <span className="kick">{city ? `${formatNumber(city.clubs)} clubs in ${city.name}` : `${formatNumber(ukClubs)} clubs across the UK`}</span>
         <h1 className="disp" style={{ fontSize: "clamp(56px,8vw,118px)", marginTop: 12 }}>Find your<br /><span className="b">people</span></h1>
-        <p style={{ color: "#dfe5ee", maxWidth: "46ch", marginTop: 12 }}>Every verified club in London has its own page. Find one near you, turn up as a guest, and join when it feels right.</p>
-        <form className="search" style={{ maxWidth: 620, marginTop: 20 }} onSubmit={(e) => e.preventDefault()} role="search">
+        <p style={{ color: "#dfe5ee", maxWidth: "46ch", marginTop: 12 }}>Every verified club in the UK has its own page. Find one near you, turn up as a guest, and join when it feels right.</p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 20 }}>
+          <CityPicker id="cpick" cities={cities} value={city?.id ?? "uk"} onChange={(id) => (id === "uk" ? update((p) => { p.delete("b"); p.set("c", "uk"); }) : setCity(id))} allUk />
+        </div>
+        <form className="search" style={{ maxWidth: 620, marginTop: 12 }} onSubmit={(e) => e.preventDefault()} role="search">
           <Icon name="search" />
-          <input id="q" placeholder="Search a club, a borough or a park" aria-label="Search clubs" defaultValue={q} onChange={(e) => update((p) => (e.target.value ? p.set("q", e.target.value) : p.delete("q")))} />
+          <input id="q" placeholder={city ? `Search a club, ${city.areaWord === "area" ? "an area" : "a borough"} or a park` : "Search a club, a city or a park"} aria-label="Search clubs" defaultValue={q} onChange={(e) => update((p) => (e.target.value ? p.set("q", e.target.value) : p.delete("q")))} />
           <button
             type="button"
             className="btn btn-p"
             id="nearme"
             onClick={() => {
-              setBorough(home);
-              toast(`Showing clubs in ${home}`);
+              update((p) => {
+                p.delete("c");
+                if (home.borough) p.set("b", home.borough);
+                else p.delete("b");
+              });
+              toast(`Showing clubs in ${home.borough || homeCity?.name || "your city"}`);
             }}
           >
             <Icon name="pin" />Near me
@@ -99,9 +145,21 @@ export default function Clubs({ loaderData }: Route.ComponentProps) {
       </section>
       <div className="g g-37 mt">
         <div className="card">
-          <div className="hd"><h3>Clubs by borough</h3><span className="muted" style={{ fontSize: 12 }}>Tap a borough</span></div>
-          <BoroughMap id="cmap" stats={map} metric="clubs" home={home} picked={borough} onPick={setBorough} />
-          <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>Brighter means more clubs. Quiet boroughs are where founding clubs make the most noise.</p>
+          <div className="hd"><h3>{card.title}</h3><span className="muted" style={{ fontSize: 12 }}>{card.hint}</span></div>
+          {city?.hasMap ? (
+            <>
+              <BoroughMap id="cmap" stats={map} metric="clubs" home={city.id === home.cityId ? home.borough : undefined} picked={borough} onPick={setBorough} />
+              <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>Brighter means more clubs. Quiet {city.areaWord}s are where founding clubs make the most noise.</p>
+            </>
+          ) : city ? (
+            map.length ? (
+              <PlaceList items={[...map].sort((a, b) => b.value - a.value).map((b) => ({ key: b.name, name: b.name, n: b.value }))} picked={borough} onPick={setBorough} />
+            ) : (
+              <p className="muted" style={{ fontSize: 13 }}>No clubs in {city.name} yet. Start a founding club and it'll be the first.</p>
+            )
+          ) : (
+            <PlaceList items={cities.filter((x) => x.clubs > 0).map((x) => ({ key: x.id, name: x.name, n: x.clubs }))} picked={null} onPick={(id) => id && setCity(id)} />
+          )}
         </div>
         <div className="card">
           <div className="hd">

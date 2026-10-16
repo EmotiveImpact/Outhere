@@ -15,7 +15,7 @@ export function profileMeta(profile: PublicProfile, publicUrl: string, origin: s
   const p = profile.person;
   return shareMeta({
     title: `${p.name} · Outhere`,
-    description: `${p.name} walks and runs for ${profile.borough}${profile.club ? ` with ${profile.club.name}` : ""} on Outhere.`,
+    description: `${p.name} walks and runs for ${[profile.borough, profile.city].filter(Boolean).join(", ")}${profile.club ? ` with ${profile.club.name}` : ""} on Outhere.`,
     url,
     image: absolute(p.photo, origin),
     imageAlt: `${p.name.split(" ")[0]} in running kit`,
@@ -60,7 +60,7 @@ export function PublicProfilePage({ profile, publicUrl, signedIn }: { profile: P
             </div>
             <h1 className="disp">{first}<br /><span className="b">{rest.join(" ")}</span></h1>
             <p className="tl">
-              {profile.borough}
+              {[profile.borough, profile.city].filter(Boolean).join(", ")}
               {profile.club && <> · {profile.club.role}, <Link to={`/${profile.club.slug}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{profile.club.name}</Link></>}
               {" "}· level {profile.level} · {profile.streakDays} day streak
             </p>
@@ -89,7 +89,7 @@ export function PublicProfilePage({ profile, publicUrl, signedIn }: { profile: P
             <p className="muted" style={{ fontSize: 13 }}>No badges yet.</p>
           )}
         </div>
-        <PublicFooter>{short} · Walking and running for {profile.borough}</PublicFooter>
+        <PublicFooter>{short} · Walking and running for {profile.borough || profile.city}</PublicFooter>
       </div>
     </div>
   );

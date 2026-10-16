@@ -52,7 +52,7 @@ export default function Hq({ loaderData }: Route.ComponentProps) {
               <h3>Run turnout, last {hq.turnout.length} weeks</h3>
               <p className="muted" style={{ fontSize: 12.5 }}>Share of active members who came to at least one club run</p>
             </div>
-            <span className="pill blue">Best in {club.borough}</span>
+            <span className="pill blue">Best in {club.borough || club.city}</span>
           </div>
           <Bars values={hq.turnout} h={210} labels={hq.turnoutLabels} hi={hq.turnout.length - 1} max={80} fmtY={(v) => `${Math.round(v)}%`} label={`Run turnout each week for the last ${hq.turnout.length} weeks`} />
         </div>

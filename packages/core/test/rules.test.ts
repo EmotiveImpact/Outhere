@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  battleLengths, canPostStory, clubShare, countdown, countedSteps, isValidClubSlug, ordinal, priceSplit, ringClass, rolesFor, storyRing,
+  battleLengths, canPostStory, clubShare, countdown, countedSteps, isValidClubSlug, ordinal, suggestClubSlug, priceSplit, ringClass, rolesFor, storyRing,
 } from "../src/rules";
 import { seed } from "../src/mock";
 
@@ -56,8 +56,21 @@ describe("club slugs", () => {
     expect(isValidClubSlug("peckhampacers")).toBe(true);
     expect(isValidClubSlug("Peckham Pacers")).toBe(false);
   });
-  it("gives every seed club a valid slug", () => {
+  it("holds back future pages, nations, regions and cities", () => {
+    for (const s of ["shop", "events", "scotland", "northwest", "manchester", "york", "london"]) expect(isValidClubSlug(s)).toBe(false);
+  });
+  it("gives every seed club a valid slug, and no two the same", () => {
     for (const c of seed.CLUBS) expect(isValidClubSlug(c.slug)).toBe(true);
+    expect(new Set(seed.CLUBS.map((c) => c.slug)).size).toBe(seed.CLUBS.length);
+  });
+  it("puts the city on the end when two clubs share a name", () => {
+    const taken = new Set(["parksiderunners"]);
+    expect(suggestClubSlug("Parkside Runners", "Bristol", () => false)).toBe("parksiderunners");
+    expect(suggestClubSlug("Parkside Runners", "Leeds", (s) => taken.has(s))).toBe("parksiderunnersleeds");
+    taken.add("parksiderunnersleeds");
+    expect(suggestClubSlug("Parkside Runners", "Leeds", (s) => taken.has(s))).toBe("parksiderunnersleeds2");
+    expect(suggestClubSlug("Manchester", "Manchester", () => false)).toBe("manchestermanchester");
+    expect(suggestClubSlug("Shop", "York", () => false)).toBe("shopyork");
   });
 });
 

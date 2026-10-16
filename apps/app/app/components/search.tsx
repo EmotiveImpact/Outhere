@@ -17,7 +17,7 @@ export const PAGES: SearchItem[] = [
   { group: "Go to", name: "Membership", sub: "Outhere", href: "/membership", icon: "spark" },
 ];
 
-/** Cmd K search across clubs, people, boroughs and pages, driven by the keyboard. */
+/** Cmd K search across clubs, people, cities, boroughs and pages, driven by the keyboard. */
 export function SearchOverlay({ items, onClose }: { items: SearchItem[]; onClose: () => void }) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -59,7 +59,7 @@ export function SearchOverlay({ items, onClose }: { items: SearchItem[]; onClose
           <input
             ref={input}
             id="srq"
-            placeholder="Search clubs, people, boroughs and pages"
+            placeholder="Search clubs, people, cities and pages"
             aria-label="Search"
             autoComplete="off"
             value={q}
@@ -96,7 +96,7 @@ export function SearchOverlay({ items, onClose }: { items: SearchItem[]; onClose
               );
             })
           ) : (
-            <p className="muted sr-no">Nothing for "{q}". Try a borough or a park.</p>
+            <p className="muted sr-no">Nothing for "{q}". Try a city, an area or a park.</p>
           )}
         </div>
       </div>

@@ -6,3 +6,4 @@ export {
   useLiveScore,
   ExampleDataProvider, useNow, useReducedMotion, useToast,
 } from "./widgets";
+export { CityPicker } from "./city-picker";

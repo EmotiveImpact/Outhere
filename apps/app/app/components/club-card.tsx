@@ -13,7 +13,7 @@ export function ClubCard({ club }: { club: Club }) {
       <div className="bd">
         <img className="cr" src={club.crest} alt="" />
         <h3>{club.name}{club.verified && <Tick />}</h3>
-        <div className="meta">{club.borough} · {formatNumber(club.members)} members</div>
+        <div className="meta">{[club.borough, club.city].filter(Boolean).join(", ")} · {formatNumber(club.members)} members</div>
         <div className="nx"><Icon name="clock" />{club.nextRun}</div>
         <div className="tg">{club.tags.map((t) => <span key={t}>{t}</span>)}</div>
       </div>

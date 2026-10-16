@@ -1,0 +1,52 @@
+name: Website
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/core/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "eslint.config.mjs"
+      - ".npmrc"
+      - ".github/workflows/web.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/core/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "eslint.config.mjs"
+      - ".npmrc"
+      - ".github/workflows/web.yml"
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, test, lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Typecheck, test, lint and build the website and the packages it uses.
+      - run: pnpm turbo run typecheck test lint build --filter "@outhere/web..."
+      - name: Check every page was written
+        working-directory: apps/web
+        run: |
+          test -f dist/index.html && test -f dist/crews/index.html && test -f dist/black/index.html
+          test -f dist/privacy/index.html && test -f dist/404.html && test -f dist/sitemap.xml
+          test "$(ls dist/boroughs | grep -v index.html | wc -l)" -eq 32
+          grep -q 'Every step' dist/index.html
