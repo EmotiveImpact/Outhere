@@ -34,9 +34,12 @@ loser. YOU WIN! slams in with a sunburst and confetti, or YOU LOSE drops in
 letter by letter. Then it clears, and WINNER, LOSER and the prize land on
 the two sides. A knockout puts K.O. and the broken glass first.
 
-Cue events for sounds and haptics, in the order they fire: impact,
-knockout, shatter, youWin, confetti, youLose, thud (each YOU LOSE letter
-landing), winner, loser, prize.
+The card opens with the strike: speed lines race along the seam while the two
+halves scissor in, the seam flares and throws sparks, then VS slams.
+
+Cue events for sounds and haptics, in the order they fire: strike and slam
+in the intro; then impact, knockout, shatter, youWin, confetti, youLose, thud
+(each YOU LOSE letter landing), winner, loser, prize.
 
 Run `python3 build.py`, then `rive . --verify && rive inspect . --summary`.
 Times are frames at 60fps.
@@ -196,7 +199,7 @@ def bind_text(name):
 # ---------------------------------------------------------------- events
 # Cues for the app's sounds and haptics; none of them changes the scene.
 
-EVENTS = {name: nid() for name in ("addPack", "impact", "knockout", "shatter", "youWin", "confetti",
+EVENTS = {name: nid() for name in ("addPack", "strike", "slam", "impact", "knockout", "shatter", "youWin", "confetti",
                                    "youLose", "thud", "winner", "loser", "prize")}
 
 # ---------------------------------------------------------------- drawing helpers
@@ -370,6 +373,7 @@ def wash_colour(who, x, y):
 # screen, theirs to the bottom, and they overlap behind the seam.
 # Each runner is centred in the open part of their side, away from the seam.
 PHOTO_BOX = {"you": (-78, 0, 372, 664), "them": (100, 180, 372, 664)}
+REACH = 260   # how far each side's wash runs past its outer edge
 # Where each photo melts into the wash (position down the box, opacity of the
 # wash on top). Yours fades out a long way at the bottom; theirs only softens its top edge, so their head shows.
 PHOTO_FADE = {
@@ -388,10 +392,12 @@ def side(who):
     you = who == "you"
     group, clip, content, photo, style, dim, shot = nid(), nid(), nid(), nid(), nid(), nid(), nid()
     v = [nid(), nid()]   # the two vertices on the seam, animated for win and lose
+    # Each side reaches REACH past its outer screen edge, so the strike intro,
+    # which slides the sides along the seam, never opens a gap at the edges.
     if you:
-        pts, vids = [(0, 0), (TOP, 0), (BOT, H), (0, H)], [None, v[0], v[1], None]
+        pts, vids = [(-REACH, 0), (TOP, 0), (BOT, H), (-REACH, H)], [None, v[0], v[1], None]
     else:
-        pts, vids = [(TOP, 0), (W, 0), (W, H), (BOT, H)], [v[0], None, None, v[1]]
+        pts, vids = [(TOP, 0), (W + REACH, 0), (W + REACH, H), (BOT, H)], [v[0], None, None, v[1]]
     (sx, sy), (ex, ey), c0, c1 = WASH[who]
     grad = (f'<LinearGradient startX="{sx}" startY="{sy}" endX="{ex}" endY="{ey}" name="Wash">'
             f'<GradientStop colorValue="FF{c0}" position="0"/><GradientStop colorValue="FF{c1}" position="1"/></LinearGradient>')
@@ -406,7 +412,7 @@ def side(who):
             <Node name="{"You" if you else "Them"} Content" id="{content}">
                 <ClippingShape sourceId="{clip}" name="Clip"/>
                 <Shape name="Wash">
-                    <Rectangle width="{W}" height="{H}" originX="0" originY="0" name="Path"/>
+                    <Rectangle width="{W + REACH}" height="{H}" x="{-REACH if you else 0}" originX="0" originY="0" name="Path"/>
                     <Fill name="Fill">{grad}</Fill>
                 </Shape>
             </Node>
@@ -480,6 +486,97 @@ vs_xml = f'''
             {ring(RING, 120, (3, WHITE), "82B4FF", name="Shock Ring")}
             {flash(FLASH, 340, "82B4FF")}
         </Node>'''
+
+
+# ---------------------------------------------------------------- the strike intro
+# Speed lines race along the seam, blue down your side and red up theirs,
+# while the two halves scissor in from opposite ends. The seam ignites in a
+# flare that throws sparks, the screen flashes and VS slams. All of it lives
+# in a node turned to the seam: local y runs down the seam, local x toward them.
+
+SEAM_LEN = math.hypot(TOP - BOT, H)
+DOWN = ((BOT - TOP) / SEAM_LEN, H / SEAM_LEN)   # down the seam, in screen space
+VS_ON_SEAM = MID[1] - H / 2                     # where VS sits along the seam
+STRIKE = dict(node=nid(), flare=nid(), a=nid(), b=nid(), lines=[], sparks=[])
+SCREEN_FLASH = nid()
+
+
+def strike_parts():
+    rnd = random.Random(4)
+    xml = ""
+    for i in range(14):   # speed lines: (id, x, length, start frame, frames, from y, to y)
+        down = i % 2 == 0
+        x, ln, w = (-1 if down else 1) * rnd.uniform(14, 200), rnd.uniform(110, 260), rnd.choice((2, 2, 3, 4))
+        f0, n = round(0.06 * (60 + rnd.uniform(0, 250))), round(0.06 * rnd.uniform(200, 300))
+        y0, y1 = (-470, 470 + ln) if down else (470, -470 - ln)
+        oid = nid()
+        STRIKE["lines"].append((oid, f0, n, y0, y1))
+        rgb = "C8DEFF" if down else "FFC8CD"
+        a, b = (f"00{rgb}", f"F2{rgb}") if down else (f"F2{rgb}", f"00{rgb}")
+        xml += f'''
+            <Shape x="{x:.1f}" opacity="0" name="Speed Line" id="{oid}">
+                <Rectangle width="{w}" height="{ln:.0f}" originX="0.5" originY="{1 if down else 0}" cornerRadiusTL="{w / 2}" name="Path"/>
+                <Fill name="Fill"><LinearGradient startX="0" startY="{-ln if down else 0:.0f}" endX="0" endY="{0 if down else ln:.0f}" name="G">
+                    <GradientStop colorValue="{a}" position="0"/><GradientStop colorValue="{b}" position="1"/></LinearGradient></Fill>
+            </Shape>'''
+    for i in range(22):   # sparks thrown off the seam, mostly around VS: (id, start frame, frames, distance)
+        y = max(-380, min(380, rnd.gauss(VS_ON_SEAM, 130)))
+        right = rnd.random() < 0.5
+        ang = math.radians((0 if right else 180) + rnd.uniform(-38, 38))
+        ln, th, d = rnd.uniform(12, 34), rnd.choice((2, 2, 3)), rnd.uniform(50, 170)
+        f0, n = 28 + rnd.randint(0, 3), round(0.06 * rnd.uniform(240, 440))
+        oid = nid()
+        STRIKE["sparks"].append((oid, f0, n, d))
+        xml += f'''
+            <Node y="{y:.0f}" rotation="{ang:.4f}" name="Spark">
+                <Shape opacity="0" name="Streak" id="{oid}">
+                    <Rectangle width="{ln:.0f}" height="{th}" originX="0" originY="0.5" cornerRadiusTL="{th / 2}" name="Path"/>
+                    <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="{ln:.0f}" endY="0" name="G">
+                        <GradientStop colorValue="00FFFFFF" position="0"/><GradientStop colorValue="{WHITE}" position="1"/></LinearGradient></Fill>
+                </Shape>
+            </Node>'''
+
+    def streak(oid, down, halo):
+        o, (a, b) = (1, ("00FFFFFF", WHITE)) if down else (0, (WHITE, "00FFFFFF"))
+        g0, g1 = (-300, 0) if down else (0, 300)
+        return f'''
+            <Node opacity="0" name="Streak {"Down" if down else "Up"}" id="{oid}">
+                <Shape name="Core">
+                    <Rectangle width="5" height="300" originX="0.5" originY="{o}" cornerRadiusTL="2.5" name="Path"/>
+                    <Fill name="Fill"><LinearGradient startX="0" startY="{g0}" endX="0" endY="{g1}" name="G">
+                        <GradientStop colorValue="{a}" position="0"/><GradientStop colorValue="{b}" position="1"/></LinearGradient></Fill>
+                </Shape>
+                <Shape name="Halo">
+                    <Rectangle width="18" height="300" originX="0.5" originY="{o}" cornerRadiusTL="9" name="Path"/>
+                    <Fill name="Fill"><LinearGradient startX="0" startY="{g0}" endX="0" endY="{g1}" name="G">
+                        <GradientStop colorValue="00{halo}" position="{0 if down else 1}"/><GradientStop colorValue="66{halo}" position="{1 if down else 0}"/></LinearGradient></Fill>
+                </Shape>
+            </Node>'''
+    flare = f'''
+            <Shape y="{VS_ON_SEAM:.1f}" opacity="0" scaleY="3.25" name="Flare" id="{STRIKE["flare"]}">
+                <Ellipse width="320" height="320" originX="0.5" originY="0.5" name="Path"/>
+                <Fill name="Fill"><RadialGradient startX="0" startY="0" endX="160" endY="0" name="G">
+                    <GradientStop colorValue="F2FFFFFF" position="0"/><GradientStop colorValue="99CDE1FF" position="0.2"/>
+                    <GradientStop colorValue="3382B4FF" position="0.55"/><GradientStop colorValue="0082B4FF" position="1"/>
+                </RadialGradient></Fill>
+            </Shape>'''
+    return f'''
+        <Node x="{(TOP + BOT) / 2:.2f}" y="{H / 2}" rotation="{SEAM_ANGLE:.5f}" name="Strike" id="{STRIKE["node"]}">{xml}
+            {streak(STRIKE["a"], True, "82B4FF")}
+            {streak(STRIKE["b"], False, "FF6670")}
+            {flare}
+        </Node>'''
+
+
+strike_xml = strike_parts()
+screen_flash_xml = f'''
+        <Shape x="{MID[0]:.2f}" y="{MID[1]}" opacity="0" name="Screen Flash" id="{SCREEN_FLASH}">
+            <Ellipse width="1040" height="1040" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><RadialGradient startX="0" startY="0" endX="520" endY="0" name="G">
+                <GradientStop colorValue="FFFFFFFF" position="0"/><GradientStop colorValue="D9FFFFFF" position="0.22"/>
+                <GradientStop colorValue="59FFFFFF" position="0.6"/><GradientStop colorValue="1FFFFFFF" position="1"/>
+            </RadialGradient></Fill>
+        </Shape>'''
 
 
 # ---------------------------------------------------------------- WINNER, LOSER and the prize
@@ -1075,6 +1172,63 @@ def slam_in():
     return t.xml()
 
 
+def strike_in():
+    """The opening: speed lines and a scissor along the seam, a flare with sparks, then VS slams."""
+    t = Timeline("Strike In", 104)
+    dx, dy = DOWN[0] * 900, DOWN[1] * 900   # each side starts fully off screen along the seam
+    shake_x, shake_y = shake_points([(28, 1.1, 1.1)], 0), shake_points([(28, 1.1, 1.1)], 1)
+    for side_, sign in ((YOU, -1), (THEM, 1)):
+        t.tween(side_["group"], X, sign * dx, 0, 12, 28, EASE_SIDE)
+        t.tween(side_["group"], Y, sign * dy, 0, 12, 28, EASE_SIDE)
+        # a layout box's x and y are offsets from where layout puts it; it shakes with the rest
+        t.path(side_["photo"], X, [(12, sign * dx, EASE_SIDE)] + shake_x)
+        t.path(side_["photo"], Y, [(12, sign * dy, EASE_SIDE)] + shake_y)
+    for oid in (SHAKE_FRONT, SHAKE_BACK):
+        t.path(oid, X, shake_x)
+        t.path(oid, Y, shake_y)
+    for oid, f0, n, y0, y1 in STRIKE["lines"]:
+        t.path(oid, Y, [(f0, y0, "linear"), (f0 + n, y1, None)])
+        t.path(oid, OPACITY, [(0, 0, None), (f0, 1, None), (f0 + n, 0, None)])
+    for oid, y0, y1 in ((STRIKE["a"], -440, -20), (STRIKE["b"], 440, -48)):
+        t.path(oid, Y, [(4, y0, "linear"), (20, VS_ON_SEAM, OUT_EASE), (29, y1, None)])
+        t.path(oid, OPACITY, [(0, 0, None), (4, 1, None), (20, 1, OUT_EASE), (29, 0, None)])
+    t.path(SEAM, OPACITY, [(0, 0, None), (27, 0, OUT_EASE), (34, 0.85, None)])
+    t.path(SEAM, SY, [(0, 0, None), (27, 0, OUT_EASE), (34, 1, None)])
+    t.path(SEAM_GLOW, SX, [(27, 1, OUT_EASE), (31, 3.2, OUT_EASE), (66, 1, None)])
+    t.path(STRIKE["flare"], OPACITY, [(0, 0, None), (28, 1, None), (34, 1, OUT_EASE), (59, 0, None)])
+    t.path(STRIKE["flare"], SX, [(0, 0.15, None), (28, 0.5, SHOCK), (34, 1, OUT_EASE), (59, 1.5, None)])
+    t.path(SCREEN_FLASH, OPACITY, [(0, 0, None), (28, 0.6, OUT_EASE), (41, 0, None)])
+    for oid, f0, n, d in STRIKE["sparks"]:
+        t.path(oid, X, [(f0, 4, SHOCK), (f0 + n, d, None)])
+        t.path(oid, SX, [(f0, 1, SHOCK), (f0 + n, 0.35, None)])
+        t.path(oid, OPACITY, [(0, 0, None), (f0, 1, "linear"), (f0 + n, 0, None)])
+    t.fire(EVENTS["strike"], 28)
+    t.path(PILL_HOLD, OPACITY, [(0, 0, None), (84, 0, OUT_EASE), (100, 1, None)])   # the pack pill waits for the card
+    # VS slams as in the classic intro, a beat after the strike
+    v = 36
+    t.fire(EVENTS["slam"], v)
+    t.path(FLASH, OPACITY, [(0, 0, None), (v, 1, OUT_EASE), (v + 42, 0, None)])
+    t.tween(FLASH, SX, 0.2, 1.4, v, v + 42, OUT_EASE)
+    t.tween(FLASH, SY, 0.2, 1.4, v, v + 42, OUT_EASE)
+    t.path(RING, OPACITY, [(0, 0, None), (v, 1, OUT_EASE), (v + 54, 0, None)])
+    t.tween(RING, SX, 0.3, 2.6, v, v + 54, SHOCK)
+    t.tween(RING, SY, 0.3, 2.6, v, v + 54, SHOCK)
+    t.tween(VSTEXT, SX, 2.4, 1, v, v + 48, SLAM)
+    t.tween(VSTEXT, SY, 2.4, 1, v, v + 48, SLAM)
+    t.tween(VSTEXT, OPACITY, 0, 1, v, v + 17, OUT_EASE)
+    t.tween(VSGLOW, OPACITY, 0, 0.8, v + 8, v + 50, OUT_EASE)
+    t.tween(YOU_NAME, X, -22, 18, 46, 82, EASE_SIDE)
+    t.tween(YOU_NAME, OPACITY, 0, 1, 46, 82, OUT_EASE)
+    t.tween(THEM_NAME, X, W + 22, W - 18, 55, 91, EASE_SIDE)
+    t.tween(THEM_NAME, OPACITY, 0, 1, 55, 91, OUT_EASE)
+    t.tween(TOPBAR, OPACITY, 0, 1, 48, 78, OUT_EASE)
+    for i in range(3):
+        t.tween(TILES[i], Y, TILE_Y + 52, TILE_Y + 32, 50 + 4 * i, 80 + 4 * i, EASE_SIDE)
+        t.tween(TILES[i], OPACITY, 0, 1, 50 + 4 * i, 80 + 4 * i, OUT_EASE)
+    t.rest()
+    return t.xml()
+
+
 def idle():
     t = Timeline("Idle", 240, "loop")
     t.path(VSGLOW, OPACITY, [(0, 0.8, INOUT), (120, 1, INOUT), (240, 0.8, None)])
@@ -1391,7 +1545,7 @@ def prompt(name, a, b, duration):
 
 
 animations = [
-    slam_in(), idle(),
+    slam_in(), strike_in(), idle(),
     result("Win", True, False), result("Lose", False, False),
     result("KO Win", True, True), result("KO Lose", False, True),
     glow_loop("Win Glow", YOU_HIT), glow_loop("Lose Glow", THEM_HIT),
@@ -1447,21 +1601,21 @@ def after(to):
     return f'<StateTransition stateToId="{to}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>'
 
 
-(S_SLAM, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF, S_WIN_GLOW, S_LOSE_GLOW, S_KO_WIN, S_KO_LOSE,
+(S_STRIKE, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF, S_WIN_GLOW, S_LOSE_GLOW, S_KO_WIN, S_KO_LOSE,
  S_C_OFF, S_C_WAIT, S_C_WAIT_KO, S_C_BURST) = (nid() for _ in range(14))
 machine = f'''
         <StateMachine name="Versus" id="0:7">
             <StateMachineLayer name="Main" id="{nid()}">
                 <AnyState x="0" y="-160">
-                    {on_trigger("replay", S_SLAM)}
+                    {on_trigger("replay", S_STRIKE)}
                     {on_trigger_if("win", "ko", "true", S_KO_WIN)}
                     {on_trigger_if("lose", "ko", "true", S_KO_LOSE)}
                     {on_trigger_if("win", "ko", "false", S_WIN)}
                     {on_trigger_if("lose", "ko", "false", S_LOSE)}
                 </AnyState>
                 <ExitState x="600" y="-160"/>
-                <EntryState x="0" y="0"><StateTransition stateToId="{S_SLAM}"/></EntryState>
-                <AnimationState x="200" y="0" animationId="{ANIMS["Slam In"]}" reset="true" id="{S_SLAM}">{after(S_IDLE)}</AnimationState>
+                <EntryState x="0" y="0"><StateTransition stateToId="{S_STRIKE}"/></EntryState>
+                <AnimationState x="200" y="0" animationId="{ANIMS["Strike In"]}" reset="true" id="{S_STRIKE}">{after(S_IDLE)}</AnimationState>
                 <AnimationState x="400" y="0" animationId="{ANIMS["Idle"]}" id="{S_IDLE}"/>
                 <AnimationState x="400" y="160" animationId="{ANIMS["Win"]}" reset="true" id="{S_WIN}">{after(S_WIN_GLOW)}</AnimationState>
                 <AnimationState x="400" y="320" animationId="{ANIMS["Lose"]}" reset="true" id="{S_LOSE}">{after(S_LOSE_GLOW)}</AnimationState>
@@ -1521,6 +1675,7 @@ rml = f'''<Rive version="1" kind="fragment">
         <!-- Everything but the photo boxes sits in two shake nodes; a shake
              moves them and the photo boxes together. -->
         <Node name="Shake Front" id="{SHAKE_FRONT}">
+        {screen_flash_xml}
         {loose_glass_xml}
         {confetti_front_xml}
         {ko_xml}
@@ -1536,6 +1691,7 @@ rml = f'''<Rive version="1" kind="fragment">
         {them_hit_labels}
         {names_xml}
         {vs_xml}
+        {strike_xml}
         {confetti_back_xml}
         {ko_impact_xml}
         {impact_xml}

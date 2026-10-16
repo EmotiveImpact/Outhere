@@ -29,6 +29,12 @@ For each runner, in this order:
 
 The file embeds the male shadow runners (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its box whatever its size. The boxes are big, so each runner fills most of their side: yours fades out towards the bottom and theirs towards the top, melting into the wash colour so ordinary photos have no hard edges. `PHOTO_BOX` and `PHOTO_FADE` in `build.py` set both. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
 
+## The intro
+
+The card opens with the strike (`Strike In`, about 1.7 seconds), and `replay` plays it again. Speed lines race along the seam, blue down your side and red up theirs, while the two halves scissor in along the seam from opposite ends. The seam ignites in a flare that throws sparks, the screen flashes and shakes, and VS slams with its ring. The names, top bar and stake tiles follow, and the Add your Fighter Pack pill waits until the card is up. Each side's wash runs `REACH` points past its outer edge so the scissor never opens a gap at the screen edges.
+
+`Slam In`, the original slide-in, is still in the file but no state plays it.
+
 ## The result
 
 `win` and `lose` play the result from your side of the battle, in three beats.
@@ -53,6 +59,8 @@ The file sends these events as a result plays. None of them changes the scene, s
 
 | Event | When it fires |
 | --- | --- |
+| `strike` | the seam ignites in the intro |
+| `slam` | VS slams in the intro |
 | `impact` | VS bursts, on every result |
 | `knockout` | K. lands |
 | `shatter` | O. lands and the glass cracks |
