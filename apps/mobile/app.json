@@ -1,28 +1,37 @@
 {
   "expo": {
-    "name": "Anything mobile app",
+    "name": "Outhere",
+    "slug": "outhere",
+    "scheme": "outhere",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMotionUsageDescription": "Outhere counts your steps to track your daily movement, streaks and battles.",
+        "NSLocationWhenInUseUsageDescription": "Outhere uses your location to map your runs and walks and to check you in at events.",
+        "NSCameraUsageDescription": "Outhere uses your camera so you can take a photo for your crew logo.",
+        "NSPhotoLibraryUsageDescription": "Outhere uses your photos so you can choose a crew logo.",
+        "NSContactsUsageDescription": "Outhere checks which of your contacts are already on Outhere so you can add them. Nothing is stored."
       },
-      "bundleIdentifier": "xyz.create.CreateExpoEnvironment"
+      "bundleIdentifier": "com.outhere.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#07090c"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_CONTACTS"
       ],
-      "package": "xyz.create.CreateExpoEnvironment"
+      "package": "com.outhere.app"
     },
     "plugins": [
       [
@@ -35,8 +44,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain"
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#07090c"
         }
       ],
       "expo-audio",
@@ -58,7 +68,14 @@
       "expo-font",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Outhere uses your photos for stories and your profile picture.",
+          "cameraPermission": "Outhere uses the camera for stories and your profile picture."
+        }
+      ]
     ],
     "web": {
       "bundler": "metro",

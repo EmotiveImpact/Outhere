@@ -1,0 +1,73 @@
+// Seven day step bars. Bars grow in; days at or over goal fill green, today
+// reads brighter than the rest. Empty days show a small dot so the week still reads.
+
+import React, { useEffect } from "react";
+import { Text, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { C, S } from "@/components/ui";
+import { compactNumber } from "@/utils/format";
+import { startOfDay } from "@/data/time";
+
+const HEIGHT = 120;
+const PLOT = HEIGHT - 20;
+
+function Bar({ value, max, index, hit, isToday }) {
+  const h = useSharedValue(0);
+  const target = value > 0 ? Math.max(6, (value / max) * PLOT) : 0;
+  useEffect(() => {
+    h.value = withDelay(index * 50, withTiming(target, { duration: 650, easing: Easing.out(Easing.cubic) }));
+  }, [target, index, h]);
+  const style = useAnimatedStyle(() => ({ height: h.value }));
+  if (value <= 0) {
+    return <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isToday ? C.textDim : C.borderStrong, marginBottom: 1 }} />;
+  }
+  return (
+    <Animated.View
+      style={[
+        {
+          width: "100%",
+          maxWidth: 28,
+          borderRadius: 8,
+          backgroundColor: hit ? C.accent : isToday ? C.textDim : "#2a2a2f",
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+export default function WeekChart({ days = [], goal = 10000, todaySteps }) {
+  const values = days.map((d, i) => (i === days.length - 1 && todaySteps != null ? Math.max(d.steps, todaySteps) : d.steps));
+  const max = Math.max(goal * 1.1, ...values, 1);
+  const goalY = HEIGHT - (goal / max) * PLOT;
+
+  return (
+    <View>
+      <View style={{ height: HEIGHT, flexDirection: "row", alignItems: "flex-end", gap: S.sm }}>
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: goalY, borderTopWidth: 1, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.14)" }} />
+        {days.map((d, i) => {
+          const v = values[i];
+          const isToday = i === days.length - 1;
+          return (
+            <View key={d.date} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+              {v > 0 ? (
+                <Text style={{ color: isToday ? C.text : C.textMute, fontSize: 10, fontWeight: "600", marginBottom: 4 }}>{compactNumber(v)}</Text>
+              ) : null}
+              <Bar value={v} max={max} index={i} hit={v >= goal} isToday={isToday} />
+            </View>
+          );
+        })}
+      </View>
+      <View style={{ flexDirection: "row", gap: S.sm, marginTop: S.sm }}>
+        {days.map((d, i) => {
+          const isToday = i === days.length - 1;
+          return (
+            <Text key={d.date} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: isToday ? "700" : "500", color: isToday ? C.text : C.textMute }}>
+              {isToday ? "Today" : startOfDay(d.date).toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 3)}
+            </Text>
+          );
+        })}
+      </View>
+    </View>
+  );
+}

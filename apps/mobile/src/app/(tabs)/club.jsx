@@ -1,1961 +1,313 @@
-import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, View, Text, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Pressable, Dimensions, Alert, Share, Clipboard } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
-import {
-  Users, Flame, Zap, Trophy, Route, Target,
-  Plus, LogIn, Share2, Heart, MessageCircle, MessageSquare,
-  TrendingUp, X, MapPin, Send, Crown,
-  SlidersHorizontal, Copy, ShieldCheck, ShieldX, UserX,
-  Trash2, DoorOpen, KeyRound, ChevronRight, Lock, Globe, UserCheck
-} from "lucide-react-native";
-import { useLocalSearchParams } from "expo-router";
-import { useSettingsStore } from "@/utils/settingsStore";
-import { useUserStore } from "@/store/userStore";
-import { useClubStore, DEFAULT_CLUB_AVATAR } from "@/store/useClubStore";
-import { groupsAPI, membershipAPI } from "@/services/api";
-import { StatusBar } from "expo-status-bar";
-import { hapticSelection, hapticSuccess } from "@/services/haptics";
-import Shimmer from "@/components/Shimmer";
+// Crew tab. No crew yet: three ways in (a code, crews near you, your own),
+// with the run clubs near you underneath. In a crew: Leaderboard, Feed,
+// Chat, Challenges and Stats, each with its own header. The crew's rank is
+// in its own city, so nothing here assumes London.
 
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { BadgeCheck, ChevronsRight, Compass, Inbox, Lock, Plus, Search, Settings2, Share2, Trophy, UserPlus, Users } from "lucide-react-native";
+import { PHOTOS } from "@/constants/photos";
+import { Body, C, EmptyState, F, Hero, IconButton, PhotoBackground, PressableScale, Row, S, Screen, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
+import { useCrew, useCrewGoal, useCrewHeader, useCrewLimits, useCrewStats, useCrewUnread, useCrewsNear, useJoinRequests, useMyCrews, useUpgradePrompt } from "@/data/hooks";
+import { CREW_PHOTOS } from "@/data/seedCrew";
+import { tierLabel } from "@/utils/format";
+import ActionSheet from "@/components/crew/ActionSheet";
+import ClubFinder from "@/components/clubs/ClubFinder";
+import CrewChallenges from "@/components/crew/CrewChallenges";
+import CrewChat from "@/components/crew/CrewChat";
+import CrewFeed from "@/components/crew/CrewFeed";
+import { BellButton, CrewBar, CrewSlab, FeedHead, MoreButton, twoTone } from "@/components/crew/CrewHead";
+import CrewRace from "@/components/crew/CrewRace";
+import CrewStats from "@/components/crew/CrewStats";
+import UnderlineTabs from "@/components/crew/UnderlineTabs";
+import { shareInvite, useCrewFocus } from "@/components/crew/shared";
+import { Surface } from "@/components/ui/Surface";
 
-// ── MOCK DATA ─────────────────────────────────────────────────────────────────
+const TAB_KEYS = ["board", "feed", "chat", "challenges", "stats"];
+// .r11ph::after: dark at the top, clear, then into the floor
+const FIND_FADE = [[0, 0.45], [0.22, 0], [0.48, 0], [0.78, 0.7], [1, 1]];
 
-const CLUB = {
-  name: "SQUAD",
-  members: 124,
-  totalKm: 18742,
-  inviteCode: "OUTHR-2024",
-  weekGoalKm: 500,
-  weekCurrentKm: 374,
-};
+function useStartCrew() {
+  const router = useRouter();
+  const limits = useCrewLimits();
+  const openUpgrade = useUpgradePrompt((s) => s.open);
+  return () => {
+    const l = limits.data;
+    if (l && !l.canCreate) {
+      openUpgrade(l.maxOwned === 0 ? "pro" : "black", l.maxOwned === 0 ? "Starting a crew is a Pro feature." : `You already own ${l.owned} of ${l.maxOwned} crews on ${tierLabel(l.tier)}.`);
+      return;
+    }
+    router.push("/crew/create");
+  };
+}
 
-const LEADERBOARD = [
-  { id: "1", name: "You",             total_distance: 418,  total_steps: 42500, streak: 12, city: "London", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&auto=format", achievement: "Just 12 km behind the leader" },
-  { id: "2", name: "Nicki Minaj",     total_distance: 319,  total_steps: 32000, streak: 21, city: "London", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&auto=format", achievement: "Furthest Run" },
-  { id: "3", name: "Michel Jordan",   total_distance: 302,  total_steps: 31000, streak: 8,  city: "New York", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&auto=format", achievement: "Fastest This Week" },
-  { id: "4", name: "Patrick Klüvert", total_distance: 112,  total_steps: 12500, streak: 5,  city: "London", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop&auto=format", achievement: "Fastest 1k" },
-  { id: "5", name: "Riyan Giggs",     total_distance: 49,   total_steps: 5000,  streak: 6,  city: "London", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop&auto=format", achievement: "6 Week Streak" },
-  { id: "6", name: "Romelu Lukaku",   total_distance: null, total_steps: 0,     streak: 0,  city: "London", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop&auto=format", achievement: "Haven't Run Yet" },
-];
-
-const CHALLENGES = [
-  { id: "c1", title: "500 KM Club Week",        icon: Route,      color: "#00ff7f", current: 374, goal: 500,  unit: "KM",   participants: 18, daysLeft: 3,  joined: true  },
-  { id: "c2", title: "30-Day Streak",           icon: Flame,      color: "#00ff7f", current: 12,  goal: 30,   unit: "days", participants: 42, daysLeft: 18, joined: true  },
-  { id: "c3", title: "Speed Week — Sub 5 Pace", icon: Zap,        color: "#00ff7f", current: 2,   goal: 5,    unit: "runs", participants: 7,  daysLeft: 5,  joined: false },
-  { id: "c4", title: "10,000 Steps Daily",      icon: Target,     color: "#00ff7f", current: 5,   goal: 7,    unit: "days", participants: 29, daysLeft: 2,  joined: false },
-  { id: "c5", title: "Elevation King",          icon: TrendingUp, color: "#00ff7f", current: 840, goal: 2000, unit: "m",    participants: 11, daysLeft: 10, joined: true  },
-];
-
-const MILESTONES = [
-  { id: "m1", text: "Club has run 18,742 KM total!", icon: Trophy, color: "#00ff7f" },
-  { id: "m2", text: "You're on a 12-day streak",  icon: Flame,  color: "#00ff7f" },
-  { id: "m3", text: "124 members this month!",        icon: Users,  color: "#00ff7f" },
-];
-
-const RANK_COLORS = { 1: "#FFD700", 2: "#C0C0C0", 3: "#CD7F32" };
-const TABS = ["Leaderboard", "Feed", "Chat", "Challenges", "Stats"];
-
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-
-function ProgressBar({ current, goal, color, height = 6 }) {
-  const pct = Math.min(current / goal, 1);
+/** .card.eopt: a lit row, the icon in a blue tinted circle; the suggested one ringed in blue. */
+function WayIn({ icon: Icon, title, sub, onPress, highlight }) {
   return (
-    <View style={{ height, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: height / 2, overflow: "hidden" }}>
-      <View style={{ width: `${pct * 100}%`, height, backgroundColor: color, borderRadius: height / 2 }} />
-    </View>
+    <Surface onPress={onPress} radius={20} padding={null} style={highlight ? styles.wayOn : null} contentStyle={styles.way} accessibilityLabel={title}>
+      <View style={styles.wayIcon}>
+        <Icon size={16} color={C.accentHi} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.wayTitle}>{title}</Text>
+        <Text style={styles.waySub} numberOfLines={1}>
+          {sub}
+        </Text>
+      </View>
+      <View>
+        <ChevronsRight size={16} color={C.textDim} />
+      </View>
+    </Surface>
   );
 }
 
-function HeartBurst({ trigger }) {
-  const particleCount = 8;
-  const particles = useRef(
-    Array.from({ length: particleCount }, (_, index) => ({
-      translateX: new Animated.Value(0),
-      translateY: new Animated.Value(0),
-      scale: new Animated.Value(0.2),
-      opacity: new Animated.Value(0),
-      angle: (index / particleCount) * Math.PI * 2,
-      distance: 14 + (index % 2) * 8,
-    })),
-  ).current;
-
-  useEffect(() => {
-    if (!trigger) return;
-
-    particles.forEach((particle) => {
-      particle.translateX.setValue(0);
-      particle.translateY.setValue(0);
-      particle.scale.setValue(0.2);
-      particle.opacity.setValue(1);
-    });
-
-    const burstAnimation = Animated.parallel(
-      particles.flatMap((particle, index) => [
-        Animated.timing(particle.translateX, {
-          toValue: Math.cos(particle.angle) * particle.distance,
-          duration: 380,
-          delay: index * 10,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(particle.translateY, {
-          toValue: Math.sin(particle.angle) * particle.distance,
-          duration: 380,
-          delay: index * 10,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(particle.scale, {
-          toValue: 1,
-          duration: 250,
-          delay: index * 10,
-          easing: Easing.out(Easing.back(1.2)),
-          useNativeDriver: true,
-        }),
-        Animated.timing(particle.opacity, {
-          toValue: 0,
-          duration: 380,
-          delay: index * 10,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    burstAnimation.start();
-  }, [particles, trigger]);
-
-  if (!trigger) return null;
-
+/** Running solo: three ways in rather than an empty page. */
+function NoCrew({ refresh, refreshing }) {
+  const router = useRouter();
+  const near = useCrewsNear();
+  const start = useStartCrew();
+  const scroll = useRef(null);
+  const [finderY, setFinderY] = useState(0);
+  const [searching, setSearching] = useState(false);
+  const count = near.data?.length || 0;
+  const closest = near.data?.length ? Math.max(...near.data.map((c) => c.awayKm || 0)) : 0;
   return (
-    <View pointerEvents="none" style={{ position: "absolute", width: 42, height: 42, alignItems: "center", justifyContent: "center" }}>
-      {particles.map((particle, index) => (
-        <Animated.Text
-          key={index}
-          style={{
-            position: "absolute",
-            color: "#ff4d6d",
-            fontSize: index % 2 === 0 ? 10 : 8,
-            opacity: particle.opacity,
-            transform: [
-              { translateX: particle.translateX },
-              { translateY: particle.translateY },
-              { scale: particle.scale },
-            ],
-          }}
-        >
-          ♥
-        </Animated.Text>
-      ))}
-    </View>
-  );
-}
-
-function HapticTouchable({ onPressIn, onPress, disabled, ...props }) {
-  const hasAction =
-    typeof onPress === "function" || typeof props.onLongPress === "function";
-
-  const handlePressIn = (event) => {
-    if (!disabled && hasAction) {
-      hapticSelection();
-    }
-    onPressIn?.(event);
-  };
-
-  return (
-    <TouchableOpacity
-      {...props}
-      disabled={disabled}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-    />
-  );
-}
-
-// ── SCREEN ────────────────────────────────────────────────────────────────────
-
-export default function ClubScreen() {
-  const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
-  const { showSteps, toggleMetric } = useSettingsStore();
-  const squadName = useUserStore(state => state.squadName);
-  const setSquadName = useUserStore(state => state.setSquadName);
-  const deviceId = useUserStore(state => state.deviceId);
-  const feed = useClubStore((state) => state.feed);
-  const addPost = useClubStore((state) => state.addPost);
-  const toggleFeedLike = useClubStore((state) => state.toggleLike);
-  const addFeedComment = useClubStore((state) => state.addComment);
-
-  const [activeTab, setActiveTab] = useState("Leaderboard");
-  const [filterPeriod, setFilterPeriod] = useState("Month");
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [activePost, setActivePost] = useState(null);
-  const [newPostText, setNewPostText] = useState("");
-  const [newCommentText, setNewCommentText] = useState("");
-  const [inviteInput, setInviteInput] = useState("");
-  const [createClubName, setCreateClubName] = useState("");
-  const [clubMeta, setClubMeta] = useState(CLUB);
-  const [inviteCodePreview, setInviteCodePreview] = useState(CLUB.inviteCode);
-  const [streakSort, setStreakSort] = useState(false);
-  const [cityFilter, setCityFilter] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [burstTriggers, setBurstTriggers] = useState({});
-  const [challenges, setChallenges] = useState(CHALLENGES);
-  const [commentsByPost, setCommentsByPost] = useState({});
-  const [membershipTier, setMembershipTier] = useState("free");
-  const [userGroups, setUserGroups] = useState([]);
-  const [activeGroup, setActiveGroup] = useState(null);
-  const [groupNameInput, setGroupNameInput] = useState("");
-  const [groupTaglineInput, setGroupTaglineInput] = useState("");
-  const [groupDescriptionInput, setGroupDescriptionInput] = useState("");
-  const [groupPrivacy, setGroupPrivacy] = useState("public");
-  const [groupLogoInput, setGroupLogoInput] = useState("");
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-
-  // ── MANAGE DRAWER ────────────────────────────────────────────────────────
-  const [showManageDrawer, setShowManageDrawer] = useState(false);
-  const drawerAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
-  const backdropAnim = useRef(new Animated.Value(0)).current;
-  const [drawerSection, setDrawerSection] = useState("overview");
-
-  const openDrawer = () => {
-    setShowManageDrawer(true);
-    setDrawerSection("overview");
-    Animated.parallel([
-      Animated.spring(drawerAnim, {
-        toValue: 0,
-        damping: 24,
-        stiffness: 260,
-        mass: 0.9,
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdropAnim, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    hapticSelection();
-  };
-
-  const closeDrawer = () => {
-    Animated.parallel([
-      Animated.spring(drawerAnim, {
-        toValue: Dimensions.get("window").width,
-        damping: 26,
-        stiffness: 300,
-        mass: 0.8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdropAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setShowManageDrawer(false));
-    hapticSelection();
-  };
-
-  const handleCopyInviteCode = () => {
-    const code = activeGroup?.invite_code || inviteCodePreview;
-    Clipboard.setString(code);
-    hapticSuccess();
-    Alert.alert("Copied!", `Invite code copied: ${code}`);
-  };
-
-  const handleShareInviteCode = async () => {
-    const code = activeGroup?.invite_code || inviteCodePreview;
-    try {
-      await Share.share({
-        message: `Join my crew on OutHere! Use invite code: ${code}`,
-      });
-    } catch { /* silently fail */ }
-  };
-
-  const handleKickMember = (member) => {
-    Alert.alert(
-      "Remove Member",
-      `Remove ${member.name} from the crew?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            hapticSuccess();
-            Alert.alert("Done", `${member.name} has been removed.`);
-          },
-        },
-      ],
-    );
-  };
-
-  const handleLeaveCrew = () => {
-    Alert.alert(
-      "Leave Crew",
-      "Are you sure you want to leave this crew?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Leave",
-          style: "destructive",
-          onPress: async () => {
-            hapticSuccess();
-            setActiveGroup(null);
-            closeDrawer();
-          },
-        },
-      ],
-    );
-  };
-
-  const handleDeleteCrew = () => {
-    Alert.alert(
-      "Delete Crew",
-      "This is permanent. All members will be removed and the crew will be gone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Forever",
-          style: "destructive",
-          onPress: async () => {
-            hapticSuccess();
-            setActiveGroup(null);
-            closeDrawer();
-          },
-        },
-      ],
-    );
-  };
-  // ─────────────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (typeof params?.tab === "string" && TABS.includes(params.tab)) {
-      setActiveTab(params.tab);
-    }
-  }, [params?.tab]);
-
-  useEffect(() => {
-    setCommentsByPost((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      feed.forEach((item) => {
-        if (!next[item.id]) {
-          const hasExistingComments = Number(item.comments || 0) > 0;
-          next[item.id] = hasExistingComments
-            ? [
-                {
-                  id: `${item.id}-seed`,
-                  user: "Squad Mate",
-                  text: "Solid work. Keep it going.",
-                  time: item.time || "Recently",
-                },
-              ]
-            : [];
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
-    });
-  }, [feed]);
-
-  const ownedCrewCount = userGroups.filter((group) => group?.creator_device_id === deviceId).length;
-  const ownershipLimit = membershipTier === "black" ? 3 : membershipTier === "pro" ? 1 : 0;
-  const canCreateCrew = ownershipLimit > 0;
-  const myRole = activeGroup?.roles?.[deviceId]
-    || (activeGroup?.creator_device_id === deviceId ? "owner" : "member");
-  const isOwner = myRole === "owner";
-  const canManageCrew = myRole === "owner" || myRole === "mod";
-
-  const refreshCrewData = async () => {
-    if (!deviceId) return;
-
-    try {
-      const [membership, groups] = await Promise.all([
-        membershipAPI.getStatus(deviceId).catch(() => null),
-        groupsAPI.getUserGroups(deviceId).catch(() => []),
-      ]);
-
-      const safeTier = String(membership?.membership_tier || "free").toLowerCase();
-      setMembershipTier(["pro", "black"].includes(safeTier) ? safeTier : "free");
-
-      const safeGroups = Array.isArray(groups) ? groups : [];
-      setUserGroups(safeGroups);
-
-      if (safeGroups.length > 0) {
-        const preferredGroup =
-          safeGroups.find((group) => group?.name === squadName)
-          || safeGroups.find((group) => group?.creator_device_id === deviceId)
-          || safeGroups[0];
-        setActiveGroup(preferredGroup);
-      } else {
-        setActiveGroup(null);
-      }
-    } catch (error) {
-      console.log("Failed to refresh crew data:", error);
-    }
-  };
-
-  useEffect(() => {
-    refreshCrewData();
-  }, [deviceId]);
-
-  useEffect(() => {
-    if (!activeGroup) return;
-
-    setClubMeta((prev) => ({
-      ...prev,
-      name: activeGroup.name || prev.name,
-      inviteCode: activeGroup.invite_code || prev.inviteCode,
-      members: Array.isArray(activeGroup.members) ? activeGroup.members.length : prev.members,
-    }));
-    setInviteCodePreview(activeGroup.invite_code || CLUB.inviteCode);
-    setGroupNameInput(activeGroup.name || "");
-    setGroupTaglineInput(activeGroup.tagline || "");
-    setGroupDescriptionInput(activeGroup.description || "");
-    setGroupPrivacy(activeGroup.privacy || "public");
-    setGroupLogoInput(activeGroup.logo_url || "");
-
-    if (activeGroup.name && activeGroup.name !== squadName) {
-      setSquadName(activeGroup.name);
-    }
-  }, [activeGroup]);
-
-
-  // Mock loading trigger for shimmer demo
-  const triggerLoading = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 2000);
-  };
-
-
-  const filtered = cityFilter 
-    ? LEADERBOARD.filter(f => f.city === "London")
-    : LEADERBOARD;
-
-  const sorted = streakSort
-    ? [...filtered].sort((a, b) => b.streak - a.streak)
-    : filtered;
-
-  const validKm = sorted.filter(f => f.total_distance);
-  const clubAvgKm = Math.round(validKm.reduce((s, f) => s + f.total_distance, 0) / validKm.length);
-  const myKm = LEADERBOARD[0].total_distance;
-
-  const toggleLike = (id) => {
-    if (!id) return;
-    const target = feed.find((item) => item?.id === id);
-    if (target && !Boolean(target.liked)) {
-      setBurstTriggers((prev) => ({
-        ...prev,
-        [id]: (prev[id] || 0) + 1,
-      }));
-    }
-
-    toggleFeedLike(id);
-  };
-
-  const handleCreatePost = () => {
-    if (!newPostText.trim()) return;
-    addPost({
-      user: "You",
-      avatar: DEFAULT_CLUB_AVATAR,
-      distance: (Math.random() * 10 + 2).toFixed(1),
-      pace: (Math.random() * 2 + 4).toFixed(2),
-      caption: newPostText.trim(),
-    });
-    setNewPostText("");
-    setShowPostModal(false);
-    hapticSuccess();
-  };
-
-  const generateInviteCode = (name) => {
-    const head = name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 5) || "CLUB";
-    const tail = Math.floor(1000 + Math.random() * 9000);
-    return `${head}-${tail}`;
-  };
-
-  const handleJoinClub = async () => {
-    if (!deviceId) {
-      Alert.alert("Unavailable", "Device identity is not ready yet.");
-      return;
-    }
-
-    const code = inviteInput.trim().toUpperCase();
-    if (!code) {
-      Alert.alert("Invite Code Required", "Enter an invite code to join a club.");
-      return;
-    }
-
-    try {
-      const response = await groupsAPI.joinByCode(code, deviceId);
-      const joinedGroup = response?.group || null;
-      if (joinedGroup?.name) {
-        await setSquadName(joinedGroup.name);
-      }
-      if (joinedGroup) {
-        setActiveGroup(joinedGroup);
-      }
-      await refreshCrewData();
-      setInviteInput("");
-      setShowJoinModal(false);
-      hapticSuccess();
-      Alert.alert("Joined Club", `You joined ${joinedGroup?.name || "your crew"}.`);
-    } catch (error) {
-      const detail = error?.data?.detail;
-      Alert.alert("Join Failed", detail || "Unable to join this club right now.");
-    }
-  };
-
-  const handleCreateClub = async () => {
-    if (!deviceId) {
-      Alert.alert("Unavailable", "Device identity is not ready yet.");
-      return;
-    }
-
-    if (!canCreateCrew) {
-      Alert.alert("Pro or Black Required", "Upgrade to Pro or Black to create a crew.");
-      return;
-    }
-
-    if (ownedCrewCount >= ownershipLimit) {
-      Alert.alert("Ownership Limit Reached", `Your ${membershipTier.toUpperCase()} tier can own up to ${ownershipLimit} crew${ownershipLimit > 1 ? "s" : ""}.`);
-      return;
-    }
-
-    const name = createClubName.trim();
-    if (name.length < 3) {
-      Alert.alert("Invalid Club Name", "Club name must be at least 3 characters.");
-      return;
-    }
-
-    try {
-      const createdGroup = await groupsAPI.create({
-        name,
-        description: "",
-        creator_device_id: deviceId,
-      });
-      if (createdGroup?.name) {
-        await setSquadName(createdGroup.name);
-      }
-      setActiveGroup(createdGroup || null);
-      await refreshCrewData();
-      setCreateClubName("");
-      setShowCreateModal(false);
-      hapticSuccess();
-      Alert.alert("Club Created", `Invite code: ${createdGroup?.invite_code || generateInviteCode(name)}`);
-    } catch (error) {
-      const detail = error?.data?.detail;
-      Alert.alert("Create Failed", detail || "Unable to create club right now.");
-    }
-  };
-
-  const handleSaveCrewSettings = async () => {
-    if (!activeGroup?.id || !deviceId) return;
-    if (!canManageCrew) {
-      Alert.alert("Admin Only", "Only crew owners or mods can update crew settings.");
-      return;
-    }
-
-    setIsSavingSettings(true);
-    try {
-      const updatedGroup = await groupsAPI.updateSettings(activeGroup.id, {
-        device_id: deviceId,
-        name: groupNameInput,
-        tagline: groupTaglineInput,
-        description: groupDescriptionInput,
-        privacy: groupPrivacy,
-      });
-      setActiveGroup(updatedGroup || activeGroup);
-      if (updatedGroup?.name) {
-        await setSquadName(updatedGroup.name);
-      }
-      await refreshCrewData();
-      hapticSuccess();
-      Alert.alert("Crew Updated", "Crew settings were saved.");
-    } catch (error) {
-      const detail = error?.data?.detail;
-      Alert.alert("Update Failed", detail || "Unable to update crew settings right now.");
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-  const handleUploadLogo = async () => {
-    if (!activeGroup?.id || !deviceId) return;
-    if (!isOwner) {
-      Alert.alert("Owner Only", "Only the crew owner can upload logos.");
-      return;
-    }
-    if (membershipTier === "free") {
-      Alert.alert("Pro or Black Required", "Upgrade to Pro or Black to upload logos.");
-      return;
-    }
-
-    const logoUrl = groupLogoInput.trim();
-    if (!logoUrl) {
-      Alert.alert("Logo Required", "Add a PNG or JPG logo URL first.");
-      return;
-    }
-
-    const lower = logoUrl.toLowerCase();
-    const mimeType = lower.endsWith(".png") ? "image/png" : "image/jpeg";
-
-    setIsUploadingLogo(true);
-    try {
-      const response = await groupsAPI.uploadLogo(activeGroup.id, {
-        device_id: deviceId,
-        logo_url: logoUrl,
-        mime_type: mimeType,
-        width: 512,
-        height: 512,
-        size_bytes: 240000,
-      });
-      const updatedGroup = response?.group || activeGroup;
-      setActiveGroup(updatedGroup);
-      await refreshCrewData();
-      hapticSuccess();
-      Alert.alert("Logo Updated", "Crew logo uploaded.");
-    } catch (error) {
-      const detail = error?.data?.detail;
-      Alert.alert("Upload Failed", detail || "Unable to upload logo right now.");
-    } finally {
-      setIsUploadingLogo(false);
-    }
-  };
-
-  const handleToggleChallenge = (id) => {
-    setChallenges((prev) =>
-      prev.map((challenge) => {
-        if (challenge.id !== id) return challenge;
-        const joining = !challenge.joined;
-        return {
-          ...challenge,
-          joined: joining,
-          participants: Math.max(0, challenge.participants + (joining ? 1 : -1)),
-        };
-      }),
-    );
-    hapticSuccess();
-  };
-
-  const handleOpenComments = (post) => {
-    setActivePost(post);
-    setShowCommentsModal(true);
-  };
-
-  const handleAddComment = () => {
-    const message = newCommentText.trim();
-    if (!message || !activePost?.id) return;
-
-    const nextComment = {
-      id: `comment-${Date.now()}`,
-      user: "You",
-      text: message,
-      time: "Just now",
-    };
-
-    setCommentsByPost((prev) => ({
-      ...prev,
-      [activePost.id]: [...(prev[activePost.id] || []), nextComment],
-    }));
-    setNewCommentText("");
-    addFeedComment(activePost.id);
-    setActivePost((prev) =>
-      prev
-        ? {
-            ...prev,
-            comments: (Number(prev.comments) || 0) + 1,
-          }
-        : prev,
-    );
-    hapticSuccess();
-  };
-
-  const handleSharePost = async (item) => {
-    try {
-      await Share.share({
-        message: `${item.user}: ${item.caption} • ${item.distance} km • ${item.pace} pace`,
-      });
-    } catch {
-      Alert.alert("Share Failed", "Unable to open share sheet right now.");
-    }
-  };
-
-  const activeComments = activePost?.id ? commentsByPost[activePost.id] || [] : [];
-
-  const [messages, setMessages] = useState([
-    { id: "m1", user: "Nicki Minaj", text: "Who's ready for the run tonight?", time: "1:24 PM", isMe: false },
-    { id: "m2", user: "Michel Jordan", text: "I'm in! Aiming for 10k today.", time: "1:26 PM", isMe: false },
-    { id: "m3", user: "You", text: "Starting in 10 mins. See you there!", time: "1:30 PM", isMe: true },
-  ]);
-  const [newMessage, setNewMessage] = useState("");
-
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-    const msg = {
-      id: `m${Date.now()}`,
-      user: "You",
-      text: newMessage,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true
-    };
-    setMessages([...messages, msg]);
-    setNewMessage("");
-    hapticSelection();
-  };
-
-  return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
-      <StatusBar style="light" />
-      <View style={{ flex: 1, paddingTop: insets.top }}>
-
-        {/* ── UNIFIED TOP HEADER ── */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 }}>
-          
-          {/* Title & Actions Row — tap avatar to open crew drawer */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}>
-            <HapticTouchable
-              onPress={openDrawer}
-              style={{
-                width: 58,
-                height: 58,
-                borderRadius: 18,
-                backgroundColor: "#151515",
-                borderWidth: 2,
-                borderColor: "rgba(0,255,127,0.45)",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                marginRight: 14,
-                flexShrink: 0,
-              }}
-            >
-              {activeGroup?.logo_url ? (
-                <Image source={{ uri: activeGroup.logo_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-              ) : (
-                <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
-              )}
-            </HapticTouchable>
-
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" }}>Your Crew</Text>
-              <Text style={{ color: "#fff", fontSize: 30, fontWeight: "800", letterSpacing: -1, marginTop: 2 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {activeGroup?.name || squadName}
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
-                <Crown color="#00ff7f" size={11} />
-                <Text style={{ color: "#8af6be", fontSize: 11, fontWeight: "700", marginLeft: 5, textTransform: "uppercase" }}>
-                  {String(activeGroup?.tier_badge || "starter")}
-                </Text>
+    <Screen tab scroll={false} padded={false} style={{ paddingTop: 0 }}>
+      <ScrollView
+        ref={scroll}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + 20 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
+      >
+        {/* .slab 300: the podium with its star, waiting for a crew to stand on it */}
+        <Hero object={PHOTOS.podium} objectSize={240} objectStyle={{ right: -34 }} kicker="Crew" top="Running solo" bottom="for now" sub="Crews share a weekly goal, a chat and the Area Cup." height={286} />
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.lg, gap: S.md }}>
+          <WayIn icon={Lock} title="Join with a code" sub="A friend sent you six letters" onPress={() => router.push("/crew/join")} />
+          <WayIn
+            icon={Compass}
+            title="Find crews near you"
+            sub={count ? `${count} ${count === 1 ? "crew" : "crews"}${closest ? ` within ${Math.ceil(closest)} km` : " in your city"}` : "Run clubs in your city"}
+            highlight
+            onPress={() => scroll.current?.scrollTo({ y: finderY, animated: true })}
+          />
+          <WayIn icon={Plus} title="Start your own" sub="Invite friends, set a goal" onPress={start} />
+        </View>
+        {/* clubFind: the photo band, then the clubs */}
+        <View onLayout={(e) => setFinderY(e.nativeEvent.layout.y)} style={{ marginTop: S.xl }}>
+          <View style={styles.findBand}>
+            <PhotoBackground source={PHOTOS.clubfind} fade={FIND_FADE} focus={{ x: 0.5, y: 0.4 }} glow={false} grain={0.05} />
+            <PressableScale onPress={() => setSearching((v) => !v)} scaleTo={0.9} hitSlop={8} style={styles.findSearch} accessibilityLabel="Search clubs">
+              <View>
+                <Search size={18} color="#fff" />
               </View>
-            </View>
+            </PressableScale>
+            <Text style={styles.findKick}>Real clubs, near you</Text>
+            <Text style={styles.findTitle}>Find your</Text>
+            <Text style={[styles.findTitle, styles.findBlue]}>run club</Text>
           </View>
-
-          {/* Quick Stats Row */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-            <View>
-              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>{clubMeta.members.toLocaleString()}</Text>
-              <Text style={{ color: "#777", fontSize: 13, fontWeight: "500", marginTop: 2 }}>Members</Text>
-            </View>
-            <View style={{ width: 1, height: "70%", backgroundColor: "#222" }} />
-            <View>
-              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>{(clubMeta.totalKm / 1000).toFixed(1)}k <Text style={{ fontSize: 13, color: "#888", fontWeight: "600" }}>KM</Text></Text>
-              <Text style={{ color: "#777", fontSize: 13, fontWeight: "500", marginTop: 2 }}>Total Distance</Text>
-            </View>
-            <View style={{ width: 1, height: "70%", backgroundColor: "#222" }} />
-            <View>
-              <Text style={{ color: "#00ff7f", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 }}>Top 12%</Text>
-              <Text style={{ color: "#777", fontSize: 13, fontWeight: "500", marginTop: 2 }}>Global Rank</Text>
-            </View>
-          </View>
-
-          <View style={{ backgroundColor: "#141416", borderRadius: 16, borderWidth: 1, borderColor: "#1f1f21", padding: 14, marginBottom: 16 }}>
-            <Text style={{ color: "#9efac8", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>Membership</Text>
-            <Text style={{ color: "#fff", marginTop: 6, fontSize: 14, fontWeight: "700" }}>
-              {membershipTier.toUpperCase()} · Ownership {ownedCrewCount}/{ownershipLimit || 0}
-            </Text>
-            {membershipTier === "free" && (
-              <Text style={{ color: "#888", marginTop: 4, fontSize: 12 }}>
-                Free members cannot create crews or upload logos.
-              </Text>
-            )}
-          </View>
-
-          {/* Admin Panel moved into the slide-out drawer — tap the sliders button top-right */}
-
-          {/* Navigation Tabs (No longer wrapped in ScrollView to match Apple cleanliness) */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#222" }}>
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <HapticTouchable
-                  key={tab}
-                  onPress={() => setActiveTab(tab)}
-                  style={{
-                    paddingBottom: 12,
-                    borderBottomWidth: isActive ? 2 : 0,
-                    borderColor: "#00ff7f",
-                  }}>
-                  <Text style={{ 
-                    color: isActive ? "#fff" : "#777", 
-                    fontWeight: isActive ? "800" : "600", 
-                    fontSize: 14 
-                  }}>
-                    {tab}
-                  </Text>
-                </HapticTouchable>
-              )
-            })}
+          <View style={{ paddingHorizontal: S.gutter, marginTop: -4 }}>
+            <ClubFinder searchOpen={searching} onCloseSearch={() => setSearching(false)} />
           </View>
         </View>
+      </ScrollView>
+    </Screen>
+  );
+}
 
-        {/* ── TAB CONTENT ── */}
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-
-          {/* ════ LEADERBOARD ════ */}
-          {activeTab === "Leaderboard" && (
-            <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
-              {/* Filters Row (Scrollable to save space) */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 24 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", paddingBottom: 4 }}>
-                  {["Week", "Month", "All-time"].map((p, i) => (
-                    <HapticTouchable
-                      key={p}
-                      onPress={() => setFilterPeriod(p)}
-                      style={{
-                        paddingHorizontal: 16, paddingVertical: 8,
-                        borderRadius: 20,
-                        backgroundColor: filterPeriod === p ? "#00ff7f22" : "rgba(255,255,255,0.03)",
-                        borderWidth: 1,
-                        borderColor: filterPeriod === p ? "#00ff7f" : "transparent",
-                        marginRight: 8,
-                      }}>
-                      <Text style={{ color: filterPeriod === p ? "#fff" : "#888", fontSize: 13, fontWeight: "600" }}>{p}</Text>
-                    </HapticTouchable>
-                  ))}
-
-                  <View style={{ width: 1, height: 20, backgroundColor: "#333", marginHorizontal: 8 }} />
-
-                  <HapticTouchable
-                    onPress={() => setStreakSort(!streakSort)}
-                    style={{
-                      flexDirection: "row", alignItems: "center",
-                      paddingHorizontal: 16, paddingVertical: 8,
-                      borderRadius: 20,
-                      backgroundColor: streakSort ? "rgba(0,255,127,0.15)" : "rgba(255,255,255,0.03)",
-                      borderWidth: 1,
-                      borderColor: streakSort ? "#00ff7f" : "transparent",
-                      marginRight: 8
-                    }}>
-                    <Flame color={streakSort ? "#fff" : "#888"} size={14} style={{ marginRight: 6 }} />
-                    <Text style={{ color: streakSort ? "#fff" : "#888", fontSize: 13, fontWeight: "600" }}>Streak</Text>
-                  </HapticTouchable>
-
-                  <HapticTouchable
-                    onPress={() => setCityFilter(!cityFilter)}
-                    style={{
-                      flexDirection: "row", alignItems: "center",
-                      paddingHorizontal: 16, paddingVertical: 8,
-                      borderRadius: 20,
-                      backgroundColor: cityFilter ? "rgba(0,255,127,0.15)" : "rgba(255,255,255,0.03)",
-                      borderWidth: 1,
-                      borderColor: cityFilter ? "#00ff7f" : "transparent",
-                      marginRight: 16
-                    }}>
-                    <MapPin color={cityFilter ? "#fff" : "#888"} size={14} style={{ marginRight: 6 }} />
-                    <Text style={{ color: cityFilter ? "#fff" : "#888", fontSize: 13, fontWeight: "600" }}>London</Text>
-                  </HapticTouchable>
-                </View>
-              </ScrollView>
-
-              {/* Avatar row */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 16 }}>
-                <View style={{ flexDirection: "row", paddingBottom: 4 }}>
-                  {sorted.map((f, i) => {
-                    const isUser = f.name === "You";
-                    const rc = RANK_COLORS[i + 1];
-                    return (
-                      <View key={`av-${f.id}`} style={{ alignItems: "center", marginRight: 18 }}>
-                        <View style={{ width: 58, height: 58, borderRadius: 29, borderWidth: 2.5, borderColor: isUser ? "#00ff7f" : (rc || "#2a2a2a"), overflow: "hidden" }}>
-                          <Image source={{ uri: f.avatar }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                        </View>
-                        <View style={{ marginTop: 4, backgroundColor: isUser ? "#00ff7f" : (rc || "#2a2a2a"), paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
-                          <Text style={{ color: rc || isUser ? "#000" : "#888", fontSize: 10, fontWeight: "800" }}>{i + 1}</Text>
-                        </View>
-                        <Text style={{ color: isUser ? "#00ff7f" : "#888", fontSize: 11, fontWeight: "600", marginTop: 4 }}>
-                          {isUser ? "You" : f.name.split(" ")[0]}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-
-              {/* You vs Club Average Card */}
-              <View style={{
-                backgroundColor: "#161618",
-                borderRadius: 20,
-                padding: 20,
-                marginBottom: 32,
-                borderWidth: 1,
-                borderColor: "#1e1e1e",
-              }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-                  <Text style={{ color: "#777", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" }}>You vs Squad Average</Text>
-                </View>
-
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
-                  <Text style={{ color: "#00ff7f", fontSize: 18, fontWeight: "700" }}>
-                    You — <Text style={{ fontSize: 24, fontWeight: "800" }}>{myKm} {showSteps ? "Steps" : "KM"}</Text>
-                  </Text>
-                  <Text style={{ color: "#555", fontSize: 13, fontWeight: "600", paddingBottom: 3 }}>
-                    Avg — {clubAvgKm} {showSteps ? "Steps" : "KM"}
-                  </Text>
-                </View>
-
-                <ProgressBar current={myKm} goal={clubAvgKm * 1.5} color="#00ff7f" height={10} />
-
-                <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "600", marginTop: 12 }}>
-                  +{myKm - clubAvgKm} {showSteps ? "Steps" : "KM"} above average
-                </Text>
-              </View>
-
-              {/* Rankings Title + Toggle */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <Text style={{ color: "#777", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" }}>RANKINGS · {filterPeriod.toUpperCase()}</Text>
-                
-                {/* KM / Steps toggle moved here */}
-                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#151515", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 2, borderWidth: 1, borderColor: "#222" }}>
-                  <Text style={{ color: showSteps ? "#444" : "#00ff7f", fontSize: 10, fontWeight: "700", marginRight: 2 }}>KM</Text>
-                  <Switch
-                    value={showSteps}
-                    onValueChange={toggleMetric}
-                    trackColor={{ false: "#222", true: "#005c29" }}
-                    thumbColor={showSteps ? "#00ff7f" : "#555"}
-                    style={{ transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }] }}
-                  />
-                  <Text style={{ color: showSteps ? "#00ff7f" : "#444", fontSize: 10, fontWeight: "700", marginLeft: 2 }}>STEPS</Text>
-                </View>
-              </View>
-
-              {/* Rankings List */}
-              <View style={{ paddingBottom: 40 }}>
-                {isLoading ? (
-                  // SHIMMER LOADING STATE
-                  [1, 2, 3, 4, 5].map((i) => (
-                    <View key={`shimmer-${i}`} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 18, paddingHorizontal: 16, marginBottom: 8 }}>
-                      <Shimmer width={28} height={16} style={{ marginRight: 16 }} />
-                      <Shimmer width={48} height={48} borderRadius={24} style={{ marginRight: 16 }} />
-                      <View style={{ flex: 1 }}>
-                        <Shimmer width="60%" height={16} style={{ marginBottom: 8 }} />
-                        <Shimmer width="40%" height={10} />
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  sorted.map((f, index) => {
-                    const rank = index + 1;
-                    const rc = RANK_COLORS[rank];
-                    const isUser = f.name === "You";
-                    const stat = showSteps
-                      ? (f.total_steps > 0 ? f.total_steps.toLocaleString() : "----")
-                      : (f.total_distance ? `${f.total_distance}` : "----");
-                    const unit = showSteps ? "steps" : "KM";
-                    return (
-                      <HapticTouchable
-                        key={f.id}
-                        activeOpacity={0.8}
-                        onLongPress={triggerLoading}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          backgroundColor: isUser ? "rgba(0, 255, 127, 0.05)" : "transparent",
-                          borderRadius: 20,
-                          paddingVertical: 18,
-                          paddingHorizontal: 16,
-                          marginBottom: 8,
-                          borderWidth: 1,
-                          borderColor: isUser ? "rgba(0, 255, 127, 0.2)" : "rgba(255, 255, 255, 0.05)",
-                        }}>
-                        <Text style={{ color: rc || "#555", fontSize: 16, fontWeight: "800", width: 28, textAlign: "left" }}>{rank}</Text>
-                        
-                        <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: isUser ? "#00ff7f" : (rc || "#2a2a2a"), marginRight: 16, overflow: "hidden" }}>
-                          <Image source={{ uri: f.avatar }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                        </View>
-
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                            <Text style={{ color: isUser ? "#00ff7f" : "#fff", fontSize: 16, fontWeight: "700", letterSpacing: -0.2 }}>{isUser ? "You" : f.name}</Text>
-                            <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-                              <Text style={{ color: isUser ? "#00ff7f" : "#fff", fontSize: 20, fontWeight: "800", letterSpacing: -0.5 }}>{stat}</Text>
-                              {stat !== "----" && <Text style={{ color: "#666", fontSize: 12, marginLeft: 4, fontWeight: "600" }}>{unit}</Text>}
-                            </View>
-                          </View>
-
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                            <View style={{ flexDirection: "row", alignItems: "center" }}>
-                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: rc || "#444", marginRight: 8 }} />
-                              <Text style={{ color: "#888", fontSize: 13, fontWeight: "500" }}>{f.achievement}</Text>
-                            </View>
-                            {f.streak > 0 && (
-                              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                <Flame color="#00ff7f" size={14} style={{ marginRight: 4 }} opacity={0.8} />
-                                <Text style={{ color: "#777", fontSize: 12, fontWeight: "600" }}>{f.streak}d</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                      </HapticTouchable>
-                    );
-                  })
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* ════ FEED ════ */}
-          {activeTab === "Feed" && (
-            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-              {/* Post Trigger */}
-              <HapticTouchable 
-                onPress={() => setShowPostModal(true)}
-                style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#222", marginBottom: 20, flexDirection: "row", alignItems: "center" }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#00ff7f22", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-                  <Plus color="#fff" size={20} />
-                </View>
-                <Text style={{ color: "#555", fontSize: 15, fontWeight: "600" }}>Share something with the squad...</Text>
-              </HapticTouchable>
-
-              {feed.map((item, i) => (
-                <View key={item.id} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#1a1a1a", marginBottom: i < feed.length - 1 ? 12 : 0 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
-                    <View style={{ width: 42, height: 42, borderRadius: 21, overflow: "hidden", marginRight: 12, borderWidth: 1.5, borderColor: item.user === "You" ? "#00ff7f" : "#2a2a2a" }}>
-                      <Image source={{ uri: item.avatar }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: item.user === "You" ? "#00ff7f" : "#fff", fontWeight: "700", fontSize: 14 }}>{item.user}</Text>
-                      <Text style={{ color: "#444", fontSize: 12, marginTop: 2 }}>{item.time}</Text>
-                    </View>
-                    <HapticTouchable onPress={() => handleSharePost(item)}>
-                      <Share2 color="#333" size={16} />
-                    </HapticTouchable>
-                  </View>
-                  <View style={{ flexDirection: "row", backgroundColor: "#0d0d0d", borderRadius: 12, padding: 14, marginBottom: 12 }}>
-                    <View style={{ flex: 1, alignItems: "center" }}>
-                      <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>{item.distance}</Text>
-                      <Text style={{ color: "#555", fontSize: 11, marginTop: 2 }}>KM</Text>
-                    </View>
-                    <View style={{ width: 1, backgroundColor: "#1e1e1e" }} />
-                    <View style={{ flex: 1, alignItems: "center" }}>
-                      <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>{item.pace}</Text>
-                      <Text style={{ color: "#555", fontSize: 11, marginTop: 2 }}>/km pace</Text>
-                    </View>
-                  </View>
-                  <Text style={{ color: "#999", fontSize: 14, lineHeight: 20, marginBottom: 14 }}>{item.caption}</Text>
-                  <View style={{ flexDirection: "row" }}>
-                    <HapticTouchable onPress={() => toggleLike(item.id)} style={{ flexDirection: "row", alignItems: "center", marginRight: 22 }}>
-                      <View style={{ width: 22, height: 22, alignItems: "center", justifyContent: "center", marginRight: 6 }}>
-                        <Heart color={item.liked ? "#ff4d4d" : "#444"} size={18} />
-                        <HeartBurst trigger={burstTriggers[item.id] || 0} />
-                      </View>
-                      <Text style={{ color: "#555", fontSize: 13 }}>{item.likes}</Text>
-                    </HapticTouchable>
-                    <HapticTouchable 
-                      onPress={() => handleOpenComments(item)}
-                      style={{ flexDirection: "row", alignItems: "center" }}>
-                      <MessageSquare color="#444" size={18} style={{ marginRight: 6 }} />
-                      <Text style={{ color: "#555", fontSize: 13 }}>{item.comments}</Text>
-                    </HapticTouchable>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* ════ CHAT ════ */}
-          {activeTab === "Chat" && (
-            <View style={{ flex: 1, paddingHorizontal: 16 }}>
-              <View style={{ height: Dimensions.get("window").height * 0.5 }}>
-                <ScrollView 
-                  showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                  ref={ref => ref?.scrollToEnd({ animated: true })}>
-                  {messages.map((m) => (
-                    <View 
-                      key={m.id} 
-                      style={{ 
-                        alignSelf: m.isMe ? "flex-end" : "flex-start",
-                        maxWidth: "80%",
-                        marginBottom: 16
-                      }}>
-                      {!m.isMe && <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", marginBottom: 4, marginLeft: 12 }}>{m.user}</Text>}
-                      <View style={{
-                        backgroundColor: m.isMe ? "#00ff7f" : "#1a1a1a",
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        borderRadius: 20,
-                        borderBottomRightRadius: m.isMe ? 4 : 20,
-                        borderBottomLeftRadius: m.isMe ? 20 : 4,
-                      }}>
-                        <Text style={{ color: m.isMe ? "#000" : "#fff", fontSize: 15, fontWeight: "500" }}>{m.text}</Text>
-                      </View>
-                      <Text style={{ color: "#333", fontSize: 10, marginTop: 4, alignSelf: m.isMe ? "flex-end" : "flex-start", marginRight: m.isMe ? 4 : 0, marginLeft: m.isMe ? 0 : 4 }}>{m.time}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Chat Input */}
-              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#151515", borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: "#222" }}>
-                <TextInput
-                  style={{ flex: 1, color: "#fff", fontSize: 15 }}
-                  placeholder="Type a message..."
-                  placeholderTextColor="#444"
-                  value={newMessage}
-                  onChangeText={setNewMessage}
-                />
-                <HapticTouchable onPress={handleSendMessage}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#00ff7f", alignItems: "center", justifyContent: "center" }}>
-                    <Send color="#000" size={18} />
-                  </View>
-                </HapticTouchable>
-              </View>
-            </View>
-          )}
-
-          {/* ════ CHALLENGES ════ */}
-          {activeTab === "Challenges" && (
-            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-              {challenges.map((c, i) => {
-                const pct = Math.min(c.current / c.goal, 1);
-                return (
-                  <View key={c.id} style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: c.joined ? "#00ff7f22" : "#1a1a1a", marginBottom: i < challenges.length - 1 ? 12 : 0 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
-                      <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: "rgba(0, 255, 127, 0.1)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-                        <c.icon color="#fff" size={20} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{c.title}</Text>
-                        <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{c.participants} runners · {c.daysLeft}d left</Text>
-                      </View>
-                      <HapticTouchable onPress={() => handleToggleChallenge(c.id)} style={{ backgroundColor: c.joined ? "#1e1e1e" : "rgba(0, 255, 127, 0.1)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1, borderColor: c.joined ? "#2a2a2a" : "#00ff7f" }}>
-                        <Text style={{ color: c.joined ? "#555" : "#fff", fontWeight: "700", fontSize: 12 }}>{c.joined ? "Joined" : "Join"}</Text>
-                      </HapticTouchable>
-                    </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={{ color: "#555", fontSize: 12 }}>{c.current} {c.unit}</Text>
-                      <Text style={{ color: "#00ff7f", fontSize: 12, fontWeight: "700" }}>{Math.round(pct * 100)}%</Text>
-                    </View>
-                    <ProgressBar current={c.current} goal={c.goal} color="#00ff7f" height={8} />
-                    <Text style={{ color: "#333", fontSize: 11, marginTop: 6 }}>Goal: {c.goal} {c.unit}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {/* ════ STATS ════ */}
-          {activeTab === "Stats" && (
-            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-              {/* Weekly club goal */}
-              <View style={{ backgroundColor: "#161618", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#1a1a1a", marginBottom: 16 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Weekly Club Goal</Text>
-                  <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 22 }}>
-                    {clubMeta.weekCurrentKm} <Text style={{ color: "#555", fontSize: 13 }}>/ {clubMeta.weekGoalKm} KM</Text>
-                  </Text>
-                </View>
-                <ProgressBar current={clubMeta.weekCurrentKm} goal={clubMeta.weekGoalKm} color="#00ff7f" height={10} />
-                <Text style={{ color: "#555", fontSize: 12, marginTop: 8 }}>{clubMeta.weekGoalKm - clubMeta.weekCurrentKm} KM to go · 3 days left</Text>
-              </View>
-
-              {/* Streak board */}
-              <Text style={{ color: "#444", fontSize: 11, fontWeight: "600", letterSpacing: 1, marginBottom: 12 }}>STREAK LEADERBOARD</Text>
-              {[...LEADERBOARD].sort((a, b) => b.streak - a.streak).map((f, i) => (
-                <View key={`st-${f.id}`} style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
-                  <Text style={{ color: RANK_COLORS[i + 1] || "#555", fontWeight: "800", fontSize: 14, width: 20, textAlign: "center", marginRight: 12 }}>{i + 1}</Text>
-                  <View style={{ width: 38, height: 38, borderRadius: 19, overflow: "hidden", borderWidth: 1.5, borderColor: f.name === "You" ? "#00ff7f" : "#2a2a2a", marginRight: 12 }}>
-                    <Image source={{ uri: f.avatar }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                  </View>
-                  <Text style={{ color: f.name === "You" ? "#00ff7f" : "#fff", flex: 1, fontWeight: "600", fontSize: 14 }}>{f.name}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Flame color="#00ff7f" size={14} style={{ marginRight: 4 }} />
-                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>{f.streak}</Text>
-                    <Text style={{ color: "#555", fontSize: 12, marginLeft: 3 }}>days</Text>
-                  </View>
-                </View>
-              ))}
-
-              {/* Contributions */}
-              <Text style={{ color: "#444", fontSize: 11, fontWeight: "600", letterSpacing: 1, marginBottom: 12, marginTop: 8 }}>CONTRIBUTION TO CLUB TOTAL</Text>
-              {LEADERBOARD.map(f => {
-                const contribution = f.total_distance ? ((f.total_distance / clubMeta.totalKm) * 100).toFixed(1) : "0.0";
-                return (
-                  <View key={`cb-${f.id}`} style={{ marginBottom: 12 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                      <Text style={{ color: f.name === "You" ? "#00ff7f" : "#aaa", fontSize: 13, fontWeight: "600" }}>{f.name}</Text>
-                      <Text style={{ color: "#555", fontSize: 12 }}>{f.total_distance || 0} KM · {contribution}%</Text>
-                    </View>
-                    <ProgressBar current={f.total_distance || 0} goal={LEADERBOARD[0].total_distance} color={f.name === "You" ? "#00ff7f" : "#2a2a2a"} height={5} />
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* ── JOIN MODAL ── */}
-        <Modal visible={showJoinModal} transparent animationType="slide">
-          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" }} onPress={() => setShowJoinModal(false)}>
-            <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Join a Club</Text>
-                <HapticTouchable onPress={() => setShowJoinModal(false)}><X color="#555" size={22} /></HapticTouchable>
-              </View>
-              <Text style={{ color: "#555", fontSize: 13, marginBottom: 14 }}>Enter the invite code shared by a friend.</Text>
-              <TextInput
-                value={inviteInput}
-                onChangeText={(value) => setInviteInput(value.toUpperCase())}
-                placeholder="e.g. OUTHR-2024"
-                placeholderTextColor="#333"
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, color: "#fff", fontSize: 16, fontWeight: "600", borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 16, letterSpacing: 2 }}
-                autoCapitalize="characters"
-              />
-              <HapticTouchable onPress={handleJoinClub} style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
-                <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Join Club</Text>
-              </HapticTouchable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
-        {/* ── CREATE MODAL ── */}
-        <Modal visible={showCreateModal} transparent animationType="slide">
-          {/* ... existing modal content ... */}
-          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" }} onPress={() => setShowCreateModal(false)}>
-            <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Create a Club</Text>
-                <HapticTouchable onPress={() => setShowCreateModal(false)}><X color="#555" size={22} /></HapticTouchable>
-              </View>
-              <Text style={{ color: "#555", fontSize: 13, marginBottom: 10 }}>Give your crew a name to get started (max 25 chars).</Text>
-              <Text style={{ color: "#8af6be", fontSize: 12, marginBottom: 12 }}>
-                {membershipTier.toUpperCase()} tier · Ownership {ownedCrewCount}/{ownershipLimit || 0}
-              </Text>
-              {!canCreateCrew && (
-                <Text style={{ color: "#888", fontSize: 12, marginBottom: 10 }}>
-                  Upgrade to Pro or Black to create a crew.
-                </Text>
-              )}
-              <TextInput
-                value={createClubName}
-                onChangeText={setCreateClubName}
-                maxLength={25}
-                placeholder="Club name..."
-                placeholderTextColor="#333"
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, color: "#fff", fontSize: 16, borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 14 }}
-              />
-              <View style={{ backgroundColor: "#0d1a11", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: "#00ff7f22" }}>
-                <Text style={{ color: "#555", fontSize: 12, marginBottom: 4 }}>Your invite code</Text>
-                <Text style={{ color: "#00ff7f", fontWeight: "800", fontSize: 20, letterSpacing: 3 }}>{inviteCodePreview}</Text>
-              </View>
-              <HapticTouchable
-                onPress={handleCreateClub}
-                disabled={!canCreateCrew || ownedCrewCount >= ownershipLimit}
-                style={{
-                  backgroundColor: !canCreateCrew || ownedCrewCount >= ownershipLimit ? "#2a2a2a" : "#00ff7f",
-                  padding: 16,
-                  borderRadius: 14,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: !canCreateCrew || ownedCrewCount >= ownershipLimit ? "#777" : "#000", fontWeight: "800", fontSize: 16 }}>
-                  Create Club
-                </Text>
-              </HapticTouchable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
-        {/* ── POST MODAL ── */}
-        <Modal visible={showPostModal} transparent animationType="slide">
-          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" }} onPress={() => setShowPostModal(false)}>
-            <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Create New Post</Text>
-                <HapticTouchable onPress={() => setShowPostModal(false)}><X color="#555" size={22} /></HapticTouchable>
-              </View>
-              <TextInput
-                multiline
-                numberOfLines={4}
-                value={newPostText}
-                onChangeText={setNewPostText}
-                placeholder="What's happening?"
-                placeholderTextColor="#333"
-                style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 14, color: "#fff", fontSize: 16, minHeight: 100, textAlignVertical: "top", marginBottom: 20 }}
-              />
-              <HapticTouchable 
-                onPress={handleCreatePost}
-                style={{ backgroundColor: "#00ff7f", padding: 16, borderRadius: 14, alignItems: "center" }}>
-                <Text style={{ color: "#000", fontWeight: "800", fontSize: 16 }}>Post to Feed</Text>
-              </HapticTouchable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
-        {/* ── COMMENTS MODAL ── */}
-        <Modal visible={showCommentsModal} transparent animationType="slide">
-          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" }} onPress={() => setShowCommentsModal(false)}>
-            <Pressable style={{ backgroundColor: "#161618", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, height: "70%" }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>Comments</Text>
-                <HapticTouchable onPress={() => setShowCommentsModal(false)}><X color="#555" size={22} /></HapticTouchable>
-              </View>
-              
-              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                {activeComments.length === 0 ? (
-                  <View style={{ alignItems: "center", marginTop: 40 }}>
-                    <MessageSquare size={40} color="#222" style={{ marginBottom: 12 }} />
-                    <Text style={{ color: "#444", fontWeight: "600" }}>No comments yet. Be the first!</Text>
-                  </View>
-                ) : (
-                  activeComments.map((comment) => (
-                    <View key={comment.id} style={{ flexDirection: "row", marginBottom: 20 }}>
-                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#222", marginRight: 12, alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ color: "#aaa", fontSize: 12, fontWeight: "800" }}>{comment.user.slice(0, 1)}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
-                          <Text style={{ color: "#666", fontSize: 12, fontWeight: "700", marginRight: 8 }}>{comment.user}</Text>
-                          <Text style={{ color: "#444", fontSize: 11 }}>{comment.time}</Text>
-                        </View>
-                        <Text style={{ color: "#ccc", fontSize: 14 }}>{comment.text}</Text>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
-
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 20, backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 }}>
-                <TextInput
-                  style={{ flex: 1, color: "#fff", fontSize: 14 }}
-                  placeholder="Drop a comment..."
-                  placeholderTextColor="#444"
-                  value={newCommentText}
-                  onChangeText={setNewCommentText}
-                />
-                <HapticTouchable onPress={handleAddComment}>
-                  <Send color="#00ff7f" size={18} />
-                </HapticTouchable>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
+function CrewSkeleton() {
+  return (
+    <View style={{ gap: S.md }}>
+      <Skeleton height={280} radius={30} />
+      <View style={{ paddingHorizontal: S.gutter, gap: S.md }}>
+        <Skeleton height={36} radius={10} />
+        <Skeleton height={260} radius={20} />
       </View>
-
-      {/* ════════════════════════════════════════════════════════════════════
-           CLUB MANAGE DRAWER — Right-side slide-in panel
-          ════════════════════════════════════════════════════════════════════ */}
-      {showManageDrawer && (
-        <Modal visible transparent animationType="none">
-          <View style={{ flex: 1, flexDirection: "row" }}>
-            {/* ── Backdrop (tap to close) ── */}
-            <Animated.View
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.6)",
-                opacity: backdropAnim,
-              }}
-            >
-              <Pressable style={{ flex: 1 }} onPress={closeDrawer} />
-            </Animated.View>
-
-            {/* ── Drawer Panel ── */}
-            <Animated.View
-              style={{
-                width: Dimensions.get("window").width * 0.88,
-                backgroundColor: "#0d0d0f",
-                borderLeftWidth: 1,
-                borderLeftColor: "#1e1e22",
-                transform: [{ translateX: drawerAnim }],
-              }}
-            >
-              <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{
-                  paddingTop: 60,
-                  paddingBottom: 60,
-                  paddingHorizontal: 20,
-                }}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* ── Close button ── */}
-                <HapticTouchable
-                  onPress={closeDrawer}
-                  style={{
-                    position: "absolute",
-                    top: 16,
-                    right: 16,
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: "#1a1a1c",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: "#2a2a2d",
-                  }}
-                >
-                  <X color="#777" size={18} />
-                </HapticTouchable>
-
-                {/* ── Club Header ── */}
-                <View style={{ marginBottom: 28 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-                    <TouchableOpacity
-                      disabled={!isOwner || membershipTier === "free" || isUploadingLogo}
-                      onPress={async () => {
-                        hapticSelection();
-                        // Import inline to save global scope
-                        const ImagePicker = require("expo-image-picker");
-                        const result = await ImagePicker.launchImageLibraryAsync({
-                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                          allowsEditing: true,
-                          aspect: [1, 1],
-                          quality: 0.5,
-                        });
-                        if (!result.canceled && result.assets?.[0]?.uri) {
-                          const pickedAsset = result.assets[0];
-                          setIsUploadingLogo(true);
-                          try {
-                            const formData = new FormData();
-                            formData.append("file", {
-                              uri: pickedAsset.uri,
-                              name: "logo.jpg",
-                              type: "image/jpeg",
-                            });
-                            formData.append("UPLOADCARE_PUB_KEY", "b398df9a888c304f56f1"); // Weavy pub key
-                            formData.append("UPLOADCARE_STORE", "1");
-                            const res = await fetch("https://upload.uploadcare.com/base/", {
-                              method: "POST",
-                              body: formData,
-                            });
-                            const data = await res.json();
-                            if (data?.file) {
-                              const newLogoUrl = `https://ucarecdn.com/${data.file}/`;
-                              if (activeGroup?.id) {
-                                await groupsAPI.uploadLogo(activeGroup.id, {
-                                  device_id: deviceId,
-                                  logo_url: newLogoUrl,
-                                  mime_type: "image/jpeg",
-                                  width: Number(pickedAsset.width || 512),
-                                  height: Number(pickedAsset.height || 512),
-                                  size_bytes: Number(pickedAsset.fileSize || 240000),
-                                });
-                                await refreshCrewData();
-                                hapticSuccess();
-                              }
-                            }
-                          } catch (err) {
-                            console.error("Upload error", err);
-                            Alert.alert("Error", "Could not upload logo.");
-                          } finally {
-                            setIsUploadingLogo(false);
-                          }
-                        }
-                      }}
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 16,
-                        backgroundColor: "#151515",
-                        borderWidth: 2,
-                        borderColor: "rgba(0,255,127,0.45)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        marginRight: 14,
-                        position: "relative",
-                      }}
-                    >
-                      {activeGroup?.logo_url ? (
-                        <Image source={{ uri: activeGroup.logo_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                      ) : (
-                        <Text style={{ color: "#00ff7f", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>OUT</Text>
-                      )}
-                      
-                      {isOwner && membershipTier !== "free" && (
-                        <View style={{ position: "absolute", bottom: 0, width: "100%", height: 20, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ color: "#fff", fontSize: 8, fontWeight: "700" }}>EDIT</Text>
-                        </View>
-                      )}
-                      {isUploadingLogo && (
-                        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ color: "#fff", fontSize: 8 }}>...</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: -0.5 }} numberOfLines={1}>
-                        {activeGroup?.name || squadName}
-                      </Text>
-                      <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>
-                        {clubMeta.members} members
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Your role badge */}
-                  <View
-                    style={{
-                      alignSelf: "flex-start",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 6,
-                      backgroundColor:
-                        myRole === "owner" ? "rgba(255,215,0,0.1)"
-                        : myRole === "mod" ? "rgba(167,139,250,0.1)"
-                        : "rgba(255,255,255,0.06)",
-                      borderWidth: 1,
-                      borderColor:
-                        myRole === "owner" ? "rgba(255,215,0,0.25)"
-                        : myRole === "mod" ? "rgba(167,139,250,0.25)"
-                        : "#2a2a2d",
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 10,
-                    }}
-                  >
-                    {myRole === "owner" && <Crown color="#ffd700" size={12} />}
-                    {myRole === "mod" && <ShieldCheck color="#a78bfa" size={12} />}
-                    {myRole === "member" && <UserCheck color="#777" size={12} />}
-                    <Text
-                      style={{
-                        color: myRole === "owner" ? "#ffd700" : myRole === "mod" ? "#a78bfa" : "#777",
-                        fontSize: 11,
-                        fontWeight: "800",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {myRole}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* ── Divider ── */}
-                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
-
-                {/* ── Join / Create Section ── */}
-                <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Your Crews</Text>
-                <View style={{ marginBottom: 8 }}>
-                  <HapticTouchable
-                    onPress={() => { closeDrawer(); setTimeout(() => setShowJoinModal(true), 300); }}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      backgroundColor: "#111113",
-                      borderRadius: 14,
-                      padding: 16,
-                      marginBottom: 10,
-                      borderWidth: 1,
-                      borderColor: "#1e1e22",
-                      gap: 14,
-                    }}
-                  >
-                    <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(0,255,127,0.1)", borderWidth: 1, borderColor: "rgba(0,255,127,0.2)", alignItems: "center", justifyContent: "center" }}>
-                      <LogIn color="#00ff7f" size={18} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>Join a Crew</Text>
-                      <Text style={{ color: "#555", fontSize: 12, marginTop: 2 }}>Enter an invite code from a friend</Text>
-                    </View>
-                    <ChevronRight color="#444" size={16} />
-                  </HapticTouchable>
-
-                  <HapticTouchable
-                    onPress={() => { closeDrawer(); setTimeout(() => setShowCreateModal(true), 300); }}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      backgroundColor: canCreateCrew ? "rgba(0,255,127,0.07)" : "#111113",
-                      borderRadius: 14,
-                      padding: 16,
-                      borderWidth: 1,
-                      borderColor: canCreateCrew ? "rgba(0,255,127,0.2)" : "#1e1e22",
-                      gap: 14,
-                    }}
-                  >
-                    <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: canCreateCrew ? "rgba(0,255,127,0.12)" : "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: canCreateCrew ? "rgba(0,255,127,0.25)" : "#2a2a2d", alignItems: "center", justifyContent: "center" }}>
-                      <Plus color={canCreateCrew ? "#00ff7f" : "#555"} size={18} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: canCreateCrew ? "#fff" : "#555", fontSize: 14, fontWeight: "700" }}>Create a Crew</Text>
-                      <Text style={{ color: canCreateCrew ? "#777" : "#444", fontSize: 12, marginTop: 2 }}>
-                        {canCreateCrew ? `${ownedCrewCount}/${ownershipLimit} crews owned` : "Pro or Black required"}
-                      </Text>
-                    </View>
-                    {!canCreateCrew ? <Crown color="#ffd700" size={14} /> : <ChevronRight color="#444" size={16} />}
-                  </HapticTouchable>
-                </View>
-
-                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
-
-                {/* ── Invite Code Section ── */}
-                <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Invite Code</Text>
-                <View
-                  style={{
-                    backgroundColor: "#111113",
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: "#1e1e22",
-                    padding: 16,
-                    marginBottom: 8,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <KeyRound color="#00ff7f" size={16} />
-                      <Text style={{ color: "#00ff7f", fontWeight: "900", fontSize: 22, letterSpacing: 3 }}>
-                        {activeGroup?.invite_code || inviteCodePreview}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
-                    <HapticTouchable
-                      onPress={handleCopyInviteCode}
-                      style={{
-                        flex: 1,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        backgroundColor: "rgba(0,255,127,0.1)",
-                        borderWidth: 1,
-                        borderColor: "rgba(0,255,127,0.25)",
-                        paddingVertical: 10,
-                        borderRadius: 12,
-                      }}
-                    >
-                      <Copy color="#00ff7f" size={14} />
-                      <Text style={{ color: "#00ff7f", fontSize: 13, fontWeight: "700" }}>Copy</Text>
-                    </HapticTouchable>
-                    <HapticTouchable
-                      onPress={handleShareInviteCode}
-                      style={{
-                        flex: 1,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        backgroundColor: "#1a1a1c",
-                        borderWidth: 1,
-                        borderColor: "#2a2a2d",
-                        paddingVertical: 10,
-                        borderRadius: 12,
-                      }}
-                    >
-                      <Share2 color="#aaa" size={14} />
-                      <Text style={{ color: "#aaa", fontSize: 13, fontWeight: "700" }}>Share</Text>
-                    </HapticTouchable>
-                  </View>
-                </View>
-
-                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24, marginTop: 16 }} />
-
-                {/* ── Members Section ── */}
-                <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Members ({clubMeta.members})</Text>
-                <View style={{ marginBottom: 8 }}>
-                  {LEADERBOARD.map((member, index) => {
-                    const isMe = member.name === "You";
-                    const role = index === 0 ? "owner" : index === 1 ? "mod" : "member";
-                    return (
-                      <View
-                        key={member.id}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          backgroundColor: isMe ? "rgba(0,255,127,0.04)" : "transparent",
-                          borderRadius: 14,
-                          paddingVertical: 10,
-                          paddingHorizontal: 4,
-                          marginBottom: 4,
-                          borderWidth: 1,
-                          borderColor: isMe ? "rgba(0,255,127,0.12)" : "transparent",
-                        }}
-                      >
-                        <View style={{ width: 40, height: 40, borderRadius: 20, overflow: "hidden", borderWidth: 1.5, borderColor: isMe ? "#00ff7f" : "#2a2a2d", marginRight: 12 }}>
-                          <Image source={{ uri: member.avatar }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: isMe ? "#00ff7f" : "#fff", fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
-                            {isMe ? "You" : member.name}
-                          </Text>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
-                            {role === "owner" && <Crown color="#ffd700" size={10} />}
-                            {role === "mod" && <ShieldCheck color="#a78bfa" size={10} />}
-                            <Text style={{ color: role === "owner" ? "#ffd700" : role === "mod" ? "#a78bfa" : "#555", fontSize: 10, fontWeight: "700" }}>
-                              {role.toUpperCase()}
-                            </Text>
-                          </View>
-                        </View>
-                        {/* Remove member button — owner only, not for self */}
-                        {isOwner && !isMe && (
-                          <HapticTouchable
-                            onPress={() => handleKickMember(member)}
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 10,
-                              backgroundColor: "rgba(239,68,68,0.1)",
-                              borderWidth: 1,
-                              borderColor: "rgba(239,68,68,0.2)",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <UserX color="#ef4444" size={14} />
-                          </HapticTouchable>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {/* ── Settings Section (owner/mod only) ── */}
-                {canManageCrew && (
-                  <>
-                    <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24, marginTop: 8 }} />
-                    <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Crew Settings</Text>
-                    <View style={{ marginBottom: 20 }}>
-                      <TextInput
-                        value={groupNameInput}
-                        onChangeText={setGroupNameInput}
-                        placeholder="Crew name"
-                        placeholderTextColor="#444"
-                        style={{
-                          backgroundColor: "#111113",
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: "#2a2a2d",
-                          color: "#fff",
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          marginBottom: 10,
-                          fontSize: 14,
-                        }}
-                      />
-                      <TextInput
-                        value={groupTaglineInput}
-                        onChangeText={setGroupTaglineInput}
-                        placeholder="Tagline (max 80 chars)"
-                        placeholderTextColor="#444"
-                        maxLength={80}
-                        style={{
-                          backgroundColor: "#111113",
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: "#2a2a2d",
-                          color: "#fff",
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          marginBottom: 10,
-                          fontSize: 14,
-                        }}
-                      />
-                      <TextInput
-                        value={groupDescriptionInput}
-                        onChangeText={setGroupDescriptionInput}
-                        placeholder="Description"
-                        placeholderTextColor="#444"
-                        maxLength={280}
-                        multiline
-                        style={{
-                          backgroundColor: "#111113",
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: "#2a2a2d",
-                          color: "#fff",
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          minHeight: 80,
-                          textAlignVertical: "top",
-                          marginBottom: 12,
-                          fontSize: 14,
-                        }}
-                      />
-
-                      {/* Privacy selector */}
-                      <Text style={{ color: "#555", fontSize: 11, fontWeight: "600", marginBottom: 8 }}>PRIVACY</Text>
-                      <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                        {[
-                          { key: "public", label: "Public", icon: Globe },
-                          { key: "request", label: "Request", icon: UserCheck },
-                          { key: "invite", label: "Invite Only", icon: Lock },
-                        ].map(({ key, label, icon: Icon }) => (
-                          <HapticTouchable
-                            key={key}
-                            onPress={() => setGroupPrivacy(key)}
-                            style={{
-                              flex: 1,
-                              alignItems: "center",
-                              paddingVertical: 10,
-                              borderRadius: 12,
-                              borderWidth: 1,
-                              borderColor: groupPrivacy === key ? "rgba(0,255,127,0.4)" : "#2a2a2d",
-                              backgroundColor: groupPrivacy === key ? "rgba(0,255,127,0.1)" : "#111113",
-                            }}
-                          >
-                            <Icon size={14} color={groupPrivacy === key ? "#00ff7f" : "#555"} />
-                            <Text style={{ color: groupPrivacy === key ? "#9efac8" : "#666", fontSize: 10, fontWeight: "700", marginTop: 4, textTransform: "uppercase" }}>
-                              {label}
-                            </Text>
-                          </HapticTouchable>
-                        ))}
-                      </View>
-
-                      <HapticTouchable
-                        disabled={isSavingSettings}
-                        onPress={handleSaveCrewSettings}
-                        style={{
-                          backgroundColor: "#00ff7f",
-                          borderRadius: 14,
-                          paddingVertical: 14,
-                          alignItems: "center",
-                          opacity: isSavingSettings ? 0.6 : 1,
-                        }}
-                      >
-                        <Text style={{ color: "#000", fontSize: 14, fontWeight: "800" }}>
-                          {isSavingSettings ? "Saving..." : "Save Settings"}
-                        </Text>
-                      </HapticTouchable>
-                    </View>
-
-                    {/* Logo upload — owner + Pro/Black only */}
-                    {isOwner && (
-                      <>
-                        <Text style={{ color: "#555", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Crew Logo</Text>
-                        <View
-                          style={{
-                            backgroundColor: "#111113",
-                            borderRadius: 16,
-                            borderWidth: 1,
-                            borderColor: "#1e1e22",
-                            padding: 14,
-                            marginBottom: 24,
-                          }}
-                        >
-                          {membershipTier === "free" && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                              <Crown color="#ffd700" size={12} />
-                              <Text style={{ color: "#ffd700", fontSize: 11, fontWeight: "700" }}>Pro or Black required to upload logos</Text>
-                            </View>
-                          )}
-                          <TextInput
-                            value={groupLogoInput}
-                            onChangeText={setGroupLogoInput}
-                            placeholder="Logo image URL (.png / .jpg)"
-                            placeholderTextColor="#444"
-                            autoCapitalize="none"
-                            editable={membershipTier !== "free"}
-                            style={{
-                              backgroundColor: "#0d0d0f",
-                              borderRadius: 10,
-                              borderWidth: 1,
-                              borderColor: "#2a2a2d",
-                              color: membershipTier !== "free" ? "#fff" : "#555",
-                              paddingHorizontal: 12,
-                              paddingVertical: 10,
-                              marginBottom: 10,
-                              fontSize: 13,
-                            }}
-                          />
-                          <HapticTouchable
-                            disabled={isUploadingLogo || membershipTier === "free"}
-                            onPress={handleUploadLogo}
-                            style={{
-                              backgroundColor: membershipTier !== "free" ? "#1f1f23" : "#111113",
-                              borderRadius: 12,
-                              paddingVertical: 12,
-                              alignItems: "center",
-                              borderWidth: 1,
-                              borderColor: membershipTier !== "free" ? "#2c2c30" : "#1a1a1c",
-                              opacity: isUploadingLogo ? 0.6 : 1,
-                            }}
-                          >
-                            <Text style={{ color: membershipTier !== "free" ? "#aaa" : "#444", fontSize: 13, fontWeight: "700" }}>
-                              {isUploadingLogo ? "Uploading..." : "Upload Logo"}
-                            </Text>
-                          </HapticTouchable>
-                        </View>
-                      </>
-                    )}
-                  </>
-                )}
-
-                {/* ── Danger Zone ── */}
-                <View style={{ height: 1, backgroundColor: "#1a1a1c", marginBottom: 24 }} />
-                <Text style={{ color: "rgba(239,68,68,0.6)", fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Danger Zone</Text>
-                <View
-                  style={{
-                    backgroundColor: "rgba(239,68,68,0.05)",
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: "rgba(239,68,68,0.15)",
-                    overflow: "hidden",
-                  }}
-                >
-                  {!isOwner && (
-                    <HapticTouchable
-                      onPress={handleLeaveCrew}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        padding: 16,
-                        gap: 12,
-                        borderBottomWidth: isOwner ? 0 : 0,
-                      }}
-                    >
-                      <DoorOpen color="#ef4444" size={18} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: "#ef4444", fontSize: 14, fontWeight: "700" }}>Leave Crew</Text>
-                        <Text style={{ color: "rgba(239,68,68,0.5)", fontSize: 12, marginTop: 2 }}>You'll need an invite code to rejoin</Text>
-                      </View>
-                      <ChevronRight color="rgba(239,68,68,0.4)" size={16} />
-                    </HapticTouchable>
-                  )}
-                  {isOwner && (
-                    <HapticTouchable
-                      onPress={handleDeleteCrew}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        padding: 16,
-                        gap: 12,
-                      }}
-                    >
-                      <Trash2 color="#ef4444" size={18} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: "#ef4444", fontSize: 14, fontWeight: "700" }}>Delete Crew</Text>
-                        <Text style={{ color: "rgba(239,68,68,0.5)", fontSize: 12, marginTop: 2 }}>Permanent — all members will lose access</Text>
-                      </View>
-                      <ChevronRight color="rgba(239,68,68,0.4)" size={16} />
-                    </HapticTouchable>
-                  )}
-                </View>
-
-                <View style={{ height: 40 }} />
-              </ScrollView>
-            </Animated.View>
-          </View>
-        </Modal>
-      )}
-
     </View>
   );
 }
+
+export default function CrewTab() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const myCrews = useMyCrews();
+  const focusedId = useCrewFocus((s) => s.crewId);
+  const focus = useCrewFocus((s) => s.focus);
+  const [tab, setTab] = useState("board");
+  const [menu, setMenu] = useState(false);
+  const start = useStartCrew();
+
+  // ?crew= and ?tab= links (notifications, other screens) open that crew and tab.
+  useEffect(() => {
+    if (params.crew) focus(String(params.crew));
+    if (params.tab && TAB_KEYS.includes(String(params.tab))) setTab(String(params.tab));
+  }, [params.crew, params.tab, focus]);
+
+  const crews = useMemo(() => myCrews.data || [], [myCrews.data]);
+  const activeId = crews.some((c) => c.id === focusedId) ? focusedId : crews[0]?.id;
+  const crewQuery = useCrew(activeId);
+  const crew = crewQuery.data && crewQuery.data.id === activeId && crewQuery.data.isMember ? crewQuery.data : null;
+  const header = useCrewHeader(crew?.id);
+  const goal = useCrewGoal(tab === "challenges" ? crew?.id : null);
+  const stats = useCrewStats(tab === "stats" ? crew?.id : null);
+  const unread = useCrewUnread(crew?.id);
+  const staff = crew && (crew.myRole === "owner" || crew.myRole === "admin");
+  const requests = useJoinRequests(crew?.id, !!staff);
+
+  const refreshing = myCrews.isRefetching || crewQuery.isRefetching;
+  const refresh = () => {
+    myCrews.refetch();
+    crewQuery.refetch();
+    header.refetch();
+  };
+
+  if (myCrews.isPending) {
+    return (
+      <Screen tab scroll={false} padded={false} style={{ paddingTop: 0 }}>
+        <CrewSkeleton />
+      </Screen>
+    );
+  }
+
+  if (!crews.length) return <NoCrew refresh={refresh} refreshing={refreshing} />;
+
+  if (!crew) {
+    return (
+      <Screen tab scroll={false} padded={false} style={{ paddingTop: 0 }}>
+        {crewQuery.isError ? <EmptyState title="Couldn't load this crew" body="Pull down or pick another crew." action="Try again" onAction={refresh} style={{ marginTop: 120 }} /> : <CrewSkeleton />}
+      </Screen>
+    );
+  }
+
+  const h = header.data;
+  const asks = requests.data?.length || 0;
+  const menuOptions = [
+    { label: "Invite people", hint: crew.inviteCode ? `Code ${crew.inviteCode}` : undefined, icon: UserPlus, onPress: () => shareInvite(crew) },
+    staff ? { label: "Crew settings", hint: "Who can join, weekly goal, chat and roles", icon: Settings2, onPress: () => router.push(`/crew/settings/${crew.id}`) } : null,
+    staff && (asks || crew.joinPolicy === "request") ? { label: "Join requests", hint: asks ? `${asks} waiting` : "Nobody waiting", icon: Inbox, onPress: () => router.push(`/crew/requests/${crew.id}`) } : null,
+    { label: "Club page", hint: "Runs, fixtures and members", icon: Users, onPress: () => router.push(`/crew/${crew.id}`) },
+    { label: `${h?.city || crew.city} leaderboard`, hint: "People, crews and areas", icon: Trophy, onPress: () => router.push("/crew/board") },
+    ...crews.filter((c) => c.id !== crew.id).map((c) => ({ label: `Switch to ${c.name}`, icon: ChevronsRight, onPress: () => focus(c.id) })),
+    { label: "Find more crews", hint: "Join with a code or one near you", icon: Compass, onPress: () => router.push("/crew/join") },
+    { label: "Start your own", icon: Plus, onPress: start },
+    { label: "Claim your club", hint: "For organisers of a real run club", icon: BadgeCheck, onPress: () => router.push("/clubs/claim") },
+    !staff ? { label: "Crew settings", hint: "Leave the crew", icon: Settings2, onPress: () => router.push(`/crew/settings/${crew.id}`) } : null,
+  ].filter(Boolean);
+
+  const more = <MoreButton onPress={() => setMenu(true)} />;
+  const tabs = (
+    <View style={{ backgroundColor: C.bg }}>
+      <UnderlineTabs
+        options={[
+          { value: "board", label: "Leaderboard" },
+          { value: "feed", label: "Feed" },
+          { value: "chat", label: "Chat", badge: tab === "chat" ? 0 : unread.data || 0 },
+          { value: "challenges", label: "Challenges" },
+          { value: "stats", label: "Stats" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+    </View>
+  );
+  const sheet = <ActionSheet visible={menu} title={crew.name} subtitle={h ? `${h.memberCount} members · ${h.city}` : undefined} options={menuOptions} onClose={() => setMenu(false)} />;
+
+  if (tab === "chat") {
+    return (
+      <Screen tab scroll={false} padded={false}>
+        <CrewBar crew={crew} header={h} right={more} />
+        {tabs}
+        <CrewChat key={crew.id} crew={crew} />
+        {sheet}
+      </Screen>
+    );
+  }
+
+  const [top, bottom] = twoTone(crew.name);
+  let head;
+  if (tab === "board") {
+    head = (
+      <CrewSlab
+        kicker={h ? `Crew · #${h.cityRank} in ${h.city}` : "Crew"}
+        top={top}
+        bottom={bottom}
+        sub={h ? `${h.memberCount} members · ${h.outNow} out right now` : " "}
+        object={PHOTOS.podium}
+        objectSize={186}
+        objectStyle={{ right: -18 }}
+        right={more}
+      />
+    );
+  } else if (tab === "challenges") {
+    const g = goal.data;
+    head = <CrewSlab kicker={g ? `Crew goal · ${g.daysLeft} ${g.daysLeft === 1 ? "day" : "days"} left` : "Crew goal"} top={`${(g?.goalKm ?? crew.weeklyGoalKm ?? 100).toLocaleString("en-GB")} km`} bottom="together" photo={PHOTOS.crew} height={210} right={more} />;
+  } else if (tab === "stats") {
+    const st = stats.data;
+    const share = () =>
+      st &&
+      Share.share({ message: `${crew.name} ran ${st.monthKm.toLocaleString("en-GB")} km together in ${st.monthLabel}. ${st.runs} runs, all on Outhere.` }).catch(() => {});
+    head = (
+      <CrewSlab
+        kicker={st ? `${st.monthLabel} so far` : "This month"}
+        top={st ? `${st.monthKm.toLocaleString("en-GB")} km` : " "}
+        bottom="as a crew"
+        object={CREW_PHOTOS.bars}
+        height={230}
+        right={
+          <>
+            <IconButton icon={Share2} label="Share the month" onPress={share} />
+            {more}
+          </>
+        }
+      />
+    );
+  } else {
+    head = (
+      <FeedHead
+        crew={crew}
+        right={
+          <>
+            <BellButton />
+            {more}
+          </>
+        }
+      />
+    );
+  }
+
+  const slab = tab !== "feed";
+  return (
+    <Screen tab scroll={false} padded={false} style={slab ? { paddingTop: 0 } : undefined}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + 20 }}
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
+      >
+        <View key={`${crew.id}:${tab}:head`}>{head}</View>
+        {tabs}
+        <View key={`${crew.id}:${tab}`}>
+          {tab === "board" ? <CrewRace crew={crew} /> : null}
+          {tab === "feed" ? <CrewFeed crew={crew} /> : null}
+          {tab === "challenges" ? <CrewChallenges crew={crew} /> : null}
+          {tab === "stats" ? <CrewStats crew={crew} /> : null}
+        </View>
+      </ScrollView>
+      {sheet}
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  way: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 13, paddingBottom: 13, paddingLeft: 14, paddingRight: 14 },
+  wayOn: { borderRadius: 20, boxShadow: "0 0 0 1.5px #3d8bff, 0 0 22px -8px rgba(61,139,255,0.8)" },
+  wayIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(61,139,255,0.14)", alignItems: "center", justifyContent: "center" },
+  wayTitle: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
+  waySub: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 2 },
+  section: { color: C.text, fontFamily: F.display, fontSize: 24, textTransform: "uppercase", marginBottom: S.md },
+  findBand: { height: 300, justifyContent: "flex-end", paddingHorizontal: S.gutter, paddingBottom: 22 },
+  findSearch: { position: "absolute", top: 14, right: S.gutter, width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10,14,20,0.45)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" },
+  findKick: { color: "#9cc4ff", fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 1.7, textTransform: "uppercase", marginBottom: 8 },
+  findTitle: { color: C.text, fontFamily: F.display, fontSize: 44, lineHeight: 42, textTransform: "uppercase", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 30, textShadowOffset: { width: 0, height: 2 } },
+  findBlue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
+});

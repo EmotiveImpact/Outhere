@@ -1,210 +1,33 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Tabs } from "expo-router";
-import { BottomTabBar } from "@react-navigation/bottom-tabs";
-import { useQuery } from "@tanstack/react-query";
-import { Animated, Easing, View } from "react-native";
-import { Compass, Home, Users } from "lucide-react-native";
-import { FontAwesome5 } from "@expo/vector-icons";
-import { MotiView } from "moti";
-import { Image } from "expo-image";
-import { hapticSelection } from "@/services/haptics";
+import React from "react";
+import { Redirect, Tabs } from "expo-router";
+import { useProfile } from "@/data/hooks";
+import { C } from "@/components/ui";
+import { TabsTabBar } from "@/components/AppTabBar";
 import { useMoveStore } from "@/store/useMoveStore";
 
-const AnimatedIcon = ({ focused, children }) => (
-  <MotiView
-    animate={{ 
-      scale: focused ? 1.2 : 1,
-      opacity: focused ? 1 : 0.8
-    }}
-    transition={{ type: "spring", stiffness: 350, damping: 15 }}
-  >
-    {children}
-  </MotiView>
-);
-
-const fallbackAvatar =
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200";
-
-const fetchDashboard = async () => {
-  try {
-    const res = await fetch("/api/dashboard");
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
-};
-
-const FocusModeTabBar = ({ isFocusMode, animatedStyle, ...props }) => {
-  return (
-    <Animated.View
-      pointerEvents={isFocusMode ? "none" : "auto"}
-      style={animatedStyle}
-    >
-      <BottomTabBar {...props} />
-    </Animated.View>
-  );
-};
+// Five buttons, in Edem's order: Home, Move, Outside, Crew, Profile. The bar
+// itself is the kit's TabBar (components/ui/TabBar.jsx): the active tab
+// glows, the others dim, no lines, pills or outlines. It slides away while a
+// run is in progress (focus mode).
 
 export default function TabLayout() {
-  const isFocusMode = useMoveStore((s) => s.sessionPhase !== "idle");
-  const tabAnim = useRef(new Animated.Value(isFocusMode ? 0 : 1)).current;
+  const { data: profile, isPending } = useProfile();
+  const isFocusMode = useMoveStore((s) => s.sessionPhase !== "idle" || s.hideTabs);
 
-  useEffect(() => {
-    tabAnim.stopAnimation();
-    if (isFocusMode) {
-      Animated.timing(tabAnim, {
-        toValue: 0,
-        duration: 220,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-      return;
-    }
-
-    Animated.spring(tabAnim, {
-      toValue: 1,
-      damping: 20,
-      stiffness: 220,
-      mass: 0.9,
-      useNativeDriver: true,
-    }).start();
-  }, [isFocusMode, tabAnim]);
-
-  const animatedTabBarStyle = {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    transform: [
-      {
-        translateY: tabAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [110, 0],
-        }),
-      },
-    ],
-    opacity: tabAnim,
-  };
-
-  const { data } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: fetchDashboard,
-  });
-
-  const avatarUrl = data?.user?.avatar_url || fallbackAvatar;
+  // Not signed in or no profile yet: send them to the start.
+  if (!isPending && !profile) return <Redirect href="/welcome" />;
 
   return (
     <Tabs
-      tabBar={(props) => (
-        <FocusModeTabBar
-          {...props}
-          isFocusMode={isFocusMode}
-          animatedStyle={animatedTabBarStyle}
-        />
-      )}
-      screenListeners={{
-        tabPress: () => {
-          hapticSelection();
-        },
-      }}
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: {
-          backgroundColor: "#0a0a0a",
-        },
-        tabBarStyle: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "#000",
-          borderTopWidth: 0,
-          paddingTop: 8,
-          paddingBottom: 8,
-        },
-        tabBarActiveTintColor: "#00ff7f",
-        tabBarInactiveTintColor: "#666",
-        tabBarLabelStyle: {
-          fontSize: 11,
-        },
-      }}
+      tabBar={(props) => <TabsTabBar {...props} hidden={isFocusMode} />}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: C.bg } }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedIcon focused={focused}>
-              <Home color={color} size={24} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="outside"
-        options={{
-          title: "Outside",
-          href: "/outside/arena",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedIcon focused={focused}>
-              <Compass color={color} size={24} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="move"
-        options={{
-          title: "Move",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedIcon focused={focused}>
-              <FontAwesome5 name="running" size={22} color={color} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="club"
-        options={{
-          title: "Crew",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedIcon focused={focused}>
-              <Users color={color} size={24} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedIcon focused={focused}>
-              <View
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 13,
-                  borderWidth: 1.5,
-                  borderColor: color,
-                  overflow: "hidden",
-                }}
-              >
-                <Image
-                  source={{ uri: avatarUrl }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                />
-              </View>
-            </AnimatedIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="challenges"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="move" options={{ title: "Move" }} />
+      <Tabs.Screen name="outside" options={{ title: "Outside" }} />
+      <Tabs.Screen name="club" options={{ title: "Crew" }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+      <Tabs.Screen name="challenges" options={{ href: null }} />
     </Tabs>
   );
 }

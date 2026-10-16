@@ -11,7 +11,8 @@ pnpm workspaces with Turborepo.
 - `apps/web` - the website at weouthere.app
 - `apps/app` - the member app: clubs, battles, league, Club HQ, and the public club pages (`/<club>`, `/join/<club>`, `/@<handle>`)
 - `apps/admin` - Outhere HQ, the staff app
-- `apps/mobile` - Expo phone app (primary client). It still installs with npm from its own folder: one dependency is a GitHub tarball, and its patch-package patches and npm overrides move to `pnpm-workspace.yaml` when it joins.
+- `apps/mobile` - Expo phone app (primary client). Run it with `pnpm --filter @outhere/mobile start`. Its package pins and patches live in `pnpm-workspace.yaml`, and it shares rules with `packages/core`.
+- `supabase` - the database: migrations, seed data, tests and Edge Functions (see [supabase/README.md](supabase/README.md))
 - `packages/core` - shared types, rules and data access (example data and Supabase)
 - `packages/ui` - shared React components and the stylesheet
 - `backend` - API/backend services
@@ -76,15 +77,14 @@ Bottom tabs:
 ### Install
 
 ```bash
-cd apps/mobile
-npm install
+corepack enable
+pnpm install            # from the repo root
 ```
 
 ### Run mobile app
 
 ```bash
-cd apps/mobile
-npx expo start
+pnpm --filter @outhere/mobile start
 ```
 
 Useful options:
