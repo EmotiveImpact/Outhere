@@ -31,7 +31,6 @@ TOP, BOT = W * 0.66, W * 0.34          # where the split meets the top and botto
 SEAM_ANGLE = math.atan2(TOP - BOT, H)  # radians, top leans right
 MID = (TOP + BOT) / 2 + (TOP - BOT) * (0.5 - 388 / H), 388  # VS sits on the seam
 SHIFT = 72                             # how far the split moves toward the loser
-PHOTO_W, PHOTO_H = 304, 506            # each photo covers this box, the prototype's 78% of the screen wide
 
 WHITE, OUT, BLUE_HI, ACT = "FFFFFFFF", "FF4F9BFF", "FF82B4FF", "FF2A6AF0"
 
@@ -155,6 +154,33 @@ def poly(points, oid, ids=None):
 
 # ---------------------------------------------------------------- the sides
 
+WASH = {  # each side's colour wash: start point, end point, start colour, end colour
+    "you": ((120, 0), (250, 600), "0B2A66", "050A16"),
+    "them": ((270, 844), (140, 244), "5A1218", "12060A"),
+}
+
+
+def wash_colour(who, x, y):
+    """The wash's colour at (x, y), so a photo's fade can melt into it."""
+    (sx, sy), (ex, ey), c0, c1 = WASH[who]
+    dx, dy = ex - sx, ey - sy
+    t = min(1, max(0, ((x - sx) * dx + (y - sy) * dy) / (dx * dx + dy * dy)))
+    a, b = bytes.fromhex(c0), bytes.fromhex(c1)
+    return "".join(f"{round(p + (q - p) * t):02X}" for p, q in zip(a, b))
+
+
+# Each runner's photo box (x, y, width, height), about the shape of a pack shot.
+# Big enough that the runner fills their side: yours runs from the top of the
+# screen, theirs to the bottom, and they overlap behind the seam.
+PHOTO_BOX = {"you": (-36, 0, 372, 664), "them": (54, 180, 372, 664)}
+# Where each photo melts into the wash (position down the box, opacity of the
+# wash on top). Yours fades out a long way at the bottom, theirs at the top.
+PHOTO_FADE = {
+    "you": [(0, 0.55), (0.12, 0), (0.42, 0), (0.78, 0.8), (1, 1)],
+    "them": [(0, 1), (0.22, 0.8), (0.5, 0), (0.86, 0), (1, 0.6)],
+}
+
+
 def side(who):
     """One half of the split: its clip and colour wash, plus its photo box.
 
@@ -167,16 +193,14 @@ def side(who):
     v = [nid(), nid()]   # the two vertices on the seam, animated for win and lose
     if you:
         pts, vids = [(0, 0), (TOP, 0), (BOT, H), (0, H)], [None, v[0], v[1], None]
-        grad = ('<LinearGradient startX="120" startY="0" endX="250" endY="600" name="Wash">'
-                '<GradientStop colorValue="FF0B2A66" position="0"/><GradientStop colorValue="FF050A16" position="1"/></LinearGradient>')
-        box = (-23, 34)
-        fade = ("0B2966", "060E20")   # the wash's colour at the box's top and bottom
     else:
         pts, vids = [(TOP, 0), (W, 0), (W, H), (BOT, H)], [v[0], None, None, v[1]]
-        grad = ('<LinearGradient startX="270" startY="844" endX="140" endY="244" name="Wash">'
-                '<GradientStop colorValue="FF5A1218" position="0"/><GradientStop colorValue="FF12060A" position="1"/></LinearGradient>')
-        box = (W - 304 + 23, 312)
-        fade = ("1D080C", "571117")
+    (sx, sy), (ex, ey), c0, c1 = WASH[who]
+    grad = (f'<LinearGradient startX="{sx}" startY="{sy}" endX="{ex}" endY="{ey}" name="Wash">'
+            f'<GradientStop colorValue="FF{c0}" position="0"/><GradientStop colorValue="FF{c1}" position="1"/></LinearGradient>')
+    bx, by, bw, bh = PHOTO_BOX[who]
+    stops = "".join(f'<GradientStop colorValue="{round(a * 255):02X}{wash_colour(who, bx + bw / 2, by + pos * bh)}" position="{pos}"/>'
+                    for pos, a in PHOTO_FADE[who])
     xml = f'''
         <Node name="{"You" if you else "Them"}" id="{group}">
             <Shape name="{"You" if you else "Them"} Clip" id="{clip}">
@@ -191,19 +215,15 @@ def side(who):
             </Node>
         </Node>'''
     photo_xml = f'''
-        <LayoutComponent width="{PHOTO_W}" height="{PHOTO_H}" clip="true" styleId="{style}" name="{"You" if you else "Them"} Photo" id="{photo}">
+        <LayoutComponent width="{bw}" height="{bh}" clip="true" styleId="{style}" name="{"You" if you else "Them"} Photo" id="{photo}">
             <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" positionTypeValue="absolute"
-                positionLeft="{box[0]}" positionLeftUnitsValue="points" positionTop="{box[1]}" positionTopUnitsValue="points" name="Box" id="{style}"/>
-            <ComponentOrigin originX="0.5" originY="0" name="Origin"/>
+                positionLeft="{bx}" positionLeftUnitsValue="points" positionTop="{by}" positionTopUnitsValue="points" name="Box" id="{style}"/>
             <ClippingShape sourceId="{clip}" name="Clip"/>
-            <!-- Fades the top and bottom of the photo into the wash, so an ordinary
-                 profile photo has no hard edges. Pack shots already fade to black. -->
+            <!-- Melts the top and bottom of the photo into the wash, so any photo,
+                 a pack shot or an ordinary profile photo, has no hard edges. -->
             <Shape name="Edge Fade">
-                <Rectangle width="{PHOTO_W}" height="{PHOTO_H}" originX="0" originY="0" name="Path"/>
-                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="{PHOTO_H}" name="G">
-                    <GradientStop colorValue="FF{fade[0]}" position="0"/><GradientStop colorValue="00{fade[0]}" position="0.24"/>
-                    <GradientStop colorValue="00{fade[1]}" position="0.62"/><GradientStop colorValue="FF{fade[1]}" position="1"/>
-                </LinearGradient></Fill>
+                <Rectangle width="{bw}" height="{bh}" originX="0" originY="0" name="Path"/>
+                <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="0" endY="{bh}" name="G">{stops}</LinearGradient></Fill>
             </Shape>
             <Image assetId="{SIL_YOU if you else SIL_THEM}" fit="cover" alignmentX="0" alignmentY="-0.64" blendModeValue="lighten" name="Photo">
                 <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>

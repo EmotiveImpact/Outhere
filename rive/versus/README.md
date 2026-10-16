@@ -25,7 +25,7 @@ For each runner, in this order:
 2. Their profile photo.
 3. The silhouette for the gender they chose in onboarding or settings, blue on your side and red on theirs: `images/silhouette-{male,female}-{blue,red}.jpg`. Ship these four with the app.
 
-The file embeds the male silhouettes (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its side whatever its size, and its top and bottom fade into the colour, so ordinary photos have no hard edges. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
+The file embeds the male silhouettes (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its box whatever its size. The boxes are big, so each runner fills most of their side: yours fades out towards the bottom and theirs towards the top, melting into the wash colour so ordinary photos have no hard edges. `PHOTO_BOX` and `PHOTO_FADE` in `build.py` set both. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
 
 ## Building
 
