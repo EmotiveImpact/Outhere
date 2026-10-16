@@ -6,10 +6,27 @@ OUT HERE is an urban movement app built with React Native + Expo. It rewards rea
 
 ## Monorepo Structure
 
-- `apps/mobile` - Expo mobile app (primary client)
+pnpm workspaces with Turborepo.
+
+- `apps/web` - the website at weouthere.app
+- `apps/app` - the member app: clubs, battles, league, Club HQ, and the public club pages (`/<club>`, `/join/<club>`, `/@<handle>`)
+- `apps/admin` - Outhere HQ, the staff app
+- `apps/mobile` - Expo phone app (primary client). It still installs with npm from its own folder: one dependency is a GitHub tarball, and its patch-package patches and npm overrides move to `pnpm-workspace.yaml` when it joins.
+- `packages/core` - shared types, rules and data access (example data and Supabase)
+- `packages/ui` - shared React components and the stylesheet
 - `backend` - API/backend services
 - `Docs` - PRD, build plan, and task specs
 - `marketing` - website/marketing assets
+
+```sh
+corepack enable          # once, so the pinned pnpm is used
+pnpm install
+pnpm dev:app             # http://localhost:5173
+pnpm dev:admin           # http://localhost:5174
+pnpm check               # typecheck, test, lint and build everything
+```
+
+weouthere.app is the website. It serves its own files and passes every other path to the member app, so club links stay on weouthere.app. The member app keeps its built files under `/_app/`, and `RESERVED_SLUGS` in `packages/core/src/rules.ts` lists every top-level path either app uses, so no club can take one.
 
 ## Mobile Navigation (Current)
 

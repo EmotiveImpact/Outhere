@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  # The phone app still installs with npm (its package-lock.json): one of its
+  # dependencies is a GitHub tarball, and its patch-package patches and npm
+  # overrides move over in the same change. See README.md.
+  - "!apps/mobile"
