@@ -6,8 +6,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { Calendar, ShoppingBag, Swords, Zap } from "lucide-react-native";
-import { BlendImage, Button, C, F, Kicker, PhotoBackground, R, Row, S } from "@/components/ui";
+import { Aurora, BlackCard, BlendImage, Button, C, F, Kicker, PhotoBackground, R, Row, S } from "@/components/ui";
 import Celebrate from "@/components/profile/Celebrate";
+import { useProfile } from "@/data/hooks";
 import { PHOTOS } from "@/constants/photos";
 import { PLANS } from "@/constants/plans";
 
@@ -29,6 +30,9 @@ export default function Welcome() {
   const insets = useSafeAreaInsets();
   const { plan: raw } = useLocalSearchParams();
   const plan = raw === "pro" ? "pro" : "black";
+  const { data: profile } = useProfile();
+  const name = profile?.name;
+  const founding = profile?.foundingNumber;
   const [burst, setBurst] = useState(0);
   useEffect(() => {
     const t = setTimeout(() => setBurst(1), 500);
@@ -37,11 +41,19 @@ export default function Welcome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      {/* .hero: the photo at full strength, faded into the floor from the middle down */}
-      <PhotoBackground source={plan === "black" ? PHOTOS.blackhero : PHOTOS.hero} fade={[[0, 0.6], [0.2, 0], [0.42, 0], [0.63, 0.78], [0.82, 1], [1, 1]]} to="2,5,12" focus={{ x: 0.5, y: 0.2 }} kenBurns />
-      {/* .welcome-card: the card itself, its black dropped out so it floats over the photo */}
+      {/* .hero: the photo at full strength, faded into the floor from the middle down, the aurora moving softly over it */}
+      <PhotoBackground source={plan === "black" ? PHOTOS.blackhero : PHOTOS.hero} fade={[[0, 0.6], [0.2, 0], [0.42, 0], [0.63, 0.78], [0.82, 1], [1, 1]]} to="2,5,12" focus={{ x: 0.5, y: 0.2 }} kenBurns>
+        <Aurora field={false} opacity={0.5} intensity={0.9} style={{ bottom: "30%" }} />
+      </PhotoBackground>
+      {/* .welcome-card: the card itself, arriving. Black is the drawn card with its sheen; Pro its object with the black dropped out. */}
       <Animated.View entering={FadeInUp.duration(700).springify().damping(16)} style={[styles.card, { top: insets.top + 118 }]}>
-        <BlendImage source={plan === "black" ? PHOTOS.blackcard : PHOTOS.procard} size={300} mask="wide" float glow={220} />
+        {plan === "black" ? (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <BlackCard width={286} tilt={-5} name={name} number={founding} />
+          </View>
+        ) : (
+          <BlendImage source={PHOTOS.procard} size={300} mask="wide" float glow={220} />
+        )}
       </Animated.View>
       <View style={{ flex: 1 }} />
       <Animated.View entering={FadeInDown.delay(250).duration(500)} style={[styles.body, { paddingBottom: insets.bottom + S.md }]}>

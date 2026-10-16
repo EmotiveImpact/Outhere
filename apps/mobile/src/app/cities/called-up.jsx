@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallUp, useEngineMutation, engine } from "@/data/hooks";
-import { C, EmptyState, F, GlowButton, PhotoBackground, R, Row, S, Skeleton } from "@/components/ui";
+import { Aurora, C, EmptyState, F, GlowButton, PhotoBackground, R, Row, S, Skeleton } from "@/components/ui";
 import { BottomBar, Glow, StatBoxes, TopBar } from "@/components/arena/OutsideKit";
 import { cityPhoto } from "@/components/arena/CityParts";
 import { formatNumber } from "@/utils/format";
@@ -44,7 +44,10 @@ export default function CalledUp() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <PhotoBackground source={cityPhoto(c.side)} fade={[[0, 0.45], [0.2, 0.05], [0.36, 0.25], [0.58, 0.8], [1, 1]]} kenBurns grain={0.05} />
+      <PhotoBackground source={cityPhoto(c.side)} fade={[[0, 0.45], [0.2, 0.05], [0.36, 0.25], [0.58, 0.8], [1, 1]]} kenBurns grain={0.05}>
+        {/* the night sky moving softly over the city */}
+        <Aurora field={false} opacity={0.55} intensity={0.9} style={{ bottom: "34%" }} />
+      </PhotoBackground>
       <Glow y="52%" r="60%" opacity={0.3} />
       <View style={[styles.body, { paddingBottom: insets.bottom + 140 }]}>
         <Text style={styles.kick}>

@@ -176,7 +176,7 @@ export default function Fixture() {
             </View>
           </Row>
           {/* .oh-tug: blue from the left, red from the right, the white spark between */}
-          <KitTug share={(me.score || 0) + (them.score || 0) ? (me.score || 0) / ((me.score || 0) + (them.score || 0)) : 0.5} height={10} style={{ marginTop: 14, marginBottom: 4 }} />
+          <KitTug share={(me.score || 0) + (them.score || 0) ? (me.score || 0) / ((me.score || 0) + (them.score || 0)) : 0.5} height={10} live={!!f.live && !f.revealed} style={{ marginTop: 14, marginBottom: 4 }} />
           {me.daily != null ? <CompareRow label="Squad average steps" a={fmt(me.daily)} b={fmt(them.daily)} aShare={me.daily / max} bShare={them.daily / max} /> : null}
           {me.turnout != null ? <CompareRow label="Run turnout" a={`${me.turnout}%`} b={`${them.turnout}%`} aShare={me.turnout / turnMax} bShare={them.turnout / turnMax} /> : null}
           <CompareRow label="Squad size" a={String(me.squad)} b={String(them.squad)} aShare={1} bShare={1} />

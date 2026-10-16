@@ -3,11 +3,11 @@
 // light running along it. Drawn with Skia (arena/skia/BattleSkia.jsx), which
 // is only required once it has loaded.
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useReducedMotion } from "react-native-reanimated";
-import { C, F, useLayoutSize, useSkiaReady } from "@/components/ui";
+import { C, F, useLiveCanvas, useSkiaReady } from "@/components/ui";
 import { UK_CITIES } from "@/data/places";
 import { WORLD_CITIES, toVec } from "./globeLand";
 import { PortraitMini } from "./BattleKit";
@@ -47,19 +47,24 @@ export function localTime(tz, at = Date.now()) {
 
 // The clock the globe runs on: seconds since it appeared, ticking at about
 // 30 frames a second. Reduced motion skips straight to the settled picture.
+// It stops while the globe cannot be seen (background, another screen on
+// top, scrolled away) and carries on from where it was.
 function useGlobeClock(run) {
   const reduce = useReducedMotion();
   const [t, setT] = useState(reduce ? 6 : 0);
+  const at = useRef(0);
   useEffect(() => {
     if (!run || reduce) return undefined;
     let raf = 0;
     let last = 0;
-    const start = Date.now();
+    let prev = Date.now();
     const tick = () => {
       const now = Date.now();
+      at.current += (now - prev) / 1000;
+      prev = now;
       if (now - last > 30) {
         last = now;
-        setT((now - start) / 1000);
+        setT(at.current);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -75,8 +80,8 @@ function useGlobeClock(run) {
  */
 export function RaceGlobe({ me, them, height = 380, style }) {
   const ready = useSkiaReady();
-  const [size, onLayout] = useLayoutSize();
-  const t = useGlobeClock(ready && !!size);
+  const { ref, onLayout, size, running } = useLiveCanvas();
+  const t = useGlobeClock(ready && !!size && running);
   const pm = cityPoint(me?.city);
   const pt = cityPoint(them?.city);
   const same = kmApart(pm, pt) < 60;
@@ -112,7 +117,7 @@ export function RaceGlobe({ me, them, height = 380, style }) {
   }
 
   return (
-    <View style={[{ height }, style]} onLayout={onLayout} pointerEvents="box-none">
+    <View ref={ref} style={[{ height }, style]} onLayout={onLayout} pointerEvents="box-none">
       {globe}
       {cards && show ? (
         <>

@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, Lock, X } from "lucide-react-native";
-import { BlendImage, C, F, FINISH, GlowBackdrop, LIT, PressableScale, R, Row, S, imageSource, splitShadow, useScreenTop, useSkiaReady } from "@/components/ui";
+import { BlendImage, C, F, FINISH, Foil, GlowBackdrop, LIT, PressableScale, R, Row, S, imageSource, splitShadow, useScreenTop, useSkiaReady } from "@/components/ui";
 
 import { GlassButton } from "@/components/arena/OutsideKit";
 import { EMOTE_BY_ID } from "@/constants/emotes";
@@ -62,7 +62,7 @@ export function EmoteTile({ id, source, size = 62, radius, tier, locked = false,
         )}
         {art ? (
           <View style={StyleSheet.absoluteFill}>
-            <BlendImage source={art} width={size} height={size} zoom={1.2} mask={black ? [0.55, 0.95] : "none"} grey={locked ? 1 : 0} dim={locked ? 0.25 : black ? 0.9 : 1} />
+            <Foil source={art} width={size} height={size} zoom={1.2} mask={black ? [0.55, 0.95] : "none"} grey={locked ? 1 : 0} dim={locked ? 0.25 : black ? 0.9 : 1} strength={locked ? 0 : size >= 100 ? 1 : 0.8} />
           </View>
         ) : null}
         {locked ? <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(7,9,12,0.35)" }]} /> : null}

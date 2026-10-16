@@ -4,11 +4,10 @@
 import React from "react";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { Calendar, ChevronRight, Layers, Lock, RotateCcw } from "lucide-react-native";
 import { engine, useEngineMutation, useMembershipDetails } from "@/data/hooks";
-import { Body, Button, C, Card, F, FadeIn, PressableScale, R, Row, S, Screen, Skeleton, toast } from "@/components/ui";
+import { Body, Button, C, Card, F, FadeIn, Meter, PressableScale, R, Row, S, Screen, Skeleton, toast } from "@/components/ui";
 import { Slab } from "@/components/profile/parts";
 import { StackTabBar } from "@/components/AppTabBar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -103,7 +102,8 @@ export default function ManageMembership() {
                   <>
                     <View style={[styles.earnBase, { flex: Math.max(1, m.earned.base) }]} />
                     <View style={[styles.earnBonus, { flex: Math.max(1, m.earned.bonus) }]}>
-                      <LinearGradient colors={["#1f55d0", "#3d8bff", "#82b4ff"]} locations={[0, 0.7, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                      {/* the extra OUT as a liquid: a bright meniscus, a slow wave along it */}
+                      <Meter value={1} size={14} liquid flow={false} glow={false} track="transparent" style={StyleSheet.absoluteFill} />
                     </View>
                   </>
                 ) : (
