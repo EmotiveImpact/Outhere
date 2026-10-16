@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import Slider from "@react-native-community/slider";
-import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, Shield, Sparkles, Watch, Zap } from "lucide-react-native";
+import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, ScanFace, Shield, Sparkles, Watch, Zap } from "lucide-react-native";
 import { engine, isRemote, useAccount, useEngineMutation, useProfile, useSettings, useUpdateSettings } from "@/data/hooks";
 import { pingsOn } from "@/data/account";
 import { LinearGradient } from "expo-linear-gradient";
@@ -121,6 +121,7 @@ export default function SettingsScreen() {
       <FadeIn index={4}>
         <Group>
           <Row icon={Crown} title="Membership" value={tierLabel(profile.tier)} onPress={() => router.push("/membership")} />
+          <Row icon={ScanFace} title="Fighter Pack" value={profile.fighter?.vs ? "Made" : null} hint="Your AI pictures for battles and your profile. Delete them any time." onPress={() => router.push("/pack")} />
           {account?.isMinor ? <Row icon={Shield} title="Under 18 mode" value="On" onPress={() => router.push("/settings/teen")} /> : null}
           <Row icon={LogOut} title="Log out" danger onPress={logOut} chevron={false} />
         </Group>
