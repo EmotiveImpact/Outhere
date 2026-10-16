@@ -25,7 +25,7 @@ export const makeRemoteCrew = (h) => {
   const cardsFor = async (ids, me) => {
     const unique = [...new Set(ids.filter(Boolean))];
     if (!unique.length) return {};
-    const rows = await run(supabase.from("profile_cards").select("id, username, display_name, avatar_path, tier").in("id", unique));
+    const rows = await run(supabase.from("profile_cards").select("id, username, display_name, avatar_path, tier, runner, runner_figure, fighter").in("id", unique));
     return Object.fromEntries((rows || []).map((p) => [p.id, playerView(p, me)]));
   };
 

@@ -31,6 +31,7 @@ import { makeCrew } from "./crew";
 import { photoFor } from "./seedCrew";
 import { makeAccount } from "./account";
 import { makeRuns } from "./runs";
+import { cleanRunner, makePack } from "./pack";
 import { BLIND_FINISH_HOURS, LIVE_RACE_HOURS, LIVE_RACE_LEAD_MS, MODE, ROUTE_SHARE, lowerWins, standingTarget } from "@/constants/battleModes";
 
 const STORAGE_KEY = "outhere.engine.v1";
@@ -322,7 +323,7 @@ const playerXp = (pid) => {
 const publicPlayer = (pid) => {
   const p = playerById[pid];
   if (!p) return null;
-  return { id: p.id, username: p.username, name: p.name, city: p.city, area: p.area, avatar: p.avatar, color: p.color, tier: p.tier, bio: p.bio, isMe: false };
+  return { id: p.id, username: p.username, name: p.name, city: p.city, area: p.area, avatar: p.avatar, color: p.color, tier: p.tier, bio: p.bio, runner: p.runner || "man", runnerFigure: p.runnerFigure || null, fighter: p.fighter || null, isMe: false };
 };
 
 // ── My steps ──────────────────────────────────────────────────────────────────
@@ -535,6 +536,8 @@ const profileView = (s) => {
   const weekStepsKm = myDistanceBetween(s, weekStart, Date.now());
   return {
     ...me,
+    ...runnerOf(me),
+    fighter: pack.fighterOf(s),
     xp,
     out,
     level: levelFromXp(xp),
@@ -599,6 +602,21 @@ export const updateProfile = async (patch) =>
     for (const key of ["username", "name", "city", "area", "bio", "avatar", "dailyGoal", "weeklyGoalKm", "isOutside", "color"]) {
       if (next[key] !== undefined) me[key] = next[key];
     }
+    if (next.runner !== undefined || next.runnerFigure !== undefined) {
+      Object.assign(me, cleanRunner({ runner: next.runner ?? runnerOf(me).runner, runnerFigure: next.runnerFigure !== undefined ? next.runnerFigure : me.runnerFigure }, EngineError));
+    }
+    return profileView(s);
+  });
+
+// The silhouette that stands in until a member has a pack or a photo:
+// runner "man" | "woman" | "either", and runnerFigure (the figure an "either"
+// member picked, or null). See utils/fighter.js.
+const runnerOf = (me) => ({ runner: me?.runner || "man", runnerFigure: me?.runner === "either" ? me?.runnerFigure || null : null });
+
+export const setRunner = async ({ runner, runnerFigure = null } = {}) =>
+  write((s) => {
+    const me = requireMe(s);
+    Object.assign(me, cleanRunner({ runner, runnerFigure }, EngineError));
     return profileView(s);
   });
 
@@ -635,6 +653,7 @@ export const setTier = async (tier) =>
       throw new EngineError("NOT_ELIGIBLE", `Black unlocks after a ${BLACK_STREAK_DAYS} day streak.`);
     }
     me.tier = tier;
+    pack.syncCredits(s); // join credits for the Fighter Pack
     if (tier !== "free") notify(s, { type: "rewards", title: `Welcome to ${tier === "pro" ? "Pro" : "Black"}`, body: "Your new perks are live.", link: "/membership" });
     return profileView(s);
   });
@@ -743,7 +762,7 @@ export const getWallet = async () =>
 
 // ── People ────────────────────────────────────────────────────────────────────
 
-const meAsPlayer = (s) => ({ id: ME, username: s.me.username, name: s.me.name, city: s.me.city, area: s.me.area, avatar: s.me.avatar, color: s.me.color, tier: s.me.tier, bio: s.me.bio, isMe: true });
+const meAsPlayer = (s) => ({ id: ME, username: s.me.username, name: s.me.name, city: s.me.city, area: s.me.area, avatar: s.me.avatar, color: s.me.color, tier: s.me.tier, bio: s.me.bio, ...runnerOf(s.me), fighter: pack.fighterOf(s), isMe: true });
 
 const personView = (s, pid) => {
   if (pid === ME) return { ...meAsPlayer(s), todaySteps: myDay(s, dayKey()).steps, isOutside: !!s.me.isOutside, streak: computeStreak(s) };
@@ -1708,6 +1727,22 @@ export const {
   claimReferral,
   getOutHistory,
 } = profileArea;
+// ── Fighter Pack: consent, scan, credits, pictures and poses (see pack.js) ────
+
+const pack = makePack({ read, write, touch, requireMe, EngineError, ME });
+export const {
+  getPackState,
+  getPackCredits,
+  recordPackConsent,
+  uploadScanShot,
+  verifyScan,
+  startPack,
+  rerollPackSlot,
+  setPackPose,
+  deletePack,
+  devFailPackPictures,
+} = pack;
+
 // ── Move and runs: routes, history, live and safety (see runs.js) ────────────
 
 const runsArea = makeRuns({ read, write, touch, requireMe, notify, EngineError, ME, publicPlayer, playerIsOutside, PLAYERS });
