@@ -31,11 +31,15 @@ The file embeds the male shadow runners (blue for you, red for them) as defaults
 
 ## The result
 
-`win` and `lose` play the winner's moment: VS winds up and bursts, the screen flashes, WINNER slams in like the VS (white with a blue or red shadow) over two shock rings and a burst of sparks, the winner's name kicks and `+prize OUT` pops under it. LOSER drops in grey on the other side as it darkens, and the seam swings toward the loser. Then the winner's glow keeps breathing (`Win Glow` or `Lose Glow`).
+`win` and `lose` play the result from your side of the battle, in three beats.
 
-Then confetti pops out of WINNER and rains down the winner's side.
+1. **The hit.** VS winds up and bursts, the screen flashes and each side swaps to its result shot (below).
+2. **Your outcome.** A win gets YOU WIN! in white with a blue shadow, over two sets of light rays, two shock rings, sparks and a bloom, while two confetti cannons fire from the bottom corners and a burst comes out of the headline. A loss gets YOU LOSE in grey: the letters drop one at a time like weights and the screen dims. A loss gets no confetti.
+3. **The labels.** The headline clears and WINNER slams in on the winner's side (white with a blue or red shadow), the winner's name kicks and `+prize OUT` pops under it with a glint. LOSER drops in grey on the other side, the seam swings toward the loser and the winner's glow keeps breathing (`Win Glow` or `Lose Glow`).
 
-For a knockout, set `ko` to true before firing the trigger (our line: the winner has at least double the loser's steps). K.O. then slams into the middle first, with a red flash, a crack across the screen and a screen shake, and flies to the loser's corner in place of LOSER; WINNER follows. Set `ko` back to false for an ordinary result.
+The confetti runs on its own state machine layer, `Confetti`, so it keeps falling while the labels land: about a hundred pieces in white, ice blue, cyan, blue, violet and silver foil, each turning so its darker back shows and the foil flashes. Pieces near the camera are bigger and faster.
+
+For a knockout, set `ko` to true before firing the trigger (our line: the winner has at least double the loser's steps). K.O. slams into the middle first with a red flash and a shake, and the loser's side of the screen cracks like glass: a white-hot impact point, uneven rays and rings, lit facets, two holes and shards falling out. K.O. then moves to the loser's corner in place of LOSER, and YOU WIN! or YOU LOSE follows as usual. Set `ko` back to false for an ordinary result.
 
 Under the flash each side swaps to its result shot. Before firing the trigger, set:
 
@@ -43,17 +47,37 @@ Under the flash each side swaps to its result shot. Before firing the trigger, s
 - the loser's `…Result` to their pack's respect shot,
 - either one to the same image as its photo when the pack has no such shot, or there is no pack.
 
+## Cues for sound and haptics
+
+The file sends these events as a result plays. None of them changes the scene, so sounds and haptics can be added in the app later without touching the file.
+
+| Event | When it fires |
+| --- | --- |
+| `impact` | VS bursts, on every result |
+| `knockout` | K. lands |
+| `shatter` | O. lands and the glass cracks |
+| `youWin` | YOU WIN! lands |
+| `confetti` | the cannons fire |
+| `youLose` | YOU LOSE starts |
+| `thud` | each letter of YOU LOSE lands (seven) |
+| `winner` | WINNER lands |
+| `loser` | LOSER drops (not on a knockout) |
+| `prize` | the prize chip pops |
+| `addPack` | the Add your Fighter Pack pill is tapped |
+
 ## Building
 
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
 - The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes.
-- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, WINNER, LOSER and the prize (`VSWINERLOUTK.+0-9`).
+- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, YOU WIN!, YOU LOSE, WINNER, LOSER, K.O. and the prize (`VSWINERLOUTKY.!+0-9`). Add any new letter to the `pyftsubset --text` list before using it.
 
 ```bash
 python3 build.py
 rive . --verify && rive inspect . --summary
 rive . --once && cp build/outhere-versus.riv export/
 rive . --screenshot=frame.png --advance=90
+rive . --screenshot=win.png --advance=60 --data=win=true            # a result
+rive . --screenshot=ko.png --advance=40 --data=ko=true --data=lose=true  # a knockout
 ```
 
 ## Runtime notes
