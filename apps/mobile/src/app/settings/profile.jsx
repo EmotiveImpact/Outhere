@@ -10,6 +10,7 @@ import { birthDateProblem } from "@/data/account";
 import { Avatar, Button, C, F, FadeIn, PressableScale, R, S, Screen, Skeleton, toast } from "@/components/ui";
 import { Group, Row, TopBar, accountStyles } from "@/components/account/parts";
 import { pickAvatarPhoto } from "@/services/photo";
+import { RunnerChoice } from "@/components/pack/RunnerChoice";
 import { formatNumber } from "@/utils/format";
 
 const pad2 = (s) => (String(s).length === 1 ? `0${s}` : String(s));
@@ -42,13 +43,16 @@ export default function ProfileSettings() {
         <Editor profile={profile} />
       </FadeIn>
       <FadeIn index={2}>
+        <Runner profile={profile} />
+      </FadeIn>
+      <FadeIn index={3}>
         <Group>
           <Row icon={MapPin} title="Your patch" value={[profile.area, profile.city].filter(Boolean).join(", ") || "Pick one"} onPress={() => router.push("/settings/patch")} />
           {account?.birthDate ? <Row icon={CalendarDays} title="Date of birth" value={niceDate(account.birthDate)} hint="Support can correct it if it's wrong" /> : null}
         </Group>
       </FadeIn>
       {account && !account.birthDate ? (
-        <FadeIn index={3}>
+        <FadeIn index={4}>
           <BirthDate />
         </FadeIn>
       ) : null}
@@ -74,6 +78,27 @@ function Photo({ profile }) {
       </View>
       <Text style={styles.change}>Change photo</Text>
     </PressableScale>
+  );
+}
+
+// Saves as soon as it changes; the silhouette updates everywhere at once.
+function Runner({ profile }) {
+  const save = useEngineMutation(engine.setRunner);
+  const [value, setValue] = useState({ runner: profile.runner || "either", runnerFigure: profile.runnerFigure || "man" });
+  useEffect(() => {
+    setValue({ runner: profile.runner || "either", runnerFigure: profile.runnerFigure || "man" });
+  }, [profile.runner, profile.runnerFigure]);
+  return (
+    <View style={[accountStyles.field, { paddingBottom: 14 }]}>
+      <Text style={[accountStyles.fieldLabel, { marginBottom: 10 }]}>Your runner</Text>
+      <RunnerChoice
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          save.mutate(v);
+        }}
+      />
+    </View>
   );
 }
 

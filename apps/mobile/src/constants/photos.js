@@ -60,6 +60,8 @@ export const PHOTOS = {
   rivalZain: require("../../assets/images/oh/rival-zain.jpg"),
   selfie: require("../../assets/images/oh/selfie.jpg"),
   shield: require("../../assets/images/oh/shield.jpg"),
+  silhouetteFemale: require("../../assets/images/pack/silhouette-female.jpg"),
+  silhouetteMale: require("../../assets/images/pack/silhouette-male.jpg"),
   shoe: require("../../assets/images/oh/shoe.jpg"),
   signin: require("../../assets/images/oh/signin.jpg"),
   stickers: require("../../assets/images/oh/stickers.jpg"),
@@ -72,4 +74,17 @@ export const PHOTOS = {
   walk: require("../../assets/images/oh/walk.jpg"),
   watch: require("../../assets/images/oh/watch.jpg"),
   welcome11: require("../../assets/images/oh/welcome11.jpg"),
+};
+
+// Fighter Pack samples: what a pack looks like before the member makes one,
+// and the local engine's stand-in pictures. Made from one reference photo.
+export const PACK_SAMPLES = {
+  selfie: require("../../assets/images/pack/selfie-ref.jpg"),
+  win: require("../../assets/images/pack/sample-win.jpg"),
+  stride: require("../../assets/images/pack/sample-stride.jpg"),
+  rooftop: require("../../assets/images/pack/sample-rooftop.jpg"),
+  respect: require("../../assets/images/pack/sample-respect.jpg"),
+  respectFist: require("../../assets/images/pack/sample-respect-fist.jpg"),
+  respectHeart: require("../../assets/images/pack/sample-respect-heart.jpg"),
+  respectClap: require("../../assets/images/pack/sample-respect-clap.jpg"),
 };

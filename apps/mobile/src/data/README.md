@@ -9,6 +9,7 @@ app; the server stack will be chosen later and slotted in behind this layer.
 | `hooks.js` | React Query hooks over the engine (`useProfile`, `useBattles`, ...) plus `useEngineMutation`. Screens use these. |
 | `seed.js` | The seeded world: players, crews, events, drops, news, rewards, challenge templates. |
 | `time.js`, `random.js` | Local-day keys and deterministic noise. |
+| `pack.js`, `remotePack.js`, `hooksPack.js` | The Fighter Pack: consent, the face scan, credits, making pictures, re-rolls, pose picks and the runner choice. `usePackState()` polls every 2 seconds while pictures are being made; `usePackCredits()` has the balance. Player views carry `fighter`, `runner` and `runnerFigure` for `utils/fighter.js`. |
 
 ## Rules for screens
 

@@ -164,6 +164,365 @@ export type Database = {
           },
         ];
       };
+      avatar_consents: {
+        Row: {
+          id: number;
+          user_id: string;
+          consented_at: string;
+          age_confirmed: boolean;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          consented_at?: string;
+          age_confirmed: boolean;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          consented_at?: string;
+          age_confirmed?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_consents_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      avatar_credits: {
+        Row: {
+          id: number;
+          user_id: string;
+          delta: number;
+          reason: string;
+          ref: string | null;
+          idem_key: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          delta: number;
+          reason: string;
+          ref?: string | null;
+          idem_key: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          delta?: number;
+          reason?: string;
+          ref?: string | null;
+          idem_key?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_credits_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      avatar_images: {
+        Row: {
+          id: string;
+          pack_id: string;
+          user_id: string;
+          slot: string;
+          pose_set: string | null;
+          pose: string | null;
+          name: string;
+          sort: number;
+          path: string | null;
+          status: string;
+          attempts: number;
+          cost: number;
+          request_id: string | null;
+          submitted_at: string | null;
+          last_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          pack_id: string;
+          user_id: string;
+          slot: string;
+          pose_set?: string | null;
+          pose?: string | null;
+          name: string;
+          sort?: number;
+          path?: string | null;
+          status?: string;
+          attempts?: number;
+          cost?: number;
+          request_id?: string | null;
+          submitted_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          pack_id?: string;
+          user_id?: string;
+          slot?: string;
+          pose_set?: string | null;
+          pose?: string | null;
+          name?: string;
+          sort?: number;
+          path?: string | null;
+          status?: string;
+          attempts?: number;
+          cost?: number;
+          request_id?: string | null;
+          submitted_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_images_pack_id_fkey";
+            columns: ["pack_id"];
+            isOneToOne: false;
+            referencedRelation: "avatar_packs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "avatar_images_pose_set_pose_fkey";
+            columns: ["pose_set", "pose"];
+            isOneToOne: false;
+            referencedRelation: "avatar_poses";
+            referencedColumns: ["set_key", "pose_key"];
+          },
+          {
+            foreignKeyName: "avatar_images_slot_fkey";
+            columns: ["slot"];
+            isOneToOne: false;
+            referencedRelation: "avatar_slots";
+            referencedColumns: ["key"];
+          },
+          {
+            foreignKeyName: "avatar_images_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      avatar_orphans: {
+        Row: {
+          path: string;
+          created_at: string;
+        };
+        Insert: {
+          path: string;
+          created_at?: string;
+        };
+        Update: {
+          path?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      avatar_packs: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: string;
+          tier_at_make: Database["public"]["Enums"]["tier"];
+          selfie_key: string | null;
+          created_at: string;
+          ready_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status?: string;
+          tier_at_make: Database["public"]["Enums"]["tier"];
+          selfie_key?: string | null;
+          created_at?: string;
+          ready_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          status?: string;
+          tier_at_make?: Database["public"]["Enums"]["tier"];
+          selfie_key?: string | null;
+          created_at?: string;
+          ready_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_packs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      avatar_pose_picks: {
+        Row: {
+          user_id: string;
+          set_key: string;
+          pose_key: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          set_key: string;
+          pose_key: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          set_key?: string;
+          pose_key?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_pose_picks_set_key_pose_key_fkey";
+            columns: ["set_key", "pose_key"];
+            isOneToOne: false;
+            referencedRelation: "avatar_poses";
+            referencedColumns: ["set_key", "pose_key"];
+          },
+          {
+            foreignKeyName: "avatar_pose_picks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      avatar_poses: {
+        Row: {
+          set_key: string;
+          pose_key: string;
+          slot: string;
+          sort: number;
+        };
+        Insert: {
+          set_key: string;
+          pose_key: string;
+          slot: string;
+          sort: number;
+        };
+        Update: {
+          set_key?: string;
+          pose_key?: string;
+          slot?: string;
+          sort?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_poses_slot_fkey";
+            columns: ["slot"];
+            isOneToOne: false;
+            referencedRelation: "avatar_slots";
+            referencedColumns: ["key"];
+          },
+        ];
+      };
+      avatar_scan_shots: {
+        Row: {
+          key: string;
+          user_id: string;
+          scan_id: string;
+          angle: string;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          user_id: string;
+          scan_id: string;
+          angle: string;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          user_id?: string;
+          scan_id?: string;
+          angle?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_scan_shots_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      avatar_slots: {
+        Row: {
+          key: string;
+          black_only: boolean;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          black_only?: boolean;
+          sort: number;
+        };
+        Update: {
+          key?: string;
+          black_only?: boolean;
+          sort?: number;
+        };
+        Relationships: [];
+      };
+      avatar_verifications: {
+        Row: {
+          id: number;
+          user_id: string;
+          verified_at: string;
+          method: string;
+          scan_id: string | null;
+          selfie_key: string | null;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          verified_at?: string;
+          method: string;
+          scan_id?: string | null;
+          selfie_key?: string | null;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          verified_at?: string;
+          method?: string;
+          scan_id?: string | null;
+          selfie_key?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_verifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       badges: {
         Row: {
           id: string;
@@ -3688,6 +4047,8 @@ export type Database = {
           onboarded_at: string | null;
           public_profile: boolean;
           show_on_swipe: boolean;
+          runner: string;
+          runner_figure: string | null;
         };
         Insert: {
           id: string;
@@ -3712,6 +4073,8 @@ export type Database = {
           onboarded_at?: string | null;
           public_profile?: boolean;
           show_on_swipe?: boolean;
+          runner?: string;
+          runner_figure?: string | null;
         };
         Update: {
           id?: string;
@@ -3736,6 +4099,8 @@ export type Database = {
           onboarded_at?: string | null;
           public_profile?: boolean;
           show_on_swipe?: boolean;
+          runner?: string;
+          runner_figure?: string | null;
         };
         Relationships: [
           {
@@ -4789,6 +5154,21 @@ export type Database = {
           },
         ];
       };
+      avatar_credit_balances: {
+        Row: {
+          user_id: string | null;
+          balance: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avatar_credits_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       battle_board: {
         Row: {
           id: string | null;
@@ -5095,6 +5475,9 @@ export type Database = {
           avatar_path: string | null;
           tier: Database["public"]["Enums"]["tier"] | null;
           public_profile: boolean | null;
+          runner: string | null;
+          runner_figure: string | null;
+          fighter: Json | null;
         };
         Relationships: [];
       };
@@ -5183,10 +5566,15 @@ export type Database = {
       decide_club_verification: { Args: { p_verification: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_verifications"]["Row"] };
       decide_join_request: { Args: { p_request: string; p_approve: boolean; }; Returns: Database["public"]["Tables"]["club_join_requests"]["Row"] };
       decide_run_review: { Args: { p_run: string; p_clear: boolean; }; Returns: Json };
+      default_pose: { Args: { p_set: string; }; Returns: string };
       delete_my_account: { Args: {  }; Returns: undefined };
+      delete_pack: { Args: {  }; Returns: Json };
       emote_counts: { Args: {  }; Returns: { emote_id: string; holders: number; members: number; }[] };
       event_going: { Args: { p_event: string; p_limit?: number; }; Returns: Json };
       export_my_data: { Args: {  }; Returns: Json };
+      fighter: { Args: { p: Database["public"]["Tables"]["profiles"]["Row"]; }; Returns: Json };
+      fighter_cards: { Args: { p_ids: string[]; }; Returns: { id: string; runner: string; runner_figure: string; fighter: Json; }[] };
+      fighter_of: { Args: { p_user: string; }; Returns: Json };
       find_mystery_challenger: { Args: {  }; Returns: string };
       finish_onboarding: { Args: { p_username: string; p_display_name?: string; p_city?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       fixture_side_score: { Args: { p_fixture: string; p_entry: string; }; Returns: number };
@@ -5233,6 +5621,9 @@ export type Database = {
       outside_count: { Args: { p_city?: string; }; Returns: number };
       outside_map: { Args: { p_lat?: number; p_lng?: number; }; Returns: Json };
       outside_now: { Args: { p_city?: string; }; Returns: { borough_id: string; out_now: number; }[] };
+      pack_credit_rules: { Args: { p_tier: Database["public"]["Enums"]["tier"]; OUT: unknown; OUT: unknown; OUT: unknown; }; Returns: Json };
+      pack_credits: { Args: {  }; Returns: Json };
+      pack_state: { Args: {  }; Returns: Json };
       patch_areas: { Args: { p_city: string; }; Returns: { id: string; name: string; out_now: number; week_steps: number; week_rank: number; }[] };
       patch_places: { Args: { p_query?: string; p_lat?: number; p_lng?: number; }; Returns: { id: string; name: string; region: string; is_live: boolean; plays_for: string; members: number; distance_km: number; }[] };
       path_length_m: { Args: { p_path: Json; }; Returns: number };
@@ -5240,9 +5631,11 @@ export type Database = {
       pickups_near: { Args: { p_lat: number; p_lng: number; p_km?: number; }; Returns: Database["public"]["Tables"]["events"]["Row"][] };
       ping_live_share: { Args: { p_lat: number; p_lng: number; p_still_s?: number; }; Returns: boolean };
       play_side: { Args: {  }; Returns: Json };
+      pose_allowed: { Args: { p_tier: Database["public"]["Enums"]["tier"]; p_set: string; p_pose: string; }; Returns: boolean };
       read_channel: { Args: { p_channel: string; }; Returns: undefined };
       ready_battle: { Args: { p_battle: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       record_invite_scan: { Args: { p_code: string; }; Returns: string };
+      record_pack_consent: { Args: { p_age_confirmed?: boolean; }; Returns: Json };
       redeem_city_invite: { Args: { p_code: string; }; Returns: Json };
       rematch_battle: { Args: { p_battle: string; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       remove_club_member: { Args: { p_club: string; p_user: string; p_ban?: boolean; }; Returns: undefined };
@@ -5251,6 +5644,7 @@ export type Database = {
       report_content: { Args: { p_target_type: string; p_target_id: string; p_reason: string; p_club?: string; p_block?: string; p_detail?: string; }; Returns: string };
       request_black: { Args: { p_name: string; p_email: string; p_city?: string; p_borough?: string; p_town?: string; p_region?: string; p_code?: string; p_why?: string; }; Returns: Json };
       request_club_verification: { Args: { p_club: string; p_evidence_paths?: string[]; p_kind?: string; p_claim?: number; }; Returns: Database["public"]["Tables"]["club_verifications"]["Row"] };
+      reroll_pack_slot: { Args: { p_slot: string; }; Returns: Json };
       reserve_drop: { Args: { p_drop: string; p_size?: string; }; Returns: Database["public"]["Tables"]["drop_orders"]["Row"] };
       respond_battle: { Args: { p_battle: string; p_accept: boolean; }; Returns: Database["public"]["Tables"]["battles"]["Row"] };
       respond_call_up: { Args: { p_fixture: string; p_in: boolean; }; Returns: Json };
@@ -5274,6 +5668,7 @@ export type Database = {
       set_emote_tray: { Args: { p_emotes: string[]; }; Returns: Json };
       set_live_position: { Args: { p_lat: number; p_lng: number; p_km?: number; p_kind?: Database["public"]["Enums"]["run_kind"]; p_route?: string; }; Returns: undefined };
       set_mystery_settings: { Args: { p_enabled?: boolean; p_scope?: string; p_level_gap?: number; p_per_day?: number; p_quiet_start?: number; p_quiet_end?: number; }; Returns: Json };
+      set_pack_pose: { Args: { p_set: string; p_pose: string; }; Returns: Json };
       set_patch: { Args: { p_city: string; p_area?: string; }; Returns: Database["public"]["Tables"]["profiles"]["Row"] };
       set_presence: { Args: { p_state: string; p_run?: string; p_borough?: string; }; Returns: undefined };
       set_reveal_held: { Args: { p_season: string; p_held: boolean; }; Returns: Database["public"]["Tables"]["seasons"]["Row"] };
@@ -5282,6 +5677,7 @@ export type Database = {
       share_club: { Args: { a: string; b: string; }; Returns: boolean };
       slug_part: { Args: { p_text: string; }; Returns: string };
       start_live_share: { Args: { p_run?: string; }; Returns: Database["public"]["Tables"]["live_shares"]["Row"] };
+      start_pack: { Args: {  }; Returns: Json };
       stop_live_share: { Args: {  }; Returns: undefined };
       streak_freeze_status: { Args: {  }; Returns: Json };
       submit_battle_result: { Args: { p_battle: string; p_run: string; }; Returns: number };

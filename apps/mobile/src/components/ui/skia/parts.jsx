@@ -8,6 +8,7 @@ import {
   BlurMask,
   Canvas,
   Circle,
+  ColorMatrix,
   Fill,
   FractalNoise,
   Group,
@@ -240,11 +241,22 @@ export function TouchCanvas({ width, height, radius, x, y, colour = "61,139,255"
 
 // ── Versus ────────────────────────────────────────────────────────────────────
 
+// grayscale(1) brightness(.75): the silhouette that stands in for a member
+// without a pack or a photo.
+const MUTE = (() => {
+  const r = 0.2126 * 0.75;
+  const g = 0.7152 * 0.75;
+  const b = 0.0722 * 0.75;
+  return [r, g, b, 0, 0, r, g, b, 0, 0, r, g, b, 0, 0, 0, 0, 0, 1, 0];
+})();
+
 /**
- * One fighter's half: the photo clipped to a slanted edge, a side light in
- * their colour and a fade to the floor (.r11fg .pl, .r10vsh, .r11rv .half).
+ * One side of a versus split (.r10vsh .a / .b). The photo, a light tint from
+ * the outer edge (to transparent 40% across the whole split), an optional
+ * glow lit from the top corner (the rival's red, .b .glow), then the fall to
+ * the floor: clear at fadeFrom, mostly gone by the middle stop, solid at fadeTo.
  */
-export function VersusHalf({ width, height, side, polygon, source, focus, tint, fade = "rgba(2,3,8,0.95)", fadeFrom = 0.45, zoom = 1 }) {
+export function VersusHalf({ width, height, side, polygon, source, focus, tint, glow, mute = false, fade = "rgba(2,3,8,0.95)", fadeFrom = 0.4, fadeTo = 0.88, zoom = 1 }) {
   const image = useImage(skiaSource(source));
   const clip = useMemo(() => {
     const p = Skia.Path.Make();
@@ -259,8 +271,9 @@ export function VersusHalf({ width, height, side, polygon, source, focus, tint, 
   const right = Math.max(...xs);
   const box = right - left;
   const rect = image ? placeImage(image.width(), image.height(), box, height, { fit: "cover", zoom, focus }) : null;
-  const fromX = side === "left" ? left : right;
-  const toX = side === "left" ? left + box * 0.7 : right - box * 0.7;
+  const edgeX = side === "left" ? 0 : width;
+  const tintTo = side === "left" ? width * 0.4 : width * 0.6;
+  const fadeMid = fadeFrom + (fadeTo - fadeFrom) * 0.62;
   return (
     <Canvas style={{ width, height }} pointerEvents="none" {...STILL}>
       <Group clip={clip}>
@@ -268,16 +281,25 @@ export function VersusHalf({ width, height, side, polygon, source, focus, tint, 
         {rect ? (
           <Rect x={left} y={0} width={box} height={height}>
             <ImageShader image={image} fit="fill" rect={{ x: left + rect.x, y: rect.y, width: rect.width, height: rect.height }} />
+            {mute ? <ColorMatrix matrix={MUTE} /> : null}
           </Rect>
         ) : null}
         {tint ? (
           <Rect x={left} y={0} width={box} height={height}>
-            <LinearGradient start={vec(fromX, 0)} end={vec(toX, 0)} colors={[tint, "rgba(0,0,0,0)"]} />
+            <LinearGradient start={vec(edgeX, 0)} end={vec(tintTo, 0)} colors={[tint, clear(tint)]} />
           </Rect>
+        ) : null}
+        {glow ? (
+          // radial-gradient(70% 55% at 100% 22%, glow, transparent 75%), screen
+          <Group transform={[{ translateX: edgeX }, { translateY: height * 0.22 }, { scaleY: (height * 0.55) / (width * 0.7) }]}>
+            <Circle cx={0} cy={0} r={width * 0.7} blendMode="screen">
+              <RadialGradient c={vec(0, 0)} r={width * 0.7} colors={[glow, clear(glow)]} positions={[0, 0.75]} />
+            </Circle>
+          </Group>
         ) : null}
         {fade ? (
           <Rect x={left} y={0} width={box} height={height}>
-            <LinearGradient start={vec(0, height * fadeFrom)} end={vec(0, height)} colors={["rgba(0,0,0,0)", fade]} />
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={[clear(fade), withAlpha(fade, 0.8), fade]} positions={[fadeFrom, fadeMid, fadeTo]} />
           </Rect>
         ) : null}
       </Group>
@@ -285,24 +307,35 @@ export function VersusHalf({ width, height, side, polygon, source, focus, tint, 
   );
 }
 
-/** The glowing white line between two fighters (.vs9 .vseam). */
-export function SeamCanvas({ width, height, from, to, colour = "#ffffff", glow = "#82b4ff" }) {
+/**
+ * The glowing white line between two fighters (.r10vsh .seam). It comes in
+ * from above, is solid through the top half, then fades with the photos so it
+ * is gone before the names. glowAt: where the soft white bloom behind the VS
+ * sits (.vsglow), or null.
+ */
+export function SeamCanvas({ width, height, from, to, colour = "#ffffff", glow = "#82b4ff", glowAt = null, glowSize = 150 }) {
   if (!width || !height) return null;
   const a = vec(from[0], from[1]);
   const b = vec(to[0], to[1]);
-  // linear-gradient(transparent, #fff 30%, #fff 70%, transparent) along the line
-  const along = (c) => [clear(c), c, c, clear(c)];
-  const stops = [0, 0.3, 0.7, 1];
+  // linear-gradient(180deg, transparent 4%, #fff 20%, #fff 46%, rgba(255,255,255,.55) 64%, transparent 84%)
+  const along = (c) => [clear(c), clear(c), c, c, withAlpha(c, 0.55), clear(c), clear(c)];
+  const stops = [0, 0.04, 0.2, 0.46, 0.64, 0.84, 1];
   return (
     <Canvas style={{ width, height }} pointerEvents="none" {...STILL}>
-      {/* box-shadow: 0 0 40px #82b4ff */}
-      <Line p1={a} p2={b} strokeWidth={26} opacity={0.6} strokeCap="round">
-        <BlurMask blur={20} style="normal" />
+      {glowAt ? (
+        // radial-gradient(circle, rgba(255,255,255,.4), rgba(130,180,255,.18) 35%, transparent 66%)
+        <Circle cx={glowAt[0]} cy={glowAt[1]} r={glowSize / 2}>
+          <RadialGradient c={vec(glowAt[0], glowAt[1])} r={glowSize / 2} colors={["rgba(255,255,255,0.4)", "rgba(130,180,255,0.18)", "rgba(130,180,255,0)"]} positions={[0, 0.35, 0.66]} />
+        </Circle>
+      ) : null}
+      {/* drop-shadow(0 0 14px #82b4ff) */}
+      <Line p1={a} p2={b} strokeWidth={22} opacity={0.55} strokeCap="round">
+        <BlurMask blur={14} style="normal" />
         <LinearGradient start={a} end={b} colors={along(glow)} positions={stops} />
       </Line>
-      {/* box-shadow: 0 0 18px #fff */}
-      <Line p1={a} p2={b} strokeWidth={9} opacity={0.85} strokeCap="round">
-        <BlurMask blur={9} style="normal" />
+      {/* drop-shadow(0 0 5px #fff) */}
+      <Line p1={a} p2={b} strokeWidth={8} opacity={0.8} strokeCap="round">
+        <BlurMask blur={5} style="normal" />
         <LinearGradient start={a} end={b} colors={along(colour)} positions={stops} />
       </Line>
       <Line p1={a} p2={b} strokeWidth={3} strokeCap="round">
@@ -311,6 +344,11 @@ export function SeamCanvas({ width, height, from, to, colour = "#ffffff", glow =
     </Canvas>
   );
 }
+
+const withAlpha = (c, a) => {
+  const col = Skia.Color(c);
+  return `rgba(${Math.round(col[0] * 255)},${Math.round(col[1] * 255)},${Math.round(col[2] * 255)},${(col[3] * a).toFixed(3)})`;
+};
 
 const clear = (c) => {
   const col = Skia.Color(c);

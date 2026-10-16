@@ -12,8 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { Easing, FadeInLeft, FadeInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useBattle, useHeadToHead, useProfile } from "@/data/hooks";
-import { PHOTOS } from "@/constants/photos";
-import { Avatar, C, F, GlowButton, Grain, R, S, Skeleton, SpotlightNumber, VersusSplit, imageSource } from "@/components/ui";
+import { fighterPhoto } from "@/utils/fighter";
+import { Avatar, C, F, GlowButton, Grain, R, S, Skeleton, SpotlightNumber, VersusSplit } from "@/components/ui";
 import { TopBar } from "@/components/arena/OutsideKit";
 import { durationLabel } from "@/components/arena/shared";
 import { distanceLabel } from "@/constants/battleModes";
@@ -122,10 +122,11 @@ export default function BattleCountdown() {
         height={height}
         slant={0.32}
         vs={null}
-        left={{ source: imageSource(me?.avatar) || PHOTOS.fighterA, tint: "rgba(42,106,240,0.55)", focus: { x: 0.5, y: 0.18 } }}
-        right={{ source: imageSource(opp?.avatar) || PHOTOS.fighterB, tint: "rgba(255,77,85,0.5)", focus: { x: 0.5, y: 0.25 } }}
+        left={{ source: fighterPhoto(me, "vs").source, tint: "rgba(42,106,240,0.55)", focus: { x: 0.5, y: 0.18 } }}
+        right={{ source: fighterPhoto(opp, "vsMirror").source, tint: "rgba(255,77,85,0.5)", focus: { x: 0.5, y: 0.25 } }}
         fade="rgba(4,6,11,0.92)"
         fadeFrom={0.62}
+        fadeTo={1}
         style={StyleSheet.absoluteFill}
       />
       <Grain amount={0.06} />
@@ -151,14 +152,14 @@ export default function BattleCountdown() {
 
       {/* .vname: you on the left at 300, them on the right at 556 */}
       <Animated.View entering={FadeInLeft.duration(600).delay(300)} style={[styles.name, { left: 18, top: y(300) }]}>
-        <Avatar uri={me?.avatar} name={me?.name || "You"} size={46} tier={me?.tier} />
+        <Avatar uri={me?.fighter?.profile || me?.avatar} name={me?.name || "You"} size={46} tier={me?.tier} />
         <View>
           <Text style={styles.nameText}>{myName}</Text>
           <Text style={styles.line}>{lineFor(me)}</Text>
         </View>
       </Animated.View>
       <Animated.View entering={FadeInRight.duration(600).delay(450)} style={[styles.name, styles.nameRight, { right: 18, top: y(556) }]}>
-        <Avatar uri={opp?.avatar} name={opp?.name} size={46} tier={opp?.tier} />
+        <Avatar uri={opp?.fighter?.profile || opp?.avatar} name={opp?.name} size={46} tier={opp?.tier} />
         <View style={{ alignItems: "flex-end" }}>
           <Text style={styles.nameText}>{oppName}</Text>
           <Text style={styles.line}>{lineFor(opp)}</Text>

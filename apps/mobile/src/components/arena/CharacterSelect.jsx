@@ -17,6 +17,7 @@ import { Chip, NoPhoto, SlantTag } from "./BattleKit";
 import { ME, RIVAL } from "./shared";
 import { formatNumber } from "@/utils/format";
 import { PHOTOS } from "@/constants/photos";
+import { fighterPhoto } from "@/utils/fighter";
 
 const COLS = 5;
 const GAP = 8;
@@ -123,8 +124,8 @@ function Stage({ me, them, top }) {
       height={top + 300}
       slant={0.16}
       vsSize={58}
-      left={{ source: imageSource(mine?.avatar) || PHOTOS.fighterA, tint: "rgba(42,106,240,0.55)", focus: { x: 0.5, y: 0.2 } }}
-      right={{ source: theirs ? imageSource(theirs.avatar) : null, tint: theirs ? "rgba(255,77,85,0.5)" : "rgba(255,77,85,0.18)", focus: { x: 0.5, y: 0.2 } }}
+      left={{ source: fighterPhoto(mine, "vs").source, focus: { x: 0.5, y: 0.2 } }}
+      right={{ source: theirs ? fighterPhoto(theirs, "vsMirror").source : null, focus: { x: 0.5, y: 0.2 } }}
       fade="rgba(7,9,12,1)"
       fadeFrom={0.5}
     >
@@ -258,7 +259,7 @@ function TilePhoto({ source, name, side = "left" }) {
 function MeTile({ size, player }) {
   return (
     <Tile size={size} name="You" colour={ME} tag="1P">
-      <TilePhoto source={player?.avatar || PHOTOS.fighterA} name="You" />
+      <TilePhoto source={fighterPhoto(player, "profile").source} name="You" />
     </Tile>
   );
 }

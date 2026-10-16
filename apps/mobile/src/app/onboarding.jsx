@@ -26,6 +26,7 @@ import { PHOTOS } from "@/constants/photos";
 import { askLocation, roughPosition } from "@/services/locate";
 import { pickAvatarPhoto } from "@/services/photo";
 import { hapticError, hapticSelection, hapticSuccess } from "@/services/haptics";
+import { RunnerChoice } from "@/components/pack/RunnerChoice";
 import { formatNumber } from "@/utils/format";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,6 +54,7 @@ export default function OnboardingScreen() {
   const [check, setCheck] = useState({ state: "idle", reason: null });
   const [dob, setDob] = useState({ d: "", m: "", y: "" });
   const [mapVisibility, setMapVisibility] = useState("friends");
+  const [runner, setRunner] = useState({ runner: "either", runnerFigure: "man" });
   // Goal
   const [goal, setGoal] = useState(10000);
   // Patch
@@ -179,6 +181,7 @@ export default function OnboardingScreen() {
         () => (place ? engine.setPatch({ cityId: place.id, areaId: area?.id || null }) : null),
         () => engine.updateSettings({ privacy: { mapVisibility }, permissions: granted }),
         () => (photo ? engine.setAvatar(photo) : null),
+        () => engine.setRunner(runner),
       ];
       for (const run of steps) {
         try {
@@ -263,6 +266,8 @@ export default function OnboardingScreen() {
               minor={minor}
               mapVisibility={mapVisibility}
               onMapVisibility={setMapVisibility}
+              runner={runner}
+              onRunner={setRunner}
             />
           ) : null}
           {key === "goal" ? <GoalStep value={goal} onChange={setGoal} /> : null}
@@ -436,7 +441,7 @@ function SignIn({ onDone }) {
 
 // ── Make it yours ─────────────────────────────────────────────────────────────
 
-function SetupStep({ photo, onPhoto, name, onName, username, onUsername, check, dob, onDob, dobProblem, minor, mapVisibility, onMapVisibility }) {
+function SetupStep({ photo, onPhoto, name, onName, username, onUsername, check, dob, onDob, dobProblem, minor, mapVisibility, onMapVisibility, runner, onRunner }) {
   const insets = useSafeAreaInsets();
   const [focus, setFocus] = useState(null);
   const mRef = useRef(null);
@@ -508,6 +513,11 @@ function SetupStep({ photo, onPhoto, name, onName, username, onUsername, check, 
         <View style={[accountStyles.field, { paddingBottom: 14 }]}>
           <Text style={[accountStyles.fieldLabel, { marginBottom: 10 }]}>Who can see you on the map</Text>
           <MapVisibility value={mapVisibility} onChange={onMapVisibility} minor={minor} />
+        </View>
+
+        <View style={[accountStyles.field, { paddingBottom: 14 }]}>
+          <Text style={[accountStyles.fieldLabel, { marginBottom: 10 }]}>Your runner</Text>
+          <RunnerChoice value={runner} onChange={onRunner} />
         </View>
       </View>
     </View>

@@ -40,7 +40,7 @@ const MESSAGES = {
 const ms = (v) => (v ? new Date(v).getTime() : null);
 const routePoints = (pts) => (pts || []).map((p) => (Array.isArray(p) ? { latitude: p[0], longitude: p[1] } : p));
 
-export function makeRemoteOutside({ supabase, run, rpc: rawRpc, uid, requireUid, publicUrl, changed, getBattle, EngineError }) {
+export function makeRemoteOutside({ supabase, run, rpc: rawRpc, uid, requireUid, publicUrl, changed, getBattle, EngineError, withFighters = null }) {
   // Our codes get our words; everything else is left as remote.js made it.
   const rpc = async (fn, args) => {
     try {
@@ -155,9 +155,11 @@ export function makeRemoteOutside({ supabase, run, rpc: rawRpc, uid, requireUid,
     cityId: c.city_id, city: c.city, area: c.area, avgSteps: Number(c.avg_steps) || 0, wins: c.wins, played: c.played, dot: c.dot || null, fair: c.fair,
   });
 
-  const getSwipeDeck = async (scope = "near", limit = 20) => ((await rpc("swipe_deck", { p_scope: scope, p_limit: limit })) || []).map(card);
+  // Swipe cards come from an RPC, so their Fighter Pack pictures are added after.
+  const fighters = (list) => (withFighters ? withFighters(list) : list);
+  const getSwipeDeck = async (scope = "near", limit = 20) => fighters(((await rpc("swipe_deck", { p_scope: scope, p_limit: limit })) || []).map(card));
   const swipeRival = async (rivalId, pick) => act("swipe_rival", { p_rival: rivalId, p_pick: !!pick });
-  const listPicks = async () => ((await rpc("my_picks")) || []).map(card);
+  const listPicks = async () => fighters(((await rpc("my_picks")) || []).map(card));
   const challengePick = async ({ rivalId, metric = "steps", durationHours = 72, stakeOut = 100 }) => {
     const b = await act("challenge_pick", { p_rival: rivalId, p_metric: metric, p_duration_h: durationHours, p_stake_out: stakeOut });
     return getBattle(b.id);
