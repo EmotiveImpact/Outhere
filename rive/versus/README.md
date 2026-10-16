@@ -1,0 +1,47 @@
+# Outhere 1v1 card (Rive)
+
+`export/outhere-versus.riv` is the versus screen from the prototype's countdown (.vs9): the screen split on a diagonal, you on the blue side, them on the red, a slammed VS in the middle and the stakes along the bottom. Artboard `Versus`, state machine `Versus`, 390 x 844.
+
+## What the app sets
+
+Everything goes through the `Versus` view model, so one file serves every battle.
+
+| Property | Type | What it is |
+| --- | --- | --- |
+| `youName`, `youCity`, `themName`, `themCity` | string | Names and areas; long names shrink to fit |
+| `title`, `rule` | string | Top bar, for example `1V1 · REMATCH` and `24 hours · most steps` |
+| `stake`, `prize`, `clock` | string | The three tiles |
+| `youPhoto`, `themPhoto` | image | One photo per runner, any size |
+| `youHasPack` | boolean | Hides the Add your Fighter Pack pill |
+| `win`, `lose`, `replay` | trigger | Play a result, or slam in again |
+
+The file fires `addPack` when the pill is tapped, so the app can open the Fighter Pack flow.
+
+## Which photo to set
+
+For each runner, in this order:
+
+1. Their Fighter Pack VS shot.
+2. Their profile photo.
+3. The silhouette for the gender they chose in onboarding or settings, blue on your side and red on theirs: `images/silhouette-{male,female}-{blue,red}.jpg`. Ship these four with the app.
+
+The file embeds the male silhouettes (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its side whatever its size, and its top and bottom fade into the colour, so ordinary photos have no hard edges. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
+
+## Building
+
+- `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
+- `tools/silhouette.py male blue out.jpg` redraws a silhouette.
+- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to V and S.
+
+```bash
+python3 build.py
+rive . --verify && rive inspect . --summary
+rive . --once && cp build/outhere-versus.riv export/
+rive . --screenshot=frame.png --advance=90
+```
+
+## Runtime notes
+
+- A swapped image draws at its own pixel size unless it sits in a layout box, which is why each photo lives in a root-level `LayoutComponent` with `fit="cover"`. A layout box inside a node does not lay out, so the boxes are at the root and clipped by the same shapes as their sides.
+- The fade inside a photo box does not follow a box that is moved or scaled, so results leave the photos where they are and move the seam instead.
+- The web runtime ignores `fitFontSize`; the name boxes use `fit`.
