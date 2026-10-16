@@ -23,14 +23,14 @@ For each runner, in this order:
 
 1. Their Fighter Pack VS shot.
 2. Their profile photo.
-3. The silhouette for the gender they chose in onboarding or settings, blue on your side and red on theirs: `images/silhouette-{male,female}-{blue,red}.jpg`. Ship these four with the app.
+3. The shadow runner for the gender they chose in onboarding or settings, lightly tinted blue on your side and red on theirs: `images/silhouette-{male,female}-{blue,red}.jpg`. Ship these four with the app.
 
-The file embeds the male silhouettes (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its box whatever its size. The boxes are big, so each runner fills most of their side: yours fades out towards the bottom and theirs towards the top, melting into the wash colour so ordinary photos have no hard edges. `PHOTO_BOX` and `PHOTO_FADE` in `build.py` set both. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
+The file embeds the male shadow runners (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its box whatever its size. The boxes are big, so each runner fills most of their side: yours fades out towards the bottom and theirs towards the top, melting into the wash colour so ordinary photos have no hard edges. `PHOTO_BOX` and `PHOTO_FADE` in `build.py` set both. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
 
 ## Building
 
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
-- `tools/silhouette.py male blue out.jpg` redraws a silhouette.
+- The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes (the female runner is due to be remade).
 - Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to V and S.
 
 ```bash
