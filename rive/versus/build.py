@@ -15,8 +15,13 @@ The app drives it through the `Versus` view model:
                                                       gender. The file ships the male
                                                       silhouettes, blue for you and
                                                       red for them.
+  youResult, themResult                               the shot that takes over when the
+                                                      result lands: the pack's win shot
+                                                      for the winner, its respect shot
+                                                      for the loser. Without one, set
+                                                      the same image as the photo.
   youHasPack                                          hides the Add your Fighter Pack pill
-  win, lose, replay                                   triggers
+  win, lose, replay                                   triggers; set the result shots first
 and listens for the `addPack` event (the pill was tapped).
 
 Run `python3 build.py`, then `rive . --verify && rive inspect . --summary`.
@@ -109,6 +114,8 @@ for name, val in [("youName", "Alex"), ("youCity", "Peckham"), ("themName", "Kem
     vm_prop("String", name, val)
 vm_prop("AssetImage", "youPhoto", SIL_YOU)
 vm_prop("AssetImage", "themPhoto", SIL_THEM)
+vm_prop("AssetImage", "youResult", SIL_YOU)
+vm_prop("AssetImage", "themResult", SIL_THEM)
 vm_prop("Boolean", "youHasPack", "false")
 for t in ("win", "lose", "replay"):
     vm_prop("Trigger", t)
@@ -190,7 +197,7 @@ def side(who):
     by the same shape as the wash, and its x is keyed alongside the group's.
     """
     you = who == "you"
-    group, clip, content, photo, style, dim = nid(), nid(), nid(), nid(), nid(), nid()
+    group, clip, content, photo, style, dim, shot = nid(), nid(), nid(), nid(), nid(), nid(), nid()
     v = [nid(), nid()]   # the two vertices on the seam, animated for win and lose
     if you:
         pts, vids = [(0, 0), (TOP, 0), (BOT, H), (0, H)], [None, v[0], v[1], None]
@@ -215,10 +222,11 @@ def side(who):
                 </Shape>
             </Node>
         </Node>'''
-    photo_xml = f'''
-        <LayoutComponent width="{bw}" height="{bh}" clip="true" styleId="{style}" name="{"You" if you else "Them"} Photo" id="{photo}">
+    def box(oid, sid, bind, name, opacity=1):
+        return f'''
+        <LayoutComponent width="{bw}" height="{bh}" clip="true" opacity="{opacity}" styleId="{sid}" name="{name}" id="{oid}">
             <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" positionTypeValue="absolute"
-                positionLeft="{bx}" positionLeftUnitsValue="points" positionTop="{by}" positionTopUnitsValue="points" name="Box" id="{style}"/>
+                positionLeft="{bx}" positionLeftUnitsValue="points" positionTop="{by}" positionTopUnitsValue="points" name="Box" id="{sid}"/>
             <ClippingShape sourceId="{clip}" name="Clip"/>
             <!-- Melts the top and bottom of the photo into the wash, so any photo,
                  a pack shot or an ordinary profile photo, has no hard edges. -->
@@ -228,9 +236,14 @@ def side(who):
             </Shape>
             <Image assetId="{SIL_YOU if you else SIL_THEM}" fit="cover" alignmentX="0" alignmentY="-0.64" blendModeValue="lighten" name="Photo">
                 <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>
-                <DataBindContext sourcePathIds="{path("youPhoto" if you else "themPhoto")}" propertyKey="206"/>
+                <DataBindContext sourcePathIds="{path(bind)}" propertyKey="206"/>
             </Image>
         </LayoutComponent>'''
+
+    who_name = "You" if you else "Them"
+    # The result shot sits over the photo, hidden until the result lands.
+    photo_xml = (box(shot, nid(), who + "Result", f"{who_name} Result", opacity=0)
+                 + box(photo, style, who + "Photo", f"{who_name} Photo"))
     # The loser's side darkens under this, photo and wash together, so the
     # photo's faded edges still match the wash behind them.
     photo_xml = f'''
@@ -241,7 +254,7 @@ def side(who):
                 <Fill name="Fill"><SolidColor colorValue="FF000000" name="C"/></Fill>
             </Shape>
         </Node>''' + photo_xml
-    return xml, photo_xml, dict(group=group, content=content, v=v, photo=photo, dim=dim)
+    return xml, photo_xml, dict(group=group, content=content, v=v, photo=photo, dim=dim, shot=shot)
 
 
 you_xml, you_photo_xml, YOU = side("you")
@@ -294,22 +307,119 @@ vs_xml = f'''
         </Node>'''
 
 
-def winner_tag(x, y, right, oid):
-    """A small blue WINNER pill; the anchor is its outer top corner."""
-    w = 74
-    left = x - w if right else x
-    return f'''
-        <Node x="{left + w / 2:.2f}" y="{y + 12}" opacity="0" scaleX="0.6" scaleY="0.6" name="Winner Tag" id="{oid}">
-            {text(0, 0.5, 13, FONT_BOLD, WHITE, "WINNER", origin=(0.5, 0.5), spacing=1.4, name="Label")}
-            <Shape name="Pill">
-                <Rectangle width="{w}" height="24" originX="0.5" originY="0.5" cornerRadiusTL="12" name="Path"/>
-                <Fill name="Fill"><LinearGradient startX="0" startY="-12" endX="0" endY="12" name="G">
-                    <GradientStop colorValue="FF3B7CF5" position="0"/><GradientStop colorValue="{ACT}" position="1"/></LinearGradient></Fill>
+# ---------------------------------------------------------------- the result hit
+# WINNER slams in like the VS, over a flash, two shock rings and a burst of
+# sparks, then the prize pops under the winner's name. LOSER drops in heavy
+# and grey on the other side.
+
+HIT_SIZE, LOSER_SIZE = 84, 46
+HIT_W = 2.82 * HIT_SIZE              # advance width of WINNER, from the font
+LOSER_W = 2.223 * LOSER_SIZE
+SIDE_INK = {"you": ("FF1F62FF", "82B4FF", "FF2A6AF0", "FF1A47C2"),   # shadow, glow, chip top, chip bottom
+            "them": ("FFD7263A", "FF6670", "FFE5404C", "FFA0182A")}
+SPARKS = 16
+
+
+def hit(who):
+    """The winner's moment on one side: ids for the animation, and its xml."""
+    you = who == "you"
+    shadow, glow_rgb, chip_top, chip_bot = SIDE_INK[who]
+    ids = dict(word=nid(), glow=nid(), flash=nid(), rings=(nid(), nid()), sparks=[], spark_nodes=[],
+               chip=nid(), loser=nid())
+    cx = 16 + HIT_W / 2 if you else W - 16 - HIT_W / 2
+    # yours sits under your name and prize, clear of the face in a win shot;
+    # theirs sits above their name, over the chest
+    cy = 452 if you else 508
+    sparks = ""
+    for i in range(SPARKS):
+        node, bar = nid(), nid()
+        ids["spark_nodes"].append(node)
+        ids["sparks"].append(bar)
+        ang = 2 * math.pi * i / SPARKS + (0.12 if i % 2 else 0)
+        colour = WHITE if i % 2 else f"FF{glow_rgb}"
+        length = 26 if i % 3 else 40
+        sparks += f'''
+                <Node rotation="{ang:.4f}" name="Spark {i + 1}" id="{node}">
+                    <Shape opacity="0" name="Streak" id="{bar}">
+                        <Rectangle width="{length}" height="4" originX="0" originY="0.5" cornerRadiusTL="2" name="Path"/>
+                        <Fill name="Fill"><LinearGradient startX="0" startY="0" endX="{length}" endY="0" name="G">
+                            <GradientStop colorValue="00{colour[2:]}" position="0"/><GradientStop colorValue="{colour}" position="1"/></LinearGradient></Fill>
+                    </Shape>
+                </Node>'''
+    word = f'''
+        <Node x="{cx:.2f}" y="{cy}" rotation="-0.05" name="{"You" if you else "Them"} Win">
+            <Node opacity="0" name="Winner" id="{ids["word"]}">
+                {text(0, 0, HIT_SIZE, FONT_VS, WHITE, "WINNER", origin=(0.5, 0.5), spacing=-1, name="Winner Face")}
+                {text(0, 5, HIT_SIZE, FONT_VS, shadow, "WINNER", origin=(0.5, 0.5), spacing=-1, name="Winner Shadow")}
+            </Node>
+            <Node scaleX="1.7" scaleY="0.8" name="Sparks">{sparks}
+            </Node>
+            <Shape opacity="0" scaleY="0.5" name="Glow" id="{ids["glow"]}">
+                <Ellipse width="440" height="440" originX="0.5" originY="0.5" name="Path"/>
+                <Fill name="Fill"><RadialGradient startX="0" startY="0" endX="220" endY="0" name="G">
+                    <GradientStop colorValue="99{glow_rgb}" position="0"/><GradientStop colorValue="33{glow_rgb}" position="0.45"/><GradientStop colorValue="00{glow_rgb}" position="1"/>
+                </RadialGradient></Fill>
+            </Shape>
+            <Shape opacity="0" name="Ring" id="{ids["rings"][0]}">
+                <Ellipse width="160" height="160" originX="0.5" originY="0.5" name="Path"/>
+                <Stroke thickness="3" name="Crisp"><SolidColor colorValue="{WHITE}" name="C"/></Stroke>
+                <Stroke thickness="16" name="Halo"><SolidColor colorValue="44{glow_rgb}" name="C"/></Stroke>
+            </Shape>
+            <Shape opacity="0" name="Ring 2" id="{ids["rings"][1]}">
+                <Ellipse width="160" height="160" originX="0.5" originY="0.5" name="Path"/>
+                <Stroke thickness="2" name="Crisp"><SolidColor colorValue="CC{glow_rgb}" name="C"/></Stroke>
+            </Shape>
+            <Shape opacity="0" name="Flash" id="{ids["flash"]}">
+                <Ellipse width="460" height="460" originX="0.5" originY="0.5" name="Path"/>
+                <Fill name="Fill"><RadialGradient startX="0" startY="0" endX="230" endY="0" name="G">
+                    <GradientStop colorValue="F2FFFFFF" position="0"/><GradientStop colorValue="66{glow_rgb}" position="0.3"/><GradientStop colorValue="00{glow_rgb}" position="0.65"/>
+                </RadialGradient></Fill>
             </Shape>
         </Node>'''
+    # The prize, under the winner's name and city.
+    chip_w = 3.189 * 26 + 28
+    chip_x = 18 + chip_w / 2 if you else W - 18 - chip_w / 2
+    chip_y = 372 if you else 628
+    sid = nid()
+    chip = f'''
+        <Node x="{chip_x:.2f}" y="{chip_y}" opacity="0" name="{"You" if you else "Them"} Prize" id="{ids["chip"]}">
+            <Text originX="0.5" originY="0.5" sizingValue="autoWidth" wrapValue="noWrap" name="Prize">
+                <TextStylePaint fontSize="26" fontAssetId="{FONT_VS}" familyName="Barlow Condensed" styleName="ExtraBold Italic" name="Style" id="{sid}">
+                    <Fill name="Fill"><SolidColor colorValue="{WHITE}" name="C"/></Fill></TextStylePaint>
+                <TextValueRun styleId="{sid}" text="+" name="Plus"/>
+                <TextValueRun styleId="{sid}" text="100" name="Amount">{bind_text("prize")}</TextValueRun>
+                <TextValueRun styleId="{sid}" text=" OUT" name="Unit"/>
+            </Text>
+            <Shape name="Chip">
+                <Rectangle width="{chip_w:.2f}" height="38" originX="0.5" originY="0.5" cornerRadiusTL="19" name="Path"/>
+                <Fill name="Fill"><LinearGradient startX="0" startY="-19" endX="0" endY="19" name="G">
+                    <GradientStop colorValue="{chip_top}" position="0"/><GradientStop colorValue="{chip_bot}" position="1"/></LinearGradient></Fill>
+                <Stroke thickness="1" name="Edge"><SolidColor colorValue="59FFFFFF" name="C"/></Stroke>
+            </Shape>
+        </Node>'''
+    # LOSER sits on this side when this side loses: above the name, grey and heavy.
+    lx = 18 + LOSER_W / 2 if you else W - 18 - LOSER_W / 2
+    ly = 268 if you else 524
+    loser = f'''
+        <Node x="{lx:.2f}" y="{ly}" opacity="0" name="{"You" if you else "Them"} Loser" id="{ids["loser"]}">
+            {text(0, 0, LOSER_SIZE, FONT_VS, "B3FFFFFF", "LOSER", origin=(0.5, 0.5), spacing=0, name="Loser Face")}
+            {text(0, 3, LOSER_SIZE, FONT_VS, "CC000000", "LOSER", origin=(0.5, 0.5), spacing=0, name="Loser Shadow")}
+        </Node>'''
+    ids["y"] = ly
+    return ids, word, chip + loser
 
 
-YOU_NAME, THEM_NAME, YOU_TAG, THEM_TAG = nid(), nid(), nid(), nid()
+YOU_HIT, you_hit_xml, you_hit_labels = hit("you")
+THEM_HIT, them_hit_xml, them_hit_labels = hit("them")
+IMPACT = nid()
+# A full-screen flash at the moment of impact, over the photos, under the words.
+impact_xml = f'''
+        <Shape opacity="0" name="Impact" id="{IMPACT}">
+            <Rectangle width="{W}" height="{H}" originX="0" originY="0" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFE6F0FF" name="C"/></Fill>
+        </Shape>'''
+
+YOU_NAME, THEM_NAME = nid(), nid()
 names_xml = f'''
         <Node x="18" y="300" name="You Name" id="{YOU_NAME}">
             {text(0, 0, 34, FONT_BOLD, WHITE, "Alex", bind="youName", name="Name", fit=(170, 38))}
@@ -318,9 +428,7 @@ names_xml = f'''
         <Node x="{W - 18}" y="556" name="Them Name" id="{THEM_NAME}">
             {text(0, 0, 34, FONT_BOLD, WHITE, "Kemi", bind="themName", origin=(1, 0), name="Name", fit=(170, 38))}
             {text(-1, 38, 12, FONT_MED, "B3FFFFFF", "Brixton", bind="themCity", origin=(1, 0), spacing=0.3, name="City")}
-        </Node>
-        {winner_tag(18, 266, False, YOU_TAG)}
-        {winner_tag(W - 18, 522, True, THEM_TAG)}'''
+        </Node>'''
 
 TOPBAR = nid()
 top_xml = f'''
@@ -392,10 +500,16 @@ def reset_keys():
         out.append(keyed(s["content"], prop(OPACITY, kf(1, 0))))
         out.append(keyed(s["photo"], prop(SX, kf(1, 0)), prop(SY, kf(1, 0))))
         out.append(keyed(s["dim"], prop(OPACITY, kf(0, 0))))
+        out.append(keyed(s["photo"], prop(OPACITY, kf(1, 0))))
+        out.append(keyed(s["shot"], prop(OPACITY, kf(0, 0))))
     out.append(keyed(PILL_HOLD, prop(OPACITY, kf(1, 0))))
     out.append(keyed(SEAM, prop(X, kf((TOP + BOT) / 2, 0))))
-    for tag in (YOU_TAG, THEM_TAG):
-        out.append(keyed(tag, prop(OPACITY, kf(0, 0)), prop(SX, kf(0.6, 0)), prop(SY, kf(0.6, 0))))
+    for h in (YOU_HIT, THEM_HIT):
+        for oid in (h["word"], h["glow"], h["flash"], h["chip"], h["loser"], *h["rings"], *h["sparks"]):
+            out.append(keyed(oid, prop(OPACITY, kf(0, 0))))
+    for n in (YOU_NAME, THEM_NAME):
+        out.append(keyed(n, prop(SX, kf(1, 0)), prop(SY, kf(1, 0))))
+    out.append(keyed(IMPACT, prop(OPACITY, kf(0, 0))))
     out.append(keyed(VSG, prop(X, kf(MID[0], 0))))
     return out
 
@@ -428,23 +542,71 @@ idle = anim("Idle", 240, "loop", [
 ])
 
 
-def result(name, dx, winner, loser, tag, other_tag):
-    return anim(name, 60, "oneShot", split_keys(dx, 0, 40, EASE_SIDE) + [
-        keyed(VSG, tween(X, MID[0], MID[0] + dx, 0, 40, EASE_SIDE), tween(OPACITY, 1, 0, 0, 24, OUT_EASE)),
-        keyed(loser["dim"], tween(OPACITY, 0, 0.62, 0, 40, OUT_EASE)),
+HIT = 10   # the frame the result lands
+
+
+def result(name, dx, winner, loser, hit_ids, lose_ids, name_id):
+    """The seam swings toward the loser, VS bursts, WINNER slams in."""
+    h = hit_ids
+    keys = split_keys(dx, HIT, HIT + 40, EASE_SIDE) + [
+        # VS winds up, then bursts as the result lands
+        keyed(VSTEXT, prop(SX, kf(1, 0, INOUT), kf(0.86, HIT, OUT_EASE), kf(2.2, HIT + 22)),
+              prop(SY, kf(1, 0, INOUT), kf(0.86, HIT, OUT_EASE), kf(2.2, HIT + 22))),
+        keyed(VSG, tween(X, MID[0], MID[0] + dx, HIT, HIT + 40, EASE_SIDE), tween(OPACITY, 1, 0, HIT, HIT + 10, OUT_EASE)),
+        keyed(IMPACT, prop(OPACITY, kf(0, 0), kf(0, HIT - 1), kf(0.6, HIT, OUT_EASE), kf(0, HIT + 26))),
+        keyed(loser["dim"], tween(OPACITY, 0, 0.62, HIT, HIT + 40, OUT_EASE)),
         keyed(winner["dim"], prop(OPACITY, kf(0, 0))),
         keyed(PILL_HOLD, tween(OPACITY, 1, 0, 0, 12, OUT_EASE)),
-        # Photos stay put: the seam reveals more of the winner. Moving or scaling
-        # the box would show its edges, as the fade inside it does not follow.
-        keyed(winner["photo"], prop(X, kf(0, 0)), prop(SX, kf(1, 0)), prop(SY, kf(1, 0))),
-        keyed(other_tag, prop(OPACITY, kf(0, 0))),
-        keyed(loser["photo"], prop(X, kf(0, 0)), prop(SX, kf(1, 0)), prop(SY, kf(1, 0))),
-        keyed(tag, tween(OPACITY, 0, 1, 14, 30, OUT_EASE), tween(SX, 0.6, 1, 14, 44, THUMB), tween(SY, 0.6, 1, 14, 44, THUMB)),
+        # Under the flash each side swaps to its result shot (win or respect).
+        # Photos stay put: moving the box would show its edges.
+        *(keyed(sd["photo"], prop(X, kf(0, 0)), prop(SX, kf(1, 0)), prop(SY, kf(1, 0)),
+                tween(OPACITY, 1, 0, HIT, HIT + 6, OUT_EASE)) for sd in (winner, loser)),
+        *(keyed(sd["shot"], tween(OPACITY, 0, 1, HIT, HIT + 4, OUT_EASE)) for sd in (winner, loser)),
+        # WINNER slams
+        keyed(h["word"], tween(OPACITY, 0, 1, HIT + 2, HIT + 12, OUT_EASE),
+              tween(SX, 2.8, 1, HIT + 2, HIT + 36, SLAM), tween(SY, 2.8, 1, HIT + 2, HIT + 36, SLAM)),
+        keyed(h["glow"], tween(OPACITY, 0, 1, HIT + 4, HIT + 30, OUT_EASE)),
+        keyed(h["flash"], prop(OPACITY, kf(0, 0), kf(0, HIT + 1), kf(1, HIT + 4, OUT_EASE), kf(0, HIT + 40)),
+              tween(SX, 0.2, 1.5, HIT + 4, HIT + 40, OUT_EASE), tween(SY, 0.2, 1.5, HIT + 4, HIT + 40, OUT_EASE)),
+        keyed(h["rings"][0], prop(OPACITY, kf(0, 0), kf(0, HIT + 3), kf(1, HIT + 6, OUT_EASE), kf(0, HIT + 52)),
+              tween(SX, 0.3, 3, HIT + 6, HIT + 52, SHOCK), tween(SY, 0.3, 3, HIT + 6, HIT + 52, SHOCK)),
+        keyed(h["rings"][1], prop(OPACITY, kf(0, 0), kf(0, HIT + 13), kf(1, HIT + 16, OUT_EASE), kf(0, HIT + 60)),
+              tween(SX, 0.3, 2.4, HIT + 16, HIT + 60, SHOCK), tween(SY, 0.3, 2.4, HIT + 16, HIT + 60, SHOCK)),
+        # the winner's name kicks
+        keyed(name_id, prop(SX, kf(1, 0), kf(1, HIT + 12, OUT_EASE), kf(1.14, HIT + 20, INOUT), kf(1, HIT + 40)),
+              prop(SY, kf(1, 0), kf(1, HIT + 12, OUT_EASE), kf(1.14, HIT + 20, INOUT), kf(1, HIT + 40))),
+        # the prize pops under it
+        keyed(h["chip"], tween(OPACITY, 0, 1, HIT + 34, HIT + 44, OUT_EASE)),
+        # LOSER drops in on the other side and lands heavy
+        keyed(lose_ids["loser"], tween(OPACITY, 0, 1, HIT + 22, HIT + 32, OUT_EASE),
+              tween(Y, lose_ids["y"] - 34, lose_ids["y"], HIT + 22, HIT + 40, (0.5, 0, 0.8, 1.25)),
+              tween(ROT, -0.2, 0.04, HIT + 22, HIT + 40, (0.5, 0, 0.8, 1.25))),
+    ]
+    # a straight switch from one result to the other clears the first
+    keys += [keyed(oid, prop(OPACITY, kf(0, 0))) for oid in
+             (lose_ids["word"], lose_ids["glow"], lose_ids["chip"], h["loser"])]
+    # sparks fly out from WINNER
+    for i, bar in enumerate(h["sparks"]):
+        d = i % 3
+        keys.append(keyed(bar, prop(OPACITY, kf(0, 0), kf(0, HIT + 3 + d), kf(1, HIT + 5 + d, OUT_EASE), kf(0, HIT + 34 + 2 * d)),
+                          tween(X, 30, 120 + 18 * d, HIT + 3 + d, HIT + 34 + 2 * d, OUT_EASE)))
+    keys.append(keyed(h["chip"], tween(SX, 0.4, 1, HIT + 34, HIT + 54, THUMB), tween(SY, 0.4, 1, HIT + 34, HIT + 54, THUMB)))
+    return anim(name, 90, "oneShot", keys)
+
+
+def glow_loop(name, h):
+    """After the hit the winner's glow keeps breathing."""
+    return anim(name, 120, "loop", [
+        keyed(h["glow"], prop(OPACITY, kf(1, 0, INOUT), kf(0.65, 60, INOUT), kf(1, 120))),
+        keyed(h["word"], prop(SX, kf(1, 0, INOUT), kf(1.03, 60, INOUT), kf(1, 120)),
+              prop(SY, kf(1, 0, INOUT), kf(1.03, 60, INOUT), kf(1, 120))),
     ])
 
 
-win = result("Win", SHIFT, YOU, THEM, YOU_TAG, THEM_TAG)
-lose = result("Lose", -SHIFT, THEM, YOU, THEM_TAG, YOU_TAG)
+win = result("Win", SHIFT, YOU, THEM, YOU_HIT, THEM_HIT, YOU_NAME)
+lose = result("Lose", -SHIFT, THEM, YOU, THEM_HIT, YOU_HIT, THEM_NAME)
+win_glow = glow_loop("Win Glow", YOU_HIT)
+lose_glow = glow_loop("Lose Glow", THEM_HIT)
 prompt_on = anim("Prompt Shown", 18, "oneShot", [keyed(PILL, tween(OPACITY, 0, 1, 0, 18, OUT_EASE))])
 prompt_off = anim("Prompt Hidden", 12, "oneShot", [keyed(PILL, tween(OPACITY, 1, 0, 0, 12, OUT_EASE))])
 
@@ -473,7 +635,7 @@ def on_bool(name, value, to):
                     </StateTransition>'''
 
 
-S_SLAM, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF = (nid() for _ in range(6))
+S_SLAM, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF, S_WIN_GLOW, S_LOSE_GLOW = (nid() for _ in range(8))
 EVENT = nid()
 machine = f'''
         <StateMachine name="Versus" id="0:7">
@@ -489,8 +651,14 @@ machine = f'''
                     <StateTransition stateToId="{S_IDLE}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
                 </AnimationState>
                 <AnimationState x="400" y="0" animationId="{ANIMS["Idle"]}" id="{S_IDLE}"/>
-                <AnimationState x="400" y="160" animationId="{ANIMS["Win"]}" reset="true" id="{S_WIN}"/>
-                <AnimationState x="400" y="320" animationId="{ANIMS["Lose"]}" reset="true" id="{S_LOSE}"/>
+                <AnimationState x="400" y="160" animationId="{ANIMS["Win"]}" reset="true" id="{S_WIN}">
+                    <StateTransition stateToId="{S_WIN_GLOW}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
+                </AnimationState>
+                <AnimationState x="400" y="320" animationId="{ANIMS["Lose"]}" reset="true" id="{S_LOSE}">
+                    <StateTransition stateToId="{S_LOSE_GLOW}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
+                </AnimationState>
+                <AnimationState x="600" y="160" animationId="{ANIMS["Win Glow"]}" id="{S_WIN_GLOW}"/>
+                <AnimationState x="600" y="320" animationId="{ANIMS["Lose Glow"]}" id="{S_LOSE_GLOW}"/>
             </StateMachineLayer>
             <StateMachineLayer name="Pack Prompt" id="{nid()}">
                 <AnyState x="0" y="-160"/>
@@ -526,8 +694,13 @@ rml = f'''<Rive version="1" kind="fragment">
         {pill_xml}
         {top_xml}
         {tiles_xml}
+        {you_hit_xml}
+        {them_hit_xml}
+        {you_hit_labels}
+        {them_hit_labels}
         {names_xml}
         {vs_xml}
+        {impact_xml}
         {seam_xml}
         <!-- Photos paint over the washes; lighten keeps their black backgrounds out. -->
         {you_photo_xml}
@@ -539,6 +712,8 @@ rml = f'''<Rive version="1" kind="fragment">
         {idle}
         {win}
         {lose}
+        {win_glow}
+        {lose_glow}
         {prompt_on}
         {prompt_off}
     </Artboard>
@@ -546,7 +721,7 @@ rml = f'''<Rive version="1" kind="fragment">
     <ImageAsset file="images/silhouette-male-blue.jpg" name="silhouette you" id="{SIL_YOU}"/>
     <ImageAsset file="images/silhouette-male-red.jpg" name="silhouette them" id="{SIL_THEM}"/>
     <FontAsset file="fonts/BarlowCondensed-Bold.ttf" name="Barlow Condensed Bold" id="{FONT_BOLD}"/>
-    <FontAsset file="fonts/BarlowCondensed-ExtraBoldItalic-VS.ttf" name="Barlow Condensed ExtraBold Italic" id="{FONT_VS}"/>
+    <FontAsset file="fonts/BarlowCondensed-ExtraBoldItalic-Display.ttf" name="Barlow Condensed ExtraBold Italic" id="{FONT_VS}"/>
     <FontAsset file="fonts/BarlowCondensed-Medium.ttf" name="Barlow Condensed Medium" id="{FONT_MED}"/>
 
     <ViewModel defaultInstanceId="{INSTANCE}" name="Versus" id="{VM}">

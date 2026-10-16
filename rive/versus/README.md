@@ -12,8 +12,9 @@ Everything goes through the `Versus` view model, so one file serves every battle
 | `title`, `rule` | string | Top bar, for example `1V1 · REMATCH` and `24 hours · most steps` |
 | `stake`, `prize`, `clock` | string | The three tiles |
 | `youPhoto`, `themPhoto` | image | One photo per runner, any size |
+| `youResult`, `themResult` | image | The shot each side swaps to when the result lands (see below) |
 | `youHasPack` | boolean | Hides the Add your Fighter Pack pill |
-| `win`, `lose`, `replay` | trigger | Play a result, or slam in again |
+| `win`, `lose`, `replay` | trigger | Play a result, or slam in again; set the result shots first |
 
 The file fires `addPack` when the pill is tapped, so the app can open the Fighter Pack flow.
 
@@ -27,11 +28,21 @@ For each runner, in this order:
 
 The file embeds the male shadow runners (blue for you, red for them) as defaults, so it never shows an empty side. Each photo is scaled to cover its box whatever its size. The boxes are big, so each runner fills most of their side: yours fades out towards the bottom and theirs towards the top, melting into the wash colour so ordinary photos have no hard edges. `PHOTO_BOX` and `PHOTO_FADE` in `build.py` set both. Pack shots are cut out on black and drawn with a lighten blend, so their background disappears.
 
+## The result
+
+`win` and `lose` play the winner's moment: VS winds up and bursts, the screen flashes, WINNER slams in like the VS (white with a blue or red shadow) over two shock rings and a burst of sparks, the winner's name kicks and `+prize OUT` pops under it. LOSER drops in grey on the other side as it darkens, and the seam swings toward the loser. Then the winner's glow keeps breathing (`Win Glow` or `Lose Glow`).
+
+Under the flash each side swaps to its result shot. Before firing the trigger, set:
+
+- the winner's `…Result` to their pack's win shot (the celebration pose),
+- the loser's `…Result` to their pack's respect shot,
+- either one to the same image as its photo when the pack has no such shot, or there is no pack.
+
 ## Building
 
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
 - The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes (the female runner is due to be remade).
-- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to V and S.
+- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, WINNER, LOSER and the prize (`VSWINERLOUT+0-9`).
 
 ```bash
 python3 build.py
