@@ -2,8 +2,8 @@
 // (WebGL) and the phone (expo-gl). See README.md in this folder.
 //
 // Nothing here imports three.js. The scenes load on demand the first time a
-// screen calls useThreeReady() or renders Globe3D or Coin3D, and every piece
-// shows its `fallback` until then.
+// screen calls useThreeReady() or renders Globe3D, and every piece shows
+// its `fallback` until then.
 
 import React from "react";
 import { ThreeView } from "./ThreeView";
@@ -22,13 +22,4 @@ export { useThreeReady, threeReady, threeFailed, webglAvailable, loadThree, useF
  */
 export function Globe3D({ fallback, paused, style, ...props }) {
   return <ThreeView scene="Globe" sceneProps={props} fallback={fallback} paused={paused} style={style} />;
-}
-
-/**
- * The OUT coin. `size` is the coin's diameter in px (the box is 1.25 x).
- * Change `flip` (a counter) to spin it twice round on a spring, or tap it
- * when `pressToFlip`. `ref` gets { flip() }. `fallback` shows until ready.
- */
-export function Coin3D({ fallback, paused, style, ...props }) {
-  return <ThreeView scene="Coin" sceneProps={props} fallback={fallback} paused={paused} style={style} />;
 }

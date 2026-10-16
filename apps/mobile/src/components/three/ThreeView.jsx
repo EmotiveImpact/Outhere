@@ -43,7 +43,7 @@ function useActive(paused, hostRef) {
 }
 
 /**
- * scene: "Globe" or "Coin" (a named export of ./scenes). sceneProps go to
+ * scene: "Globe" (a named export of ./scenes). sceneProps go to
  * the scene with `active` added. fallback shows until the scene can draw.
  */
 export function ThreeView({ scene, sceneProps, fallback = null, paused = false, style, ...rest }) {

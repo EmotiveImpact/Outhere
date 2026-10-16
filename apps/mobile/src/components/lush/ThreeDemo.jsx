@@ -1,13 +1,12 @@
 // The 3D section of the lush layer: the real globe (London to Tokyo, drag
-// to turn), the OUT coin with a Flip button, and a plain card that says
-// whether 3D is running and what a frame costs.
+// to turn) and a plain card that says whether 3D is running and what a
+// frame costs on this device.
 
-import React, { useState } from "react";
+import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlendImage, C, F, GlowButton, Kicker, R, Row, S, Surface, useLayoutSize } from "@/components/ui";
-import { Coin3D, Globe3D, threeFailed, useFrameCost, useThreeReady, webglAvailable } from "@/components/three";
-import { PHOTOS } from "@/constants/photos";
+import { C, F, Kicker, R, S, Surface, useLayoutSize } from "@/components/ui";
+import { Globe3D, threeFailed, useFrameCost, useThreeReady, webglAvailable } from "@/components/three";
 
 const LONDON = { lat: 51.5072, lng: -0.1276, name: "London" };
 const TOKYO = { lat: 35.6762, lng: 139.6503, name: "Tokyo" };
@@ -39,7 +38,6 @@ const fmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(
 export default function ThreeDemo() {
   const three = useThreeReady();
   const cost = useFrameCost();
-  const [flips, setFlips] = useState(0);
   const [box, onLayout] = useLayoutSize();
   const width = box?.width || 350;
   const globe = Math.min(300, width - 40);
@@ -59,14 +57,6 @@ export default function ThreeDemo() {
         <Globe3D size={globe} width={width} height={Math.round(globe * 1.2)} from={LONDON} to={TOKYO} intro={false} fallback={<PlainGlobe size={globe} box={width} />} />
       </Surface>
 
-      <Surface padding={null} radius={R.lg} contentStyle={styles.card}>
-        <Head kicker="Real 3D" title="The OUT coin" body="Brushed steel, a dark face, the mark raised in metal. Tap it or press Flip." />
-        <Row gap={S.lg} style={styles.coinRow}>
-          <Coin3D size={150} flip={flips} fallback={<BlendImage source={PHOTOS.coin} size={150} mask="wide" />} />
-          <GlowButton title="Flip" size="sm" onPress={() => setFlips((n) => n + 1)} style={{ paddingHorizontal: 22 }} />
-        </Row>
-      </Surface>
-
       <Surface padding={S.lg} radius={R.lg}>
         <Kicker>Status</Kicker>
         <Text style={styles.title}>{status}</Text>
@@ -82,7 +72,7 @@ export default function ThreeDemo() {
           const c = cost[name];
           return (
             <View key={name} style={styles.costRow}>
-              <Text style={styles.costName}>{name === "globe" ? "Globe" : "Coin"}</Text>
+              <Text style={styles.costName}>{name === "globe" ? "Globe" : name}</Text>
               <Text style={styles.costValue}>
                 {c.ms ? `${c.ms.toFixed(1)} ms a frame · ${Math.round(c.fps)} fps` : "measuring"}
                 {c.triangles != null ? ` · ${fmt(c.triangles)} triangles · ${c.calls} draws` : ""}
@@ -91,7 +81,7 @@ export default function ThreeDemo() {
           );
         })}
         {software ? <Text style={styles.warn}>This machine has no GPU: it is drawing in software ({first.renderer}), so these figures are far below what a phone or a laptop with a GPU does.</Text> : null}
-        {three ? <Text style={styles.foot}>Pixel ratio {first && first.dpr ? first.dpr : "capped at 2"} on the web; expo-gl draws at the phone's own ratio. Loops stop when the screen is off, in the background or scrolled away.</Text> : null}
+        {three ? <Text style={styles.foot}>Pixel ratio {first && first.dpr ? first.dpr : "capped at 2"} on the web; expo-gl draws at the phone's own ratio. The loop stops when the screen is off, in the background or scrolled away.</Text> : null}
       </Surface>
     </View>
   );
@@ -102,11 +92,10 @@ const styles = StyleSheet.create({
   head: { alignSelf: "stretch", paddingHorizontal: S.lg, paddingTop: S.lg },
   title: { color: C.text, fontFamily: F.bodySemi, fontSize: 18, marginTop: 4 },
   body: { color: C.textDim, fontFamily: F.body, fontSize: 13.5, lineHeight: 19, marginTop: 4 },
-  coinRow: { alignItems: "center", paddingVertical: S.md, paddingHorizontal: S.lg, alignSelf: "stretch" },
   costKick: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12, marginTop: S.lg, textTransform: "uppercase", letterSpacing: 1 },
   costRow: { marginTop: S.sm },
-  warn: { color: C.warn, fontFamily: F.bodyMedium, fontSize: 12.5, lineHeight: 17, marginTop: S.md },
   costName: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 13 },
   costValue: { color: C.text, fontFamily: F.bodySemi, fontSize: 14, marginTop: 2 },
+  warn: { color: C.warn, fontFamily: F.bodyMedium, fontSize: 12.5, lineHeight: 17, marginTop: S.md },
   foot: { color: C.textMute, fontFamily: F.body, fontSize: 12, lineHeight: 17, marginTop: S.md },
 });

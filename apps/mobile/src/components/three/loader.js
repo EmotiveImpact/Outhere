@@ -61,7 +61,7 @@ export function loadThree() {
   return loading;
 }
 
-/** The loaded scenes module (Globe, Coin). Only after useThreeReady() is true. */
+/** The loaded scenes module (Globe). Only after useThreeReady() is true. */
 export const threeScenes = () => scenes;
 export const threeReady = () => !!scenes;
 export const threeFailed = () => failed || webglAvailable() === false;

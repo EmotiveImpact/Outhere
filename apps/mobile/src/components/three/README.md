@@ -1,8 +1,9 @@
 # Real 3D
 
 three.js through `@react-three/fiber`, on the web (WebGL 2) and the phone
-(expo-gl, which is in Expo Go and every build). Two scenes so far: the race
-globe and the OUT coin. Live proof of both: `/lush`, the 3D tab.
+(expo-gl, which is in Expo Go and every build). One scene in use: the race
+globe. Live proof: `/lush`, the 3D tab. A 3D OUT coin was built as well
+and turned down, so it was removed (it is in git history at 9567e47).
 
 ## Setup
 
@@ -18,7 +19,7 @@ and three ships `three.cjs` for the phone and `three.module.js` for the web.
 - Never import `three` or `@react-three/fiber` from a screen. Everything
   that touches them lives in `scenes/` and is loaded with a dynamic
   `import()` by `loader.js` the first time a screen asks (`useThreeReady()`
-  or a `Globe3D`/`Coin3D`). On the web that is its own chunk; on the phone
+  or a `Globe3D`). On the web that is its own chunk; on the phone
   the module body runs only when required. Screens that never ask pay
   nothing.
 - Every scene renders through `ThreeView`, which shows the `fallback` (the
@@ -34,7 +35,7 @@ and three ships `three.cjs` for the phone and `three.module.js` for the web.
 - On the phone fiber's Canvas lays a touch catcher over the GL view that
   claims every gesture, which would stop a ScrollView. `Stage` turns it off
   (`pointerEvents="none"`) and the scene's own host view takes touches
-  (the globe's drag, the coin's tap).
+  (the globe's drag).
 - Custom shaders write final sRGB colours with `toneMapped: false`; glows
   are additive with premultiplied alpha. Keep the whole scene under 60k
   triangles and lights as one `Points`.
@@ -48,10 +49,9 @@ and three ships `three.cjs` for the phone and `three.module.js` for the web.
   `from`/`to` are `{ lat, lng, name }`. `size` is the globe's diameter in
   px, `width`/`height` the box (default 1.3 x). `onPins` reports
   `[[x, y, facing], [x, y, facing]]` in px when the pins settle or move.
-- `Coin3D({ size, flip, pressToFlip, idle, fallback, paused, ref })`. Change
-  `flip` (a counter) or call `ref.current.flip()` for a 720 degree spring.
-- `useFrameCost()`: `{ globe: { ms, fps, triangles, calls, backend, dpr } }`
-  for the live scenes.
+- `useFrameCost()`: `{ globe: { ms, fps, triangles, calls, backend, dpr, renderer, software } }`
+  for the live scenes. `software` is true when the browser draws in
+  software (SwiftShader, llvmpipe), which says nothing about a phone.
 
 ## The scenes
 
@@ -74,30 +74,19 @@ draws from 3.3 s, sparks from 4.7 s. Dragging adds to the frame rotation
 with inertia; with pins it eases back to the framing after a second.
 About 15k triangles, 17 draw calls.
 
-**Coin** (`scenes/Coin3D.jsx`). A lathe for the edge (raised rim, bevel,
-reeded band via a bump map), two circles for the faces, the mark raised in
-bright steel (a torus arc with round caps and a blue emissive dome in the
-gap, from `logoGeometry()`), on both faces. `MeshPhysicalMaterial` with
-runtime brushed textures (bump in red, roughness in green), lit by a white
-key, a blue rim light behind right, a blue fill, and an equirectangular
-environment painted at runtime (`studioEnvironment`) that three turns into
-a PMREM for the reflections. Idle: a slow sway. Flip: a spring to +720
-degrees with a little overshoot. About 11k triangles, 13 draw calls.
-
 ## Where it is applied
 
 - Race lobby (`arena/RaceGlobe.jsx`): `Globe3D` when ready, else the Skia
   globe; the pin cards follow `onPins`.
-- Wallet balance card (`app/wallet/index.jsx`): `Coin3D` at 84 in place of
-  the coin image when ready. Tap to flip.
-- `/lush`, 3D tab (`lush/ThreeDemo.jsx`).
+- `/lush`, 3D tab (`lush/ThreeDemo.jsx`): the globe and the status card.
+- The wallet keeps its flat coin image.
 
 ## Phone notes
 
 - expo-gl draws at the device's pixel ratio (fiber forces it; a smaller
   canvas is the lever, there is no dpr cap on the phone).
 - The environment map needs half-float render targets (WebGL 2 on expo-gl
-  has them on current iOS and Android). If a device lacks them the coin
+  has them on current iOS and Android). If a device lacks them a scene
   still renders with the direct lights, duller.
 - The GL view is transparent on iOS; on Android expo-gl's TextureView is
   made non-opaque, but check a device before relying on a glow under it.
