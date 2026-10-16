@@ -102,7 +102,7 @@ export function TabBar({ items, current, onSelect, hidden = false, floating = tr
 const styles = StyleSheet.create({
   wrap: { position: "absolute", left: TAB_BAR.side, right: TAB_BAR.side },
   bar: { flexDirection: "row", height: TAB_BAR.height, borderRadius: TAB_BAR.radius, paddingHorizontal: 2 },
-  glass: { ...StyleSheet.absoluteFillObject, borderRadius: TAB_BAR.radius, overflow: "hidden" },
+  glass: { ...StyleSheet.absoluteFill, borderRadius: TAB_BAR.radius, overflow: "hidden" },
   light: { position: "absolute", top: 0, bottom: 0, left: 2 },
   item: { flex: 1, alignItems: "center", justifyContent: "center" },
   inner: { alignItems: "center", gap: 5 },

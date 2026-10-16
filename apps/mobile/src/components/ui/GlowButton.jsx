@@ -195,7 +195,7 @@ export function GlowButton({
 }
 
 const styles = StyleSheet.create({
-  body: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  body: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   inEdge: { top: 1, left: 1, right: 1, bottom: 1 },
   row: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   bright: { backgroundColor: "rgba(255,255,255,0.06)" },

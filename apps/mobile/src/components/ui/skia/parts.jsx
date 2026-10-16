@@ -259,10 +259,10 @@ const MUTE = (() => {
 export function VersusHalf({ width, height, side, polygon, source, focus, tint, glow, mute = false, fade = "rgba(2,3,8,0.95)", fadeFrom = 0.4, fadeTo = 0.88, zoom = 1 }) {
   const image = useImage(skiaSource(source));
   const clip = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     polygon.forEach(([px, py], i) => (i ? p.lineTo(px, py) : p.moveTo(px, py)));
     p.close();
-    return p;
+    return p.build();
   }, [polygon]);
   // Wait for the photo so a still canvas draws once, complete.
   if (!width || !height || (source && !image)) return null;

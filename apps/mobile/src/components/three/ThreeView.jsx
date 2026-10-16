@@ -6,7 +6,7 @@
 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { AppState, Platform, View } from "react-native";
-import { NavigationContext } from "@react-navigation/native";
+import { NavigationContext } from "expo-router/react-navigation";
 import { threeScenes, useThreeReady } from "./loader";
 
 function useActive(paused, hostRef) {

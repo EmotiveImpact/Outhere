@@ -402,15 +402,15 @@ export function PlanetCanvas({ size, t, dots, lat = 0.42, spin = 0.1 }) {
   const r = size * 0.4;
   const lon0 = t * spin;
   const land = useMemo(() => {
-    const back = Skia.Path.Make();
-    const front = Skia.Path.Make();
+    const back = Skia.PathBuilder.Make();
+    const front = Skia.PathBuilder.Make();
     for (let i = 0; i < dots.length; i += 3) {
       const [x, y, d] = look([dots[i], dots[i + 1], dots[i + 2]], lon0, lat, cx, cy, r);
       if (d <= 0.02) continue;
       if (d < 0.5) back.addCircle(x, y, r * 0.0075);
       else front.addCircle(x, y, r * 0.0105);
     }
-    return { back, front };
+    return { back: back.build(), front: front.build() };
   }, [dots, lon0, lat, cx, cy, r]);
   const lights = useMemo(() => cityLights((v) => look(v, lon0, lat, cx, cy, r)), [lon0, lat, cx, cy, r]);
   if (!size) return null;

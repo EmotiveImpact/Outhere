@@ -71,7 +71,7 @@ export default function Celebration({ trigger, title, subtitle }) {
 }
 
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 50 },
+  root: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", zIndex: 50 },
   centre: { alignItems: "center", justifyContent: "center", marginTop: -80 },
   badge: { alignItems: "center", paddingHorizontal: 24, paddingVertical: 16, borderRadius: 24, backgroundColor: "rgba(18,18,20,0.94)" },
   title: { color: C.text, fontFamily: F.display, fontSize: 40, letterSpacing: -1 },

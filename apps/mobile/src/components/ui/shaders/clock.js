@@ -9,7 +9,7 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AppState, Dimensions, Platform } from "react-native";
-import { NavigationContext } from "@react-navigation/native";
+import { NavigationContext } from "expo-router/react-navigation";
 import { useFrameCallback, useReducedMotion, useSharedValue } from "react-native-reanimated";
 import { useLayoutSize } from "../layout";
 

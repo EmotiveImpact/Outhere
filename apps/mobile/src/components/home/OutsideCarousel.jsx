@@ -125,7 +125,7 @@ export default function OutsideCarousel({ slides, height = 150, interval = 4500,
 
 const styles = StyleSheet.create({
   slide: { borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
-  edge: { ...StyleSheet.absoluteFillObject, borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.10)", borderRightWidth: 2, borderRightColor: "rgba(255,255,255,0.35)" },
+  edge: { ...StyleSheet.absoluteFill, borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.10)", borderRightWidth: 2, borderRightColor: "rgba(255,255,255,0.35)" },
   content: { flex: 1, padding: S.lg, justifyContent: "space-between" },
   title: { color: C.text, fontFamily: F.display, fontSize: 28, lineHeight: 30, textTransform: "uppercase", marginTop: 8 },
   body: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 18 },
