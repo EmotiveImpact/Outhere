@@ -9,7 +9,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import Svg, { Ellipse, Path } from "react-native-svg";
 import Animated, { Easing, cancelAnimation, runOnJS, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { ChevronLeft, ChevronRight, ScanFace } from "lucide-react-native";
@@ -81,10 +80,10 @@ function Scanner() {
       try {
         const shot = await camera.current?.takePictureAsync({ quality: 0.7, skipProcessing: true });
         if (!shot?.uri) throw new Error("no photo");
-        const small = await manipulateAsync(shot.uri, [{ resize: { width: 900 } }], { compress: 0.8, format: SaveFormat.JPEG });
-        const { key } = await engine.uploadScanShot({ angle: angle.key, uri: small.uri });
+        // The data layer shrinks it before it leaves the phone.
+        const { key } = await engine.uploadScanShot({ angle: angle.key, uri: shot.uri });
         keys.current[i] = key;
-        if (i === 0) firstShot.current = small.uri;
+        if (i === 0) firstShot.current = shot.uri;
         hapticSelection();
         setIndex(i + 1);
       } catch {
