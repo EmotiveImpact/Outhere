@@ -21,6 +21,11 @@ The app drives it through the `Versus` view model:
                                                       for the loser. Without one, set
                                                       the same image as the photo.
   youHasPack                                          hides the Add your Fighter Pack pill
+  ko                                                  set before win or lose for a
+                                                      knockout (the winner has at least
+                                                      double the loser's steps): K.O.
+                                                      slams in first, with a crack and
+                                                      a screen shake
   win, lose, replay                                   triggers; set the result shots first
 and listens for the `addPack` event (the pill was tapped).
 
@@ -30,6 +35,7 @@ Times are frames at 60fps.
 import itertools
 import math
 import pathlib
+import random
 
 W, H = 390, 844
 TOP, BOT = W * 0.66, W * 0.34          # where the split meets the top and bottom edges
@@ -117,6 +123,7 @@ vm_prop("AssetImage", "themPhoto", SIL_THEM)
 vm_prop("AssetImage", "youResult", SIL_YOU)
 vm_prop("AssetImage", "themResult", SIL_THEM)
 vm_prop("Boolean", "youHasPack", "false")
+vm_prop("Boolean", "ko", "false")
 for t in ("win", "lose", "replay"):
     vm_prop("Trigger", t)
 
@@ -318,6 +325,7 @@ LOSER_W = 2.223 * LOSER_SIZE
 SIDE_INK = {"you": ("FF1F62FF", "82B4FF", "FF2A6AF0", "FF1A47C2"),   # shadow, glow, chip top, chip bottom
             "them": ("FFD7263A", "FF6670", "FFE5404C", "FFA0182A")}
 SPARKS = 16
+CONFETTI = 44
 
 
 def hit(who):
@@ -330,6 +338,25 @@ def hit(who):
     # yours sits under your name and prize, clear of the face in a win shot;
     # theirs sits above their name, over the chest
     cy = 452 if you else 508
+    # Confetti pops up out of WINNER and falls across the winner's side.
+    rng = random.Random(7 if you else 11)
+    confetti, ids["confetti"] = "", []
+    colours = [WHITE, f"FF{glow_rgb}", "FFFFFFFF", shadow, "FFDCE8FF" if you else "FFFFE0E2"]
+    for i in range(CONFETTI):
+        node, piece = nid(), nid()
+        lean = 1 if you else -1     # throw more of it toward the open side of the screen
+        ids["confetti"].append(dict(node=node, piece=piece,
+                                    vx=rng.uniform(-110, 170) * lean, up=rng.uniform(70, 200),
+                                    fall=rng.uniform(380, 620), spin=rng.uniform(-9, 9),
+                                    delay=rng.randint(0, 8), flips=rng.randint(3, 6)))
+        w, h = rng.choice([(9, 15), (8, 13), (10, 10), (7, 18)])
+        confetti += f'''
+                <Node rotation="{rng.uniform(0, 6.28):.3f}" name="Bit {i + 1}" id="{node}">
+                    <Shape opacity="0" name="Piece" id="{piece}">
+                        <Rectangle width="{w}" height="{h}" originX="0.5" originY="0.5" cornerRadiusTL="1.5" name="Path"/>
+                        <Fill name="Fill"><SolidColor colorValue="{rng.choice(colours)}" name="C"/></Fill>
+                    </Shape>
+                </Node>'''
     sparks = ""
     for i in range(SPARKS):
         node, bar = nid(), nid()
@@ -353,6 +380,8 @@ def hit(who):
                 {text(0, 5, HIT_SIZE, FONT_VS, shadow, "WINNER", origin=(0.5, 0.5), spacing=-1, name="Winner Shadow")}
             </Node>
             <Node scaleX="1.7" scaleY="0.8" name="Sparks">{sparks}
+            </Node>
+            <Node name="Confetti">{confetti}
             </Node>
             <Shape opacity="0" scaleY="0.5" name="Glow" id="{ids["glow"]}">
                 <Ellipse width="440" height="440" originX="0.5" originY="0.5" name="Path"/>
@@ -406,6 +435,7 @@ def hit(who):
             {text(0, 3, LOSER_SIZE, FONT_VS, "CC000000", "LOSER", origin=(0.5, 0.5), spacing=0, name="Loser Shadow")}
         </Node>'''
     ids["y"] = ly
+    ids["loser_x"] = lx
     return ids, word, chip + loser
 
 
@@ -417,6 +447,57 @@ impact_xml = f'''
         <Shape opacity="0" name="Impact" id="{IMPACT}">
             <Rectangle width="{W}" height="{H}" originX="0" originY="0" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="FFE6F0FF" name="C"/></Fill>
+        </Shape>'''
+
+# ---------------------------------------------------------------- the knockout
+# K.O. slams into the middle with a red flash, a crack and a screen shake,
+# then flies to the loser's corner, where LOSER would have gone.
+KO_SIZE = 132
+KO_W = 1.41 * KO_SIZE
+KO_SMALL = 0.62
+KO_NODE, KO_WORD, KO_GLOW, CRACK, KO_IMPACT = nid(), nid(), nid(), nid(), nid()
+
+
+def crack_paths():
+    rng = random.Random(3)
+    out = ""
+    for i in range(9):
+        ang = 2 * math.pi * i / 9 + rng.uniform(-0.25, 0.25)
+        x = y = 0.0
+        pts = [(0, 0)]
+        length = rng.uniform(120, 230)
+        steps = 5
+        for k in range(steps):
+            r = length * (k + 1) / steps
+            a = ang + rng.uniform(-0.28, 0.28)
+            pts.append((r * math.cos(a), r * math.sin(a)))
+        vs = "".join(f'<StraightVertex x="{px:.1f}" y="{py:.1f}"/>' for px, py in pts)
+        out += f'<PointsPath isClosed="false" name="Ray {i + 1}">{vs}</PointsPath>'
+    return out
+
+
+ko_xml = f'''
+        <Node x="{MID[0]:.2f}" y="{MID[1]}" opacity="0" rotation="-0.08" name="KO" id="{KO_NODE}">
+            <Node name="KO Word" id="{KO_WORD}">
+                {text(0, 0, KO_SIZE, FONT_VS, WHITE, "K.O.", origin=(0.5, 0.5), spacing=-2, name="KO Face")}
+                {text(0, 7, KO_SIZE, FONT_VS, "FFD7263A", "K.O.", origin=(0.5, 0.5), spacing=-2, name="KO Shadow")}
+            </Node>
+            <Shape name="KO Glow" id="{KO_GLOW}">
+                <Ellipse width="380" height="380" originX="0.5" originY="0.5" name="Path"/>
+                <Fill name="Fill"><RadialGradient startX="0" startY="0" endX="190" endY="0" name="G">
+                    <GradientStop colorValue="99FF4A55" position="0"/><GradientStop colorValue="33FF4A55" position="0.45"/><GradientStop colorValue="00FF4A55" position="1"/>
+                </RadialGradient></Fill>
+            </Shape>
+        </Node>
+        <Shape x="{MID[0]:.2f}" y="{MID[1]}" opacity="0" name="Crack" id="{CRACK}">
+            {crack_paths()}
+            <Stroke thickness="2.5" cap="round" join="round" name="Line"><SolidColor colorValue="F2FFFFFF" name="C"/></Stroke>
+            <Stroke thickness="9" cap="round" join="round" name="Halo"><SolidColor colorValue="40FFB0B6" name="C"/></Stroke>
+        </Shape>'''
+ko_impact_xml = f'''
+        <Shape opacity="0" name="KO Impact" id="{KO_IMPACT}">
+            <Rectangle width="{W}" height="{H}" originX="0" originY="0" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFE0303C" name="C"/></Fill>
         </Shape>'''
 
 YOU_NAME, THEM_NAME = nid(), nid()
@@ -473,6 +554,7 @@ pill_xml = f'''
 # ---------------------------------------------------------------- animations
 
 ANIMS = {}
+SHAKE_FRONT, SHAKE_BACK = nid(), nid()
 
 
 def anim(name, duration, loop, body):
@@ -510,6 +592,15 @@ def reset_keys():
     for n in (YOU_NAME, THEM_NAME):
         out.append(keyed(n, prop(SX, kf(1, 0)), prop(SY, kf(1, 0))))
     out.append(keyed(IMPACT, prop(OPACITY, kf(0, 0))))
+    out.append(keyed(KO_IMPACT, prop(OPACITY, kf(0, 0))))
+    out.append(keyed(CRACK, prop(OPACITY, kf(0, 0))))
+    out.append(keyed(KO_NODE, prop(OPACITY, kf(0, 0)), prop(X, kf(MID[0], 0)), prop(Y, kf(MID[1], 0)),
+                     prop(SX, kf(1, 0)), prop(SY, kf(1, 0))))
+    for n in (SHAKE_FRONT, SHAKE_BACK):
+        out.append(keyed(n, prop(X, kf(0, 0)), prop(Y, kf(0, 0))))
+    for h in (YOU_HIT, THEM_HIT):
+        for c in h["confetti"]:
+            out.append(keyed(c["piece"], prop(OPACITY, kf(0, 0))))
     out.append(keyed(VSG, prop(X, kf(MID[0], 0))))
     return out
 
@@ -545,53 +636,107 @@ idle = anim("Idle", 240, "loop", [
 HIT = 10   # the frame the result lands
 
 
-def result(name, dx, winner, loser, hit_ids, lose_ids, name_id):
-    """The seam swings toward the loser, VS bursts, WINNER slams in."""
+SHAKE = [(0, 0), (-11, 6), (10, -7), (-9, 5), (8, -4), (-6, 4), (5, -2), (-3, 2), (2, -1), (0, 0)]
+
+
+def shake_props(f0, step=3):
+    """X and Y keys for a decaying shake starting at f0 (offsets from rest)."""
+    xs = [kf(0, 0)] + [kf(dx, f0 + i * step, "linear") for i, (dx, _) in enumerate(SHAKE)]
+    ys = [kf(0, 0)] + [kf(dy, f0 + i * step, "linear") for i, (_, dy) in enumerate(SHAKE)]
+    return prop(X, *xs), prop(Y, *ys)
+
+
+def confetti_keys(h, f0):
+    keys = []
+    for c in h["confetti"]:
+        t = f0 + c["delay"]
+        keys.append(keyed(c["node"],
+                          prop(X, kf(0, 0), kf(0, t, (0.1, 0.6, 0.3, 1)), kf(c["vx"], t + 110)),
+                          prop(Y, kf(0, 0), kf(0, t, OUT_EASE), kf(-c["up"], t + 24, (0.45, 0, 1, 1)), kf(c["fall"], t + 120)),
+                          tween(ROT, 0, c["spin"], t, t + 120, "linear")))
+        flips = [kf(1, 0)] + [kf(1 if k % 2 == 0 else 0.15, t + k * (120 // (2 * c["flips"])), INOUT)
+                              for k in range(2 * c["flips"] + 1)]
+        keys.append(keyed(c["piece"], prop(OPACITY, kf(0, 0), kf(0, t - 1), kf(1, t), kf(1, t + 90, "linear"), kf(0, t + 120)),
+                          prop(SX, *flips)))
+    return keys
+
+
+def result(name, dx, winner, loser, hit_ids, lose_ids, name_id, ko=False):
+    """The seam swings toward the loser, VS bursts, WINNER slams in.
+
+    With ko, K.O. lands first with a red flash, a crack and a shake, then
+    flies to the loser's corner in place of LOSER, and WINNER follows.
+    """
     h = hit_ids
+    w = 46 if ko else 0           # WINNER waits for the K.O. to clear the middle
     keys = split_keys(dx, HIT, HIT + 40, EASE_SIDE) + [
         # VS winds up, then bursts as the result lands
         keyed(VSTEXT, prop(SX, kf(1, 0, INOUT), kf(0.86, HIT, OUT_EASE), kf(2.2, HIT + 22)),
               prop(SY, kf(1, 0, INOUT), kf(0.86, HIT, OUT_EASE), kf(2.2, HIT + 22))),
         keyed(VSG, tween(X, MID[0], MID[0] + dx, HIT, HIT + 40, EASE_SIDE), tween(OPACITY, 1, 0, HIT, HIT + 10, OUT_EASE)),
-        keyed(IMPACT, prop(OPACITY, kf(0, 0), kf(0, HIT - 1), kf(0.6, HIT, OUT_EASE), kf(0, HIT + 26))),
+        keyed(IMPACT, prop(OPACITY, kf(0, 0), kf(0, HIT + w - 1), kf(0.6 if not ko else 0.35, HIT + w, OUT_EASE), kf(0, HIT + w + 26))),
         keyed(loser["dim"], tween(OPACITY, 0, 0.62, HIT, HIT + 40, OUT_EASE)),
         keyed(winner["dim"], prop(OPACITY, kf(0, 0))),
         keyed(PILL_HOLD, tween(OPACITY, 1, 0, 0, 12, OUT_EASE)),
         # Under the flash each side swaps to its result shot (win or respect).
-        # Photos stay put: moving the box would show its edges.
-        *(keyed(sd["photo"], prop(X, kf(0, 0)), prop(SX, kf(1, 0)), prop(SY, kf(1, 0)),
-                tween(OPACITY, 1, 0, HIT, HIT + 6, OUT_EASE)) for sd in (winner, loser)),
-        *(keyed(sd["shot"], tween(OPACITY, 0, 1, HIT, HIT + 4, OUT_EASE)) for sd in (winner, loser)),
+        *(keyed(sd["shot"], tween(OPACITY, 0, 1, HIT, HIT + 4, OUT_EASE),
+                *(shake_props(HIT + 6) if ko else (prop(X, kf(0, 0)), prop(Y, kf(0, 0)))))
+          for sd in (winner, loser)),
+        *(keyed(sd["photo"], prop(SX, kf(1, 0)), prop(SY, kf(1, 0)), tween(OPACITY, 1, 0, HIT, HIT + 6, OUT_EASE),
+                *(shake_props(HIT + 6) if ko else (prop(X, kf(0, 0)), prop(Y, kf(0, 0)))))
+          for sd in (winner, loser)),
         # WINNER slams
-        keyed(h["word"], tween(OPACITY, 0, 1, HIT + 2, HIT + 12, OUT_EASE),
-              tween(SX, 2.8, 1, HIT + 2, HIT + 36, SLAM), tween(SY, 2.8, 1, HIT + 2, HIT + 36, SLAM)),
-        keyed(h["glow"], tween(OPACITY, 0, 1, HIT + 4, HIT + 30, OUT_EASE)),
-        keyed(h["flash"], prop(OPACITY, kf(0, 0), kf(0, HIT + 1), kf(1, HIT + 4, OUT_EASE), kf(0, HIT + 40)),
-              tween(SX, 0.2, 1.5, HIT + 4, HIT + 40, OUT_EASE), tween(SY, 0.2, 1.5, HIT + 4, HIT + 40, OUT_EASE)),
-        keyed(h["rings"][0], prop(OPACITY, kf(0, 0), kf(0, HIT + 3), kf(1, HIT + 6, OUT_EASE), kf(0, HIT + 52)),
-              tween(SX, 0.3, 3, HIT + 6, HIT + 52, SHOCK), tween(SY, 0.3, 3, HIT + 6, HIT + 52, SHOCK)),
-        keyed(h["rings"][1], prop(OPACITY, kf(0, 0), kf(0, HIT + 13), kf(1, HIT + 16, OUT_EASE), kf(0, HIT + 60)),
-              tween(SX, 0.3, 2.4, HIT + 16, HIT + 60, SHOCK), tween(SY, 0.3, 2.4, HIT + 16, HIT + 60, SHOCK)),
+        keyed(h["word"], tween(OPACITY, 0, 1, HIT + w + 2, HIT + w + 12, OUT_EASE),
+              tween(SX, 2.8, 1, HIT + w + 2, HIT + w + 36, SLAM), tween(SY, 2.8, 1, HIT + w + 2, HIT + w + 36, SLAM)),
+        keyed(h["glow"], tween(OPACITY, 0, 1, HIT + w + 4, HIT + w + 30, OUT_EASE)),
+        keyed(h["flash"], prop(OPACITY, kf(0, 0), kf(0, HIT + w + 1), kf(1, HIT + w + 4, OUT_EASE), kf(0, HIT + w + 40)),
+              tween(SX, 0.2, 1.5, HIT + w + 4, HIT + w + 40, OUT_EASE), tween(SY, 0.2, 1.5, HIT + w + 4, HIT + w + 40, OUT_EASE)),
+        keyed(h["rings"][0], prop(OPACITY, kf(0, 0), kf(0, HIT + w + 3), kf(1, HIT + w + 6, OUT_EASE), kf(0, HIT + w + 52)),
+              tween(SX, 0.3, 3, HIT + w + 6, HIT + w + 52, SHOCK), tween(SY, 0.3, 3, HIT + w + 6, HIT + w + 52, SHOCK)),
+        keyed(h["rings"][1], prop(OPACITY, kf(0, 0), kf(0, HIT + w + 13), kf(1, HIT + w + 16, OUT_EASE), kf(0, HIT + w + 60)),
+              tween(SX, 0.3, 2.4, HIT + w + 16, HIT + w + 60, SHOCK), tween(SY, 0.3, 2.4, HIT + w + 16, HIT + w + 60, SHOCK)),
         # the winner's name kicks
-        keyed(name_id, prop(SX, kf(1, 0), kf(1, HIT + 12, OUT_EASE), kf(1.14, HIT + 20, INOUT), kf(1, HIT + 40)),
-              prop(SY, kf(1, 0), kf(1, HIT + 12, OUT_EASE), kf(1.14, HIT + 20, INOUT), kf(1, HIT + 40))),
+        keyed(name_id, prop(SX, kf(1, 0), kf(1, HIT + w + 12, OUT_EASE), kf(1.14, HIT + w + 20, INOUT), kf(1, HIT + w + 40)),
+              prop(SY, kf(1, 0), kf(1, HIT + w + 12, OUT_EASE), kf(1.14, HIT + w + 20, INOUT), kf(1, HIT + w + 40))),
         # the prize pops under it
-        keyed(h["chip"], tween(OPACITY, 0, 1, HIT + 34, HIT + 44, OUT_EASE)),
-        # LOSER drops in on the other side and lands heavy
-        keyed(lose_ids["loser"], tween(OPACITY, 0, 1, HIT + 22, HIT + 32, OUT_EASE),
-              tween(Y, lose_ids["y"] - 34, lose_ids["y"], HIT + 22, HIT + 40, (0.5, 0, 0.8, 1.25)),
-              tween(ROT, -0.2, 0.04, HIT + 22, HIT + 40, (0.5, 0, 0.8, 1.25))),
+        keyed(h["chip"], tween(OPACITY, 0, 1, HIT + w + 34, HIT + w + 44, OUT_EASE),
+              tween(SX, 0.4, 1, HIT + w + 34, HIT + w + 54, THUMB), tween(SY, 0.4, 1, HIT + w + 34, HIT + w + 54, THUMB)),
     ]
+    if ko:
+        lx, ly = lose_ids["loser_x"], lose_ids["y"]
+        keys += [
+            keyed(KO_IMPACT, prop(OPACITY, kf(0, 0), kf(0, HIT - 1), kf(0.5, HIT + 4, OUT_EASE), kf(0, HIT + 30))),
+            keyed(KO_NODE, tween(OPACITY, 0, 1, HIT, HIT + 6, OUT_EASE),
+                  prop(SX, kf(3.2, 0), kf(3.2, HIT, SLAM), kf(1, HIT + 22), kf(1, HIT + 44, EASE_SIDE), kf(KO_SMALL, HIT + 66)),
+                  prop(SY, kf(3.2, 0), kf(3.2, HIT, SLAM), kf(1, HIT + 22), kf(1, HIT + 44, EASE_SIDE), kf(KO_SMALL, HIT + 66)),
+                  prop(X, kf(MID[0], 0), kf(MID[0], HIT + 44, EASE_SIDE), kf(lx, HIT + 66)),
+                  prop(Y, kf(MID[1], 0), kf(MID[1], HIT + 44, EASE_SIDE), kf(ly, HIT + 66))),
+            keyed(KO_GLOW, prop(OPACITY, kf(1, 0), kf(1, HIT + 44, OUT_EASE), kf(0, HIT + 60))),
+            keyed(CRACK, prop(OPACITY, kf(0, 0), kf(0, HIT + 5), kf(1, HIT + 6), kf(1, HIT + 40, OUT_EASE), kf(0, HIT + 60)),
+                  tween(SX, 0.25, 1, HIT + 6, HIT + 14, OUT_EASE), tween(SY, 0.25, 1, HIT + 6, HIT + 14, OUT_EASE)),
+            keyed(SHAKE_FRONT, *shake_props(HIT + 6)),
+            keyed(SHAKE_BACK, *shake_props(HIT + 6)),
+            keyed(lose_ids["loser"], prop(OPACITY, kf(0, 0))),
+        ]
+    else:
+        keys += [
+            keyed(KO_NODE, prop(OPACITY, kf(0, 0))),
+            # LOSER drops in on the other side and lands heavy
+            keyed(lose_ids["loser"], tween(OPACITY, 0, 1, HIT + 22, HIT + 32, OUT_EASE),
+                  tween(Y, lose_ids["y"] - 34, lose_ids["y"], HIT + 22, HIT + 40, (0.5, 0, 0.8, 1.25)),
+                  tween(ROT, -0.2, 0.04, HIT + 22, HIT + 40, (0.5, 0, 0.8, 1.25))),
+        ]
     # a straight switch from one result to the other clears the first
     keys += [keyed(oid, prop(OPACITY, kf(0, 0))) for oid in
              (lose_ids["word"], lose_ids["glow"], lose_ids["chip"], h["loser"])]
-    # sparks fly out from WINNER
+    keys += [keyed(c["piece"], prop(OPACITY, kf(0, 0))) for c in lose_ids["confetti"]]
+    # sparks fly out from WINNER, then confetti pops and rains down
     for i, bar in enumerate(h["sparks"]):
         d = i % 3
-        keys.append(keyed(bar, prop(OPACITY, kf(0, 0), kf(0, HIT + 3 + d), kf(1, HIT + 5 + d, OUT_EASE), kf(0, HIT + 34 + 2 * d)),
-                          tween(X, 30, 120 + 18 * d, HIT + 3 + d, HIT + 34 + 2 * d, OUT_EASE)))
-    keys.append(keyed(h["chip"], tween(SX, 0.4, 1, HIT + 34, HIT + 54, THUMB), tween(SY, 0.4, 1, HIT + 34, HIT + 54, THUMB)))
-    return anim(name, 90, "oneShot", keys)
+        keys.append(keyed(bar, prop(OPACITY, kf(0, 0), kf(0, HIT + w + 3 + d), kf(1, HIT + w + 5 + d, OUT_EASE), kf(0, HIT + w + 34 + 2 * d)),
+                          tween(X, 30, 120 + 18 * d, HIT + w + 3 + d, HIT + w + 34 + 2 * d, OUT_EASE)))
+    keys += confetti_keys(h, HIT + w + 8)
+    return anim(name, HIT + w + 140, "oneShot", keys)
 
 
 def glow_loop(name, h):
@@ -605,6 +750,8 @@ def glow_loop(name, h):
 
 win = result("Win", SHIFT, YOU, THEM, YOU_HIT, THEM_HIT, YOU_NAME)
 lose = result("Lose", -SHIFT, THEM, YOU, THEM_HIT, YOU_HIT, THEM_NAME)
+ko_win = result("KO Win", SHIFT, YOU, THEM, YOU_HIT, THEM_HIT, YOU_NAME, ko=True)
+ko_lose = result("KO Lose", -SHIFT, THEM, YOU, THEM_HIT, YOU_HIT, THEM_NAME, ko=True)
 win_glow = glow_loop("Win Glow", YOU_HIT)
 lose_glow = glow_loop("Lose Glow", THEM_HIT)
 prompt_on = anim("Prompt Shown", 18, "oneShot", [keyed(PILL, tween(OPACITY, 0, 1, 0, 18, OUT_EASE))])
@@ -624,6 +771,24 @@ def on_trigger(name, to):
                     </StateTransition>'''
 
 
+def on_trigger_if(name, flag, value, to):
+    """A trigger that only counts while a boolean has a given value."""
+    return f'''<StateTransition stateToId="{to}">
+                        <TransitionViewModelCondition>
+                            <TransitionPropertyViewModelComparator>
+                                <BindablePropertyTrigger><DataBindContext sourcePathIds="{path(name)}" propertyKey="686"/></BindablePropertyTrigger>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueTriggerComparator/>
+                        </TransitionViewModelCondition>
+                        <TransitionViewModelCondition>
+                            <TransitionPropertyViewModelComparator>
+                                <BindablePropertyBoolean><DataBindContext sourcePathIds="{path(flag)}" propertyKey="634"/></BindablePropertyBoolean>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueBooleanComparator value="{value}"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>'''
+
+
 def on_bool(name, value, to):
     return f'''<StateTransition stateToId="{to}">
                         <TransitionViewModelCondition>
@@ -635,15 +800,17 @@ def on_bool(name, value, to):
                     </StateTransition>'''
 
 
-S_SLAM, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF, S_WIN_GLOW, S_LOSE_GLOW = (nid() for _ in range(8))
+S_SLAM, S_IDLE, S_WIN, S_LOSE, S_ON, S_OFF, S_WIN_GLOW, S_LOSE_GLOW, S_KO_WIN, S_KO_LOSE = (nid() for _ in range(10))
 EVENT = nid()
 machine = f'''
         <StateMachine name="Versus" id="0:7">
             <StateMachineLayer name="Main" id="{nid()}">
                 <AnyState x="0" y="-160">
                     {on_trigger("replay", S_SLAM)}
-                    {on_trigger("win", S_WIN)}
-                    {on_trigger("lose", S_LOSE)}
+                    {on_trigger_if("win", "ko", "true", S_KO_WIN)}
+                    {on_trigger_if("lose", "ko", "true", S_KO_LOSE)}
+                    {on_trigger_if("win", "ko", "false", S_WIN)}
+                    {on_trigger_if("lose", "ko", "false", S_LOSE)}
                 </AnyState>
                 <ExitState x="600" y="-160"/>
                 <EntryState x="0" y="0"><StateTransition stateToId="{S_SLAM}"/></EntryState>
@@ -655,6 +822,12 @@ machine = f'''
                     <StateTransition stateToId="{S_WIN_GLOW}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
                 </AnimationState>
                 <AnimationState x="400" y="320" animationId="{ANIMS["Lose"]}" reset="true" id="{S_LOSE}">
+                    <StateTransition stateToId="{S_LOSE_GLOW}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
+                </AnimationState>
+                <AnimationState x="400" y="480" animationId="{ANIMS["KO Win"]}" reset="true" id="{S_KO_WIN}">
+                    <StateTransition stateToId="{S_WIN_GLOW}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
+                </AnimationState>
+                <AnimationState x="400" y="640" animationId="{ANIMS["KO Lose"]}" reset="true" id="{S_KO_LOSE}">
                     <StateTransition stateToId="{S_LOSE_GLOW}" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
                 </AnimationState>
                 <AnimationState x="600" y="160" animationId="{ANIMS["Win Glow"]}" id="{S_WIN_GLOW}"/>
@@ -691,6 +864,10 @@ rml = f'''<Rive version="1" kind="fragment">
         <Event name="addPack" id="{EVENT}"/>
 
         <!-- First declared paints on top. -->
+        <!-- Everything but the photo boxes sits in two shake nodes; a knockout
+             shakes them and the photo boxes together. -->
+        <Node name="Shake Front" id="{SHAKE_FRONT}">
+        {ko_xml}
         {pill_xml}
         {top_xml}
         {tiles_xml}
@@ -700,18 +877,24 @@ rml = f'''<Rive version="1" kind="fragment">
         {them_hit_labels}
         {names_xml}
         {vs_xml}
+        {ko_impact_xml}
         {impact_xml}
         {seam_xml}
+        </Node>
         <!-- Photos paint over the washes; lighten keeps their black backgrounds out. -->
         {you_photo_xml}
         {them_photo_xml}
+        <Node name="Shake Back" id="{SHAKE_BACK}">
         {them_xml}
         {you_xml}
+        </Node>
         {machine}
         {slam}
         {idle}
         {win}
         {lose}
+        {ko_win}
+        {ko_lose}
         {win_glow}
         {lose_glow}
         {prompt_on}

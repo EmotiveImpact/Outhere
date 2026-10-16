@@ -14,6 +14,7 @@ Everything goes through the `Versus` view model, so one file serves every battle
 | `youPhoto`, `themPhoto` | image | One photo per runner, any size |
 | `youResult`, `themResult` | image | The shot each side swaps to when the result lands (see below) |
 | `youHasPack` | boolean | Hides the Add your Fighter Pack pill |
+| `ko` | boolean | Makes the next result a knockout (see below) |
 | `win`, `lose`, `replay` | trigger | Play a result, or slam in again; set the result shots first |
 
 The file fires `addPack` when the pill is tapped, so the app can open the Fighter Pack flow.
@@ -32,6 +33,10 @@ The file embeds the male shadow runners (blue for you, red for them) as defaults
 
 `win` and `lose` play the winner's moment: VS winds up and bursts, the screen flashes, WINNER slams in like the VS (white with a blue or red shadow) over two shock rings and a burst of sparks, the winner's name kicks and `+prize OUT` pops under it. LOSER drops in grey on the other side as it darkens, and the seam swings toward the loser. Then the winner's glow keeps breathing (`Win Glow` or `Lose Glow`).
 
+Then confetti pops out of WINNER and rains down the winner's side.
+
+For a knockout, set `ko` to true before firing the trigger (our line: the winner has at least double the loser's steps). K.O. then slams into the middle first, with a red flash, a crack across the screen and a screen shake, and flies to the loser's corner in place of LOSER; WINNER follows. Set `ko` back to false for an ordinary result.
+
 Under the flash each side swaps to its result shot. Before firing the trigger, set:
 
 - the winner's `…Result` to their pack's win shot (the celebration pose),
@@ -42,7 +47,7 @@ Under the flash each side swaps to its result shot. Before firing the trigger, s
 
 - `build.py` writes `scene.rml`. Edit `build.py`, not the RML.
 - The shadow runners come from the Fighter Pack plan's grey runners in `/mnt/project-files/outhere-assets/ai-avatar/silhouette-{male,female}.jpg`. `tools/shade.py SOURCE male|female blue|red OUT.jpg` turns one into a fallback; rerun it for all four when a source changes.
-- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, WINNER, LOSER and the prize (`VSWINERLOUT+0-9`).
+- Fonts are Barlow Condensed (licence in `fonts/OFL.txt`); the ExtraBold Italic is cut down to the letters of VS, WINNER, LOSER and the prize (`VSWINERLOUTK.+0-9`).
 
 ```bash
 python3 build.py
