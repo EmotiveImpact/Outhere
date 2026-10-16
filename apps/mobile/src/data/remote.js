@@ -19,6 +19,9 @@ import { makeRemoteProfile } from "./remoteProfile";
 import { makeRemoteCrew } from "./remoteCrew";
 import { makeRemoteAccount } from "./remoteAccount";
 import { makeRemoteRuns } from "./remoteRuns";
+import { makeRemotePack } from "./remotePack";
+import { cleanRunner } from "./pack";
+import { fighterUrls } from "@/services/packMedia";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STEP_KM = 0.00075;
@@ -157,7 +160,9 @@ export const signOut = async () => {
 
 // ── People ────────────────────────────────────────────────────────────────────
 
-const PERSON = "id, username, display_name, avatar_path, city_id, borough_id, tier, level, xp, streak_days, bio, founding_number";
+// runner and runner_figure pick the silhouette; fighter is the Fighter Pack's
+// { slot: key } (a computed field, 20261016100000_fighter_pack.sql).
+const PERSON = "id, username, display_name, avatar_path, city_id, borough_id, tier, level, xp, streak_days, bio, founding_number, runner, runner_figure, fighter";
 
 const dotsFor = async (ids) => {
   if (!ids.length) return {};
@@ -183,6 +188,9 @@ const playerView = (p, me, extra = {}) =>
     bio: p.bio || "",
     level: p.level,
     streak: p.streak_days || 0,
+    runner: p.runner || "man",
+    runnerFigure: p.runner === "either" ? p.runner_figure || null : null,
+    fighter: fighterUrls(p.fighter),
     isMe: p.id === me,
     ...extra,
   };
@@ -397,7 +405,7 @@ const earnedToday = async (me) => {
 export const getProfile = async () => {
   const me = await uid();
   if (!me) return null;
-  const p = await run(supabase.from("profiles").select("*").eq("id", me).maybeSingle());
+  const p = await run(supabase.from("profiles").select("*, fighter").eq("id", me).maybeSingle());
   // A profile exists from sign up, but the app treats it as new until the
   // member has picked a username (finish_onboarding).
   if (!p?.onboarded_at) return null;
@@ -437,6 +445,9 @@ export const getProfile = async () => {
     bio: p.bio || "",
     avatar: publicUrl("avatars", p.avatar_path),
     tier: p.tier,
+    runner: p.runner || "man",
+    runnerFigure: p.runner === "either" ? p.runner_figure || null : null,
+    fighter: fighterUrls(p.fighter),
     foundingNumber: p.founding_number,
     blackEligible: longest >= 14,
     dailyGoal: p.daily_goal,
@@ -484,6 +495,12 @@ export const updateProfile = async (patch) => {
     if (!check.available) throw new EngineError("BAD_USERNAME", check.reason);
   }
   if (patch.city !== undefined) row.city_id = cityId(patch.city);
+  if (patch.runner !== undefined || patch.runnerFigure !== undefined) {
+    const current = patch.runner === undefined ? await run(supabase.from("profiles").select("runner, runner_figure").eq("id", me).single()) : null;
+    const clean = cleanRunner({ runner: patch.runner ?? current?.runner ?? "man", runnerFigure: patch.runnerFigure !== undefined ? patch.runnerFigure : current?.runner_figure }, EngineError);
+    row.runner = clean.runner;
+    row.runner_figure = clean.runnerFigure;
+  }
   if (patch.isOutside !== undefined) await rpc("set_presence", { p_state: patch.isOutside ? "out" : "stopped" });
   if (Object.keys(row).length) await run(supabase.from("profiles").update(row).eq("id", me));
   changed();
@@ -1787,7 +1804,7 @@ export const {
   sendBattleEmote, listBattleEmotes, boostBattle, rematchBattle, getHeadToHead, getArenaNow, getSeasonResults,
   claimSeasonRewards, listDropShop, getDropItem, getDeliveryAddress, claimDrop, listOrders, getOrder, getTicket,
   getEventGoing, getRunReview, answerRunReview,
-} = makeRemoteOutside({ supabase, run, rpc, uid, requireUid, publicUrl, changed, getBattle, EngineError });
+} = makeRemoteOutside({ supabase, run, rpc, uid, requireUid, publicUrl, changed, getBattle, EngineError, withFighters: (people) => pack.withFighters(people) });
 
 // Keep queries fresh when the session or our rows change elsewhere.
 if (supabase) {
@@ -1816,3 +1833,19 @@ export const {
   claimReferral,
   getOutHistory,
 } = makeRemoteProfile({ supabase, run, rpc, uid, requireUid, changed, publicUrl, PERSON, playerView, peopleViews, followingSet, cityName, eventViews, levelFromXp, EngineError });
+
+// ── Fighter Pack: consent, scan, credits, pictures, poses and runner (remotePack.js)
+
+const pack = makeRemotePack({ supabase, run, requireUid, changed: () => changed(), getProfile: () => getProfile() });
+export const {
+  getPackState,
+  getPackCredits,
+  recordPackConsent,
+  uploadScanShot,
+  verifyScan,
+  startPack,
+  rerollPackSlot,
+  setPackPose,
+  deletePack,
+  setRunner,
+} = pack;

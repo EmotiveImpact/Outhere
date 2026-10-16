@@ -1,10 +1,14 @@
-// Cloudflare R2 over its S3 API: presigned PUT and GET URLs, and deletes.
+// Cloudflare R2 over its S3 API: presigned PUT and GET URLs, heads, server
+// side uploads and deletes.
 // The signing client is passed in so this file runs the same under Deno (the
 // Edge Function) and Node (the tests).
 
 export type Signer = {
   sign(input: string, init: { method: string; headers?: Record<string, string>; aws: Record<string, unknown> }): Promise<Request>;
-  fetch(input: string, init: { method: string; aws?: Record<string, unknown> }): Promise<Response>;
+  fetch(
+    input: string,
+    init: { method: string; headers?: Record<string, string>; body?: BodyInit; aws?: Record<string, unknown> },
+  ): Promise<Response>;
 };
 
 export type R2Config = { accountId: string; bucket: string };
@@ -33,6 +37,25 @@ export function r2(signer: Signer, { accountId, bucket }: R2Config) {
     async presignGet(key: string, seconds = 3600) {
       const req = await signer.sign(objectUrl(key, seconds), { method: "GET", aws: { signQuery: true } });
       return req.url;
+    },
+
+    // Size and upload time of an object, or null when there is none.
+    async head(key: string) {
+      const res = await signer.fetch(`${base}/${encodeKey(key)}`, { method: "HEAD" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`R2 head failed (${res.status}) for ${key}`);
+      const modified = res.headers.get("Last-Modified");
+      return { size: Number(res.headers.get("Content-Length") ?? 0), uploadedAt: modified ? new Date(modified).getTime() : null };
+    },
+
+    // A server side upload (the Fighter Pack's finished pictures).
+    async put(key: string, body: Uint8Array<ArrayBuffer>, contentType: string) {
+      const res = await signer.fetch(`${base}/${encodeKey(key)}`, {
+        method: "PUT",
+        headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=31536000, immutable" },
+        body,
+      });
+      if (!res.ok) throw new Error(`R2 put failed (${res.status}) for ${key}`);
     },
 
     async remove(key: string) {

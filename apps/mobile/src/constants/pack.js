@@ -109,3 +109,62 @@ export const SCAN_RULES = [
   { icon: "glasses", title: "Hats and glasses off", body: "We need your whole face." },
   { icon: "user", title: "Just you in frame", body: "No one else, no photos of photos." },
 ];
+
+// ── Helpers shared by the local engine and the Supabase twin ────────────────
+
+// How recent the three scan shots must be for the scan to pass.
+export const SCAN_MAX_AGE_MINUTES = 10;
+
+// The pose set that fills a base slot ("vs" is the race set's first pose).
+export const SET_OF_SLOT = Object.fromEntries(POSE_SETS.map((s) => [s.slot, s.key]));
+
+/**
+ * Every picture a pack makes for a tier, in order: the eight base SLOTS (the
+ * first pose of each set is its base slot picture), then for Black the
+ * BLACK_SLOTS and the three extra poses in each set. `cost` is what the
+ * picture spends; Black extras come free with the pack.
+ */
+export const packPicturesFor = (tier) => {
+  const base = SLOTS.map((s) => {
+    const set = SET_OF_SLOT[s.key] || null;
+    return { slot: s.key, set, pose: set ? DEFAULT_POSES[set] : null, cost: 1 };
+  });
+  if (tier !== "black") return base;
+  const black = BLACK_SLOTS.map((s) => ({ slot: s.key, set: null, pose: null, cost: 0 }));
+  const extras = POSE_SETS.flatMap((set) => set.poses.slice(1).map((p) => ({ slot: set.slot, set: set.key, pose: p.key, cost: 0 })));
+  return [...base, ...black, ...extras];
+};
+
+/** The name a picture is stored under: its slot, or "set-pose" for an extra pose. */
+export const pictureName = ({ slot, set, pose }) => (set && pose && pose !== DEFAULT_POSES[set] ? `${set}-${pose}` : slot);
+
+/** The pose that counts for a tier: the pick when the tier allows it, else the set's first. */
+export const effectivePose = (tier, setKey, pick) => (pick && poseAllowed(tier, setKey, pick) ? pick : DEFAULT_POSES[setKey]);
+
+/**
+ * player.fighter from a pack's pictures: { [slot]: url } for every slot with a
+ * picture, with vs, win and respect taken from the member's pose picks when
+ * their tier allows the pick and that picture exists. Null with no pictures.
+ * images: [{ slot, set, pose, url }]; ones without a url are skipped.
+ */
+export const fighterFrom = (images, picks = {}, tier = "pro") => {
+  const ready = (images || []).filter((i) => i && i.url);
+  if (!ready.length) return null;
+  const out = {};
+  for (const img of ready) if (pictureName(img) === img.slot) out[img.slot] = img.url;
+  for (const set of POSE_SETS) {
+    const pose = effectivePose(tier, set.key, picks?.[set.key]);
+    const hit = ready.find((i) => i.set === set.key && i.pose === pose);
+    if (hit) out[set.slot] = hit.url;
+  }
+  return Object.keys(out).length ? out : null;
+};
+
+/** The 1st of next month (local time), when the monthly credits land. */
+export const nextGrantAt = (ms = Date.now()) => {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+};
+
+/** The credit rules for a tier, in the shape getPackCredits returns. */
+export const packCreditRules = (tier) => PACK_CREDITS[tier] || PACK_CREDITS.free;
