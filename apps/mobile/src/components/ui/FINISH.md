@@ -5,7 +5,8 @@ The prototype's finish (demo-v29.html, "round ten: the new finish" and the
 `@/components/ui`. Restyle screens with these rather than hand-rolling
 gradients and shadows, so every screen gets the same light.
 
-Live proof of every piece: open `/kit` in any build.
+Live proof of every piece: open `/kit` in any build. Every button and control
+is also on the Buttons tab of `/lush` (the private web preview opens there).
 
 ## Rules
 
@@ -66,10 +67,29 @@ the outside, the rest lays out the content), `contentStyle`.
 
 **GlowButton** (`.oh-btn`). `variant` primary | stop | quiet | glass | outline |
 ghost (old names: secondary = quiet, danger = stop), `size` sm 36 | md 54 |
-lg 58, `icon`, `iconRight`, `lead` (icon in its own circle, `.lead`), `full`,
-`square`, `shine` (the sheen on a loop; on for primary), `loading`,
+lg 58, `icon`, `iconRight`, `lead` (icon in its own lit bubble, `.lead`),
+`full`, `square`, `shine` (the sheen on a loop; on for primary), `loading`,
 `disabled`. Every press sweeps the sheen across. `Button` is a GlowButton.
 Style can still set `height`, `paddingHorizontal` and a flat `backgroundColor`.
+Every variant is built the same way, past the prototype: a 1px gradient edge
+bright at the top and dark at the bottom, the body, a soft gloss on the upper
+half, a crisp white glint along the top edge, and a tight coloured glow with a
+small dark grounding shadow (no wide blue haze). A disabled primary or stop
+goes grey and flat; a loading one keeps its colour.
+
+**ActFill**. The primary button's lit blue as a fill over its parent: the
+Segment thumb and the account MiniSegment use it, so a chosen tab matches the
+buttons exactly.
+
+**Toggle**. The one switch for the whole app: a recessed track that fills
+with the act blue and glows, and a lit white thumb that springs across and
+stretches while held. `value`, `onChange`, `disabled`, `label`. The account,
+Outside and Move toggles all use it.
+
+**IconButton** (index.jsx). The quiet button's body, edge and glint, round;
+`active` turns it white.
+
+**Pill** (index.jsx). Tinted label with a hairline ring in its own colour.
 
 **Meter** (`.oh-bar`). Recessed track, glowing gradient fill that eases to its
 value, a band of light flowing along it. `value` 0 to 1, `size` sm 6 | md 10 |
@@ -80,8 +100,8 @@ Meters.
 **TugBar** (`.oh-tug`). The 1v1 tug of war: blue from the left, red from the
 right, white spark between. `share` (yours, 0 to 1), `height`.
 
-**Segment** (`.seg`, `.r10thumb`). Lit track, act gradient thumb that springs
-to the choice. Same props as before.
+**Segment** (`.seg`, `.r10thumb`). Recessed track, an `ActFill` thumb that
+springs to the choice. Same props as before.
 
 **BlendImage** (`.slab .obj`, `.orb img`, `.bal .c3d`). Objects and products
 shot on black, with the black dropped out (Skia shader: lighten or screen) and

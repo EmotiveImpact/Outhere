@@ -4,7 +4,7 @@
 // design kit in components/ui (the finish kit: see components/ui/FINISH.md).
 
 import React from "react";
-import { Platform, StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -186,24 +186,8 @@ export function Coin({ size = 18, style }) {
   );
 }
 
-/** On or off. */
-export function Toggle({ value, onChange, disabled, label }) {
-  return (
-    <Switch
-      value={!!value}
-      disabled={disabled}
-      onValueChange={(v) => {
-        hapticSelection();
-        onChange(v);
-      }}
-      accessibilityLabel={label}
-      trackColor={{ false: C.surfaceHigh, true: C.accent }}
-      thumbColor="#ffffff"
-      {...(Platform.OS === "web" ? { activeThumbColor: "#ffffff" } : null)}
-      ios_backgroundColor={C.surfaceHigh}
-    />
-  );
-}
+/** On or off: the kit's Toggle. */
+export { Toggle } from "@/components/ui";
 
 /** A bar filled to `value` (0 to 1): the kit's Meter, glowing, with light flowing along it. */
 export function Bar({ value = 0, colour = C.accent, track, height = 6, cap = false, style }) {

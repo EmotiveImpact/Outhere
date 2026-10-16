@@ -5,11 +5,11 @@
 // .m-top, .sheet, .dash, .trio, .modes, .turn).
 
 import React, { useEffect } from "react";
-import { Platform, StyleSheet, Switch, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { CornerUpLeft, CornerUpRight, MoveUp, Undo2 } from "lucide-react-native";
-import { C, F, PressableScale, R, S } from "@/components/ui";
+import { C, F, PressableScale, R, S, Toggle } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 
 export const GLASS = "rgba(10,14,20,0.64)";
@@ -193,20 +193,7 @@ export function ToggleRow({ icon: Icon, title, sub, value, onChange, first, disa
         <Text style={styles.toggleTitle}>{title}</Text>
         {sub ? <Text style={styles.toggleSub}>{sub}</Text> : null}
       </View>
-      <Switch
-        value={value}
-        disabled={disabled}
-        onValueChange={(v) => {
-          hapticSelection();
-          onChange(v);
-        }}
-        trackColor={{ false: C.surfaceHigh, true: C.accentDeep }}
-        thumbColor="#fff"
-        {...(Platform.OS === "web" ? { activeThumbColor: "#fff", activeTrackColor: C.accentDeep } : null)}
-        ios_backgroundColor={C.surfaceHigh}
-        accessibilityLabel={title}
-        style={Platform.OS === "web" ? { height: 30, width: 50 } : undefined}
-      />
+      <Toggle value={value} disabled={disabled} onChange={onChange} label={title} />
     </View>
   );
 }
