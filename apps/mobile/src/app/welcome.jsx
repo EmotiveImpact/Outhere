@@ -13,7 +13,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { Easing, useReducedMotion } from "react-native-reanimated";
-import { MoreHorizontal } from "lucide-react-native";
+import { MoreHorizontal } from "@/components/ui/icons";
 import { engine, isRemote, useOutsideCount } from "@/data/hooks";
 import { Aurora, C, F, FadeIn, LiveDot, PressableScale, R, Row, S, SlideToStart, Wordmark, useScreenTop } from "@/components/ui";
 import { LAUNCH, LaunchStage } from "@/components/ui/LaunchScreen";

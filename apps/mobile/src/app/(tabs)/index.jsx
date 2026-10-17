@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import ConfettiCannon from "react-native-confetti-cannon";
-import { Bell, CheckCheck, ChevronsRight, Flame, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
+import { Bell, CheckCheck, ChevronsRight, Flame, Plus, Route, ShoppingBag, Swords } from "@/components/ui/icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   engine,
@@ -248,16 +248,17 @@ function OnlineHome({ profile, liveSteps }) {
               {done ? <Title size={36}>Goal smashed</Title> : <RollingNumber value={steps} suffix=" steps" upper size={36 * 1.12} lineHeight={36 * 1.08} letterSpacing={0.2} />}
               {done ? <RollingNumber value={steps} suffix=" and counting" upper size={36 * 1.12} lineHeight={36 * 1.08} letterSpacing={0.2} colour={C.accent} /> : <Title size={36} blue>and counting</Title>}
             </View>
+            {/* See week sits beside the headline so the ring card stays clean (Edem, 2026-10-17). */}
+            <PressableScale onPress={() => router.push("/week")} scaleTo={0.94} hitSlop={10} style={styles.seeWeek} accessibilityLabel="See your week">
+              <Text style={styles.seeWeekText}>See week</Text>
+              <ChevronsRight size={13} color={C.textDim} />
+            </PressableScale>
           </Row>
         </FadeIn>
 
         <FadeIn index={1} style={{ marginTop: S.md }}>
           <PressableScale onPress={() => router.push("/week")} scaleTo={0.985} accessibilityLabel="See your week">
             <GoalDial steps={steps} goal={goal} xp={profile.today?.xp || 0} out={profile.today?.out || 0} streak={profile.streak || 0} size={width < 370 || compact ? 96 : 112} />
-            <View style={styles.seeWeek} pointerEvents="none">
-              <Text style={styles.seeWeekText}>See week</Text>
-              <ChevronsRight size={13} color={C.textDim} />
-            </View>
           </PressableScale>
         </FadeIn>
 
@@ -403,8 +404,8 @@ const styles = StyleSheet.create({
   friendName: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 6 },
   add: { position: "absolute", right: 1, top: 37, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   findFriends: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
-  seeWeek: { position: "absolute", right: S.lg, bottom: 10, flexDirection: "row", alignItems: "center", gap: 2 },
-  seeWeekText: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 11 },
+  seeWeek: { flexDirection: "row", alignItems: "center", gap: 2, paddingBottom: 6, marginLeft: S.sm },
+  seeWeekText: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12 },
   quick: { flex: 1, height: 88, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
   quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", borderWidth: 1, borderColor: "rgba(61,139,255,0.3)", alignItems: "center", justifyContent: "center", marginBottom: 6 },
   quickLabel: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },

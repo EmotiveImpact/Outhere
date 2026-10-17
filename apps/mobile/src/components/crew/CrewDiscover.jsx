@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { ArrowRight, ChevronRight, Search, X } from "lucide-react-native";
+import { ArrowRight, ChevronRight, Search, X } from "@/components/ui/icons";
 import { Body, Button, C, Card, EmptyState, F, FadeIn, PressableScale, Row, S, SectionHeader, Skeleton, Title } from "@/components/ui";
 import { engine, useCrewLimits, useDiscoverCrews, useEngineMutation, useUpgradePrompt } from "@/data/hooks";
 import { tierLabel } from "@/utils/format";

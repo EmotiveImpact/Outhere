@@ -5,7 +5,7 @@ import React, { useEffect, useRef } from "react";
 import { Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { RotateCw } from "lucide-react-native";
+import { RotateCw } from "@/components/ui/icons";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { engine, useEngineMutation, usePackCredits, usePackState } from "@/data/hooks";
 import { F, PressableScale, imageSource } from "@/components/ui";

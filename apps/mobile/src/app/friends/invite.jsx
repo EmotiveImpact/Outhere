@@ -7,7 +7,7 @@ import React, { useState } from "react";
 import { Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Share2, UserPlus } from "lucide-react-native";
+import { Share2, UserPlus } from "@/components/ui/icons";
 import { engine, useEngineMutation, useReferrals } from "@/data/hooks";
 import { AnimatedBar, Avatar, Body, C, F, FadeIn, FINISH, GlowButton, PressableScale, Row, Screen, Skeleton, Surface } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";

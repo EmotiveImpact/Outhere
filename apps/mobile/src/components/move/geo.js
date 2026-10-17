@@ -1,7 +1,7 @@
 // Geometry and activity helpers for the Move tab. Pure functions only so they
 // can be shared by the store, the map and the summary.
 
-import { Bike, Footprints, PersonStanding } from "lucide-react-native";
+import { Bike, Footprints, PersonStanding } from "@/components/ui/icons";
 import { TIER_RULES } from "@/data/engine";
 
 export const DEFAULT_REGION = {

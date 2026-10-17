@@ -6,7 +6,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { Check } from "lucide-react-native";
+import { Check } from "@/components/ui/icons";
 import { engine, useEngineMutation, usePackCredits, useProfile } from "@/data/hooks";
 import { PACK_COST } from "@/constants/pack";
 import { fighterPhoto } from "@/utils/fighter";

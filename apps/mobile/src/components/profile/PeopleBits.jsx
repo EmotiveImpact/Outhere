@@ -4,7 +4,7 @@
 import React from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Image } from "expo-image";
-import { Search, X } from "lucide-react-native";
+import { Search, X } from "@/components/ui/icons";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { C, F, PressableScale, R, Row, S } from "@/components/ui";
 import { PillButton } from "./parts";

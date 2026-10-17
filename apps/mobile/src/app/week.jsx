@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { CalendarDays, ChevronLeft, ChevronRight } from "@/components/ui/icons";
 import { useSettings, useWeekSummary } from "@/data/hooks";
 import { C, F, FadeIn, LIT, PressableScale, R, S, Screen, Skeleton } from "@/components/ui";
 import { BackButton, Glow, MiniSegment, RoundButton } from "@/components/account/parts";

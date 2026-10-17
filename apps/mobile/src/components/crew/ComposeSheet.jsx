@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Image } from "expo-image";
-import { Camera, Check, ImagePlus } from "lucide-react-native";
+import { Camera, Check, ImagePlus } from "@/components/ui/icons";
 import { Body, Button, C, F, PressableScale, Row, S, Segment, Sheet } from "@/components/ui";
 import { engine, useEngineMutation, useRuns } from "@/data/hooks";
 import { formatKm, timeAgo } from "@/utils/format";

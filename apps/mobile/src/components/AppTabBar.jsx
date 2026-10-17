@@ -8,7 +8,7 @@
 
 import React from "react";
 import { useRouter } from "expo-router";
-import { Compass, Home, Route, Users } from "lucide-react-native";
+import { Compass, Home, Route, Users } from "@/components/ui/icons";
 import { useProfile } from "@/data/hooks";
 import { Avatar, TabBar } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";

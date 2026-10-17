@@ -9,7 +9,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
-import { Camera, Heart, Users } from "lucide-react-native";
+import { Camera, Heart, Users } from "@/components/ui/icons";
 import { Button, C, F, IconTile, ModalToastHost, Row, S } from "@/components/ui";
 
 const PERKS = [

@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { CalendarCheck, Check, Flame, Footprints, Gift, Layers, Route, ShoppingBag, Swords, Target, Trophy, UserPlus, Zap } from "lucide-react-native";
+import { CalendarCheck, Check, Flame, Footprints, Gift, Layers, Route, ShoppingBag, Swords, Target, Trophy, UserPlus, Zap } from "@/components/ui/icons";
 import { useOutHistory } from "@/data/hooks";
 import { C, Card, EmptyState, F, FadeIn, R, Row, S, Screen, Segment, Skeleton } from "@/components/ui";
 import { IconWell, Slab } from "@/components/profile/parts";

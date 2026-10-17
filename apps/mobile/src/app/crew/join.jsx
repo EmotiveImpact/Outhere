@@ -6,7 +6,7 @@ import React, { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { Plus } from "lucide-react-native";
+import { Plus } from "@/components/ui/icons";
 import { Body, C, F, FadeIn, GlowButton, PressableScale, Row, Skeleton, Surface } from "@/components/ui";
 import { engine, useCrewLimits, useCrewsNear, useEngineMutation, useUpgradePrompt } from "@/data/hooks";
 import { tierLabel } from "@/utils/format";

@@ -15,7 +15,7 @@ import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { Ghost, Lock, Pause, Play, Square, Unlock, Zap } from "lucide-react-native";
+import { Ghost, Lock, Pause, Play, Square, Unlock, Zap } from "@/components/ui/icons";
 import { BlendImage, C, F, GlowButton, LIT, Meter, PressableScale, R } from "@/components/ui";
 import { Coin } from "@/components/profile/shared";
 import { formatDuration, formatNumber, formatPace } from "@/utils/format";

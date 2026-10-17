@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import Svg, { Circle } from "react-native-svg";
-import { Dices, EyeOff, Hexagon, Layers, Shield, Swords, Trophy } from "lucide-react-native";
+import { Dices, EyeOff, Hexagon, Layers, Shield, Swords, Trophy } from "@/components/ui/icons";
 import { PHOTOS } from "@/constants/photos";
 import { useArenaNow, useBattles, useCallUp, useChallenges, useLeaderboard, usePicks, usePlaySide } from "@/data/hooks";
 import { Avatar, Body, C, EmptyState, F, IconTile, PressableScale, R, Row, S, Segment, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";

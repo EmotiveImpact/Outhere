@@ -6,7 +6,7 @@ import React, { useEffect, useState } from "react";
 import { Platform, Share, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Contacts from "expo-contacts/legacy";
-import { BookUser, Users } from "lucide-react-native";
+import { BookUser, Users } from "@/components/ui/icons";
 import { engine, useFriends, useProfile, useReferrals, useSearchPlayers, useSuggestedPeople } from "@/data/hooks";
 import { Avatar, Body, Button, C, F, FadeIn, IconTile, PressableScale, Row, Screen, Skeleton, Surface } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";

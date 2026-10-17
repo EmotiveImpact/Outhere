@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Bell, CalendarDays, CheckCheck, Flame, Gift, MoreHorizontal, Settings2, ShoppingBag, Swords, Trash2, Users } from "lucide-react-native";
+import { Bell, CalendarDays, CheckCheck, Flame, Gift, MoreHorizontal, Settings2, ShoppingBag, Swords, Trash2, Users } from "@/components/ui/icons";
 import { engine, useBattles, useEngineMutation, useNotifications, useProfile } from "@/data/hooks";
 import { startOfDay } from "@/data/time";
 import { Avatar, Button, C, EmptyState, F, FadeIn, IconTile, PressableScale, R, S, Sheet, Skeleton, Surface } from "@/components/ui";

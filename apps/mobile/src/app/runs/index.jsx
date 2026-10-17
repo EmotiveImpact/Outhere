@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, Footprints, Route as RouteIcon, ShieldCheck } from "lucide-react-native";
+import { ChevronLeft, Footprints, Route as RouteIcon, ShieldCheck } from "@/components/ui/icons";
 import { C, EmptyState, F, FadeIn, PressableScale, Segment, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";
 import { useRunHistory } from "@/data/hooks";

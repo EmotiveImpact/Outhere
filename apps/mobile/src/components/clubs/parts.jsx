@@ -9,7 +9,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, ChevronRight, Flame, MapPin, Share2, Swords, Trophy } from "lucide-react-native";
+import { Check, ChevronRight, Flame, MapPin, Share2, Swords, Trophy } from "@/components/ui/icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlendImage, C, F, FINISH, LIT, GlowBackdrop, GlowButton, Grain, IconTile, Lift, LiveDot, PressableScale, R, Row, S, Surface, TugBar, splitShadow, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";

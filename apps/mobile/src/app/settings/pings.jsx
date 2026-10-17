@@ -5,7 +5,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Clock, Flame, Newspaper, ShoppingBag, Swords, TrendingUp, Users } from "lucide-react-native";
+import { Clock, Flame, Newspaper, ShoppingBag, Swords, TrendingUp, Users } from "@/components/ui/icons";
 import { useSettings, useUpdateSettings } from "@/data/hooks";
 import { C, F, FadeIn, Logo, PressableScale, R, S, Screen, Skeleton } from "@/components/ui";
 import { Group, MiniSegment, PlainHeadline, Row, Toggle, TopBar } from "@/components/account/parts";

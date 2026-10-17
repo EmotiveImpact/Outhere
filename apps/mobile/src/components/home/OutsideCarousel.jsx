@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowRight } from "lucide-react-native";
+import { ArrowRight } from "@/components/ui/icons";
 import { Avatar, C, F, Kicker, LiveDot, PressableScale, R, Row, S } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 

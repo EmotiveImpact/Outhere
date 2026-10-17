@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "@/components/ui/icons";
 import { hapticSelection } from "@/services/haptics";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { PressableScale } from "./motion";

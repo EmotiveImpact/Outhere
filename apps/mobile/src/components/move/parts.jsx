@@ -8,7 +8,7 @@ import React, { useEffect } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { CornerUpLeft, CornerUpRight, MoveUp, Undo2 } from "lucide-react-native";
+import { CornerUpLeft, CornerUpRight, MoveUp, Undo2 } from "@/components/ui/icons";
 import { C, F, PressableScale, R, S, Toggle } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 

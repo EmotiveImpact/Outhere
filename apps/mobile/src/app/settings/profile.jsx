@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { CalendarDays, Camera, Check, MapPin, Minus, Plus } from "lucide-react-native";
+import { CalendarDays, Camera, Check, MapPin, Minus, Plus } from "@/components/ui/icons";
 import { engine, useAccount, useEngineMutation, useProfile } from "@/data/hooks";
 import { birthDateProblem } from "@/data/account";
 import { Avatar, Button, C, F, FadeIn, PressableScale, R, S, Screen, Skeleton, toast } from "@/components/ui";

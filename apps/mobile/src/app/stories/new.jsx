@@ -9,7 +9,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Camera, Clock, Flame, ImagePlus, Navigation, Send, Swords, Users, X } from "lucide-react-native";
+import { Camera, Clock, Flame, ImagePlus, Navigation, Send, Swords, Users, X } from "@/components/ui/icons";
 import { engine, useBattles, useEngineMutation, useMyCrews, useProfile, useRuns } from "@/data/hooks";
 import { Button, C, F, GlowBackdrop, Grain, PressableScale, Row, S, toast } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

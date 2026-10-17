@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Bell, Check, MoreHorizontal, Play, Search, Settings, Share2, Square } from "lucide-react-native";
+import { Bell, Check, MoreHorizontal, Play, Search, Settings, Share2, Square } from "@/components/ui/icons";
 import { PHOTOS } from "@/constants/photos";
 import { ToggleRow } from "@/components/move/parts";
 import { Body, GlowButton, IconButton, Kicker, PhotoBackground, Pill, Row, S, Segment, Surface, Toggle } from "@/components/ui";

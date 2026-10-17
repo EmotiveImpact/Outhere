@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, Coins, MapPin, Search, Swords, X } from "lucide-react-native";
+import { Check, Coins, MapPin, Search, Swords, X } from "@/components/ui/icons";
 import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useRuns, useSearchPlayers, useWallet } from "@/data/hooks";
 import { Avatar, Body, C, Divider, F, FadeIn, GlowBackdrop, GlowButton, PressableScale, R, Row, S, Skeleton, Surface, TierBadge, useScreenTop } from "@/components/ui";
 import { haptic } from "@/services/haptics";

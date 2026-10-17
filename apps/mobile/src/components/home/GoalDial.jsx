@@ -5,7 +5,7 @@ import React, { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
-import { Coins, Flame, Zap } from "lucide-react-native";
+import { Coins, Flame, Zap } from "@/components/ui/icons";
 import { AnimatedNumber, C, Card, F, Row, S } from "@/components/ui";
 import { formatNumber } from "@/utils/format";
 

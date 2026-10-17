@@ -8,7 +8,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Calendar, Check, ChevronLeft, Flame, Ghost, Layers, ShoppingBag, Swords, Zap } from "lucide-react-native";
+import { Calendar, Check, ChevronLeft, Flame, Ghost, Layers, ShoppingBag, Swords, Zap } from "@/components/ui/icons";
 import { useMembershipDetails, useProfile } from "@/data/hooks";
 import { Avatar, BlackCard, BlendImage, Button, C, F, FadeIn, GlowBackdrop, IconButton, Row, S, Sheen, Surface, useScreenTop } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

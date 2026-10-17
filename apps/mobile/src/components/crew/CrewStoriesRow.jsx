@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Plus } from "lucide-react-native";
+import { Plus } from "@/components/ui/icons";
 import { Avatar, C, F, PressableScale, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { useCrewStories, useProfile, useStories } from "@/data/hooks";

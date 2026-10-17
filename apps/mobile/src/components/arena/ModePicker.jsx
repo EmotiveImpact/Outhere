@@ -4,7 +4,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Flame, Footprints, Ghost, Lock, MapPin, Zap } from "lucide-react-native";
+import { Flame, Footprints, Ghost, Lock, MapPin, Zap } from "@/components/ui/icons";
 import { C, F, PressableScale, R, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { BATTLE_MODES } from "@/constants/battleModes";

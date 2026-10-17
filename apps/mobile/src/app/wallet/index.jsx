@@ -8,7 +8,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TrendingUp } from "lucide-react-native";
+import { TrendingUp } from "@/components/ui/icons";
 import { useBadges, useDrops, useMembershipDetails, useOutHistory, useProfile } from "@/data/hooks";
 import { Avatar, BlendImage, C, F, FadeIn, GlowBackdrop, PressableScale, R, RollingNumber, Row, S, Skeleton, Surface, TAB_BAR_SPACE, useScreenTop } from "@/components/ui";
 import { BadgeTile, PillButton } from "@/components/profile/parts";

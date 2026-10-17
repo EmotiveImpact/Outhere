@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CircleDot, Table } from "lucide-react-native";
+import { CircleDot, Table } from "@/components/ui/icons";
 import { useMembershipDetails } from "@/data/hooks";
 import { BlackCard, BlendImage, Body, Button, C, F, FadeIn, R, Row, S, Screen, Segment, Skeleton, Surface } from "@/components/ui";
 import { Slab } from "@/components/profile/parts";

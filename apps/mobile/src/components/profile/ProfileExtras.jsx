@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Text, View } from "react-native";
-import { ChevronRight, Play } from "lucide-react-native";
+import { ChevronRight, Play } from "@/components/ui/icons";
 import { formatDuration, formatKm, formatPace, tierLabel, timeAgo } from "@/utils/format";
 import { priceLabel } from "@/constants/plans";
 import { BlendImage, Body, C, Card, Divider, F, FadeIn, ListRow, PressableScale, R, Row, S, Sheen, Skeleton, Surface, Title, tierColour } from "@/components/ui";

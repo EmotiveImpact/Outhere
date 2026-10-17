@@ -7,7 +7,7 @@ import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { Flag, Heart, MessageCircle, MoreHorizontal, Share2, Trash2, UserRound } from "lucide-react-native";
+import { Flag, Heart, MessageCircle, MoreHorizontal, Share2, Trash2, UserRound } from "@/components/ui/icons";
 import { BlendImage, Body, Button, C, Card, F, PressableScale, Row, S } from "@/components/ui";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { hapticImpact } from "@/services/haptics";

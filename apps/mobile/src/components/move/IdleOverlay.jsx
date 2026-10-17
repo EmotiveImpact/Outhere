@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import { ArrowRight, Bike, Bookmark, Flame, Footprints, History, MapPin, PersonStanding, ShieldCheck } from "lucide-react-native";
+import { ArrowRight, Bike, Bookmark, Flame, Footprints, History, MapPin, PersonStanding, ShieldCheck } from "@/components/ui/icons";
 import { C, F, GlowButton, PressableScale, R, S } from "@/components/ui";
 import { useChallenges } from "@/data/hooks";
 import { formatNumber } from "@/utils/format";

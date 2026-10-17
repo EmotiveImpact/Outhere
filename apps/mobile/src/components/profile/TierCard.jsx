@@ -3,7 +3,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, Flame, Lock } from "lucide-react-native";
+import { Check, Flame, Lock } from "@/components/ui/icons";
 import { tierLabel } from "@/utils/format";
 import { Body, Button, C, Divider, F, Pill, R, Row, S, Title } from "@/components/ui";
 

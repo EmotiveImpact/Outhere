@@ -7,7 +7,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Camera } from "lucide-react-native";
+import { Camera } from "@/components/ui/icons";
 import { C, EmptyState, F, FadeIn, PressableScale, Row, S, Skeleton } from "@/components/ui";
 import { ClubPanel } from "@/components/clubs/parts";
 import { PHOTOS } from "@/constants/photos";

@@ -4,7 +4,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Crosshair, Lock } from "lucide-react-native";
+import { Check, Crosshair, Lock } from "@/components/ui/icons";
 import { engine, useEngineMutation, useMysterySettings, useProfile } from "@/data/hooks";
 import { C, F, GlowBackdrop, IconTile, PhotoBackground, R, Row, S, Surface } from "@/components/ui";
 import { GlowHero, Toggle, TopBar } from "@/components/arena/OutsideKit";

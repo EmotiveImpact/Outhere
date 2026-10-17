@@ -5,7 +5,7 @@ import React from "react";
 import { FlatList, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CalendarPlus, Navigation } from "lucide-react-native";
+import { CalendarPlus, Navigation } from "@/components/ui/icons";
 import { engine, useEngineMutation, useEvent, useEventGoing } from "@/data/hooks";
 import { Avatar, Button, C, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { ButtonPair, GlowHero, TopBar } from "@/components/arena/OutsideKit";

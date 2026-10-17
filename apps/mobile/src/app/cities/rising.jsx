@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Send } from "lucide-react-native";
+import { Send } from "@/components/ui/icons";
 import { engine, useCityInvite, useEngineMutation, useRising } from "@/data/hooks";
 import { BlendImage, C, F, GlowButton, IconTile, Meter, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { GlowHero, TopBar } from "@/components/arena/OutsideKit";

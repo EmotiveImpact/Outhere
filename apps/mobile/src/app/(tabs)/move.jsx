@@ -15,7 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { Pedometer } from "expo-sensors";
 import { AnimatePresence, MotiView } from "moti";
-import { ChevronLeft, Layers, Lock, MapPin, Pause, Plus, Search, Undo2 } from "lucide-react-native";
+import { ChevronLeft, Layers, Lock, MapPin, Pause, Plus, Search, Undo2 } from "@/components/ui/icons";
 import { C, S, TAB_BAR_SPACE, toast } from "@/components/ui";
 import { engine, isRemote, useBattles, useCrewLive, useEngineMutation, useMyCrews, useOutsideMap, useProfile, useRouteSuggestions, useSafety } from "@/data/hooks";
 import { ghostAt, navigate, stepsFor, wayBackLabel } from "@/data/runMath";

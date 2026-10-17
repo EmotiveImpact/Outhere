@@ -10,7 +10,7 @@ import { ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Clock3, Share2, Swords, TrendingUp, Trophy, Zap } from "lucide-react-native";
+import { Clock3, Share2, Swords, TrendingUp, Trophy, Zap } from "@/components/ui/icons";
 import { engine, useBattle, useBattleEmotes, useBattles, useEngineMutation, useHeadToHead, useProfile } from "@/data/hooks";
 import { BlendImage, C, CountUp, F, GlowBackdrop, GlowButton, Grain, IconTile, LiveDot, Meter, PhotoBackground, PressableScale, R, Row, S, Skeleton, Surface, TugBar, VersusName, VersusSplit, imageSource } from "@/components/ui";
 import { MakePackPill } from "@/components/pack/MakePackPill";

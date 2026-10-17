@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft } from "@/components/ui/icons";
 import { Body, C, F, FadeIn, PressableScale, Ring, Row, S, Segment, SkeletonList, Surface, TAB_BAR_SPACE, useScreenTop } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";
 import { LitRound } from "@/components/clubs/parts";

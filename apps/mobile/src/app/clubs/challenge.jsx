@@ -17,7 +17,7 @@ import {
   Trophy,
   Users,
   Zap,
-} from "lucide-react-native";
+} from "@/components/ui/icons";
 import { Button, C, EmptyState, F, PhotoBackground, PressableScale, Row, Screen, SkeletonList, Surface, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";

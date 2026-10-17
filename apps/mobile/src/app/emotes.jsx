@@ -12,7 +12,7 @@ import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn as FadeInAnim, FadeInDown, ZoomIn } from "react-native-reanimated";
-import { Flame, ShoppingBag, Swords, Trophy } from "lucide-react-native";
+import { Flame, ShoppingBag, Swords, Trophy } from "@/components/ui/icons";
 import { engine, useEmotes, useEngineMutation } from "@/data/hooks";
 import { C, F, GlowBackdrop, GlowButton, IconTile, Meter, PressableScale, R, Row, S, Sheet, Skeleton, Surface, TAB_BAR } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";

@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import Slider from "@react-native-community/slider";
-import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, ScanFace, Shield, Sparkles, Watch, Zap } from "lucide-react-native";
+import { Bell, BellRing, Crown, Footprints, Lock, LogOut, Navigation, ScanFace, Shield, Sparkles, Watch, Zap } from "@/components/ui/icons";
 import { engine, isRemote, useAccount, useEngineMutation, useProfile, useSettings, useUpdateSettings } from "@/data/hooks";
 import { pingsOn } from "@/data/account";
 import { LinearGradient } from "expo-linear-gradient";

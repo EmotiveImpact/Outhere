@@ -10,7 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
-import { ChevronLeft, ChevronsRight } from "lucide-react-native";
+import { ChevronLeft, ChevronsRight } from "@/components/ui/icons";
 import { ActFill, BlendImage, C, F, FINISH, GlowBackdrop, Grain, LIT, PressableScale, R, S, TOP_GAP, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 import { StackTabBar } from "@/components/AppTabBar";

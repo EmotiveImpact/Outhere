@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { Flag, Flame, Heart, ImagePlus, Lock, Plus, Route as RouteIcon, Send, Swords, ThumbsUp, Timer, Zap } from "lucide-react-native";
+import { Flag, Flame, Heart, ImagePlus, Lock, Plus, Route as RouteIcon, Send, Swords, ThumbsUp, Timer, Zap } from "@/components/ui/icons";
 import { Body, C, EmptyState, F, PressableScale, Row, S, Sheet, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { engine, useBattles, useCrewChat, useCrewTyping, useEngineMutation, usePlayer, useRuns } from "@/data/hooks";
 import { dateLabel, formatKm, formatPace, timeAgo } from "@/utils/format";

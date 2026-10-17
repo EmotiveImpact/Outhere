@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, MoreHorizontal, Share2, X } from "lucide-react-native";
+import { ChevronLeft, MoreHorizontal, Share2, X } from "@/components/ui/icons";
 import { BlendImage, Button, C, F, FINISH, GlowBackdrop, Grain, Meter, PhotoBackground, PressableScale, R, Row, S, Surface, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 

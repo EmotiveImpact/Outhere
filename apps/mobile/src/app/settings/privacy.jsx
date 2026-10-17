@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { Platform, Share, StyleSheet, Text } from "react-native";
 import { useRouter } from "expo-router";
-import { Download, Eye, LocateFixed, Navigation, Trophy, Undo2, UserX } from "lucide-react-native";
+import { Download, Eye, LocateFixed, Navigation, Trophy, Undo2, UserX } from "@/components/ui/icons";
 import { engine, isRemote, showEngineError, useAccount, useSettings, useUpdateSettings } from "@/data/hooks";
 import { C, F, R, S, Skeleton, toast } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

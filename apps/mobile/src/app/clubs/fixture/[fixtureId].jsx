@@ -8,7 +8,7 @@ import { Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, Image as ImageIcon, Layers, Share2 } from "lucide-react-native";
+import { ChevronLeft, Image as ImageIcon, Layers, Share2 } from "@/components/ui/icons";
 import { AnimatedNumber, Body, Button, C, EmptyState, F, LIT, Meter, PhotoBackground, R, Row, S, Screen, Skeleton, Surface, TugBar as KitTug, useScreenTop } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { useCrew, useFixture } from "@/data/hooks";

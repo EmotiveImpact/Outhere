@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { Check, X } from "lucide-react-native";
+import { Check, X } from "@/components/ui/icons";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { CITIES } from "@/constants/theme";
 import { Avatar, Body, Button, C, Cover, F, Label, PressableScale, R, Row, S, Sheet, Title } from "@/components/ui";

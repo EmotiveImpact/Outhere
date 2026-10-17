@@ -4,7 +4,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { ChevronRight, Copy, Lock } from "lucide-react-native";
+import { ChevronRight, Copy, Lock } from "@/components/ui/icons";
 import { formatNumber } from "@/utils/format";
 import { AnimatedNumber, Body, Button, C, Cover, Divider, F, Pill, PressableScale, ProgressBar, R, Row, S, Sheet, Title, toast } from "@/components/ui";
 import { Coin, CoinPill } from "./shared";

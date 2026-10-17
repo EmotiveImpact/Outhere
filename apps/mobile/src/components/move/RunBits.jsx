@@ -9,7 +9,7 @@ import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from "react-native-svg";
-import { Footprints, TrendingUp, Zap } from "lucide-react-native";
+import { Footprints, TrendingUp, Zap } from "@/components/ui/icons";
 import { BlendImage, C, F, FINISH, GlowBackdrop, Grain, PressableScale, splitShadow } from "@/components/ui";
 import { Coin } from "@/components/profile/shared";
 import { formatNumber, formatPace } from "@/utils/format";

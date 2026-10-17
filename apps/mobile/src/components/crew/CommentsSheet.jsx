@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { ArrowUp } from "lucide-react-native";
+import { ArrowUp } from "@/components/ui/icons";
 import { Body, C, F, PressableScale, Row, S, Sheet, Skeleton } from "@/components/ui";
 import { engine, useEngineMutation, usePostComments } from "@/data/hooks";
 import { timeAgo } from "@/utils/format";

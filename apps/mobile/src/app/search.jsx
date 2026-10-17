@@ -6,7 +6,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Search } from "lucide-react-native";
+import { Search } from "@/components/ui/icons";
 import { useProfile, useSearchAll, useSuggestedPeople } from "@/data/hooks";
 import { Avatar, C, EmptyState, F, FadeIn, PressableScale, Row, Screen, Segment, Skeleton, Surface, TOP_GAP } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";

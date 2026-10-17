@@ -6,7 +6,7 @@ import React from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Share2, Users } from "lucide-react-native";
+import { ChevronLeft, Share2, Users } from "@/components/ui/icons";
 import { Button, C, F, Meter, PhotoBackground, Row, S, Screen, Skeleton, Surface, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";

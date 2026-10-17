@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, ChevronRight, Info } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Info } from "@/components/ui/icons";
 import { C, F, PressableScale, Sheet, Skeleton, TOP_GAP } from "@/components/ui";
 import { RoundGlass } from "@/components/profile/parts";
 import { usePreviewData } from "@/components/previews/data";

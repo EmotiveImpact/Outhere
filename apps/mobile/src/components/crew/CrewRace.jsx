@@ -7,7 +7,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { ChevronDown, Crown, TrendingUp } from "lucide-react-native";
+import { ChevronDown, Crown, TrendingUp } from "@/components/ui/icons";
 import { Body, Button, C, F, FadeIn, IconTile, PressableScale, Row, S, SkeletonList, Surface } from "@/components/ui";
 import { useCrewRace } from "@/data/hooks";
 import { compactNumber, formatNumber } from "@/utils/format";

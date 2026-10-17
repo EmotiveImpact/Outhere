@@ -6,7 +6,7 @@ import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
-import { RotateCcw, Route, WifiOff } from "lucide-react-native";
+import { RotateCcw, Route, WifiOff } from "@/components/ui/icons";
 import { PHOTOS } from "@/constants/photos";
 import { BlendImage } from "./BlendImage";
 import { GlowBackdrop } from "./GlowBackdrop";

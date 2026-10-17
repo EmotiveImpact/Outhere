@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Crown, MoreHorizontal, Shield, ShieldMinus, ShieldPlus, UserRound, UserX } from "lucide-react-native";
+import { Crown, MoreHorizontal, Shield, ShieldMinus, ShieldPlus, UserRound, UserX } from "@/components/ui/icons";
 import { Body, C, Card, F, FadeIn, LiveDot, PressableScale, Row, S, SkeletonList } from "@/components/ui";
 import { engine, useEngineMutation } from "@/data/hooks";
 import { compactNumber, timeAgo } from "@/utils/format";
