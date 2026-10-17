@@ -89,7 +89,7 @@ export default function Black() {
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
               <b style={{ font: '600 56px/1 var(--display)' }}>{SITE.prices.black.m}</b>
-              <span style={{ color: 'var(--ink-muted)' }}>a month, or {SITE.prices.black.y} a year. Prices are placeholders.</span>
+              <span style={{ color: 'var(--ink-muted)' }}>a month, or {SITE.prices.black.y} a year.</span>
             </div>
           </div>
           <div className="card rv" id="request" style={{ display: 'grid', gap: 16 }}>

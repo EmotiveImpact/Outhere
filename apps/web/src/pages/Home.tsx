@@ -273,7 +273,7 @@ function LaunchMap() {
   );
 }
 
-const BILLING = ['Monthly', 'Yearly · save 30%'] as const;
+const BILLING = ['Monthly', 'Yearly · save 16%'] as const;
 const Li = ({ children }: { children: React.ReactNode }) => <li><Tick />{children}</li>;
 const cell = (c: string | boolean) =>
   c === true ? <span className="v on"><Tick w={2} label="Included" /></span>
@@ -317,7 +317,6 @@ function Membership() {
             <InviteButton />
           </article>
         </div>
-        <p className="small">Prices are placeholders until launch.</p>
 
         <div className="compare rv">
           <PillTabs label="Feature groups" tabs={COMPARE.map(([k, l]) => [k, l] as [string, string])} head={<h3 className="disp">Compare<br />every feature</h3>}>
