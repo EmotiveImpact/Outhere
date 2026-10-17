@@ -1,17 +1,21 @@
-// The versus screen before a 1v1, like a fighting game (the prototype's
-// .vs9): both fighters slide in on either side of a slanted, glowing seam,
-// the head to head sits up top, and VS turns into the count. Each beat
-// flashes white and fires a ring from the middle while the number slams in
-// (SpotlightNumber). When the battle is live it hands over to the battle
-// screen; while it waits on the other side to accept, it says so.
+// The versus screen before a 1v1, like a fighting game. Where the build can
+// play Rive it is the 1v1 card (rive/versus): the intro picked for the
+// battle (seam strike, tale of the tape, cinematic or Let's Run), then the
+// card holds a moment and the battle opens. In Expo Go it is the prototype's
+// .vs9 in React Native: both fighters slide in on either side of a slanted,
+// glowing seam, the head to head sits up top, and VS turns into the count.
+// Each beat flashes white and fires a ring from the middle while the number
+// slams in (SpotlightNumber). Either way, while it waits on the other side
+// to accept, it says so.
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
-import Animated, { Easing, FadeInLeft, FadeInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
-import { useBattle, useHeadToHead, useProfile } from "@/data/hooks";
+import Animated, { Easing, FadeIn, FadeInLeft, FadeInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
+import { useBattle, useHeadToHead, usePlayer, useProfile } from "@/data/hooks";
+import { INTRO_MS, VersusCard, pickIntro, riveAvailable, versusCard } from "@/components/rive";
 import { fighterPhoto } from "@/utils/fighter";
 import { Avatar, C, F, GlowButton, Grain, R, S, Skeleton, SpotlightNumber, VersusSplit } from "@/components/ui";
 import { TopBar } from "@/components/arena/OutsideKit";
@@ -47,6 +51,117 @@ function Burst({ beat, x, y }) {
 }
 
 export default function BattleCountdown() {
+  return riveAvailable ? <CardCountdown /> : <SplitCountdown />;
+}
+
+// The card is 390 x 844 and covers the screen; its stake tiles start 736 down.
+const CARD = { w: 390, h: 844, tiles: 736 };
+// How long the card holds once it is up before the battle opens. The tape
+// holds longer so its numbers can be read.
+const HOLD_MS = { tape: 2600, cinematic: 1400, letsRun: 1400, strike: 1400 };
+
+/** The 1v1 card. */
+function CardCountdown() {
+  const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const { battleId } = useLocalSearchParams();
+  const id = String(battleId || "");
+  const { data: battle, refetch } = useBattle(id);
+  const me = useProfile().data;
+  const opp = battle?.opponent?.player;
+  const h2hQuery = useHeadToHead(opp?.id);
+  const h2h = h2hQuery.data;
+
+  // The intro is picked once the battle and the head to head are in (or a
+  // moment has passed without the head to head), and then it stays.
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setWaited(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+  const picked = useRef(null);
+  if (!picked.current && battle && me && (h2hQuery.status !== "pending" || !opp?.id || waited)) picked.current = pickIntro(battle, h2h);
+  const intro = picked.current;
+
+  const needStats = intro === "tape" || intro === "cinematic";
+  const youStats = usePlayer(needStats ? me?.id : undefined).data;
+  const themStats = usePlayer(needStats ? opp?.id : undefined).data;
+  const card = useMemo(
+    () => (intro ? versusCard({ battle, me, opp, h2h, stats: { you: youStats, them: themStats }, intro }) : null),
+    [intro, battle, me, opp, h2h, youStats, themStats],
+  );
+
+  const live = battle?.status === "active";
+  const waiting = battle?.status === "pending";
+
+  // Up once the intro has played; if the card never says it started, carry on anyway.
+  const [started, setStarted] = useState(false);
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    if (!intro) return undefined;
+    const t = setTimeout(() => setStarted(true), 2500);
+    return () => clearTimeout(t);
+  }, [intro]);
+  useEffect(() => {
+    if (!started) return undefined;
+    const t = setTimeout(() => setUp(true), INTRO_MS[intro] || INTRO_MS.strike);
+    return () => clearTimeout(t);
+  }, [started, intro]);
+
+  // Live: hold, then GO and the battle opens.
+  useEffect(() => {
+    if (!live || !up) return undefined;
+    const t = setTimeout(() => {
+      haptic.go();
+      router.replace(`/battles/${id}`);
+    }, HOLD_MS[intro] || HOLD_MS.strike);
+    return () => clearTimeout(t);
+  }, [live, up, intro, id, router]);
+
+  // Waiting on them: check now and then whether they've said yes.
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const t = setInterval(() => refetch(), 5000);
+    return () => clearInterval(t);
+  }, [waiting, refetch]);
+
+  const onCue = (name) => {
+    if (name === "slam" || name === "letsRun") haptic.beat();
+    else if (name === "cutIn") haptic.select();
+    else if (name === "addPack") router.push("/pack");
+  };
+
+  if (!card) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#04060b" }}>
+        <TopBar onBack={() => router.replace("/outside/arena")} />
+      </View>
+    );
+  }
+
+  const oppName = (opp?.name || "Rival").split(" ")[0];
+  const scale = Math.max(width / CARD.w, height / CARD.h);
+  const tilesTop = (height - CARD.h * scale) / 2 + CARD.tiles * scale;
+  return (
+    <View style={{ flex: 1, backgroundColor: "#04060b" }}>
+      <VersusCard card={card} onCue={onCue} onReady={() => setStarted(true)} style={StyleSheet.absoluteFill} />
+      {up && !live ? (
+        <Animated.View entering={FadeIn.duration(400)} style={[styles.panel, { bottom: height - tilesTop + 14 }]}>
+          {waiting ? <Text style={styles.panelText}>Sent. The clock starts when {oppName} accepts.</Text> : null}
+          <GlowButton
+            title={waiting ? "Back to the Arena" : "See the battle"}
+            variant="glass"
+            full
+            onPress={() => router.replace(waiting ? "/outside/arena" : `/battles/${id}`)}
+          />
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+}
+
+/** The prototype's .vs9 in React Native, for builds without Rive (Expo Go). */
+function SplitCountdown() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -233,4 +348,6 @@ const styles = StyleSheet.create({
   stakeValue: { color: "#fff", fontFamily: F.display, fontSize: 22, lineHeight: 24, marginBottom: 2 },
   stakeLabel: { color: "rgba(255,255,255,0.7)", fontFamily: F.body, fontSize: 10.5, textAlign: "center" },
   wait: { color: C.textSoft, fontFamily: F.body, fontSize: 13, textAlign: "center", marginVertical: S.sm },
+  panel: { position: "absolute", left: 18, right: 18, gap: S.sm, padding: S.md, borderRadius: 22, backgroundColor: "rgba(4,6,11,0.72)" },
+  panelText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 14, textAlign: "center" },
 });

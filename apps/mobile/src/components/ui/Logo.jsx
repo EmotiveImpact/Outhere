@@ -2,12 +2,18 @@
 // out now dot sitting in the gap, the same as a photo ring with its dot.
 // Weight A (Edem's pick): ring 12, dot 9, space 5, round ends, on a 100 box.
 // With `animate`, the ring draws itself in and then the dot springs into place.
+// Where the build can play Rive (not Expo Go), an animated mark in the house
+// colours is the Rive one (rive/logo): the same landing with a ping, a glow
+// that breathes and a light tap in the hand as the dot lands.
 
 import React, { useEffect } from "react";
 import { Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
 import { C, F } from "./tokens";
+import RiveLogo from "../rive/RiveLogo";
+import { riveAvailable } from "../rive/runtime";
+import { haptic } from "@/services/haptics";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -41,6 +47,15 @@ export function Logo({ size = 40, ink = C.text, dotInk = C.out, w = 12, dot = 9,
 
   const ringProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - drawn.value) }));
   const dotProps = useAnimatedProps(() => ({ r: dot * pop.value }));
+
+  const house = ink === C.text && dotInk === C.out && w === 12 && dot === 9 && space === 5;
+  if (play && house && riveAvailable) {
+    return (
+      <View style={style} accessible accessibilityRole="image" accessibilityLabel="Outhere">
+        <RiveLogo size={size} onLanded={size >= 96 ? haptic.tap : undefined} />
+      </View>
+    );
+  }
 
   return (
     <View style={[{ width: size, height: size }, style]} accessible accessibilityRole="image" accessibilityLabel="Outhere">

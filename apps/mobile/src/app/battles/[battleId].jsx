@@ -22,6 +22,7 @@ import { EmoteBurst } from "@/components/arena/RaceScreens";
 import ClassicBattle from "@/components/arena/ClassicBattle";
 import { RaceScreen, RevealScreen, SealedScreen } from "@/components/arena/RaceScreens";
 import Confetti from "@/components/arena/Confetti";
+import VersusReveal, { useFirstReveal } from "@/components/arena/VersusReveal";
 import { durationLabel, formatScore, metricUnit, playerName, useNow } from "@/components/arena/shared";
 import { BATTLE_EMOTES, BATTLE_LINES, emoteLabel } from "@/data/seedOutside";
 import { PHOTOS } from "@/constants/photos";
@@ -328,11 +329,21 @@ function Result({ battle }) {
     Share.share({ message: `${won ? "Beat" : "Battled"} ${oppName} on Outhere: ${formatScore(metric, mine)} to ${formatScore(metric, theirs)}${metric === "steps" ? " steps" : ""}.` }).catch(() => {});
   const objectSize = Math.min(width * 0.7, 280);
   const packPic = won ? battle.me.player?.fighter?.win : draw ? null : battle.me.player?.fighter?.respect;
+  // The first time, the result lands on the 1v1 card (VersusReveal) and
+  // the card's own cues play it in the hand.
+  const [reveal, endReveal] = useFirstReveal(battle);
+  const buzzed = useRef(false);
   // The result lands in the hand once: rising taps for a win, a soft drop for a loss.
   useEffect(() => {
+    if (reveal === "checking" || buzzed.current) return;
+    buzzed.current = true;
+    if (reveal === "show") return;
     if (won) haptic.win();
     else if (!draw) haptic.lose();
-  }, [won, draw]);
+  }, [won, draw, reveal]);
+
+  if (reveal === "checking") return <View style={{ flex: 1, backgroundColor: "#04060b" }} />;
+  if (reveal === "show") return <VersusReveal battle={battle} onDone={endReveal} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>

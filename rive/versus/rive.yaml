@@ -1,0 +1,7 @@
+name: outhere-versus
+exclude:
+  - tools
+  - build.py
+  - README.md
+  - fonts/OFL.txt
+  - export
