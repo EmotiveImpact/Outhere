@@ -37,6 +37,7 @@ export default function RiveLogo({ size = 150, artboard = size >= 96 ? "Logo" : 
           hybridRef={setHybridRef}
           file={riveFile}
           artboardName={artboard}
+          dataBind={R.DataBindMode.None}
           stateMachineName={artboard}
           autoPlay
           fit={R.Fit.Contain}
