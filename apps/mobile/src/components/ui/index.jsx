@@ -37,6 +37,7 @@ export { Cover, imageSource, accentFor } from "./Cover";
 export { Sheet } from "./Sheet";
 export { Ring, Dot } from "./Ring";
 export { Hero } from "./Hero";
+export { SlabFade } from "./SlabFade";
 export { Logo, Wordmark } from "./Logo";
 export { SlideToStart } from "./SlideToStart";
 export { toast, ToastHost, ModalToastHost } from "./Toast";
@@ -182,10 +183,10 @@ export function Header({ title, subtitle, back = false, onBack, right, large = f
 /** A round icon button: the quiet button's lit body and edge. `active` turns it white. */
 export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, active = false, style }) => (
   <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, active && styles.iconButtonOn, style]}>
-    <LinearGradient colors={active ? WHITE_EDGE : QUIET.edge} locations={[0, 0.42, 0.78, 1]} style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} />
-    <LinearGradient colors={active ? WHITE_BODY : QUIET.body} style={styles.iconButtonBody} />
-    {active ? null : <LinearGradient colors={QUIET.gloss} locations={[0, 0.48, 0.62, 1]} style={styles.iconButtonBody} />}
-    {active ? null : <LinearGradient colors={glint(QUIET.glint)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.iconGlint} />}
+    {active || QUIET.edge ? <LinearGradient colors={active ? WHITE_EDGE : QUIET.edge} locations={[0, 0.42, 0.78, 1]} style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} /> : null}
+    <LinearGradient colors={active ? WHITE_BODY : QUIET.body} style={active || QUIET.edge ? styles.iconButtonBody : [StyleSheet.absoluteFill, { borderRadius: 21 }]} />
+    {active || !QUIET.gloss ? null : <LinearGradient colors={QUIET.gloss} locations={[0, 0.48, 0.62, 1]} style={styles.iconButtonBody} />}
+    {active || !QUIET.glint ? null : <LinearGradient colors={glint(QUIET.glint)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.iconGlint} />}
     {/* Wrapped so the icon paints above the lit body on the web too. */}
     <View>
       <Icon size={size} color={active ? C.bg : C.text} />

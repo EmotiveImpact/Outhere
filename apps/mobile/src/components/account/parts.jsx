@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronsRight } from "@/components/ui/icons";
 import { ActFill, BlendImage, C, F, FINISH, GlowBackdrop, Grain, LIT, PressableScale, R, S, TOP_GAP, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 import { StackTabBar } from "@/components/AppTabBar";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 /**
  * Asks before something that can't be undone. Resolves true when the member
@@ -126,7 +127,7 @@ export function GlowHero({ kicker, kickerColor, top, bottom, height = 300, size 
           <BlendImage source={object} size={obj} float glow={Math.round(obj * 1.2)} {...objectProps} style={[{ position: "absolute", right: -30, top: objectTop != null ? insets.top + objectTop - 14 : insets.top + (height - obj) / 2 - 6 }, objectStyle]} />
         ) : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRound, { boxShadow: SLAB_EDGE.inset }]} />
+        <SlabFade />
         <View style={styles.heroText}>
           {kicker ? <Text style={[styles.kicker, kickerColor ? { color: kickerColor } : null]}>{kicker}</Text> : null}
           {top ? (

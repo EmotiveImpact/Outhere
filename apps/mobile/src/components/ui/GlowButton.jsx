@@ -31,7 +31,8 @@ import { play as playHaptic } from "@/services/haptics";
 import { useLayoutSize } from "./layout";
 import { C, EASE, F, R, splitShadow } from "./tokens";
 
-// Every button is built the same way: a 1px edge that is bright along the
+// The bevelled look (round of 2026-10-16), kept so it can be shown beside
+// the others. Every button is built the same way: a 1px edge that is bright along the
 // top and darker at the bottom, the body inside it, a soft gloss over the
 // upper half, the sheen, a crisp white glint across the top edge where the
 // light catches it, and the label. Underneath sits a tight coloured glow
@@ -41,7 +42,7 @@ const GLOSS = ["rgba(255,255,255,0.17)", "rgba(255,255,255,0.05)", "rgba(255,255
 const GLOSS_SOFT = ["rgba(255,255,255,0.05)", "rgba(255,255,255,0.015)", "rgba(255,255,255,0)", "rgba(0,0,0,0.1)"];
 const GLOSS_STOPS = [0, 0.48, 0.62, 1];
 
-export const GLOW_BUTTONS = {
+const BEVEL = {
   primary: {
     body: ["#5592ff", "#2f6ff3", "#2156d6"],
     stops: [0, 0.55, 1],
@@ -93,9 +94,62 @@ export const GLOW_BUTTONS = {
   },
   ghost: { body: null, shadow: null, fg: C.text, sheen: 0 },
 };
+
+// The in-between (Edem, 2026-10-17, from flat / in-between / bevelled side
+// by side): the body keeps its soft top-to-bottom shade, one thin line of
+// light along the top and a small glow, with no edge ring, gloss band or
+// glint. Closest to the prototype's Run it up and Go buttons.
+const SOFT = {
+  primary: {
+    body: ["#4c88fb", "#2a63e6"],
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 2px rgba(0,0,0,0.4), 0 8px 18px -10px rgba(42,106,240,0.75)",
+    fg: "#ffffff",
+    sheen: 0.22,
+  },
+  stop: {
+    body: ["#f0605f", "#d63c43"],
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 2px rgba(0,0,0,0.4), 0 8px 18px -10px rgba(212,42,51,0.7)",
+    fg: "#ffffff",
+    sheen: 0.18,
+  },
+  quiet: {
+    body: ["#20252d", "#171a20"],
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,0,0,0.5), 0 14px 26px -18px rgba(0,0,0,0.9)",
+    fg: C.text,
+    sheen: 0.06,
+    lead: "quiet",
+  },
+  glass: BEVEL.glass,
+  outline: {
+    body: ["#16284d", "#0e1729"],
+    shadow: "inset 0 0 0 1px rgba(61,139,255,0.34), inset 0 1px 0 rgba(140,188,255,0.3), 0 10px 22px -16px rgba(42,106,240,0.6)",
+    fg: C.accentHi,
+    sheen: 0.08,
+  },
+  ghost: BEVEL.ghost,
+};
+
+// One solid colour, no light.
+const FLAT = {
+  primary: { body: ["#2a6af0", "#2a6af0"], shadow: null, fg: "#ffffff", sheen: 0 },
+  stop: { body: ["#e5484d", "#e5484d"], shadow: null, fg: "#ffffff", sheen: 0 },
+  quiet: { body: ["#1a1e25", "#1a1e25"], shadow: null, fg: C.text, sheen: 0, lead: "quiet" },
+  glass: BEVEL.glass,
+  outline: { body: ["#12213f", "#12213f"], shadow: "inset 0 0 0 1px rgba(61,139,255,0.34)", fg: C.accentHi, sheen: 0 },
+  ghost: BEVEL.ghost,
+};
+
 // Older names: secondary is the quiet lit button, danger the stop.
-GLOW_BUTTONS.secondary = GLOW_BUTTONS.quiet;
-GLOW_BUTTONS.danger = GLOW_BUTTONS.stop;
+for (const set of [BEVEL, SOFT, FLAT]) {
+  set.secondary = set.quiet;
+  set.danger = set.stop;
+}
+
+/** Every look, for side-by-side comparison (the Buttons tab in /lush). */
+export const BUTTON_LOOKS = { flat: FLAT, soft: SOFT, bevel: BEVEL };
+// The look the whole app uses.
+export const BUTTON_LOOK = "soft";
+export const GLOW_BUTTONS = BUTTON_LOOKS[BUTTON_LOOK];
 
 // A switched off blue or red button goes grey and flat, so it reads as
 // waiting rather than as a faded version of itself.
@@ -161,6 +215,8 @@ function Sheen({ width, strength, loop, trigger }) {
  * only button as wide as it is tall (.oh-btn.icon). haptic: true (default)
  * plays the tap moment on primary, stop and glass and a selection tick on
  * the rest; false for none; or the name of a moment ("commit", "go").
+ * look: flat | soft | bevel, to show one look beside another; the app uses
+ * BUTTON_LOOK.
  */
 export function GlowButton({
   title,
@@ -175,6 +231,7 @@ export function GlowButton({
   full = false,
   square = false,
   shine,
+  look,
   haptic = true,
   accessibilityLabel,
   textStyle,
@@ -182,7 +239,8 @@ export function GlowButton({
 }) {
   const off = disabled || loading;
   const greyed = disabled && !loading && COLOURED.has(variant);
-  const v = greyed ? DISABLED : GLOW_BUTTONS[variant] || GLOW_BUTTONS.primary;
+  const set = BUTTON_LOOKS[look] || GLOW_BUTTONS;
+  const v = greyed ? DISABLED : set[variant] || set.primary;
   const s = SIZES[size] || SIZES.md;
   const [box, onLayout] = useLayoutSize();
   const scale = useSharedValue(1);
@@ -282,13 +340,13 @@ export function ActFill() {
   const v = GLOW_BUTTONS.primary;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <LinearGradient colors={v.edge} locations={EDGE_STOPS} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
-      <View style={[styles.body, styles.inEdge]}>
+      {v.edge ? <LinearGradient colors={v.edge} locations={EDGE_STOPS} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} /> : null}
+      <View style={[styles.body, v.edge ? styles.inEdge : null]}>
         <LinearGradient colors={v.body} locations={v.stops} style={StyleSheet.absoluteFill} />
-        <LinearGradient colors={v.gloss} locations={GLOSS_STOPS} style={StyleSheet.absoluteFill} />
+        {v.gloss ? <LinearGradient colors={v.gloss} locations={GLOSS_STOPS} style={StyleSheet.absoluteFill} /> : null}
         <View style={[StyleSheet.absoluteFill, styles.fillEdge]} />
       </View>
-      <LinearGradient colors={["rgba(255,255,255,0)", `rgba(255,255,255,${v.glint})`, "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.fillGlint} />
+      {v.glint ? <LinearGradient colors={["rgba(255,255,255,0)", `rgba(255,255,255,${v.glint})`, "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.fillGlint} /> : null}
     </View>
   );
 }

@@ -13,6 +13,7 @@ import { GlowBackdrop } from "./GlowBackdrop";
 import { Grain } from "./Grain";
 import { PhotoBackground } from "./PhotoBackground";
 import { C, F, FINISH, S, splitShadow } from "./tokens";
+import { SlabFade } from "./SlabFade";
 
 const RADIUS = 34; // --radius-slab
 const EDGE = splitShadow(FINISH.slabEdge);
@@ -42,7 +43,7 @@ export function Hero({ photo, focus, object, objectSize, objectStyle, objectLeft
           <BlendImage source={object} size={size} float glow={260} style={[styles.object, place, { top: padTop + (height - size) / 2 - height * 0.04 }, objectStyle]} />
         ) : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, radius, { boxShadow: EDGE.inset }]} />
+        <SlabFade />
         {right ? <View style={[styles.right, { top: padTop + S.sm }]}>{right}</View> : null}
         <View style={styles.text}>
           {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}

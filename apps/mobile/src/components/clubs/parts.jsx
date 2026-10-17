@@ -16,6 +16,7 @@ import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";
 import { useClubBattles, useMyFixture } from "@/data/hooks";
 import { clubScoreLabel } from "@/constants/clubModes";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 export const RED = C.danger;
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -343,7 +344,7 @@ export function ObjectSlab({ height = 318, object, objectSize = 236, objectTop =
         <GlowBackdrop preset="slab" />
         {object ? <BlendImage source={object} size={objectSize} float glow={objectSize * 1.15} style={[{ position: "absolute", top: insets.top + objectTop }, place]} /> : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderBottomLeftRadius: 34, borderBottomRightRadius: 34, boxShadow: SLAB_EDGE.inset }]} />
+        <SlabFade />
         <Row style={[styles.slabNav, { top: screenTop }]}>
           {left || <View />}
           {right || <View />}

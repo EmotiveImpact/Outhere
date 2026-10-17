@@ -11,6 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, MoreHorizontal, Share2, X } from "@/components/ui/icons";
 import { BlendImage, Button, C, F, FINISH, GlowBackdrop, Grain, Meter, PhotoBackground, PressableScale, R, Row, S, Surface, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 const pct = (v) => (typeof v === "string" ? parseFloat(v) / 100 : v);
 const rgba = (hex, a) => {
@@ -52,7 +53,7 @@ export function GlowHero({ photo, photoFocus, object, objectSize, objectStyle, k
         ) : null}
         {object ? <BlendImage source={object} size={size} float glow={260} style={[{ position: "absolute", right: -24, top: insets.top + 20 }, objectStyle]} /> : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.heroRadius, { boxShadow: SLAB_EDGE.inset }]} />
+        <SlabFade />
         <View style={[styles.heroText, { paddingTop: insets.top + 64 }, center && { alignItems: "center" }]}>
           {kicker ? <Text style={[styles.kicker, { color: kickerColour }, center && { textAlign: "center" }]}>{kicker}</Text> : null}
           {top != null ? (

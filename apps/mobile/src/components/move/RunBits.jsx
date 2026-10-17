@@ -15,6 +15,7 @@ import { Coin } from "@/components/profile/shared";
 import { formatNumber, formatPace } from "@/utils/format";
 import { hapticSelection } from "@/services/haptics";
 import { MapArt } from "./MapTexture";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 const EDGE = splitShadow(FINISH.slabEdge);
 
@@ -61,7 +62,7 @@ export function Slab({ route, lines, face, object, objectSize = 200, objectStyle
         )}
         {object && !hasMap ? <BlendImage source={object} size={objectSize} mask={[0.5, 0.71]} style={[styles.object, { right: place.right, top: insets.top - 14 + place.top }]} /> : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRound, { boxShadow: EDGE.inset }]} />
+        <SlabFade />
         <View style={[styles.slabTop, { top: insets.top + 8 }]} pointerEvents="box-none">
           <View>{left}</View>
           <View>{right}</View>

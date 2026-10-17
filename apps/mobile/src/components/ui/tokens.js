@@ -71,7 +71,8 @@ export const FINISH = {
   tile: "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(61,139,255,0.28), 0 8px 18px -10px rgba(42,106,240,0.7)",
   // .oh-slab: the hero slab and its lit lower edge
   slab: { hi: "#0e2756", lo: "#060b16", base: "#030407" },
-  slabEdge: "inset 0 -1px 0 rgba(130,180,255,0.22), 0 30px 60px -30px rgba(0,0,0,0.9)",
+  // No edge or shadow: slabs fade into the page instead (SlabFade, Edem 2026-10-17).
+  slabEdge: null,
   // .oh-tabbar
   tabBar: ["rgba(28,32,40,0.8)", "rgba(14,17,22,0.88)"],
   tabBarEdge: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.06), 0 24px 50px -18px rgba(0,0,0,0.95), 0 6px 16px -8px rgba(0,0,0,0.6)",

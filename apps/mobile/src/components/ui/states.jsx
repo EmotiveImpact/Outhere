@@ -14,6 +14,7 @@ import { GlowButton } from "./GlowButton";
 import { Grain } from "./Grain";
 import { IconTile, Surface } from "./Surface";
 import { C, F, FINISH, R, S, splitShadow } from "./tokens";
+import { SlabFade } from "./SlabFade";
 
 const SLAB_EDGE = splitShadow(FINISH.slabEdge);
 
@@ -36,7 +37,7 @@ export function ErrorState({ what = "this", body, steps, onRetry, retrying = fal
           <GlowBackdrop preset="slab" />
           <BlendImage source={PHOTOS.phone} size={206} grey={0.5} float style={{ position: "absolute", right: -40, top: padTop - 14 }} />
           <Grain amount={0.06} />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRadius, { boxShadow: SLAB_EDGE.inset }]} />
+          <SlabFade />
           {right ? <View style={[styles.right, { top: padTop + S.sm }]}>{right}</View> : null}
           <View style={styles.hl}>
             <Text style={styles.kicker}>Something went wrong</Text>

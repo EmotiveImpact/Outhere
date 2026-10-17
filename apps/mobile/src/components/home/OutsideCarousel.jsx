@@ -45,7 +45,6 @@ function Slide({ slide, width, height }) {
           <LinearGradient colors={["#111620", "rgba(17,22,32,0)"]} start={{ x: 0, y: 0.5 }} end={{ x: 0.6, y: 0.5 }} style={StyleSheet.absoluteFill} />
         </View>
       ) : null}
-      {!slide.image ? <View style={styles.edge} /> : null}
       <View style={styles.content}>
         <View>
           <Row gap={6}>
@@ -131,7 +130,6 @@ export default function OutsideCarousel({ slides, height = 150, interval = 4500,
 
 const styles = StyleSheet.create({
   slide: { borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
-  edge: { ...StyleSheet.absoluteFill, borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.10)", borderRightWidth: 2, borderRightColor: "rgba(255,255,255,0.35)" },
   // A rendered object on the right of a plain card, like the flame on Today's challenge.
   art: { position: "absolute", right: 0, top: 0, bottom: 0 },
   content: { flex: 1, padding: S.lg, justifyContent: "space-between" },
