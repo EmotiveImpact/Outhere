@@ -7,7 +7,7 @@ import { FlatList, StyleSheet, Text, View, useWindowDimensions } from "react-nat
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { ArrowRight } from "@/components/ui/icons";
-import { Avatar, C, F, Kicker, LiveDot, PressableScale, R, Row, S } from "@/components/ui";
+import { Avatar, BlendImage, C, F, Kicker, LiveDot, PressableScale, R, Row, S } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -32,23 +32,16 @@ function Countdown({ to, label }) {
 function Slide({ slide, width, height }) {
   const Icon = slide.icon;
   return (
-    <PressableScale onPress={slide.onPress} scaleTo={0.98} style={[styles.slide, slide.art && styles.open, { width, height }]}>
+    <PressableScale onPress={slide.onPress} scaleTo={0.98} style={[styles.slide, { width, height }]}>
       {slide.image ? <Image source={imageSource(slide.image)} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
-      {slide.art ? null : (
-        <LinearGradient
-          colors={slide.image ? ["rgba(7,9,12,0.15)", "rgba(7,9,12,0.6)", "rgba(7,9,12,0.95)"] : ["#141a24", "#0b0e13"]}
-          locations={slide.image ? [0, 0.45, 1] : [0, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-      )}
+      <LinearGradient
+        colors={slide.image ? ["rgba(7,9,12,0.15)", "rgba(7,9,12,0.6)", "rgba(7,9,12,0.95)"] : ["#141a24", "#0b0e13"]}
+        locations={slide.image ? [0, 0.45, 1] : [0, 1]}
+        style={StyleSheet.absoluteFill}
+      />
       {slide.art ? (
-        // No card here: the picture melts into the page on every side (Edem, 2026-10-17).
-        <View pointerEvents="none" style={[styles.art, { width: height * 1.15 }]}>
-          <Image source={slide.art} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <LinearGradient colors={[C.bg, "rgba(7,9,12,0)"]} start={{ x: 0, y: 0.5 }} end={{ x: 0.7, y: 0.5 }} style={StyleSheet.absoluteFill} />
-          <LinearGradient colors={["rgba(7,9,12,0)", C.bg]} start={{ x: 0.75, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
-          <LinearGradient colors={[C.bg, "rgba(7,9,12,0)", "rgba(7,9,12,0)", C.bg]} locations={[0, 0.25, 0.7, 1]} style={StyleSheet.absoluteFill} />
-        </View>
+        // The picture's black drops out and its edges fade, so it melts into the card (Edem, 2026-10-17).
+        <BlendImage source={slide.art} width={height * 1.15} height={height} mask="wide" style={styles.art} />
       ) : null}
       <View style={styles.content}>
         <View>
@@ -135,7 +128,6 @@ export default function OutsideCarousel({ slides, height = 150, interval = 4500,
 
 const styles = StyleSheet.create({
   slide: { borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
-  open: { backgroundColor: C.bg },
   // A rendered object on the right of a plain card, like the flame on Today's challenge.
   art: { position: "absolute", right: 0, top: 0, bottom: 0 },
   content: { flex: 1, padding: S.lg, justifyContent: "space-between" },
