@@ -4,7 +4,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Bell, ChevronLeft, MoreHorizontal } from "lucide-react-native";
+import { Bell, ChevronLeft, MoreHorizontal } from "@/components/ui/icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, F, Hero, IconButton, LiveDot, PressableScale, Row, S } from "@/components/ui";
 import { useUnreadCount } from "@/data/hooks";

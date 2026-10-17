@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { ArrowRight, ChevronLeft, Lock, RotateCcw, ThumbsDown, ThumbsUp, Users } from "lucide-react-native";
+import { ArrowRight, ChevronLeft, Lock, RotateCcw, ThumbsDown, ThumbsUp, Users } from "@/components/ui/icons";
 import { Button, C, EmptyState, F, LiveDot, Row, S, Screen, Skeleton, Surface, TugBar, PhotoBackground, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";

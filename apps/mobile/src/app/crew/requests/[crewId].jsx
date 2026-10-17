@@ -4,7 +4,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Inbox } from "lucide-react-native";
+import { Inbox } from "@/components/ui/icons";
 import { Body, Button, C, Card, EmptyState, F, FadeIn, Header, Row, S, Screen, SkeletonList } from "@/components/ui";
 import { engine, useCrew, useEngineMutation, useJoinRequests } from "@/data/hooks";
 import { timeAgo } from "@/utils/format";

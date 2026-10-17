@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft } from "@/components/ui/icons";
 import { C, Cover, F, LiveDot, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
 import { dateLabel, timeLabel } from "@/utils/format";
 

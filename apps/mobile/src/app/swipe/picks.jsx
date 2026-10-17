@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Send } from "lucide-react-native";
+import { Check, Send } from "@/components/ui/icons";
 import { engine, useEngineMutation, usePicks, useProfile } from "@/data/hooks";
 import { Avatar, C, EmptyState, F, GlowButton, PressableScale, R, Row, S, Segment, Skeleton, Surface } from "@/components/ui";
 import { BottomBar, GlowHero, TopBar } from "@/components/arena/OutsideKit";

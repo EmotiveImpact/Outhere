@@ -10,7 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
-import { Bookmark, Share as ShareIcon, X } from "lucide-react-native";
+import { Bookmark, Share as ShareIcon, X } from "@/components/ui/icons";
 import { C, EmptyState, F, GlowButton, Logo, PressableScale, Row, S, Skeleton, toast } from "@/components/ui";
 import { Glow } from "@/components/account/parts";
 import { PHOTOS } from "@/constants/photos";

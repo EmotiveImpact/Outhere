@@ -4,7 +4,7 @@
 
 import React from "react";
 import { Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Check, ChevronRight, Footprints } from "lucide-react-native";
+import { Check, ChevronRight, Footprints } from "@/components/ui/icons";
 import { Button, C, F, PressableScale, Row, S } from "@/components/ui";
 import { formatKm, formatNumber } from "@/utils/format";
 import StepRing from "./StepRing";

@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { Check, X } from "lucide-react-native";
+import { Check, X } from "@/components/ui/icons";
 import { engine, useAccount, useEngineMutation } from "@/data/hooks";
 import { Avatar, Button, C, F, FadeIn, PressableScale, R, S, Sheet, Skeleton } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

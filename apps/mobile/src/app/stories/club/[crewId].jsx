@@ -7,7 +7,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Users, X } from "lucide-react-native";
+import { Check, Users, X } from "@/components/ui/icons";
 import { engine, showEngineError, useClubStories, useCrew, useEngineMutation } from "@/data/hooks";
 import { Button, PressableScale, Row, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

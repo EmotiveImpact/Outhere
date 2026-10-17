@@ -12,7 +12,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
-import { Ban, Crosshair, Layers, ShieldCheck, Swords, X, Zap } from "lucide-react-native";
+import { Ban, Crosshair, Layers, ShieldCheck, Swords, X, Zap } from "@/components/ui/icons";
 import { Chip, NoPhoto, RoundAction } from "@/components/arena/BattleKit";
 import { engine, useCityLeague, useEngineMutation, useMysterySettings, usePicks, usePlaySide, useProfile, useSwipeDeck } from "@/data/hooks";
 import { C, EmptyState, F, imageSource, R, Row, S, Segment, Skeleton } from "@/components/ui";

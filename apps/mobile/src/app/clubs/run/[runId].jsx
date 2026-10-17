@@ -7,7 +7,7 @@ import { Linking, Platform, Share, StyleSheet, Text, TextInput, View } from "rea
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, MapPin, Navigation, QrCode, Share2 } from "lucide-react-native";
+import { ChevronLeft, MapPin, Navigation, QrCode, Share2 } from "@/components/ui/icons";
 import { Body, Button, C, EmptyState, F, R, Row, S, Screen, Segment, Sheet, Skeleton, Surface, Title, useScreenTop } from "@/components/ui";
 import { engine, useClubRun, useEngineMutation } from "@/data/hooks";
 import { Chip, Faces, GlassRound, clock, kmLabel, whenLabel } from "@/components/clubs/parts";

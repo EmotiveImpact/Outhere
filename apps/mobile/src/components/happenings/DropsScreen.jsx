@@ -6,7 +6,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { Package } from "lucide-react-native";
+import { Package } from "@/components/ui/icons";
 import { useDropShop, useOrders, useProfile } from "@/data/hooks";
 import { useOutsideScrollPersistence } from "@/hooks/useOutsideScrollPersistence";
 import { C, EmptyState, F, FadeIn, imageSource, PressableScale, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";

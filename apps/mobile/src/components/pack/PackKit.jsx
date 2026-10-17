@@ -9,7 +9,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Lock, X } from "lucide-react-native";
+import { Check, Lock, X } from "@/components/ui/icons";
 import { C, F, PressableScale, TOP_GAP } from "@/components/ui";
 
 export const OUT = "#4f9bff";

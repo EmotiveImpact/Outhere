@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Lock, ShieldCheck } from "lucide-react-native";
+import { Lock, ShieldCheck } from "@/components/ui/icons";
 import { Body, C, Card, F, ProgressBar, Row, S } from "@/components/ui";
 import { useCountUp } from "./CrewHero";
 import { BadgeMedal, CrewLogo, memberCountLabel } from "./shared";

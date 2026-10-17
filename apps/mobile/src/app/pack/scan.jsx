@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Ellipse, Path } from "react-native-svg";
 import Animated, { Easing, cancelAnimation, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { ChevronLeft, ChevronRight, ScanFace } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ScanFace } from "@/components/ui/icons";
 import { engine } from "@/data/hooks";
 import { F, toast } from "@/components/ui";
 import { SCAN_ANGLES } from "@/constants/pack";

@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Trophy } from "lucide-react-native";
+import { Trophy } from "@/components/ui/icons";
 import { C, EmptyState, F, Header, Row, S, Screen, Segment, SkeletonList, Surface } from "@/components/ui";
 import { useClubLeague } from "@/data/hooks";
 import { Chip, ClubCrest, PillButton, whenLabel } from "@/components/clubs/parts";

@@ -8,7 +8,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, Lock } from "lucide-react-native";
+import { ChevronLeft, Lock } from "@/components/ui/icons";
 import { AnimatedBar, C, F, FINISH, Foil, GlowButton, Hero, IconTile, PressableScale, Row, S, Surface, TOP_GAP, splitShadow } from "@/components/ui";
 import { compactNumber } from "@/utils/format";
 import { badgeArt } from "@/constants/badges";

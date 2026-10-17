@@ -6,7 +6,7 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft } from "@/components/ui/icons";
 import { AnimatedNumber, Button, C, F, Meter, Row, S, Screen, Skeleton, Surface } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { useClubRun } from "@/data/hooks";

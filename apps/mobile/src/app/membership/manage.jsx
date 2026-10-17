@@ -5,7 +5,7 @@ import React from "react";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { Calendar, ChevronRight, Layers, Lock, RotateCcw } from "lucide-react-native";
+import { Calendar, ChevronRight, Layers, Lock, RotateCcw } from "@/components/ui/icons";
 import { engine, useEngineMutation, useMembershipDetails } from "@/data/hooks";
 import { Body, Button, C, Card, F, FadeIn, Meter, PressableScale, R, Row, S, Screen, Skeleton, toast } from "@/components/ui";
 import { Slab } from "@/components/profile/parts";

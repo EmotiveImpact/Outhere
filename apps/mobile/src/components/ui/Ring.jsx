@@ -12,12 +12,17 @@
 // slow ping), red once they have just stopped. Clubs get a rounded square
 // instead of a circle. The photo inside is shaded at the bottom and has a
 // faint edge, like .oh-ring::after in the prototype.
+//
+// With no photo, a member is their runner silhouette (pass `runner`: "man" or
+// "woman", from their "Your runner" choice), the same fallback the Fighter
+// Pack uses. Initials only show for things that have no runner, like a club.
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { PHOTOS } from "@/constants/photos";
 import { C, F } from "./tokens";
 
 // Gradients run top left to bottom right unless noted (the prototype's conic
@@ -108,7 +113,7 @@ export function Dot({ state, size = 10, edge = C.bg, style }) {
   );
 }
 
-export function Ring({ size = 44, tier: membership, dot, story, square = false, ringColour, source, name = "", style }) {
+export function Ring({ size = 44, tier: membership, dot, story, square = false, ringColour, source, runner, name = "", style }) {
   const [failed, setFailed] = useState(false);
   const storyMode = story === "unwatched" || story === "watched";
   const tier = storyMode ? null : membership;
@@ -121,6 +126,8 @@ export function Ring({ size = 44, tier: membership, dot, story, square = false, 
   const innerRadius = square ? inner * 0.26 : inner / 2;
   const dotSize = Math.max(9, Math.round(size * 0.25));
   const shade = size >= 30;
+  const own = source && !failed ? source : null;
+  const figure = !own && runner ? (runner === "woman" ? PHOTOS.silhouetteFemale : PHOTOS.silhouetteMale) : null;
 
   return (
     <View style={[{ width: size, height: size, borderRadius: radius }, spec?.glow ? { boxShadow: spec.glow } : null, style]}>
@@ -152,10 +159,12 @@ export function Ring({ size = 44, tier: membership, dot, story, square = false, 
           justifyContent: "center",
         }}
       >
-        <Text style={{ color: C.textDim, fontFamily: F.display, fontSize: inner * 0.4 }}>{initialsOf(name)}</Text>
-        {source && !failed ? (
-          <Image source={source} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setFailed(true)} />
-        ) : null}
+        {figure ? (
+          <Image source={figure} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ top: "18%", left: "50%" }} />
+        ) : (
+          <Text style={{ color: C.textDim, fontFamily: F.display, fontSize: inner * 0.4 }}>{initialsOf(name)}</Text>
+        )}
+        {own ? <Image source={own} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setFailed(true)} /> : null}
         {/* .oh-ring::after: a faint edge and a little shade at the bottom */}
         {shade ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: innerRadius, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 -8px 14px -8px rgba(0,0,0,0.6)" }]} /> : null}
       </View>

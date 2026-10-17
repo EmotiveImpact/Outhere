@@ -11,7 +11,7 @@ import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, FadeIn, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { MoreHorizontal, Search, X } from "lucide-react-native";
+import { MoreHorizontal, Search, X } from "@/components/ui/icons";
 import { C, F, GlowButton, PressableScale, Row, S, Sheet, VersusSplit, imageSource } from "@/components/ui";
 import { Chip, NoPhoto, SlantTag } from "./BattleKit";
 import { ME, RIVAL } from "./shared";

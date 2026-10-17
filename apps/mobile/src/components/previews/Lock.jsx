@@ -7,7 +7,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Camera, Check, Flashlight, Pause } from "lucide-react-native";
+import { Camera, Check, Flashlight, Pause } from "@/components/ui/icons";
 import { C, F, GlowButton, LiveDot, Logo } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { formatDuration, formatNumber, formatPace } from "@/utils/format";

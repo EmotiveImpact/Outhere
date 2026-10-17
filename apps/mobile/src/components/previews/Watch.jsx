@@ -12,7 +12,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
-import { Bell, Check, CornerUpLeft, CornerUpRight, Flame, Play, Swords, X, Zap } from "lucide-react-native";
+import { Bell, Check, CornerUpLeft, CornerUpRight, Flame, Play, Swords, X, Zap } from "@/components/ui/icons";
 import { C, F, LiveDot, Logo } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { hapticImpact, hapticSelection, hapticSuccess } from "@/services/haptics";

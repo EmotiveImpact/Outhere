@@ -5,7 +5,7 @@
 import React, { useEffect } from "react";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Check, Flag, Ghost, Lock, MapPin, Play, RotateCcw } from "lucide-react-native";
+import { Check, Flag, Ghost, Lock, MapPin, Play, RotateCcw } from "@/components/ui/icons";
 import { engine, useBattle, useEngineMutation } from "@/data/hooks";
 import { AnimatedBar, Body, Button, C, Card, Divider, EmptyState, F, FadeIn, Header, LiveDot, R, Row, S, Screen, Skeleton, Title } from "@/components/ui";
 import { statusPill } from "@/components/arena/BattleCard";

@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { BadgeCheck, Camera, Check, ChevronLeft, Clock, MapPin } from "lucide-react-native";
+import { BadgeCheck, Camera, Check, ChevronLeft, Clock, MapPin } from "@/components/ui/icons";
 import { Body, Button, C, F, FINISH, LIT, PressableScale, R, Row, S, Screen, Surface } from "@/components/ui";
 import { engine, useEngineMutation, useMyClaims } from "@/data/hooks";
 import { whenLabel } from "@/components/clubs/parts";

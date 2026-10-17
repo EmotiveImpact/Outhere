@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronsRight, Search, X } from "lucide-react-native";
+import { ChevronsRight, Search, X } from "@/components/ui/icons";
 import { BlendImage, C, EmptyState, F, FadeIn, PressableScale, R, Row, S, Segment, SkeletonList, Surface } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { engine, useEngineMutation, useFindClubs } from "@/data/hooks";

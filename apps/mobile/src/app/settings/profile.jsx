@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { CalendarDays, Camera, Check, MapPin, Minus, Plus } from "lucide-react-native";
+import { CalendarDays, Camera, Check, MapPin, Minus, Plus } from "@/components/ui/icons";
 import { engine, useAccount, useEngineMutation, useProfile } from "@/data/hooks";
 import { birthDateProblem } from "@/data/account";
 import { Avatar, Button, C, F, FadeIn, PressableScale, R, S, Screen, Skeleton, toast } from "@/components/ui";
@@ -73,7 +73,7 @@ function Photo({ profile }) {
   return (
     <PressableScale onPress={pick} scaleTo={0.96} style={{ alignSelf: "center", alignItems: "center" }} accessibilityLabel="Change photo">
       <View>
-        <Avatar uri={profile.avatar} name={profile.name || profile.username} tier={profile.tier} size={96} />
+        <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={profile.name || profile.username} tier={profile.tier} size={96} />
         <View style={styles.cam}>{save.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={15} color="#fff" />}</View>
       </View>
       <Text style={styles.change}>Change photo</Text>

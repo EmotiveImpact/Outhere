@@ -3,8 +3,8 @@
 
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Play, Share2, Square } from "lucide-react-native";
 import { PHOTOS } from "@/constants/photos";
+import ControlsDemo from "@/components/lush/ControlsDemo";
 import {
   Avatar,
   BlendImage,
@@ -12,7 +12,6 @@ import {
   C,
   F,
   GlowBackdrop,
-  GlowButton,
   Grain,
   Header,
   Kicker,
@@ -21,7 +20,6 @@ import {
   Row,
   S,
   Screen,
-  Segment,
   Spotlight,
   SpotlightNumber,
   Surface,
@@ -33,10 +31,11 @@ import {
 
 export default function KitLab() {
   const ready = useSkiaReady();
-  const [seg, setSeg] = useState("a");
   const [n, setN] = useState(3);
   return (
     <Screen header={<Header back title="Finish kit" subtitle={ready ? "Skia ready" : "Skia loading"} />}>
+      <ControlsDemo />
+
       <Kicker style={styles.k}>Slab, object, grain</Kicker>
       <View style={styles.slab}>
         <GlowBackdrop preset="slab" breathe />
@@ -73,21 +72,6 @@ export default function KitLab() {
           <Body>You</Body>
         </Row>
       </Surface>
-
-      <Kicker style={styles.k}>Buttons</Kicker>
-      <View style={{ gap: S.md }}>
-        <GlowButton title="Start outside" lead={Play} full onPress={() => {}} />
-        <Row>
-          <GlowButton title="Not now" variant="quiet" style={{ flex: 1 }} />
-          <GlowButton title="End" variant="stop" icon={Square} style={{ flex: 1 }} />
-        </Row>
-        <Row>
-          <GlowButton title="Share" variant="glass" icon={Share2} size="sm" />
-          <GlowButton title="Join" size="sm" />
-          <GlowButton title="Outline" variant="outline" size="sm" />
-        </Row>
-        <Segment options={[{ value: "a", label: "Week" }, { value: "b", label: "Month" }, { value: "c", label: "Season" }]} value={seg} onChange={setSeg} />
-      </View>
 
       <Kicker style={styles.k}>Meters</Kicker>
       <View style={{ gap: S.md }}>

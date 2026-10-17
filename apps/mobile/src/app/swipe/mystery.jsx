@@ -6,7 +6,7 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, ChevronsRight, Clock3, Crosshair, TrendingUp } from "lucide-react-native";
+import { Bell, ChevronsRight, Clock3, Crosshair, TrendingUp } from "@/components/ui/icons";
 import { engine, useEngineMutation, useMysterySettings, usePlaySide } from "@/data/hooks";
 import { C, F, GlowButton, PressableScale, R, Row, S, Skeleton, Surface } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

@@ -1,6 +1,7 @@
 // The floating tab bar (.oh-tabbar): frosted glass lit along its top edge,
 // floating 14px in from the sides. The active tab glows: a soft blue bloom
-// slides behind it on a spring, its icon turns light blue with a glow and its
+// glows in behind it while the old tab's fades out (no sliding, Edem
+// 2026-10-17), its icon turns light blue with a glow and its
 // label turns white. The others dim. No lines, pills or outlines.
 //
 //   <TabBar items={[{ key, label, icon, render }]} current="index" onSelect={(key) => ...} />
@@ -24,6 +25,20 @@ const ICON_GLOW = Platform.select({
   ios: { shadowColor: "#3d8bff", shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
   default: { filter: "drop-shadow(0 0 6px rgba(61,139,255,0.9)) drop-shadow(0 0 16px rgba(61,139,255,0.45))" },
 });
+
+/** One tab's bloom: glows in when its tab is chosen, fades out when another is. */
+function SlotLight({ on, left, width }) {
+  const glow = useSharedValue(on ? 1 : 0);
+  useEffect(() => {
+    glow.value = withTiming(on ? 1 : 0, { duration: on ? 380 : 260, easing: Easing.out(Easing.quad) });
+  }, [on, glow]);
+  const fade = useAnimatedStyle(() => ({ opacity: glow.value }));
+  return (
+    <Animated.View pointerEvents="none" style={[styles.light, { left, width }, fade]}>
+      <GlowBackdrop preset="tab" />
+    </Animated.View>
+  );
+}
 
 function Tab({ item, focused, onPress }) {
   const on = useSharedValue(focused ? 1 : 0);
@@ -65,12 +80,6 @@ export function TabBar({ items, current, onSelect, hidden = false, floating = tr
   const [size, onLayout] = useLayoutSize();
   const index = Math.max(0, items.findIndex((i) => i.key === current));
   const slot = size ? (size.width - 4) / items.length : 0;
-  const x = useSharedValue(index * slot);
-  useEffect(() => {
-    // .light slides with --ease-thumb over .65s
-    x.value = size ? withSpring(index * slot, EASE.thumb) : index * slot;
-  }, [index, slot, size, x]);
-  const light = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 
   const shown = useSharedValue(hidden ? 0 : 1);
   useEffect(() => {
@@ -84,11 +93,7 @@ export function TabBar({ items, current, onSelect, hidden = false, floating = tr
         <View style={styles.glass}>
           {Platform.OS === "android" ? null : <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />}
           <LinearGradient colors={Platform.OS === "android" ? ["rgba(28,32,40,0.97)", "rgba(14,17,22,0.98)"] : FINISH.tabBar} style={StyleSheet.absoluteFill} />
-          {slot ? (
-            <Animated.View pointerEvents="none" style={[styles.light, { width: slot }, light]}>
-              <GlowBackdrop preset="tab" />
-            </Animated.View>
-          ) : null}
+          {slot ? items.map((item, i) => <SlotLight key={item.key} on={i === index} left={2 + i * slot} width={slot} />) : null}
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: TAB_BAR.radius, boxShadow: EDGE.inset }]} />
         </View>
         {items.map((item) => (
@@ -103,7 +108,7 @@ const styles = StyleSheet.create({
   wrap: { position: "absolute", left: TAB_BAR.side, right: TAB_BAR.side },
   bar: { flexDirection: "row", height: TAB_BAR.height, borderRadius: TAB_BAR.radius, paddingHorizontal: 2 },
   glass: { ...StyleSheet.absoluteFill, borderRadius: TAB_BAR.radius, overflow: "hidden" },
-  light: { position: "absolute", top: 0, bottom: 0, left: 2 },
+  light: { position: "absolute", top: 0, bottom: 0 },
   item: { flex: 1, alignItems: "center", justifyContent: "center" },
   inner: { alignItems: "center", gap: 5 },
   icon: { height: 23, justifyContent: "center", alignItems: "center" },

@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Camera, ChevronLeft, ChevronsRight, DoorOpen, Inbox, Lock, MessageSquare, ShieldMinus, ShieldPlus, Trash2, Trophy, UserPlus, UserRound, UserX } from "lucide-react-native";
+import { Camera, ChevronLeft, ChevronsRight, DoorOpen, Inbox, Lock, MessageSquare, ShieldMinus, ShieldPlus, Trash2, Trophy, UserPlus, UserRound, UserX } from "@/components/ui/icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Body, Button, C, EmptyState, F, FINISH, GlowButton, Header, PressableScale, Row, S, Screen, Skeleton, Surface, TOP_GAP } from "@/components/ui";

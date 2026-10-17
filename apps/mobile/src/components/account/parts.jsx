@@ -10,10 +10,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
-import { ChevronLeft, ChevronsRight } from "lucide-react-native";
-import { BlendImage, C, F, FINISH, GlowBackdrop, Grain, LIT, PressableScale, R, S, TOP_GAP, splitShadow } from "@/components/ui";
+import { ChevronLeft, ChevronsRight } from "@/components/ui/icons";
+import { ActFill, BlendImage, C, F, FINISH, GlowBackdrop, Grain, LIT, PressableScale, R, S, TOP_GAP, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
 import { StackTabBar } from "@/components/AppTabBar";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 /**
  * Asks before something that can't be undone. Resolves true when the member
@@ -126,7 +127,7 @@ export function GlowHero({ kicker, kickerColor, top, bottom, height = 300, size 
           <BlendImage source={object} size={obj} float glow={Math.round(obj * 1.2)} {...objectProps} style={[{ position: "absolute", right: -30, top: objectTop != null ? insets.top + objectTop - 14 : insets.top + (height - obj) / 2 - 6 }, objectStyle]} />
         ) : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRound, { boxShadow: SLAB_EDGE.inset }]} />
+        <SlabFade />
         <View style={styles.heroText}>
           {kicker ? <Text style={[styles.kicker, kickerColor ? { color: kickerColor } : null]}>{kicker}</Text> : null}
           {top ? (
@@ -243,33 +244,8 @@ export function Row({ icon: Icon, title, hint, value, right, onPress, danger = f
   );
 }
 
-/** The blue pill toggle from the demo. */
-export function Toggle({ value, onChange, disabled = false, label }) {
-  const on = !!value;
-  return (
-    <Pressable
-      onPress={() => {
-        if (disabled) return;
-        hapticSelection();
-        onChange?.(!on);
-      }}
-      hitSlop={8}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: on, disabled }}
-      accessibilityLabel={label}
-      style={{ opacity: disabled ? 0.45 : 1 }}
-    >
-      <View style={[styles.track, on && styles.trackOn]}>
-        <MotiView animate={{ opacity: on ? 1 : 0 }} transition={{ type: "timing", duration: 200 }} style={[StyleSheet.absoluteFill, { borderRadius: 14, overflow: "hidden" }]}>
-          <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
-        </MotiView>
-        <MotiView animate={{ translateX: on ? 18 : 0 }} transition={{ type: "spring", damping: 16, stiffness: 240 }} style={styles.thumb}>
-          <LinearGradient colors={["#ffffff", "#dfe5ee"]} style={[StyleSheet.absoluteFill, { borderRadius: 11 }]} />
-        </MotiView>
-      </View>
-    </Pressable>
-  );
-}
+/** The switch: the kit's Toggle, so every switch in the app looks the same. */
+export { Toggle } from "@/components/ui";
 
 /** Small segmented control: km / miles, Hype / Calm / Off. */
 export function MiniSegment({ options, value, onChange, style }) {
@@ -290,7 +266,7 @@ export function MiniSegment({ options, value, onChange, style }) {
             accessibilityState={{ selected: active }}
             style={[styles.segItem, active && styles.segItemOn]}
           >
-            {active ? <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} /> : null}
+            {active ? <ActFill /> : null}
             <Text style={[styles.segText, active && { color: "#fff" }]}>{opt.label}</Text>
           </Pressable>
         );
@@ -343,12 +319,9 @@ const styles = StyleSheet.create({
   rowHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
   rowValue: { color: C.textDim, fontFamily: F.body, fontSize: 12 },
   // .switch: 46 by 28, the act gradient and a glow when on
-  track: { width: 46, height: 28, borderRadius: 14, padding: 3, backgroundColor: "#1d222b", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.5)" },
-  trackOn: { boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 0 16px -4px rgba(42,106,240,0.9)" },
-  thumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.3)" },
   seg: { flexDirection: "row", padding: 3, borderRadius: R.full, backgroundColor: "#0b0d11", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05)" },
   segItem: { minWidth: 46, height: 30, paddingHorizontal: 12, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
-  segItemOn: { overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 6px 16px -8px rgba(42,106,240,0.9)" },
+  segItemOn: { boxShadow: "0 1px 2px rgba(0,0,0,0.45), 0 6px 16px -8px rgba(42,106,240,0.9)" },
   segText: { color: C.textDim, fontFamily: F.bodySemi, fontSize: 13 },
   note: { flex: 1, color: C.textDim, fontFamily: F.body, fontSize: 12, lineHeight: 18 },
 });

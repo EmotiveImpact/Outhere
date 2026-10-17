@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Text, View } from "react-native";
-import { Flame, Lock, MapPin, Route, Star, Swords, Trophy, Users } from "lucide-react-native";
+import { Flame, Lock, MapPin, Route, Star, Swords, Trophy, Users } from "@/components/ui/icons";
 import { C, FadeIn, PressableScale, S, toast } from "@/components/ui";
 
 const ICONS = { star: Star, flame: Flame, swords: Swords, trophy: Trophy, "map-pin": MapPin, users: Users, route: Route };

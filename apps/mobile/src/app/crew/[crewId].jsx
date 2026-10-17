@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowRight, ChevronLeft, ChevronRight, DoorOpen, Share2, Users } from "lucide-react-native";
+import { ArrowRight, ChevronLeft, ChevronRight, DoorOpen, Share2, Users } from "@/components/ui/icons";
 import { AnimatedNumber, Body, Button, C, Card, EmptyState, F, FadeIn, Header, LiveDot, PhotoBackground, PressableScale, Row, S, Screen, SectionHeader, Skeleton, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";

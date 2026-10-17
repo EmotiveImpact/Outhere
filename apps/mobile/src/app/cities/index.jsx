@@ -7,7 +7,7 @@ import React from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronRight, Hexagon, Map as MapIcon, Scale, Zap } from "lucide-react-native";
+import { ChevronRight, Hexagon, Map as MapIcon, Scale, Zap } from "@/components/ui/icons";
 import { useCallUp, useCityLeague } from "@/data/hooks";
 import { C, EmptyState, F, IconTile, Meter, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { GlowHero, TopBar } from "@/components/arena/OutsideKit";

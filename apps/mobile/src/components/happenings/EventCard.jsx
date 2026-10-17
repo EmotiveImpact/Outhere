@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Lock } from "lucide-react-native";
+import { Lock } from "@/components/ui/icons";
 import { C, Cover, F, Pill, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
 import { formatNumber, timeLabel } from "@/utils/format";
 import { LivePill, whenLabel } from "./shared";

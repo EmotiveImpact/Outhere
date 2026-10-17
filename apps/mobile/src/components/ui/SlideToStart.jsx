@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { ArrowRight, ChevronRight } from "lucide-react-native";
+import { ArrowRight, ChevronRight } from "@/components/ui/icons";
 import { C, F } from "./tokens";
 import { haptic } from "@/services/haptics";
 

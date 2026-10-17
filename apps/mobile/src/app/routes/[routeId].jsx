@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { Alert, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bookmark, ChevronLeft, Ghost, Pencil, Play, Share2, Trash2 } from "lucide-react-native";
+import { Bookmark, ChevronLeft, Ghost, Pencil, Play, Share2, Trash2 } from "@/components/ui/icons";
 import { Avatar, C, EmptyState, F, FadeIn, GlowButton, PressableScale, S, Skeleton } from "@/components/ui";
 import { engine, useEngineMutation, useProfile, useRoute } from "@/data/hooks";
 import { formatDuration } from "@/utils/format";

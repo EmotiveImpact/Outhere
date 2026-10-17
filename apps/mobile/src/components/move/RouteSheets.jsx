@@ -6,7 +6,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Bookmark, Lock, MoreHorizontal, Navigation, Pencil, Trash2, Users } from "lucide-react-native";
+import { Bookmark, Lock, MoreHorizontal, Navigation, Pencil, Trash2, Users } from "@/components/ui/icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Avatar, C, EmptyState, F, GlowButton, PressableScale, R, S, Segment, Skeleton } from "@/components/ui";
 import { ROUTE_NAME_IDEAS } from "@/data/seedRuns";

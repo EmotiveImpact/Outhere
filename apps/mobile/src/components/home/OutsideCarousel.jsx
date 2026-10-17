@@ -1,13 +1,13 @@
 // Home's carousel, just above the tab bar. It slides on its own: who's out,
-// today's challenge (with Go), the next event, a challenge to chase and the
+// today's challenge (with Go and the flame), the next event, a challenge to chase and the
 // next drop (with a countdown and Remind me).
 
 import React, { useEffect, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowRight } from "lucide-react-native";
-import { Avatar, C, F, Kicker, LiveDot, PressableScale, R, Row, S } from "@/components/ui";
+import { ArrowRight } from "@/components/ui/icons";
+import { Avatar, BlendImage, C, F, Kicker, LiveDot, PressableScale, R, Row, S } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -39,7 +39,10 @@ function Slide({ slide, width, height }) {
         locations={slide.image ? [0, 0.45, 1] : [0, 1]}
         style={StyleSheet.absoluteFill}
       />
-      {!slide.image ? <View style={styles.edge} /> : null}
+      {slide.art ? (
+        // The picture's black drops out and its edges fade, so it melts into the card (Edem, 2026-10-17).
+        <BlendImage source={slide.art} width={height * 1.15} height={height} mask="wide" style={styles.art} />
+      ) : null}
       <View style={styles.content}>
         <View>
           <Row gap={6}>
@@ -125,7 +128,8 @@ export default function OutsideCarousel({ slides, height = 150, interval = 4500,
 
 const styles = StyleSheet.create({
   slide: { borderRadius: R.lg, overflow: "hidden", backgroundColor: C.surface },
-  edge: { ...StyleSheet.absoluteFill, borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.10)", borderRightWidth: 2, borderRightColor: "rgba(255,255,255,0.35)" },
+  // A rendered object on the right of a plain card, like the flame on Today's challenge.
+  art: { position: "absolute", right: 0, top: 0, bottom: 0 },
   content: { flex: 1, padding: S.lg, justifyContent: "space-between" },
   title: { color: C.text, fontFamily: F.display, fontSize: 28, lineHeight: 30, textTransform: "uppercase", marginTop: 8 },
   body: { color: C.textSoft, fontFamily: F.body, fontSize: 13, lineHeight: 18 },

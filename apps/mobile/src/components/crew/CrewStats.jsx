@@ -3,7 +3,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Flame } from "lucide-react-native";
+import { Flame } from "@/components/ui/icons";
 import { Body, C, F, Row, S, Skeleton, StatTile, Surface } from "@/components/ui";
 import { useCrewStats } from "@/data/hooks";
 import { compactNumber, formatNumber, formatPace } from "@/utils/format";

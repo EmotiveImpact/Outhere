@@ -6,7 +6,7 @@ import { Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
-import { CalendarPlus, Check, Navigation } from "lucide-react-native";
+import { CalendarPlus, Check, Navigation } from "@/components/ui/icons";
 import { useEvent, useTicket } from "@/data/hooks";
 import { C, EmptyState, F, imageSource, PhotoBackground, Row, S, Skeleton } from "@/components/ui";
 import { BottomBar, ButtonPair, TopBar } from "@/components/arena/OutsideKit";

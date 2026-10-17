@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Calendar, Share2, Swords, Users, X, Zap } from "lucide-react-native";
+import { Calendar, Share2, Swords, Users, X, Zap } from "@/components/ui/icons";
 import { Button, C, F, Row, S, Screen, Skeleton } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { useCrew } from "@/data/hooks";

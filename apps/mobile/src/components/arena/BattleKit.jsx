@@ -10,7 +10,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, Lock, X } from "lucide-react-native";
+import { ChevronLeft, Lock, X } from "@/components/ui/icons";
 import { BlendImage, C, F, FINISH, Foil, GlowBackdrop, LIT, PressableScale, R, Row, S, imageSource, splitShadow, useScreenTop, useSkiaReady } from "@/components/ui";
 
 import { GlassButton } from "@/components/arena/OutsideKit";

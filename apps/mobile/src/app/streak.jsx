@@ -5,7 +5,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Route } from "lucide-react-native";
+import { Route } from "@/components/ui/icons";
 import { engine, useEngineMutation, useStreakStatus } from "@/data/hooks";
 import { BlendImage, Body, C, F, FadeIn, GlowButton, Meter, Row, Screen, Skeleton, Surface } from "@/components/ui";
 import { HeroPage } from "@/components/account/parts";

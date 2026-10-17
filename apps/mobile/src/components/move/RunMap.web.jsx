@@ -14,7 +14,7 @@ import { DEFAULT_REGION, isCoord } from "./geo";
 import { GlowLine, LitDot, MapShade, MapTiles } from "./MapTexture";
 
 const M_PER_DEG = 111320;
-const MPP = { map: 2.6, pilot: 1.5, street: 0.62 }; // metres per pixel
+const MPP = { map: 3.4, pilot: 1.5, street: 0.62 }; // metres per pixel; map shows the people out near you
 const PAD = { top: 120, right: 50, bottom: 320, left: 50 };
 
 const boundsOf = (pts) => {

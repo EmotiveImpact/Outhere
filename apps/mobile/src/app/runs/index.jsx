@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, Footprints, Route as RouteIcon, ShieldCheck } from "lucide-react-native";
+import { ChevronLeft, Footprints, Route as RouteIcon, ShieldCheck } from "@/components/ui/icons";
 import { C, EmptyState, F, FadeIn, PressableScale, Segment, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";
 import { useRunHistory } from "@/data/hooks";
@@ -22,7 +22,7 @@ const PERIODS = [
   { value: "year", label: "Year" },
 ];
 
-const kmText = (km) => (km >= 100 ? Math.round(km) : km >= 10 ? km.toFixed(1) : km.toFixed(km % 1 ? 2 : 1).replace(/0$/, ""));
+const kmText = (km) => (km >= 100 ? Math.round(km) : km >= 10 ? km.toFixed(1) : km % 1 ? km.toFixed(2).replace(/0$/, "") : km.toFixed(1));
 
 function RunRow({ run, first, onPress }) {
   const sub = [whenLabel(run.startedAt, { time: first })];

@@ -9,13 +9,14 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, ChevronRight, Flame, MapPin, Share2, Swords, Trophy } from "lucide-react-native";
+import { Check, ChevronRight, Flame, MapPin, Share2, Swords, Trophy } from "@/components/ui/icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlendImage, C, F, FINISH, LIT, GlowBackdrop, GlowButton, Grain, IconTile, Lift, LiveDot, PressableScale, R, Row, S, Surface, TugBar, splitShadow, useScreenTop } from "@/components/ui";
 import { imageSource } from "@/components/ui/Cover";
 import { PHOTOS } from "@/constants/photos";
 import { useClubBattles, useMyFixture } from "@/data/hooks";
 import { clubScoreLabel } from "@/constants/clubModes";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 export const RED = C.danger;
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -343,7 +344,7 @@ export function ObjectSlab({ height = 318, object, objectSize = 236, objectTop =
         <GlowBackdrop preset="slab" />
         {object ? <BlendImage source={object} size={objectSize} float glow={objectSize * 1.15} style={[{ position: "absolute", top: insets.top + objectTop }, place]} /> : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderBottomLeftRadius: 34, borderBottomRightRadius: 34, boxShadow: SLAB_EDGE.inset }]} />
+        <SlabFade />
         <Row style={[styles.slabNav, { top: screenTop }]}>
           {left || <View />}
           {right || <View />}

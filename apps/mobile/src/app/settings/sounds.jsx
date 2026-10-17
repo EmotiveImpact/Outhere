@@ -6,7 +6,7 @@ import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import * as Speech from "expo-speech";
 import { MotiView } from "moti";
-import { Bell, CornerUpLeft, Flame, Hand, Play, Trophy, Zap } from "lucide-react-native";
+import { Bell, CornerUpLeft, Flame, Hand, Play, Trophy, Zap } from "@/components/ui/icons";
 import { useSettings, useUpdateSettings } from "@/data/hooks";
 import { C, FadeIn, R, S, Screen, Skeleton } from "@/components/ui";
 import { Group, MiniSegment, PlainHeadline, Row, Toggle, TopBar } from "@/components/account/parts";

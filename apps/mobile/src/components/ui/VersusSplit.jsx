@@ -24,6 +24,7 @@ import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { useLayoutSize } from "./layout";
 import { skiaParts, useSkiaReady } from "./skia";
 import { EASE, F } from "./tokens";
+import { SlabFade } from "./SlabFade";
 
 // Approved Fighter Pack mock: light edge tints, the colour mostly in the bars.
 const BLUE = "rgba(42,106,240,0.14)";
@@ -107,6 +108,8 @@ export function VersusSplit({ left = {}, right = {}, height = 300, split = 0.5, 
     <View onLayout={onLayout} style={[{ height, overflow: "hidden", backgroundColor: "#020308" }, style]}>
       {halves}
       {line}
+      {/* the bottom melts into the page, no hard edge (Edem, 2026-10-17) */}
+      <SlabFade share={0.32} />
       {vs && mid ? (
         <Animated.View pointerEvents="none" style={[styles.vs, { left: mid.x - 80, top: mid.y - vsSize * 0.6 }, pop]}>
           {/* text-shadow: 0 5px 0 #1f62ff under 0 0 26px #82b4ff */}

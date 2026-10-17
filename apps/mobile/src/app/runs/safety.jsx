@@ -7,7 +7,7 @@ import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, ChevronsRight, Clock, Link2, Navigation, Plus } from "lucide-react-native";
+import { ChevronLeft, ChevronsRight, Clock, Link2, Navigation, Plus } from "@/components/ui/icons";
 import { Avatar, C, F, FadeIn, GlowButton, PressableScale, Segment, Skeleton } from "@/components/ui";
 import { engine, useEngineMutation, useProfile, useRunHistory, useSafety } from "@/data/hooks";
 import { PHOTOS } from "@/constants/photos";

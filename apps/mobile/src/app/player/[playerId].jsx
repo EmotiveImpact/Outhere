@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { MessageSquare, MoreHorizontal, Share2, Swords, UserPlus } from "lucide-react-native";
+import { MessageSquare, MoreHorizontal, Share2, Swords, UserPlus } from "@/components/ui/icons";
 import { engine, useEngineMutation, usePlayerCard } from "@/data/hooks";
 import { AnimatedBar, Avatar, Button, C, EmptyState, F, FadeIn, GlowButton, Header, LiveDot, R, Row, S, Screen, Sheet, Skeleton, Surface, imageSource, toast } from "@/components/ui";
 import { StackTabBar } from "@/components/AppTabBar";
