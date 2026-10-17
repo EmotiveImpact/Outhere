@@ -53,7 +53,8 @@ const DRAW = {
   search: (c, w) => <><Circle cx="11" cy="11" r="6.5" /><Path d="m16 16 4 4" /></>,
   send: (c, w) => <><Path d="M4.5 12 20 4.5 15.5 20l-3-6.5zM12.5 13.5 20 4.5" /></>,
   share: (c, w) => <><Path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13" /></>,
-  swords: (c, w) => <><Path d="M4 4l9.5 9.5M4 4v3.5L13 16.5M4 4h3.5L16.5 13M20 4l-6 6M14 17l3 3M17 14l3 3M15.5 15.5l-2 2M18.5 18.5l2-2" /></>,
+  // Crossed swords with proper hilts: the prototype's single slanted sword didn't read as a 1v1 (Edem, 2026-10-17).
+  swords: (c, w) => <><Path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M14.5 6.5 18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2" /></>,
   tick: (c, w) => <><Path d="M5 12.5l4.5 4.5L19 7.5" /></>,
   torch: (c, w) => <><Path d="M8 3h8l-1 5H9zM9 8h6v12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z" /></>,
   trophy: (c, w) => <><Path d="M7.5 4h9v5a4.5 4.5 0 0 1-9 0zM7.5 6H4.5a3 3 0 0 0 3 4M16.5 6h3a3 3 0 0 1-3 4M12 13.5v3.5M8.5 20.5h7M9.5 20.5c0-2 1-3.5 2.5-3.5s2.5 1.5 2.5 3.5" /></>,
