@@ -126,10 +126,10 @@ const styles = StyleSheet.create({
   bar: { position: "absolute", left: 14, right: 14, zIndex: 20 },
   // Glass pill row: the active section sits in a blue pill that springs across.
   tabs: { flexDirection: "row", justifyContent: "space-between", borderRadius: R.full, padding: 4 },
-  glass: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  glass: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   tab: { height: 34, paddingHorizontal: 10, justifyContent: "center", alignItems: "center", flexGrow: 1, zIndex: 1 },
   tabText: { color: "#c9d0db", fontFamily: F.bodyMedium, fontSize: 12.5 },
   tabTextActive: { color: C.accentText, fontFamily: F.bodySemi },
   underline: { position: "absolute", top: 4, height: 34, borderRadius: R.full },
-  thumbBody: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  thumbBody: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
 });

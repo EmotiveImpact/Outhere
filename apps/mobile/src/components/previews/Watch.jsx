@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
   ckText: { fontFamily: F.bodySemi, fontSize: 14, color: "#fff" },
 
   holdCore: { position: "absolute", left: 12, top: 12, right: 12, bottom: 12, borderRadius: 999, alignItems: "center", justifyContent: "center", boxShadow: "0 10px 26px -4px rgba(255,77,85,0.85), inset 0 1px 0 rgba(255,255,255,0.3)" },
-  holdBloom: { ...StyleSheet.absoluteFillObject, boxShadow: "0 0 26px rgba(255,77,85,0.55), 0 0 50px rgba(255,77,85,0.25)" },
+  holdBloom: { ...StyleSheet.absoluteFill, boxShadow: "0 0 26px rgba(255,77,85,0.55), 0 0 50px rgba(255,77,85,0.25)" },
   endTitle: { fontFamily: F.bodySemi, fontSize: 15, color: "#fff" },
 
   doneKm: display(54, { lineHeight: 48, color: BLUE_BIG }),

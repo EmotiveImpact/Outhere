@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   title: { color: "#0b1a33", fontFamily: F.display, fontSize: 32, lineHeight: 34, textTransform: "uppercase", textAlign: "center", marginTop: 6 },
   when: { color: "#5b6576", fontFamily: F.body, fontSize: 11.5, textAlign: "center", marginTop: 4 },
   qrBox: { alignSelf: "center", marginTop: 16, marginBottom: 4, padding: 10, borderRadius: 18, backgroundColor: "#fff", boxShadow: "0 0 0 1px #e3e6ea" },
-  done: { ...StyleSheet.absoluteFillObject, borderRadius: 18, backgroundColor: "rgba(61,139,255,0.92)", alignItems: "center", justifyContent: "center", gap: 6 },
+  done: { ...StyleSheet.absoluteFill, borderRadius: 18, backgroundColor: "rgba(61,139,255,0.92)", alignItems: "center", justifyContent: "center", gap: 6 },
   doneText: { color: "#fff", fontFamily: F.bodySemi, fontSize: 15 },
   tear: { height: 30, justifyContent: "center", marginHorizontal: -20 },
   dash: { marginHorizontal: 0, borderTopWidth: 2, borderStyle: "dashed", borderColor: "#d5dae1" },

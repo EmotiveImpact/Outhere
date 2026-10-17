@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   hBlue: { color: C.accent, textShadowColor: "rgba(61,139,255,0.35)", textShadowRadius: 28, textShadowOffset: { width: 0, height: 0 } },
   // .r11plans .pl
   head: { flex: 1, alignItems: "center", gap: 5, paddingTop: 12, paddingBottom: 10, paddingHorizontal: 2 },
-  headOn: { ...StyleSheet.absoluteFillObject, borderRadius: 16, overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.08)" },
+  headOn: { ...StyleSheet.absoluteFill, borderRadius: 16, overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.08)" },
   headName: { color: C.text, fontFamily: F.bodySemi, fontSize: 13.5, marginTop: 1 },
   headPrice: { color: C.textDim, fontFamily: F.body, fontSize: 10.5, textAlign: "center", lineHeight: 13 },
   pop: { position: "absolute", top: -8, paddingHorizontal: 6, height: 17, borderRadius: 9, backgroundColor: "#2a6af0", justifyContent: "center", zIndex: 2 },

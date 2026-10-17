@@ -59,7 +59,7 @@ Bottom tabs:
 
 ## Tech Stack
 
-- React Native (Expo SDK 54)
+- React Native 0.88 (Expo SDK 58)
 - Expo Router
 - React Query
 - Zustand + AsyncStorage
@@ -97,13 +97,12 @@ npx tsc --noEmit    # type check
 
 ## Expo Dependency Notes
 
-The mobile app currently uses SDK 54 compatible versions and keeps a few pinned/overridden packages for compatibility with existing patches.
+The phone app is on Expo SDK 58 (React Native 0.88, React 19.3, New Architecture only). Upgrade with `npx expo install expo@^<sdk>` and then `npx expo install --fix` from `apps/mobile`.
 
-- `postinstall` runs:
-  - `patch-package`
-  - `scripts/cleanup-duplicate-native-deps.js`
-
-This ensures duplicate transitive native modules are cleaned up after install so `expo-doctor` remains healthy.
+- `pnpm-workspace.yaml` pins one React for the whole workspace, because React Native needs the exact version its SDK ships with.
+- Two small fixes to installed packages live in `apps/mobile/patches` and are applied by pnpm (`patchedDependencies`): the web pull-to-refresh and the toast position on web.
+- Jest runs on version 30, which `jest-expo` 58 is built on, so `expo.install.exclude` keeps Expo's checks from asking for Jest 29.
+- After a Skia upgrade, copy `node_modules/canvaskit-wasm/bin/full/canvaskit.wasm` into `apps/mobile/public/`, or Skia on the web fails to load.
 
 ## Environment
 
