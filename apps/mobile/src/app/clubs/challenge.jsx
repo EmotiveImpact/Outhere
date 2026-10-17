@@ -30,6 +30,7 @@ import {
   useMyCrews,
 } from "@/data/hooks";
 import { Chip, GlassRound, LitRound, ordinal, whenLabel } from "@/components/clubs/parts";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 const MODE_ART = {
   steps: { icon: Trophy, photo: PHOTOS.derby },
@@ -156,6 +157,7 @@ export default function ChallengeClub() {
                 kenBurns
               />
               <LinearGradient colors={["rgba(42,106,240,0.35)", "rgba(42,106,240,0)"]} locations={[0, 0.55]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+              <SlabFade />
               {picked === "mystery" ? <Text style={styles.heroQ}>?</Text> : null}
               <View style={styles.p2}>
                 <Text style={styles.tag}>{picked === "mystery" ? "Mystery" : "Away"}</Text>

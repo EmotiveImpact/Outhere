@@ -268,7 +268,7 @@ function OnlineHome({ profile, liveSteps }) {
               <PressableScale key={key} onPress={() => router.push(href)} scaleTo={0.95} style={[styles.quick, compact && { height: 84 }]}>
                 <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
                 <View style={styles.quickIcon}>
-                  <Icon size={18} color={C.accentHi} />
+                  <Icon size={24} color={C.accentHi} />
                 </View>
                 <Text style={styles.quickLabel}>{label}</Text>
                 <Text style={styles.quickHint}>{hint}</Text>
@@ -407,7 +407,8 @@ const styles = StyleSheet.create({
   seeWeek: { flexDirection: "row", alignItems: "center", gap: 2, paddingBottom: 6, marginLeft: S.sm },
   seeWeekText: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12 },
   quick: { flex: 1, height: 88, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", borderWidth: 1, borderColor: "rgba(61,139,255,0.3)", alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  // A bare icon, no tile behind it (Edem, 2026-10-17).
+  quickIcon: { height: 30, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   quickLabel: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   quickHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 1 },
   offName: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },

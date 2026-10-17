@@ -27,6 +27,7 @@ import { BATTLE_EMOTES, BATTLE_LINES, emoteLabel } from "@/data/seedOutside";
 import { PHOTOS } from "@/constants/photos";
 import { distanceLabel } from "@/constants/battleModes";
 import { formatNumber } from "@/utils/format";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 const BLUE = "#3d8bff";
 const BOOST_OUT = 20;
@@ -349,7 +350,7 @@ function Result({ battle }) {
             </View>
           )}
           <Grain amount={0.06} />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabEdge]} />
+          <SlabFade />
           <View style={styles.slabText}>
             <Text style={[styles.kick, !won && { color: C.textDim }]}>{kicker}</Text>
             <Text style={styles.resultTitle} numberOfLines={1} adjustsFontSizeToFit>
@@ -443,7 +444,6 @@ const styles = StyleSheet.create({
   resultTitle: { color: C.text, fontFamily: F.display, fontSize: 64, lineHeight: 66, textTransform: "uppercase", textAlign: "center", marginTop: 6 },
   strip: { flexDirection: "row", alignItems: "center", gap: S.sm },
   slab: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34, overflow: "hidden", justifyContent: "flex-end", backgroundColor: "#030407" },
-  slabEdge: { borderBottomLeftRadius: 34, borderBottomRightRadius: 34, boxShadow: "inset 0 -1px 0 rgba(130,180,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.05)" },
   slabText: { alignItems: "center", paddingHorizontal: S.gutter, paddingBottom: S.xl },
   stripScore: { color: C.text, fontFamily: F.display, fontSize: 24, lineHeight: 26 },
   offer: { flexDirection: "row", alignItems: "center", gap: S.md },
