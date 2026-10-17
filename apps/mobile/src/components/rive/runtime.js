@@ -19,3 +19,25 @@ if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
 
 export const riveNative = rive;
 export const riveAvailable = !!rive;
+
+/**
+ * Listens for the file's events (landed, slam, addPack, ...) and returns the
+ * function that stops listening, or null where the player has no events.
+ * The newer phone runtime, the default in @rive-app/react-native 0.5, throws
+ * "Events are not supported" from onEventListener; left uncaught that closed
+ * the app as soon as the logo came on screen. Callers stand in with timers.
+ */
+export function listenForEvents(view, onEvent) {
+  try {
+    view.onEventListener(onEvent);
+  } catch {
+    return null;
+  }
+  return () => {
+    try {
+      view.removeEventListeners();
+    } catch {
+      // The view has gone already.
+    }
+  };
+}

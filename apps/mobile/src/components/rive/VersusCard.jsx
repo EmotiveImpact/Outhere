@@ -12,7 +12,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { StyleSheet, View } from "react-native";
-import { riveNative as R } from "./runtime";
+import { listenForEvents, riveNative as R } from "./runtime";
 import { RIVE_FILES } from "./files";
 import { imageUrl } from "./images";
 
@@ -58,11 +58,12 @@ export default function VersusCard({ card, result, onCue, onReady, style }) {
     });
   }, [instance, youPhoto, themPhoto]);
 
+  // Where the player has no events the screens' own timers stand in for the cues.
   useEffect(() => {
     if (!riveViewRef) return undefined;
-    riveViewRef.onEventListener((event) => cue.current?.(event.name));
+    const stop = listenForEvents(riveViewRef, (event) => cue.current?.(event.name));
     ready.current?.();
-    return () => riveViewRef.removeEventListeners();
+    return stop ?? undefined;
   }, [riveViewRef]);
 
   // The result plays once: the shots load first so they're there under the flash.

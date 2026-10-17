@@ -7,8 +7,10 @@
 
 import React, { useEffect, useRef } from "react";
 import { View } from "react-native";
-import { riveNative as R } from "./runtime";
+import { listenForEvents, riveNative as R } from "./runtime";
 import { RIVE_FILES } from "./files";
+
+const LANDED_MS = 1100;
 
 export default function RiveLogo({ size = 150, artboard = size >= 96 ? "Logo" : "Small", onLanded, style }) {
   const { riveFile } = R.useRiveFile(RIVE_FILES.logo);
@@ -18,10 +20,13 @@ export default function RiveLogo({ size = 150, artboard = size >= 96 ? "Logo" : 
 
   useEffect(() => {
     if (!riveViewRef) return undefined;
-    riveViewRef.onEventListener((event) => {
+    const stop = listenForEvents(riveViewRef, (event) => {
       if (event.name === "landed") landed.current?.();
     });
-    return () => riveViewRef.removeEventListeners();
+    if (stop) return stop;
+    // No events on this player: the dot lands about 1.1 s into the intro.
+    const timer = setTimeout(() => landed.current?.(), LANDED_MS);
+    return () => clearTimeout(timer);
   }, [riveViewRef]);
 
   const spare = size * 0.1;
