@@ -6,7 +6,7 @@ import React, { useEffect } from "react";
 import { Text, View } from "react-native";
 import Animated, { FadeInUp, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Info, TriangleAlert } from "lucide-react-native";
+import { Check, Info, TriangleAlert } from "@/components/ui/icons";
 import { create } from "zustand";
 import { hapticError, hapticSuccess } from "@/services/haptics";
 

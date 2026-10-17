@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight } from "@/components/ui/icons";
 import { Body, C, F, PressableScale, S, Sheet } from "@/components/ui";
 
 /**

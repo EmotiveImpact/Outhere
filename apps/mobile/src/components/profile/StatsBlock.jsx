@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Text, View } from "react-native";
-import { Flame } from "lucide-react-native";
+import { Flame } from "@/components/ui/icons";
 import { compactNumber, formatKm } from "@/utils/format";
 import { AnimatedNumber, Body, C, Card, Divider, F, FadeIn, Row, S } from "@/components/ui";
 

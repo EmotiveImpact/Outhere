@@ -361,9 +361,10 @@ export const makeRuns = (h) => {
   // A seeded person out now, somewhere around you, moving round a loop of
   // their own so the map has life in it.
   const simPosition = (pid, here, now = Date.now()) => {
-    const dist = 250 + noise(`d:${pid}`) * 2300;
+    // Close enough that the people out near you fit on one screen of map.
+    const dist = 150 + noise(`d:${pid}`) * 650;
     const centre = destination(here, noise(`b:${pid}`) * 360, dist);
-    const loop = loopAround(centre, 2 + noise(`l:${pid}`) * 3, pid);
+    const loop = loopAround(centre, 1.2 + noise(`l:${pid}`) * 1.5, pid);
     const cum = cumulative(loop);
     const lap = cum[cum.length - 1];
     const speed = noise(`run:${pid}`) > 0.4 ? 2.9 : 1.4; // m/s
@@ -396,7 +397,7 @@ export const makeRuns = (h) => {
       const dots = [];
       for (let i = 0; i < 16; i += 1) {
         const key = `dot:${i}:${dayKey()}:${new Date().getHours()}`;
-        dots.push(destination(here, noise(`${key}b`) * 360, 150 + noise(`${key}d`) * 2600));
+        dots.push(destination(here, noise(`${key}b`) * 360, 120 + noise(`${key}d`) * 1100));
       }
       const total = cityOut(s);
       return {

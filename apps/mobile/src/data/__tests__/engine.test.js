@@ -34,6 +34,20 @@ test("steps award XP and build a streak", async () => {
   expect((await E.getStepHistory(7)).length).toBe(7);
 });
 
+test("the preview's lived-in day matches the prototype", async () => {
+  await onboard();
+  await E.devLivedIn();
+  const p = await E.getProfile();
+  expect(p.today.steps).toBe(8412);
+  expect(p.avatar).toBeTruthy();
+  expect(p.tier).toBe("pro");
+  expect(p.streak).toBeGreaterThanOrEqual(14);
+  expect((await E.listRunHistory({ period: "month" })).runs?.length ?? 0).toBeGreaterThanOrEqual(3);
+  // Running it again adds nothing twice.
+  await E.devLivedIn();
+  expect((await E.getProfile()).today.steps).toBe(8412);
+});
+
 test("leaderboards include me and seeded players", async () => {
   await onboard();
   for (const scope of ["city", "global", "friends"]) {

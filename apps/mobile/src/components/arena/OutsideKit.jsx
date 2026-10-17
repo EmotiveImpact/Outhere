@@ -4,13 +4,14 @@
 // design kit in components/ui (the finish kit: see components/ui/FINISH.md).
 
 import React from "react";
-import { Platform, StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, MoreHorizontal, Share2, X } from "lucide-react-native";
+import { ChevronLeft, MoreHorizontal, Share2, X } from "@/components/ui/icons";
 import { BlendImage, Button, C, F, FINISH, GlowBackdrop, Grain, Meter, PhotoBackground, PressableScale, R, Row, S, Surface, splitShadow } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 const pct = (v) => (typeof v === "string" ? parseFloat(v) / 100 : v);
 const rgba = (hex, a) => {
@@ -52,7 +53,7 @@ export function GlowHero({ photo, photoFocus, object, objectSize, objectStyle, k
         ) : null}
         {object ? <BlendImage source={object} size={size} float glow={260} style={[{ position: "absolute", right: -24, top: insets.top + 20 }, objectStyle]} /> : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.heroRadius, { boxShadow: SLAB_EDGE.inset }]} />
+        <SlabFade />
         <View style={[styles.heroText, { paddingTop: insets.top + 64 }, center && { alignItems: "center" }]}>
           {kicker ? <Text style={[styles.kicker, { color: kickerColour }, center && { textAlign: "center" }]}>{kicker}</Text> : null}
           {top != null ? (
@@ -186,24 +187,8 @@ export function Coin({ size = 18, style }) {
   );
 }
 
-/** On or off. */
-export function Toggle({ value, onChange, disabled, label }) {
-  return (
-    <Switch
-      value={!!value}
-      disabled={disabled}
-      onValueChange={(v) => {
-        hapticSelection();
-        onChange(v);
-      }}
-      accessibilityLabel={label}
-      trackColor={{ false: C.surfaceHigh, true: C.accent }}
-      thumbColor="#ffffff"
-      {...(Platform.OS === "web" ? { activeThumbColor: "#ffffff" } : null)}
-      ios_backgroundColor={C.surfaceHigh}
-    />
-  );
-}
+/** On or off: the kit's Toggle. */
+export { Toggle } from "@/components/ui";
 
 /** A bar filled to `value` (0 to 1): the kit's Meter, glowing, with light flowing along it. */
 export function Bar({ value = 0, colour = C.accent, track, height = 6, cap = false, style }) {

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
-import { Upload } from "lucide-react-native";
+import { Upload } from "@/components/ui/icons";
 import { useBadges, useProfile } from "@/data/hooks";
 import { Body, C, F, FadeIn, Foil, Meter, Row, S, Segment, Sheet, Skeleton, Surface } from "@/components/ui";
 import { HeroPage, RoundButton } from "@/components/account/parts";

@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { Pedometer } from "expo-sensors";
-import { Lock } from "lucide-react-native";
+import { Lock } from "@/components/ui/icons";
 import { useSettings, useUpdateSettings } from "@/data/hooks";
 import { LinearGradient } from "expo-linear-gradient";
 import { C, F, FadeIn, FINISH, R, Skeleton, Surface, toast } from "@/components/ui";

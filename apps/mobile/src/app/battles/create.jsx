@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Minus, Plus, Search, Swords } from "lucide-react-native";
+import { Check, Minus, Plus, Search, Swords } from "@/components/ui/icons";
 import { engine, useBattleLimits, useEngineMutation, usePlayer, useRivalRoster, useWallet } from "@/data/hooks";
 import { Avatar, Button, C, F, PressableScale, R, Row, S, Segment, Skeleton, Surface } from "@/components/ui";
 import { haptic } from "@/services/haptics";

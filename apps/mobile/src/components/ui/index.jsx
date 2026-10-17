@@ -20,23 +20,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "@/components/ui/icons";
 import { hapticSelection } from "@/services/haptics";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { PressableScale } from "./motion";
 import { Ring } from "./Ring";
 import { imageSource } from "./Cover";
-import { GlowButton } from "./GlowButton";
+import { ActFill, GLOW_BUTTONS, GlowButton } from "./GlowButton";
 import { Meter } from "./Meter";
 import { Surface } from "./Surface";
 import { useLayoutSize } from "./layout";
-import { C, EASE, F, FINISH, LIT, R, S, splitShadow } from "./tokens";
+import { C, EASE, F, R, S, splitShadow } from "./tokens";
 
 export { PressableScale, FadeIn, Skeleton, SkeletonList, AnimatedNumber, AnimatedBar, LiveDot } from "./motion";
 export { Cover, imageSource, accentFor } from "./Cover";
 export { Sheet } from "./Sheet";
 export { Ring, Dot } from "./Ring";
 export { Hero } from "./Hero";
+export { SlabFade } from "./SlabFade";
 export { Logo, Wordmark } from "./Logo";
 export { SlideToStart } from "./SlideToStart";
 export { toast, ToastHost, ModalToastHost } from "./Toast";
@@ -44,7 +45,8 @@ export { ErrorState, OfflineBanner, StillCounting, SyncList } from "./states";
 
 // The finish kit: see FINISH.md in this folder.
 export { Surface, SURFACE_TONES, IconTile } from "./Surface";
-export { GlowButton, GLOW_BUTTONS } from "./GlowButton";
+export { ActFill, GlowButton, GLOW_BUTTONS } from "./GlowButton";
+export { Toggle } from "./Toggle";
 export { Meter, METER_TONES, TugBar } from "./Meter";
 export { BlendImage } from "./BlendImage";
 export { GlowBackdrop } from "./GlowBackdrop";
@@ -178,10 +180,13 @@ export function Header({ title, subtitle, back = false, onBack, right, large = f
   );
 }
 
+/** A round icon button: the quiet button's lit body and edge. `active` turns it white. */
 export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, active = false, style }) => (
-  <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, active && { backgroundColor: C.text }, style]}>
-    {active ? null : <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} />}
-    {active ? null : <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.iconButtonEdge]} />}
+  <PressableScale onPress={onPress} hitSlop={8} accessibilityLabel={label} scaleTo={0.9} style={[styles.iconButton, active && styles.iconButtonOn, style]}>
+    {active || QUIET.edge ? <LinearGradient colors={active ? WHITE_EDGE : QUIET.edge} locations={[0, 0.42, 0.78, 1]} style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} /> : null}
+    <LinearGradient colors={active ? WHITE_BODY : QUIET.body} style={active || QUIET.edge ? styles.iconButtonBody : [StyleSheet.absoluteFill, { borderRadius: 21 }]} />
+    {active || !QUIET.gloss ? null : <LinearGradient colors={QUIET.gloss} locations={[0, 0.48, 0.62, 1]} style={styles.iconButtonBody} />}
+    {active || !QUIET.glint ? null : <LinearGradient colors={glint(QUIET.glint)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.iconGlint} />}
     {/* Wrapped so the icon paints above the lit body on the web too. */}
     <View>
       <Icon size={size} color={active ? C.bg : C.text} />
@@ -193,6 +198,12 @@ export const IconButton = ({ icon: Icon, onPress, badge, size = 20, label, activ
     ) : null}
   </PressableScale>
 );
+
+const QUIET = GLOW_BUTTONS.quiet;
+// the crisp line of light along a lit top edge, brightest in the middle
+const glint = (a) => ["rgba(255,255,255,0)", `rgba(255,255,255,${a})`, "rgba(255,255,255,0)"];
+const WHITE_BODY = ["#ffffff", "#dde3ec"];
+const WHITE_EDGE = ["rgba(255,255,255,1)", "rgba(255,255,255,0.8)", "rgba(200,208,220,0.8)", "rgba(170,180,195,1)"];
 
 export const Row = ({ children, gap = S.sm, style, ...rest }) => (
   <View style={[{ flexDirection: "row", alignItems: "center", gap }, style]} {...rest}>
@@ -257,12 +268,14 @@ export function Button({ title, onPress, variant = "primary", size = "md", icon,
   );
 }
 
-const SEG_TRACK = splitShadow(`${FINISH.litEdge}, 0 14px 28px -20px #000`);
-const SEG_THUMB = splitShadow("inset 0 1px 0 rgba(255,255,255,0.3), 0 8px 20px -8px rgba(42,106,240,0.95)");
+const SEG_TRACK = splitShadow("inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.055), 0 1px 0 rgba(255,255,255,0.04)");
+const SEG_WELL = ["#0b0d11", "#111419"];
+const SEG_THUMB = "0 1px 2px rgba(0,0,0,0.45), 0 8px 18px -8px rgba(42,106,240,0.9)";
 
 /**
- * Pill tabs (.seg, round ten): a lit track with a blue thumb that slides to the
- * chosen option on a spring. options: [{ value, label }] or strings.
+ * Pill tabs (.seg, round ten): a recessed track with a blue thumb, lit like
+ * the primary button, that slides to the chosen option on a spring.
+ * options: [{ value, label }] or strings.
  */
 export function Segment({ options, value, onChange, style }) {
   const opts = options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
@@ -276,14 +289,11 @@ export function Segment({ options, value, onChange, style }) {
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View style={[styles.segment, { boxShadow: SEG_TRACK.outer }, style]} onLayout={onLayout}>
-      <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
+      <LinearGradient colors={SEG_WELL} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} />
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: SEG_TRACK.inset }]} />
       {slot ? (
-        <Animated.View pointerEvents="none" style={[styles.segmentThumb, { width: slot, boxShadow: SEG_THUMB.outer }, thumb]}>
-          <View style={styles.segmentThumbBody}>
-            <LinearGradient colors={FINISH.act} locations={FINISH.actStops} style={StyleSheet.absoluteFill} />
-            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: SEG_THUMB.inset }]} />
-          </View>
+        <Animated.View pointerEvents="none" style={[styles.segmentThumb, { width: slot, boxShadow: SEG_THUMB }, thumb]}>
+          <ActFill />
         </Animated.View>
       ) : null}
       {opts.map((opt) => {
@@ -312,17 +322,17 @@ export function Segment({ options, value, onChange, style }) {
 /** Small rounded label. tone: accent | neutral | danger | warn | pro | black | fire */
 export function Pill({ label, tone = "neutral", icon: Icon, style }) {
   const tones = {
-    accent: [C.accentDim, C.accent],
-    neutral: [C.surfaceHigh, C.textDim],
-    danger: [C.dangerDim, C.danger],
-    warn: ["rgba(255,181,71,0.14)", C.warn],
-    pro: ["rgba(61,139,255,0.16)", C.accentHi],
-    black: ["rgba(154,163,174,0.16)", "#d9dee5"],
-    fire: ["rgba(255,122,61,0.15)", C.fire],
+    accent: [C.accentDim, C.accent, "rgba(61,139,255,0.3)"],
+    neutral: [C.surfaceHigh, C.textDim, "rgba(255,255,255,0.07)"],
+    danger: [C.dangerDim, C.danger, "rgba(255,77,85,0.3)"],
+    warn: ["rgba(255,181,71,0.14)", C.warn, "rgba(255,181,71,0.28)"],
+    pro: ["rgba(61,139,255,0.16)", C.accentHi, "rgba(130,180,255,0.32)"],
+    black: ["rgba(154,163,174,0.16)", "#d9dee5", "rgba(217,222,229,0.26)"],
+    fire: ["rgba(255,122,61,0.15)", C.fire, "rgba(255,122,61,0.3)"],
   };
-  const [bg, fg] = tones[tone] || tones.neutral;
+  const [bg, fg, ring] = tones[tone] || tones.neutral;
   return (
-    <View style={[styles.pill, { backgroundColor: bg }, style]}>
+    <View style={[styles.pill, { backgroundColor: bg, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px ${ring}` }, style]}>
       {Icon ? <Icon size={12} color={fg} /> : null}
       <Text style={[styles.pillText, { color: fg }]}>{label}</Text>
     </View>
@@ -340,8 +350,11 @@ export const TierBadge = ({ tier, style }) =>
  * stopped (`dot="stopped"`, red). In the stories row only, pass
  * `story="unwatched"` or `"watched"`: the ring then shows the story, not
  * membership. Clubs pass `square`. Old callers may still pass `outside`.
+ *
+ * Pass `runner` and `runnerFigure` (from a player or profile) and a member with
+ * no photo shows their runner silhouette instead of initials.
  */
-export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story, square = false, ring, style }) {
+export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside = false, story, square = false, ring, runner, runnerFigure, style }) {
   return (
     <Ring
       size={size}
@@ -351,6 +364,7 @@ export function Avatar({ uri, source, name = "", size = 44, tier, dot, outside =
       square={square}
       ringColour={ring}
       source={source ?? imageSource(uri)}
+      runner={runner === "either" ? runnerFigure || "man" : runner}
       name={name}
       style={style}
     />
@@ -439,13 +453,14 @@ const styles = StyleSheet.create({
   label: { color: C.textDim, fontSize: 11, fontFamily: F.bodySemi, letterSpacing: 1.4, textTransform: "uppercase" },
   header: { flexDirection: "row", alignItems: "center", gap: S.md, paddingHorizontal: S.gutter, paddingTop: S.sm, paddingBottom: S.md },
   headerRight: { flexDirection: "row", alignItems: "center", gap: S.sm },
-  iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", boxShadow: FINISH.shadowCard },
-  iconButtonEdge: { borderRadius: 21, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.05)" },
+  iconButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", boxShadow: QUIET.shadow },
+  iconButtonOn: { boxShadow: "0 1px 2px rgba(0,0,0,0.5), 0 10px 22px -12px rgba(255,255,255,0.35)" },
+  iconGlint: { position: "absolute", top: 0, left: 10, right: 10, height: 1 },
+  iconButtonBody: { position: "absolute", top: 1, left: 1, right: 1, bottom: 1, borderRadius: 20 },
   badgeDot: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   badgeDotText: { color: C.accentText, fontSize: 10, fontFamily: F.bodySemi },
   segment: { flexDirection: "row", borderRadius: R.full, padding: 4 },
   segmentThumb: { position: "absolute", top: 4, bottom: 4, left: 4, borderRadius: R.full },
-  segmentThumbBody: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   segmentItem: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   segmentText: { color: C.textSoft, fontSize: 13, fontFamily: F.bodyMedium },
   segmentTextActive: { color: C.accentText, fontFamily: F.bodySemi },

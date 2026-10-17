@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { BadgeCheck, ChevronsRight, Compass, Inbox, Lock, Plus, Search, Settings2, Share2, Trophy, UserPlus, Users } from "lucide-react-native";
+import { BadgeCheck, ChevronsRight, Compass, Inbox, Lock, Plus, Search, Settings2, Share2, Trophy, UserPlus, Users } from "@/components/ui/icons";
 import { PHOTOS } from "@/constants/photos";
 import { Body, C, EmptyState, F, Hero, IconButton, PhotoBackground, PressableScale, Row, S, Screen, Skeleton, TAB_BAR_SPACE } from "@/components/ui";
 import { useCrew, useCrewGoal, useCrewHeader, useCrewLimits, useCrewStats, useCrewUnread, useCrewsNear, useJoinRequests, useMyCrews, useUpgradePrompt } from "@/data/hooks";

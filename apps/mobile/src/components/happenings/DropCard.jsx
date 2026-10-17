@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Bell, BellRing, Check, Crown } from "lucide-react-native";
+import { Bell, BellRing, Check, Crown } from "@/components/ui/icons";
 import { C, Cover, F, Pill, PressableScale, ProgressBar, R, Row, S, Skeleton } from "@/components/ui";
 import { formatNumber } from "@/utils/format";
 import { LivePill, countdownText, priceLabel } from "./shared";

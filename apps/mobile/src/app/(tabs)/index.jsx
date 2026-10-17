@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import ConfettiCannon from "react-native-confetti-cannon";
-import { Bell, CheckCheck, ChevronsRight, Flame, Plus, Route, ShoppingBag, Swords } from "lucide-react-native";
+import { Bell, CheckCheck, ChevronsRight, Flame, Plus, Route, ShoppingBag, Swords } from "@/components/ui/icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   engine,
@@ -112,7 +112,28 @@ function OnlineHome({ profile, liveSteps }) {
     const drop = (dropsQ.data || []).find((d) => d.status !== "soldout");
     const friendsOut = (friendsQ.data || []).filter((f) => f.isOutside);
     const place = profile.city || "your city";
+    // Today's challenge leads, so Home opens on it as in the signed-off prototype.
+    const target = today?.target || goal;
+    const left = Math.max(0, target - steps);
+    const first = {
+      key: "today",
+      icon: Flame,
+      kicker: "Today's challenge",
+      title: `${formatNumber(target)} steps`,
+      art: PHOTOS.flame,
+      body: left > 0 ? `${formatNumber(left)} to go${profile.streak ? ` · keeps your ${profile.streak} day streak` : ""}` : "Done. Your streak is safe for today.",
+      onPress: () => router.push("/outside/challenges"),
+      action: {
+        label: left > 0 ? "Go" : "See all",
+        primary: true,
+        onPress: () => {
+          if (today && !today.joined && today.status === "open") join.mutate(today.id);
+          router.push(left > 0 ? "/(tabs)/move" : "/outside/challenges");
+        },
+      },
+    };
     const list = [
+      first,
       {
         key: "live",
         live: true,
@@ -150,25 +171,6 @@ function OnlineHome({ profile, liveSteps }) {
             : { label: "Shop", primary: true, onPress: () => router.push(`/drops/${drop.id}`) },
       });
     }
-    // Today's challenge goes last, as in the demo.
-    const target = today?.target || goal;
-    const left = Math.max(0, target - steps);
-    list.push({
-      key: "today",
-      icon: Flame,
-      kicker: "Today's challenge",
-      title: `${formatNumber(target)} steps`,
-      body: left > 0 ? `${formatNumber(left)} to go${profile.streak ? ` · keeps your ${profile.streak} day streak` : ""}` : "Done. Your streak is safe for today.",
-      onPress: () => router.push("/outside/challenges"),
-      action: {
-        label: left > 0 ? "Go" : "See all",
-        primary: true,
-        onPress: () => {
-          if (today && !today.joined && today.status === "open") join.mutate(today.id);
-          router.push(left > 0 ? "/(tabs)/move" : "/outside/challenges");
-        },
-      },
-    });
     return list;
   }, [profile, outsideQ.data, eventsQ.data, challengesQ.data, dropsQ.data, friendsQ.data, router, steps, goal, remind, join]);
 
@@ -207,7 +209,7 @@ function OnlineHome({ profile, liveSteps }) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.gutter, marginTop: compact ? S.md : S.lg, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: S.gutter, gap: 14 }}>
           <View style={styles.friend}>
             <PressableScale onPress={() => router.push(myStories?.length ? `/stories/${profile.id}` : "/stories/new")} accessibilityLabel={myStories?.length ? "Your story" : "Add a story"}>
-              <Avatar uri={profile.avatar} name={name} story={myStories?.length ? "watched" : undefined} size={56} />
+              <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={name} story={myStories?.length ? "watched" : undefined} size={56} />
             </PressableScale>
             <PressableScale onPress={() => router.push("/stories/new")} hitSlop={8} style={styles.add} accessibilityLabel="Add a story">
               <Plus size={12} color="#fff" strokeWidth={3} />
@@ -246,16 +248,17 @@ function OnlineHome({ profile, liveSteps }) {
               {done ? <Title size={36}>Goal smashed</Title> : <RollingNumber value={steps} suffix=" steps" upper size={36 * 1.12} lineHeight={36 * 1.08} letterSpacing={0.2} />}
               {done ? <RollingNumber value={steps} suffix=" and counting" upper size={36 * 1.12} lineHeight={36 * 1.08} letterSpacing={0.2} colour={C.accent} /> : <Title size={36} blue>and counting</Title>}
             </View>
+            {/* See week sits beside the headline so the ring card stays clean (Edem, 2026-10-17). */}
+            <PressableScale onPress={() => router.push("/week")} scaleTo={0.94} hitSlop={10} style={styles.seeWeek} accessibilityLabel="See your week">
+              <Text style={styles.seeWeekText}>See week</Text>
+              <ChevronsRight size={13} color={C.textDim} />
+            </PressableScale>
           </Row>
         </FadeIn>
 
         <FadeIn index={1} style={{ marginTop: S.md }}>
           <PressableScale onPress={() => router.push("/week")} scaleTo={0.985} accessibilityLabel="See your week">
             <GoalDial steps={steps} goal={goal} xp={profile.today?.xp || 0} out={profile.today?.out || 0} streak={profile.streak || 0} size={width < 370 || compact ? 96 : 112} />
-            <View style={styles.seeWeek} pointerEvents="none">
-              <Text style={styles.seeWeekText}>See week</Text>
-              <ChevronsRight size={13} color={C.textDim} />
-            </View>
           </PressableScale>
         </FadeIn>
 
@@ -265,7 +268,7 @@ function OnlineHome({ profile, liveSteps }) {
               <PressableScale key={key} onPress={() => router.push(href)} scaleTo={0.95} style={[styles.quick, compact && { height: 84 }]}>
                 <LinearGradient colors={LIT} style={[StyleSheet.absoluteFill, { borderRadius: R.lg }]} />
                 <View style={styles.quickIcon}>
-                  <Icon size={18} color={C.accentHi} />
+                  <Icon size={24} color={C.accentHi} />
                 </View>
                 <Text style={styles.quickLabel}>{label}</Text>
                 <Text style={styles.quickHint}>{hint}</Text>
@@ -322,7 +325,7 @@ function OfflineHome({ profile, liveSteps }) {
     <Screen tab padded={false} contentStyle={{ paddingHorizontal: 18, paddingTop: 8, gap: 14 }}>
       <OfflineBanner />
       <Row gap={12}>
-        <Avatar uri={profile.avatar} name={name} tier={profile.tier} size={44} />
+        <Avatar uri={profile.avatar} runner={profile?.runner} runnerFigure={profile?.runnerFigure} name={name} tier={profile.tier} size={44} />
         <View style={{ flex: 1 }}>
           <Text style={offStyles.hello}>{`${greet}, ${name}`}</Text>
           <Text style={offStyles.helloSmall} numberOfLines={1}>
@@ -401,10 +404,11 @@ const styles = StyleSheet.create({
   friendName: { color: C.textDim, fontFamily: F.body, fontSize: 12, marginTop: 6 },
   add: { position: "absolute", right: 1, top: 37, width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: C.bg },
   findFriends: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
-  seeWeek: { position: "absolute", right: S.lg, bottom: 10, flexDirection: "row", alignItems: "center", gap: 2 },
-  seeWeekText: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 11 },
+  seeWeek: { flexDirection: "row", alignItems: "center", gap: 2, paddingBottom: 6, marginLeft: S.sm },
+  seeWeekText: { color: C.textDim, fontFamily: F.bodyMedium, fontSize: 12 },
   quick: { flex: 1, height: 88, borderRadius: R.lg, alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.hairlineTop },
-  quickIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(61,139,255,0.14)", borderWidth: 1, borderColor: "rgba(61,139,255,0.3)", alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  // A bare icon, no tile behind it (Edem, 2026-10-17).
+  quickIcon: { height: 30, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   quickLabel: { color: C.text, fontFamily: F.bodySemi, fontSize: 14 },
   quickHint: { color: C.textDim, fontFamily: F.body, fontSize: 11, marginTop: 1 },
   offName: { color: C.text, fontFamily: F.bodySemi, fontSize: 17 },

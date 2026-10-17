@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight } from "@/components/ui/icons";
 import { Avatar, C, F, PressableScale, R, Row, S } from "@/components/ui";
 import { seededRandom } from "@/data/random";
 

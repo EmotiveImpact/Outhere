@@ -4,7 +4,7 @@
 import React from "react";
 import { Modal, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Check, Crown } from "lucide-react-native";
+import { Check, Crown } from "@/components/ui/icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TIER_PERKS } from "@/data/engine";
 import { useUpgradePrompt } from "@/data/hooks";

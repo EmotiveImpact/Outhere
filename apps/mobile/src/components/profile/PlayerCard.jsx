@@ -12,6 +12,7 @@ import { AnimatedNumber, Avatar, C, F, FadeIn, FINISH, PhotoBackground, Pressabl
 import { MemberLine } from "./parts";
 import { MakePackPill } from "@/components/pack/MakePackPill";
 import { hasPack } from "@/utils/fighter";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 // The prototype's own photo for the profile slab (.slab.photo, teal.jpg).
 export const PROFILE_PHOTO = require("../../../assets/images/oh/teal.jpg");
@@ -32,7 +33,7 @@ export function ProfileHero({ profile: p, clubName, right, onTryPro, onAvatar, m
         <View style={[styles.slab, { height: SLAB + insets.top }]}>
           {/* With a Fighter Pack, the slab is your pack background and the ring your pack portrait. */}
           <PhotoBackground source={bg ? imageSource(bg) : PROFILE_PHOTO} focus={{ x: 0.5, y: bg ? 0.75 : 0.22 }} fade="slab" to="2,5,12" kenBurns grain={0.06} />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.round, { boxShadow: EDGE.inset }]} />
+          <SlabFade />
           {mine && !hasPack(p) ? <MakePackPill style={{ position: "absolute", top: insets.top + TOP_GAP + 4, left: GUTTER }} /> : null}
           <Row style={{ position: "absolute", top: insets.top + TOP_GAP, right: GUTTER }}>{right}</Row>
         </View>

@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bookmark, ChevronLeft, ChevronRight, Route as RouteIcon, Share2, Trash2 } from "lucide-react-native";
+import { Bookmark, ChevronLeft, ChevronRight, Route as RouteIcon, Share2, Trash2 } from "@/components/ui/icons";
 import { C, EmptyState, F, FadeIn, PressableScale, S, Skeleton } from "@/components/ui";
 import { engine, useEngineMutation, useRunDetail } from "@/data/hooks";
 import { formatDuration, formatPace } from "@/utils/format";

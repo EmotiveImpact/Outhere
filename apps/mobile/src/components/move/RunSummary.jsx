@@ -7,7 +7,7 @@ import { Alert, Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions }
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Share2, X } from "lucide-react-native";
+import { Share2, X } from "@/components/ui/icons";
 import { C, CountUp, F, FadeIn, GlowButton, ModalToastHost, Title } from "@/components/ui";
 import { engine, useEngineMutation, useProfile } from "@/data/hooks";
 import { stepsFor } from "@/data/runMath";

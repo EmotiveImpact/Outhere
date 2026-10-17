@@ -9,12 +9,13 @@ import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from "react-native-svg";
-import { Footprints, TrendingUp, Zap } from "lucide-react-native";
+import { Footprints, TrendingUp, Zap } from "@/components/ui/icons";
 import { BlendImage, C, F, FINISH, GlowBackdrop, Grain, PressableScale, splitShadow } from "@/components/ui";
 import { Coin } from "@/components/profile/shared";
 import { formatNumber, formatPace } from "@/utils/format";
 import { hapticSelection } from "@/services/haptics";
 import { MapArt } from "./MapTexture";
+import { SlabFade } from "@/components/ui/SlabFade";
 
 const EDGE = splitShadow(FINISH.slabEdge);
 
@@ -61,7 +62,7 @@ export function Slab({ route, lines, face, object, objectSize = 200, objectStyle
         )}
         {object && !hasMap ? <BlendImage source={object} size={objectSize} mask={[0.5, 0.71]} style={[styles.object, { right: place.right, top: insets.top - 14 + place.top }]} /> : null}
         <Grain amount={0.06} />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.slabRound, { boxShadow: EDGE.inset }]} />
+        <SlabFade />
         <View style={[styles.slabTop, { top: insets.top + 8 }]} pointerEvents="box-none">
           <View>{left}</View>
           <View>{right}</View>

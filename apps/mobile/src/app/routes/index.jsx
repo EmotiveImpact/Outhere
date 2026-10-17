@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-n
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, Play, Plus, Route as RouteIcon } from "lucide-react-native";
+import { ChevronLeft, Play, Plus, Route as RouteIcon } from "@/components/ui/icons";
 import { BlurView } from "expo-blur";
 import { C, EmptyState, F, FadeIn, GlowButton, PressableScale, R, S, Segment, Skeleton } from "@/components/ui";
 import { useProfile, useRoutes } from "@/data/hooks";

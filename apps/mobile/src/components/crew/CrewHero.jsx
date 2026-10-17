@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { MapPin } from "lucide-react-native";
+import { MapPin } from "@/components/ui/icons";
 import { C, F, Meter, Row, S, Surface } from "@/components/ui";
 import { ClubCrest, VerifiedTick } from "@/components/clubs/parts";
 import { AvatarStack, ROLE_LABEL, nextBadge } from "./shared";

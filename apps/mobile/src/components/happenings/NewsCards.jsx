@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ArrowUpRight } from "lucide-react-native";
+import { ArrowUpRight } from "@/components/ui/icons";
 import { C, Cover, F, PressableScale, R, Row, S, Skeleton } from "@/components/ui";
 import { timeAgo } from "@/utils/format";
 

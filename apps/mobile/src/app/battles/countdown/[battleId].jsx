@@ -267,7 +267,7 @@ function SplitCountdown() {
 
       {/* .vname: you on the left at 300, them on the right at 556 */}
       <Animated.View entering={FadeInLeft.duration(600).delay(300)} style={[styles.name, { left: 18, top: y(300) }]}>
-        <Avatar uri={me?.fighter?.profile || me?.avatar} name={me?.name || "You"} size={46} tier={me?.tier} />
+        <Avatar uri={me?.fighter?.profile || me?.avatar} runner={me?.runner} runnerFigure={me?.runnerFigure} name={me?.name || "You"} size={46} tier={me?.tier} />
         <View>
           <Text style={styles.nameText}>{myName}</Text>
           <Text style={styles.line}>{lineFor(me)}</Text>

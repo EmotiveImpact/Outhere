@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import Svg, { Circle } from "react-native-svg";
-import { Dices, EyeOff, Hexagon, Layers, Shield, Swords, Trophy } from "lucide-react-native";
+import { Dices, EyeOff, Hexagon, Layers, Shield, Swords, Trophy } from "@/components/ui/icons";
 import { PHOTOS } from "@/constants/photos";
 import { useArenaNow, useBattles, useCallUp, useChallenges, useLeaderboard, usePicks, usePlaySide } from "@/data/hooks";
 import { Avatar, Body, C, EmptyState, F, IconTile, PressableScale, R, Row, S, Segment, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
@@ -90,7 +90,7 @@ function LiveScoreboard({ battle, now }) {
     <Surface onPress={() => router.push(`/battles/${battle.id}`)} pressScale={0.98} radius={20} padding={null} contentStyle={styles.board}>
       <Row style={{ justifyContent: "space-between" }}>
         <Row gap={10}>
-          <Avatar uri={battle.me.player?.avatar} name={battle.me.player?.name} tier={battle.me.player?.tier} size={44} />
+          <Avatar uri={battle.me.player?.avatar} runner={battle?.me?.player?.runner} runnerFigure={battle?.me?.player?.runnerFigure} name={battle.me.player?.name} tier={battle.me.player?.tier} size={44} />
           <View>
             <Text style={styles.boardNum}>{formatScore(battle.metric, mine)}</Text>
             <Text style={styles.boardWho}>You</Text>

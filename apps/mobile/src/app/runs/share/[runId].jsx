@@ -10,7 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Bookmark, Camera, ImagePlus, Link2, MessageCircle, X } from "lucide-react-native";
+import { Bookmark, Camera, ImagePlus, Link2, MessageCircle, X } from "@/components/ui/icons";
 import { C, EmptyState, F, PressableScale, S, Skeleton, TOP_GAP, Wordmark, toast } from "@/components/ui";
 import { engine, useEngineMutation, useMyCrews, useProfile, useRunDetail } from "@/data/hooks";
 import { formatNumber, formatPace } from "@/utils/format";

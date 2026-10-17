@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Lock } from "lucide-react-native";
+import { Lock } from "@/components/ui/icons";
 import { C, F, GlowButton, PressableScale, Row, Sheet } from "@/components/ui";
 import { Toggle } from "@/components/account/parts";
 import { engine, useEngineMutation } from "@/data/hooks";

@@ -3,7 +3,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { UserX } from "lucide-react-native";
+import { UserX } from "@/components/ui/icons";
 import { engine, useBlocked, useEngineMutation } from "@/data/hooks";
 import { Avatar, C, EmptyState, F, PressableScale, R, S, Screen, SkeletonList } from "@/components/ui";
 import { Group, Note, TopBar } from "@/components/account/parts";

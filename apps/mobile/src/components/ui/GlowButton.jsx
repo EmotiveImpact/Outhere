@@ -29,22 +29,138 @@ import Animated, {
 } from "react-native-reanimated";
 import { play as playHaptic } from "@/services/haptics";
 import { useLayoutSize } from "./layout";
-import { C, EASE, F, FINISH, LIT, R, splitShadow } from "./tokens";
+import { C, EASE, F, R, splitShadow } from "./tokens";
 
-const EDGE = ["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)", "rgba(255,255,255,0.03)", "rgba(255,255,255,0.05)"];
+// The bevelled look (round of 2026-10-16), kept so it can be shown beside
+// the others. Every button is built the same way: a 1px edge that is bright along the
+// top and darker at the bottom, the body inside it, a soft gloss over the
+// upper half, the sheen, a crisp white glint across the top edge where the
+// light catches it, and the label. Underneath sits a tight coloured glow
+// and a small dark shadow that grounds it.
+const EDGE_STOPS = [0, 0.42, 0.78, 1];
+const GLOSS = ["rgba(255,255,255,0.17)", "rgba(255,255,255,0.05)", "rgba(255,255,255,0)", "rgba(0,0,0,0.12)"];
+const GLOSS_SOFT = ["rgba(255,255,255,0.05)", "rgba(255,255,255,0.015)", "rgba(255,255,255,0)", "rgba(0,0,0,0.1)"];
+const GLOSS_STOPS = [0, 0.48, 0.62, 1];
 
-export const GLOW_BUTTONS = {
-  primary: { body: FINISH.act, stops: FINISH.actStops, shadow: FINISH.actShadow, fg: "#ffffff", sheen: 0.3 },
-  stop: { body: FINISH.stop, stops: FINISH.actStops, shadow: FINISH.stopShadow, fg: "#ffffff", sheen: 0.3 },
-  quiet: { body: LIT, edge: EDGE, shadow: FINISH.shadowCard, fg: C.text, sheen: 0.08, lead: "quiet" },
-  glass: { body: ["rgba(255,255,255,0.11)", "rgba(255,255,255,0.09)"], shadow: FINISH.glassEdge, fg: "#ffffff", sheen: 0.2 },
+const BEVEL = {
+  primary: {
+    body: ["#5592ff", "#2f6ff3", "#2156d6"],
+    stops: [0, 0.55, 1],
+    edge: ["rgba(200,222,255,0.9)", "rgba(120,170,255,0.5)", "rgba(42,106,240,0.6)", "rgba(22,64,175,0.95)"],
+    gloss: GLOSS,
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 1px 2px rgba(0,0,0,0.5), 0 6px 14px -6px rgba(42,106,240,0.8), 0 16px 30px -18px rgba(42,106,240,0.45)",
+    fg: "#ffffff",
+    glint: 0.95,
+    sheen: 0.34,
+  },
+  stop: {
+    body: ["#f2545d", "#d92f39", "#b21f29"],
+    stops: [0, 0.55, 1],
+    edge: ["rgba(255,208,211,0.85)", "rgba(255,130,136,0.5)", "rgba(212,42,51,0.6)", "rgba(128,14,22,0.95)"],
+    gloss: GLOSS,
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 2px rgba(0,0,0,0.5), 0 6px 14px -6px rgba(212,42,51,0.75), 0 16px 30px -18px rgba(212,42,51,0.4)",
+    fg: "#ffffff",
+    glint: 0.9,
+    sheen: 0.3,
+  },
+  quiet: {
+    body: ["#1f242c", "#15181e"],
+    edge: ["rgba(255,255,255,0.17)", "rgba(255,255,255,0.05)", "rgba(255,255,255,0.035)", "rgba(255,255,255,0.07)"],
+    gloss: GLOSS_SOFT,
+    shadow: "0 0 0 1px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.5), 0 18px 32px -20px rgba(0,0,0,0.95)",
+    fg: C.text,
+    glint: 0.32,
+    sheen: 0.09,
+    lead: "quiet",
+  },
+  // frosted, over photos (see-through, so its edge is an inset line)
+  glass: {
+    body: ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.07)"],
+    gloss: GLOSS_SOFT,
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.34), inset 0 0 0 1px rgba(255,255,255,0.13), 0 12px 28px -14px rgba(0,0,0,0.7)",
+    fg: "#ffffff",
+    glint: 0.6,
+    sheen: 0.2,
+  },
   // a quiet blue: .oh-chip.blue as a button
-  outline: { body: ["rgba(61,139,255,0.2)", "rgba(61,139,255,0.1)"], shadow: "inset 0 1px 0 rgba(130,180,255,0.35), inset 0 0 0 1px rgba(61,139,255,0.3)", fg: C.accentHi, sheen: 0.1 },
+  outline: {
+    body: ["#16284d", "#0e1729"],
+    edge: ["rgba(140,188,255,0.75)", "rgba(61,139,255,0.34)", "rgba(61,139,255,0.2)", "rgba(61,139,255,0.34)"],
+    gloss: GLOSS_SOFT,
+    shadow: "0 0 0 1px rgba(0,0,0,0.5), 0 12px 26px -16px rgba(42,106,240,0.6)",
+    fg: C.accentHi,
+    glint: 0.6,
+    sheen: 0.12,
+  },
   ghost: { body: null, shadow: null, fg: C.text, sheen: 0 },
 };
+
+// The in-between (Edem, 2026-10-17, from flat / in-between / bevelled side
+// by side): the body keeps its soft top-to-bottom shade, one thin line of
+// light along the top and a small glow, with no edge ring, gloss band or
+// glint. Closest to the prototype's Run it up and Go buttons.
+const SOFT = {
+  primary: {
+    body: ["#4c88fb", "#2a63e6"],
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 2px rgba(0,0,0,0.4), 0 8px 18px -10px rgba(42,106,240,0.75)",
+    fg: "#ffffff",
+    sheen: 0.22,
+  },
+  stop: {
+    body: ["#f0605f", "#d63c43"],
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 2px rgba(0,0,0,0.4), 0 8px 18px -10px rgba(212,42,51,0.7)",
+    fg: "#ffffff",
+    sheen: 0.18,
+  },
+  quiet: {
+    body: ["#20252d", "#171a20"],
+    shadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,0,0,0.5), 0 14px 26px -18px rgba(0,0,0,0.9)",
+    fg: C.text,
+    sheen: 0.06,
+    lead: "quiet",
+  },
+  glass: BEVEL.glass,
+  outline: {
+    body: ["#16284d", "#0e1729"],
+    shadow: "inset 0 0 0 1px rgba(61,139,255,0.34), inset 0 1px 0 rgba(140,188,255,0.3), 0 10px 22px -16px rgba(42,106,240,0.6)",
+    fg: C.accentHi,
+    sheen: 0.08,
+  },
+  ghost: BEVEL.ghost,
+};
+
+// One solid colour, no light.
+const FLAT = {
+  primary: { body: ["#2a6af0", "#2a6af0"], shadow: null, fg: "#ffffff", sheen: 0 },
+  stop: { body: ["#e5484d", "#e5484d"], shadow: null, fg: "#ffffff", sheen: 0 },
+  quiet: { body: ["#1a1e25", "#1a1e25"], shadow: null, fg: C.text, sheen: 0, lead: "quiet" },
+  glass: BEVEL.glass,
+  outline: { body: ["#12213f", "#12213f"], shadow: "inset 0 0 0 1px rgba(61,139,255,0.34)", fg: C.accentHi, sheen: 0 },
+  ghost: BEVEL.ghost,
+};
+
 // Older names: secondary is the quiet lit button, danger the stop.
-GLOW_BUTTONS.secondary = GLOW_BUTTONS.quiet;
-GLOW_BUTTONS.danger = GLOW_BUTTONS.stop;
+for (const set of [BEVEL, SOFT, FLAT]) {
+  set.secondary = set.quiet;
+  set.danger = set.stop;
+}
+
+/** Every look, for side-by-side comparison (the Buttons tab in /lush). */
+export const BUTTON_LOOKS = { flat: FLAT, soft: SOFT, bevel: BEVEL };
+// The look the whole app uses.
+export const BUTTON_LOOK = "soft";
+export const GLOW_BUTTONS = BUTTON_LOOKS[BUTTON_LOOK];
+
+// A switched off blue or red button goes grey and flat, so it reads as
+// waiting rather than as a faded version of itself.
+const DISABLED = {
+  body: ["#171a20", "#121419"],
+  edge: ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)", "rgba(255,255,255,0.02)", "rgba(255,255,255,0.04)"],
+  shadow: "0 0 0 1px rgba(0,0,0,0.5)",
+  fg: C.textMute,
+  sheen: 0,
+};
+const COLOURED = new Set(["primary", "stop", "danger"]);
 
 // The variants that act (or stop) get a light tap; the quiet ones a selection tick.
 const TAPS = new Set(["primary", "stop", "danger", "glass"]);
@@ -56,6 +172,9 @@ const SIZES = {
 };
 
 const GLIDE = Easing.bezier(...EASE.glide);
+
+// The little lit bubble behind a lead icon on the coloured buttons.
+const LEAD = ["rgba(255,255,255,0.34)", "rgba(255,255,255,0.12)"];
 
 /** The band of light, swept from off the left edge to off the right. */
 function Sheen({ width, strength, loop, trigger }) {
@@ -76,10 +195,10 @@ function Sheen({ width, strength, loop, trigger }) {
   if (!width || !strength) return null;
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, move]}>
-      {/* linear-gradient(105deg, transparent 30%, .3 48%, .08 54%, transparent 68%) */}
+      {/* .oh-btn::after, a touch narrower so the band reads crisp */}
       <LinearGradient
-        colors={["rgba(255,255,255,0)", `rgba(255,255,255,${strength})`, `rgba(255,255,255,${strength * 0.27})`, "rgba(255,255,255,0)"]}
-        locations={[0.3, 0.48, 0.54, 0.68]}
+        colors={["rgba(255,255,255,0)", `rgba(255,255,255,${strength})`, `rgba(255,255,255,${strength * 0.25})`, "rgba(255,255,255,0)"]}
+        locations={[0.34, 0.47, 0.53, 0.64]}
         start={{ x: 0, y: 0.37 }}
         end={{ x: 1, y: 0.63 }}
         style={StyleSheet.absoluteFill}
@@ -96,6 +215,8 @@ function Sheen({ width, strength, loop, trigger }) {
  * only button as wide as it is tall (.oh-btn.icon). haptic: true (default)
  * plays the tap moment on primary, stop and glass and a selection tick on
  * the rest; false for none; or the name of a moment ("commit", "go").
+ * look: flat | soft | bevel, to show one look beside another; the app uses
+ * BUTTON_LOOK.
  */
 export function GlowButton({
   title,
@@ -110,14 +231,17 @@ export function GlowButton({
   full = false,
   square = false,
   shine,
+  look,
   haptic = true,
   accessibilityLabel,
   textStyle,
   style,
 }) {
-  const v = GLOW_BUTTONS[variant] || GLOW_BUTTONS.primary;
-  const s = SIZES[size] || SIZES.md;
   const off = disabled || loading;
+  const greyed = disabled && !loading && COLOURED.has(variant);
+  const set = BUTTON_LOOKS[look] || GLOW_BUTTONS;
+  const v = greyed ? DISABLED : set[variant] || set.primary;
+  const s = SIZES[size] || SIZES.md;
   const [box, onLayout] = useLayoutSize();
   const scale = useSharedValue(1);
   const lift = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -136,7 +260,11 @@ export function GlowButton({
     <>
       {Lead ? (
         <View style={[styles.lead, v.lead === "quiet" ? styles.leadQuiet : null, { marginLeft: -pad / 2 }]}>
-          <Lead size={15} strokeWidth={2.2} color={v.lead === "quiet" ? C.accentHi : v.fg} />
+          {v.lead === "quiet" ? null : <LinearGradient colors={LEAD} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />}
+          {v.lead === "quiet" ? null : <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.leadEdge]} />}
+          <View>
+            <Lead size={15} strokeWidth={2.2} color={v.lead === "quiet" ? C.accentHi : v.fg} />
+          </View>
         </View>
       ) : null}
       {Icon ? (
@@ -179,14 +307,24 @@ export function GlowButton({
       style={[full ? { alignSelf: "stretch" } : null, outer]}
     >
       {({ pressed }) => (
-        <Animated.View style={[{ height: h, borderRadius: R.full }, shadow.outer && !off ? { boxShadow: shadow.outer } : null, off && { opacity: 0.45 }, lift]}>
-          {v.edge ? <LinearGradient colors={v.edge} locations={[0, 0.42, 0.78, 1]} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} /> : null}
+        <Animated.View style={[{ height: h, borderRadius: R.full }, shadow.outer ? { boxShadow: shadow.outer } : null, disabled && !greyed && { opacity: 0.45 }, lift]}>
+          {v.edge ? <LinearGradient colors={v.edge} locations={EDGE_STOPS} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} /> : null}
           <View style={[styles.body, v.edge ? styles.inEdge : null]}>
             {backgroundColor ? <View style={[StyleSheet.absoluteFill, { backgroundColor }]} /> : v.body ? <LinearGradient colors={v.body} locations={v.stops} style={StyleSheet.absoluteFill} /> : null}
+            {v.gloss ? <LinearGradient colors={v.gloss} locations={GLOSS_STOPS} style={StyleSheet.absoluteFill} /> : null}
             {pressed ? <View style={[StyleSheet.absoluteFill, styles.bright]} /> : null}
             <Sheen width={box?.width} strength={v.sheen} loop={loop} trigger={presses} />
             {shadow.inset ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: R.full, boxShadow: shadow.inset }]} /> : null}
           </View>
+          {v.glint ? (
+            <LinearGradient
+              pointerEvents="none"
+              colors={["rgba(255,255,255,0)", `rgba(255,255,255,${v.glint})`, "rgba(255,255,255,0)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.glint, { left: h * 0.4, right: h * 0.4 }]}
+            />
+          ) : null}
           <View style={[styles.row, { gap: s.gap, paddingHorizontal: pad }, square && { width: h }]}>{label}</View>
         </Animated.View>
       )}
@@ -194,11 +332,34 @@ export function GlowButton({
   );
 }
 
+/**
+ * The primary button's lit blue as a fill that lays over its parent: for a
+ * chosen tab or a sliding thumb, so they match the buttons exactly.
+ */
+export function ActFill() {
+  const v = GLOW_BUTTONS.primary;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {v.edge ? <LinearGradient colors={v.edge} locations={EDGE_STOPS} style={[StyleSheet.absoluteFill, { borderRadius: R.full }]} /> : null}
+      <View style={[styles.body, v.edge ? styles.inEdge : null]}>
+        <LinearGradient colors={v.body} locations={v.stops} style={StyleSheet.absoluteFill} />
+        {v.gloss ? <LinearGradient colors={v.gloss} locations={GLOSS_STOPS} style={StyleSheet.absoluteFill} /> : null}
+        <View style={[StyleSheet.absoluteFill, styles.fillEdge]} />
+      </View>
+      {v.glint ? <LinearGradient colors={["rgba(255,255,255,0)", `rgba(255,255,255,${v.glint})`, "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.fillGlint} /> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   body: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   inEdge: { top: 1, left: 1, right: 1, bottom: 1 },
+  glint: { position: "absolute", top: 0, height: 1 },
+  fillEdge: { borderRadius: R.full, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.28)" },
+  fillGlint: { position: "absolute", top: 0, height: 1, left: "18%", right: "18%" },
   row: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   bright: { backgroundColor: "rgba(255,255,255,0.06)" },
-  lead: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.18)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" },
+  lead: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px -2px rgba(6,24,90,0.55)" },
+  leadEdge: { borderRadius: 16, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 0 1px rgba(255,255,255,0.1)" },
   leadQuiet: { backgroundColor: "rgba(61,139,255,0.16)", boxShadow: "inset 0 0 0 1px rgba(61,139,255,0.25)" },
 });

@@ -6,7 +6,7 @@ import React, { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, X } from "lucide-react-native";
+import { Check, X } from "@/components/ui/icons";
 import { engine, useEngineMutation, useRunReview } from "@/data/hooks";
 import { LinearGradient } from "expo-linear-gradient";
 import { C, EmptyState, F, R, Row, S, Sheet, Skeleton, Button } from "@/components/ui";

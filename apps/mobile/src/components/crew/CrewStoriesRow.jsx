@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Plus } from "lucide-react-native";
+import { Plus } from "@/components/ui/icons";
 import { Avatar, C, F, PressableScale, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { useCrewStories, useProfile, useStories } from "@/data/hooks";
@@ -49,7 +49,7 @@ export default function CrewStoriesRow({ crew }) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         <View style={styles.item}>
           <PressableScale onPress={() => (hasMine ? router.push(`/stories/${me.id}`) : add())} accessibilityLabel={hasMine ? "Your story" : "Add a story"}>
-            <Avatar uri={me?.avatar} name={me?.name || ""} story={hasMine ? "watched" : undefined} tier={hasMine ? undefined : me?.tier} size={62} />
+            <Avatar uri={me?.avatar} runner={me?.runner} runnerFigure={me?.runnerFigure} name={me?.name || ""} story={hasMine ? "watched" : undefined} tier={hasMine ? undefined : me?.tier} size={62} />
           </PressableScale>
           <PressableScale onPress={add} hitSlop={8} style={styles.add} accessibilityLabel="Add a story">
             <Plus size={13} color="#fff" strokeWidth={3} />

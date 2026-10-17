@@ -10,7 +10,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Trash2, X, Zap } from "lucide-react-native";
+import { Trash2, X, Zap } from "@/components/ui/icons";
 import { engine, showEngineError, useEngineMutation, usePlayer, useProfile, useStories } from "@/data/hooks";
 import { Avatar, Button, PressableScale, Row, S, toast } from "@/components/ui";
 import { hapticSuccess } from "@/services/haptics";

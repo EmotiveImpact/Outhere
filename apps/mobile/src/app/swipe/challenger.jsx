@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInLeft } from "react-native-reanimated";
-import { Clock3 } from "lucide-react-native";
+import { Clock3 } from "@/components/ui/icons";
 import { engine, useEngineMutation, useMysteryOffer } from "@/data/hooks";
 import { C, EmptyState, F, GlowButton, PhotoBackground, R, Row, S, Skeleton } from "@/components/ui";
 import { GlassChip, TopBar } from "@/components/arena/OutsideKit";

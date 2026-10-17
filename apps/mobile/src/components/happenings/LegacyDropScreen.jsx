@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Bell, BellRing, Crown, Lock, PackageCheck } from "lucide-react-native";
+import { Bell, BellRing, Crown, Lock, PackageCheck } from "@/components/ui/icons";
 import { engine, useDrop, useEngineMutation } from "@/data/hooks";
 import { Body, Button, C, EmptyState, F, FadeIn, Header, ProgressBar, Row, S, Screen, Title } from "@/components/ui";
 import { DropPills, dropAccent, dropState, earlyHours, useDropBoundaries } from "@/components/happenings/DropCard";

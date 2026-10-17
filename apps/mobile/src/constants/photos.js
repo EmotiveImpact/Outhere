@@ -74,6 +74,14 @@ export const PHOTOS = {
   walk: require("../../assets/images/oh/walk.jpg"),
   watch: require("../../assets/images/oh/watch.jpg"),
   welcome11: require("../../assets/images/oh/welcome11.jpg"),
+  // People: the faces from the signed-off prototype, so the seeded world and
+  // the preview's Alex look like real members offline.
+  alex: require("../../assets/images/people/alex.jpg"),
+  face1: require("../../assets/images/people/face1.jpg"),
+  face2: require("../../assets/images/people/face2.jpg"),
+  face3: require("../../assets/images/people/face3.jpg"),
+  face4: require("../../assets/images/people/face4.jpg"),
+  face5: require("../../assets/images/people/face5.jpg"),
 };
 
 // Fighter Pack samples: what a pack looks like before the member makes one,

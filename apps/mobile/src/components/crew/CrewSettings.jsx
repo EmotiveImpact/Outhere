@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Share, StyleSheet, Text, TextInput } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Copy, DoorOpen, Share2, Trash2, X } from "lucide-react-native";
+import { Copy, DoorOpen, Share2, Trash2, X } from "@/components/ui/icons";
 import { Body, Button, C, F, IconButton, Row, S, Segment, Sheet, Title, toast } from "@/components/ui";
 import { CREW_ACCENTS } from "@/data/seed";
 import { engine, useEngineMutation } from "@/data/hooks";

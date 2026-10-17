@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Share, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Svg, { Path } from "react-native-svg";
-import { Check, Globe, Lock } from "lucide-react-native";
+import { Check, Globe, Lock } from "@/components/ui/icons";
 import { create } from "zustand";
 import { Avatar, C, Cover, F, Pill, PressableScale } from "@/components/ui";
 

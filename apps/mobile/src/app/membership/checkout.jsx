@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
-import { Lock, X } from "lucide-react-native";
+import { Lock, X } from "@/components/ui/icons";
 import { engine, isRemote, showEngineError, useMembershipDetails } from "@/data/hooks";
 import { Button, C, F, Logo, PressableScale, R, Row, S } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

@@ -3,7 +3,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Glasses, Sun, User } from "lucide-react-native";
+import { Glasses, Sun, User } from "@/components/ui/icons";
 import { F } from "@/components/ui";
 import { SCAN_RULES } from "@/constants/pack";
 import { INK, LINE, LockLine, OUT, PackButton, PackScreen, PackTitle, Spacer, Sub } from "@/components/pack/PackKit";

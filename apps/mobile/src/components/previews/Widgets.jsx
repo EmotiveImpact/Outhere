@@ -6,7 +6,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Bell, Calendar, Camera, Clock, Compass, Flame, Heart, Layers, MessageSquare, Newspaper, Play, Send } from "lucide-react-native";
+import { Bell, Calendar, Camera, Clock, Compass, Flame, Heart, Layers, MessageSquare, Newspaper, Play, Send } from "@/components/ui/icons";
 import { C, F, Logo } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { formatNumber } from "@/utils/format";

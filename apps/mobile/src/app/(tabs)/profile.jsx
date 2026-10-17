@@ -9,7 +9,7 @@
 import React, { useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronRight, Flame, Gift, MoreHorizontal, Pencil, Search, Settings, Share2, Smile, Snowflake, Users } from "lucide-react-native";
+import { ChevronRight, Flame, Gift, MoreHorizontal, Pencil, Search, Settings, Share2, Smile, Snowflake, Users } from "@/components/ui/icons";
 import { useBadges, useChallenges, useMyCrews, useProfile, useRuns, useSettings, useStreakStatus, useWallet } from "@/data/hooks";
 import { BlendImage, C, Divider, F, FadeIn, ListRow, Row, Screen, Sheet, Surface, Title } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

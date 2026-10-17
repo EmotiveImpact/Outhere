@@ -584,6 +584,7 @@ export const devAddSteps = async (amount = 1500) => {
   return recordSteps({ steps: today + amount });
 };
 export const devFillHistory = async () => null;
+export const devLivedIn = async () => null;
 
 // ── Wallet ────────────────────────────────────────────────────────────────────
 

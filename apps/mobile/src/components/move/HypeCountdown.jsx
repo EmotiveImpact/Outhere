@@ -10,7 +10,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import { MotiView } from "moti";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft } from "@/components/ui/icons";
 import { haptic } from "@/services/haptics";
 import { HypeLinks, HypeStage } from "./HypeStage";
 import { RoundGlass, TopBar } from "./parts";

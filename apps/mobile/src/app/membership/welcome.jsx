@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { Calendar, ShoppingBag, Swords, Zap } from "lucide-react-native";
+import { Calendar, ShoppingBag, Swords, Zap } from "@/components/ui/icons";
 import { Aurora, BlackCard, BlendImage, Button, C, F, Kicker, PhotoBackground, R, Row, S } from "@/components/ui";
 import Celebrate from "@/components/profile/Celebrate";
 import { useProfile } from "@/data/hooks";

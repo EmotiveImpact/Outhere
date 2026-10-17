@@ -6,7 +6,7 @@ import React, { useMemo, useState } from "react";
 import { RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, ChevronRight, Lock, MapPin, QrCode, UserRound } from "lucide-react-native";
+import { Check, ChevronRight, Lock, MapPin, QrCode, UserRound } from "@/components/ui/icons";
 import { engine, useEngineMutation, useEvent, useEventGoing } from "@/data/hooks";
 import { Avatar, Body, Button, C, EmptyState, F, imageSource, PressableScale, R, Row, S, Skeleton, toast } from "@/components/ui";
 import { BottomBar, ButtonPair, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";

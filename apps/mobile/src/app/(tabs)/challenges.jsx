@@ -2,7 +2,7 @@ import React from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check } from "lucide-react-native";
+import { Check } from "@/components/ui/icons";
 import { engine, useBattles, useChallenges, useEngineMutation, useProfile, useStepHistory } from "@/data/hooks";
 import { PHOTOS } from "@/constants/photos";
 import { AnimatedNumber, Button, C, EmptyState, F, FadeIn, Pill, PressableScale, ProgressBar, R, Row, S, SectionHeader, Skeleton, Surface, TAB_BAR_SPACE, toast } from "@/components/ui";

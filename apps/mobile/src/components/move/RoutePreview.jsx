@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Route } from "lucide-react-native";
+import { Route } from "@/components/ui/icons";
 import { C, R } from "@/components/ui";
 import { isCoord } from "./geo";
 

@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Image } from "expo-image";
-import { Check, Crosshair, Package } from "lucide-react-native";
+import { Check, Crosshair, Package } from "@/components/ui/icons";
 import { Button, C, F, imageSource, PressableScale, R, Row, S, Sheet, Surface } from "@/components/ui";
 import { addressProblem, formatAddress, ORDER_FLOW, ORDER_LABELS } from "@/data/outsideShared";
 import { formatNumber } from "@/utils/format";

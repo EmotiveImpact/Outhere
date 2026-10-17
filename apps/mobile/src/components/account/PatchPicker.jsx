@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
 import { MotiView } from "moti";
-import { Check, ChevronsRight, LocateFixed, MapPin, Search } from "lucide-react-native";
+import { Check, ChevronsRight, LocateFixed, MapPin, Search } from "@/components/ui/icons";
 import { usePatchAreas, usePatchPlaces } from "@/data/hooks";
 import { C, F, PressableScale, R, S, Skeleton } from "@/components/ui";
 import { hapticSelection } from "@/services/haptics";

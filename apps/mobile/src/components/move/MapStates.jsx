@@ -9,7 +9,7 @@ import { Image } from "expo-image";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { Check } from "lucide-react-native";
+import { Check } from "@/components/ui/icons";
 import { BlendImage, C, F, GlowButton, PressableScale, R } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";
 import { MAP_TEXTURES, MapShade } from "./MapTexture";

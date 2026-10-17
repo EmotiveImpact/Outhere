@@ -13,7 +13,7 @@ import { DARK_MAP_STYLE, DEFAULT_REGION, isCoord, regionFor } from "./geo";
 import { MapShade } from "./MapTexture";
 
 const EDGE = { top: 120, right: 60, bottom: 320, left: 60 };
-const CAMERA = { map: { zoom: 16.2, pitch: 0 }, pilot: { zoom: 17.6, pitch: 60 }, street: { zoom: 18.6, pitch: 0 } };
+const CAMERA = { map: { zoom: 15.2, pitch: 0 }, pilot: { zoom: 17.6, pitch: 60 }, street: { zoom: 18.6, pitch: 0 } };
 
 function Face({ person, size = 40, colour = C.accentHi }) {
   const [track, setTrack] = useState(true);

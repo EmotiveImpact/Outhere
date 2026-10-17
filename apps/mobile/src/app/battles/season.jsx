@@ -5,7 +5,7 @@ import React from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CalendarClock } from "lucide-react-native";
+import { CalendarClock } from "@/components/ui/icons";
 import { engine, useArenaNow, useEngineMutation, useSeasonResults } from "@/data/hooks";
 import { BlendImage, C, EmptyState, F, GlowButton, IconTile, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { BottomBar, GlowHero, SectionLabel, TopBar } from "@/components/arena/OutsideKit";

@@ -8,7 +8,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BellRing, ChevronLeft, Clock, Lock, Share2 } from "lucide-react-native";
+import { BellRing, ChevronLeft, Clock, Lock, Share2 } from "@/components/ui/icons";
 import { engine, useDrop, useEngineMutation, useMembershipDetails } from "@/data/hooks";
 import { Body, Button, C, EmptyState, F, Header, IconButton, Kicker, R, Row, S, Screen, Skeleton } from "@/components/ui";
 import { PHOTOS } from "@/constants/photos";

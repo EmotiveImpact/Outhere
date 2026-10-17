@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Pedometer } from "expo-sensors";
 import * as Notifications from "expo-notifications";
-import { Bell, Camera, Check, Footprints, Lock, LocateFixed, Mail, Minus, Plus, User, X } from "lucide-react-native";
+import { Bell, Camera, Check, Footprints, Lock, LocateFixed, Mail, Minus, Plus, User, X } from "@/components/ui/icons";
 import { engine, isRemote, showEngineError, useOutsideCount } from "@/data/hooks";
 import { birthDateProblem, isMinorDate } from "@/data/account";
 import { BlendImage, Body, Button, C, EASE, F, FINISH, GlowBackdrop, Grain, LiveDot, PressableScale, R, Row, S, TOP_GAP, Wordmark, toast } from "@/components/ui";

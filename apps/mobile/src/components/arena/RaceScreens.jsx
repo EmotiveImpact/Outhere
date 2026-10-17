@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, FadeInDown, FadeOut, FlipInEasyY, ZoomIn } from "react-native-reanimated";
 import Svg, { Circle as SvgCircle } from "react-native-svg";
-import { Check, Clock3, Eye, Flag, Lock, Play, Share2, Swords, Zap } from "lucide-react-native";
+import { Check, Clock3, Eye, Flag, Lock, Play, Share2, Swords, Zap } from "@/components/ui/icons";
 import { engine, useBattle, useBattleEmotes, useEngineMutation, useHeadToHead } from "@/data/hooks";
 import { C, CountUp, F, Foil, GlowBackdrop, GlowButton, IconTile, PressableScale, R, Row, S, Surface, useLayoutSize, useScreenTop } from "@/components/ui";
 import { haptic } from "@/services/haptics";

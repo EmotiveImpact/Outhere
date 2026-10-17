@@ -4,7 +4,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Zap } from "lucide-react-native";
+import { Zap } from "@/components/ui/icons";
 import { Avatar, C, F, S } from "@/components/ui";
 import { formatPace } from "@/utils/format";
 import { Glass } from "./parts";

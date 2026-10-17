@@ -2,7 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Coins, Zap } from "lucide-react-native";
+import { Coins, Zap } from "@/components/ui/icons";
 import { C, F, FadeIn, PressableScale, R, RollingNumber, Row, S } from "@/components/ui";
 import { formatScore, ME, metricUnit, metricValue, playerName } from "./shared";
 import { TugBar, VsBadge } from "./BattleCard";

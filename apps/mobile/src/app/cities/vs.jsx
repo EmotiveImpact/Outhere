@@ -7,7 +7,7 @@ import React from "react";
 import { RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronRight, Scale, Timer } from "lucide-react-native";
+import { ChevronRight, Scale, Timer } from "@/components/ui/icons";
 import { useCityFixture, useCityLeague } from "@/data/hooks";
 import { C, EmptyState, F, GlowButton, Meter, R, Row, S, Skeleton, Surface, TAB_BAR_SPACE } from "@/components/ui";
 import { GlowHero, TopBar } from "@/components/arena/OutsideKit";
