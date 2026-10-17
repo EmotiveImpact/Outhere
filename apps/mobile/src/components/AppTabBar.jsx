@@ -31,17 +31,21 @@ function useItems() {
   }));
 }
 
-/** For <Tabs tabBar={...}>. */
-export function TabsTabBar({ state, navigation, hidden }) {
+/**
+ * For <Tabs tabBar={...}>. Since expo-router 58 the tab bar gets `emitter`
+ * and `navigateToTab` rather than `navigation`; tapping a tab called the old
+ * navigation.emit and closed the app.
+ */
+export function TabsTabBar({ state, emitter, navigateToTab, hidden }) {
   const items = useItems();
   const current = state.routes[state.index]?.name;
   const onSelect = (key) => {
     const route = state.routes.find((r) => r.name === key);
     if (!route) return;
-    const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+    const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
     if (key !== current && !event.defaultPrevented) {
       hapticSelection();
-      navigation.navigate(route.name);
+      navigateToTab(route.key);
     }
   };
   return <TabBar items={items.filter((i) => state.routes.some((r) => r.name === i.key))} current={current} onSelect={onSelect} hidden={hidden} />;
