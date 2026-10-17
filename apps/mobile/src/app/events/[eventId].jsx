@@ -192,7 +192,7 @@ export default function EventScreen() {
 const styles = StyleSheet.create({
   // .mapcard: the route on the dark map, lit along its edge
   mapCard: { height: 150, borderRadius: 20, overflow: "hidden", backgroundColor: C.surface, justifyContent: "flex-end", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.9)" },
-  mapShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(7,9,12,0.25)" },
+  mapShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(7,9,12,0.25)" },
   mapStats: { padding: S.lg, alignItems: "flex-end" },
   mapValue: { color: "#fff", fontFamily: F.display, fontSize: 24, lineHeight: 26 },
   mapLabel: { color: "rgba(255,255,255,0.75)", fontFamily: F.body, fontSize: 12 },

@@ -100,9 +100,9 @@ export function GlobeCanvas({ width, height, a, b, t, cx, cy, r }) {
   const flow = t > 4.7 ? (t - 4.7) * 0.32 : null;
 
   const paths = useMemo(() => {
-    const back = Skia.Path.Make();
-    const mid = Skia.Path.Make();
-    const front = Skia.Path.Make();
+    const back = Skia.PathBuilder.Make();
+    const mid = Skia.PathBuilder.Make();
+    const front = Skia.PathBuilder.Make();
     for (let i = 0; i < dots.length; i += 3) {
       const [x, y, d] = project([dots[i], dots[i + 1], dots[i + 2]], lon0, lat0, cx, cy, r);
       if (d <= 0.02) continue;
@@ -110,7 +110,7 @@ export function GlobeCanvas({ width, height, a, b, t, cx, cy, r }) {
       else if (d < 0.7) mid.addCircle(x, y, 1.25);
       else front.addCircle(x, y, 1.45);
     }
-    const grid = Skia.Path.Make();
+    const grid = Skia.PathBuilder.Make();
     for (const line of GRID) {
       let pen = false;
       for (const v of line) {
@@ -122,11 +122,11 @@ export function GlobeCanvas({ width, height, a, b, t, cx, cy, r }) {
         } else pen = false;
       }
     }
-    return { back, mid, front, grid };
+    return { back: back.build(), mid: mid.build(), front: front.build(), grid: grid.build() };
   }, [dots, lon0, lat0, cx, cy, r]);
 
   const arc = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     const n = 64;
     const pts = [];
     for (let i = 0; i <= n; i++) {
@@ -134,7 +134,7 @@ export function GlobeCanvas({ width, height, a, b, t, cx, cy, r }) {
       pts.push(project(arcPoint(a, b, omega, s, lift), lon0, lat0, cx, cy, r));
     }
     pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)));
-    return { path: p, head: pts[pts.length - 1] };
+    return { path: p.build(), head: pts[pts.length - 1] };
   }, [a, b, omega, lift, draw, lon0, lat0, cx, cy, r]);
 
   const pa = project(a, lon0, lat0, cx, cy, r);

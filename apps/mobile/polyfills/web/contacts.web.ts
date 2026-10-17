@@ -1,7 +1,7 @@
-import type { ExistingContact, ContactQuery } from 'expo-contacts';
-import { Fields, SortTypes } from 'expo-contacts/src/Contacts';
+import type { ExistingContact, ContactQuery } from 'expo-contacts/legacy';
+import { Fields, SortTypes } from 'expo-contacts/legacy';
 import Alert from './alerts.web';
-import * as Notifications from 'expo-contacts';
+import * as Notifications from 'expo-contacts/legacy';
 const { PermissionStatus } = Notifications;
 
 export { PermissionStatus, Fields, SortTypes };

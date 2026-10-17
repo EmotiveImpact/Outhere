@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -75,7 +74,9 @@
           "photosPermission": "Outhere uses your photos for stories and your profile picture.",
           "cameraPermission": "Outhere uses the camera for stories and your profile picture."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar"
     ],
     "web": {
       "bundler": "metro",

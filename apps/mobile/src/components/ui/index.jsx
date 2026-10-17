@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   badgeDotText: { color: C.accentText, fontSize: 10, fontFamily: F.bodySemi },
   segment: { flexDirection: "row", borderRadius: R.full, padding: 4 },
   segmentThumb: { position: "absolute", top: 4, bottom: 4, left: 4, borderRadius: R.full },
-  segmentThumbBody: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  segmentThumbBody: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   segmentItem: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   segmentText: { color: C.textSoft, fontSize: 13, fontFamily: F.bodyMedium },
   segmentTextActive: { color: C.accentText, fontFamily: F.bodySemi },

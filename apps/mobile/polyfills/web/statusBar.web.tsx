@@ -56,15 +56,4 @@ export const setStatusBarHidden = (
   animation?: StatusBarAnimation
 ) => ExpoSB.setStatusBarHidden(hidden, animation);
 
-export const setStatusBarBackgroundColor = (
-  backgroundColor: string,
-  animated?: boolean
-) => ExpoSB.setStatusBarBackgroundColor(backgroundColor as any, animated);
-
-export const setStatusBarNetworkActivityIndicatorVisible = (visible: boolean) =>
-  ExpoSB.setStatusBarNetworkActivityIndicatorVisible(visible);
-
-export const setStatusBarTranslucent = (translucent: boolean) =>
-  ExpoSB.setStatusBarTranslucent(translucent);
-
 export type { StatusBarStyle, StatusBarAnimation, StatusBarProps };

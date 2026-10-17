@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   trackFill: { position: "absolute", left: 0, height: 6, borderRadius: 3, overflow: "hidden", boxShadow: "0 0 10px rgba(61,139,255,0.6)" },
   // .feel .track b: white, ringed in blue
   knob: { position: "absolute", width: 24, height: 24, borderRadius: 12, marginLeft: -12, backgroundColor: "#fff", boxShadow: "0 0 0 5px #3d8bff, 0 0 18px rgba(61,139,255,0.6), 0 4px 12px rgba(0,0,0,0.3)" },
-  hits: { ...StyleSheet.absoluteFillObject, flexDirection: "row", marginHorizontal: -12, backgroundColor: "transparent" },
+  hits: { ...StyleSheet.absoluteFill, flexDirection: "row", marginHorizontal: -12, backgroundColor: "transparent" },
   hit: { flex: 1, height: 28 },
   feelLabels: { flexDirection: "row", justifyContent: "space-between" },
   feelLabel: { color: C.textDim, fontFamily: F.body, fontSize: 10.5, flex: 1, textAlign: "center" },

@@ -344,9 +344,7 @@ export function LookRingCanvas({ size, stroke, bleed = 20, clock, progress, tone
   const C0 = size / 2 + bleed;
   const S = size + bleed * 2;
   const ring = useMemo(() => {
-    const p = Skia.Path.Make();
-    p.addCircle(C0, C0, R);
-    return p;
+    return Skia.Path.Circle(C0, C0, R);
   }, [C0, R]);
   const uniforms = useDerivedValue(() => ({ res: [S, S], bleed, c: [C0, C0], R, w: stroke, p: Math.max(0, Math.min(1, progress.value)), t: clock.value, c0: tn.c0, c1: tn.c1, glow: tn.glow, hi: tn.hi }), [S, bleed, C0, R, stroke, tn]);
   if (!size || !RING_LOOK) return null;

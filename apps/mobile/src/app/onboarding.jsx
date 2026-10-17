@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
   // thumb glowing blue underneath, springing to the choice
   seg3: { flexDirection: "row", padding: 4, borderRadius: R.full, backgroundColor: "#0b0d11", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05)" },
   seg3Thumb: { position: "absolute", top: 4, bottom: 4, left: 4, borderRadius: R.full, boxShadow: "0 6px 16px -6px rgba(42,106,240,0.95), 0 0 22px -4px rgba(61,139,255,0.55)" },
-  seg3ThumbBody: { ...StyleSheet.absoluteFillObject, borderRadius: R.full, overflow: "hidden" },
+  seg3ThumbBody: { ...StyleSheet.absoluteFill, borderRadius: R.full, overflow: "hidden" },
   seg3Item: { flex: 1, height: 34, borderRadius: R.full, alignItems: "center", justifyContent: "center" },
   seg3Text: { color: C.textSoft, fontFamily: F.bodyMedium, fontSize: 12.5 },
   // goal

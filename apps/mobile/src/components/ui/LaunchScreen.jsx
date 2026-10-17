@@ -105,7 +105,7 @@ export default function LaunchScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { ...StyleSheet.absoluteFillObject, zIndex: 50 },
+  screen: { ...StyleSheet.absoluteFill, zIndex: 50 },
   ring: { position: "absolute", left: "50%", borderWidth: 40 },
   mark: { position: "absolute" },
   words: { position: "absolute", left: 0, right: 0, alignItems: "center" },
